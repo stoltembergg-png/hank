@@ -10,7 +10,7 @@
 | `cli-adapter` | superfície não-Tauri para os mesmos use cases | CLI owner | application-api; terminal I/O | processo CLI; sem regra de domínio | CLI input ↔ API envelope | `NO_PROOF` |
 | `fake-adapter` | fixture determinística para contract tests | Test owner | application-api; test-support | processo de teste; sem Tauri | fixture ↔ API envelope | `NO_PROOF` |
 
-## Edges permitidas
+## Edges declaradas
 
 - `tauri-shell → application-api`
 - `cli-adapter → application-api`
