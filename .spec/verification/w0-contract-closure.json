@@ -1,7 +1,8 @@
 {
   "feature": "w0-contract-closure",
-  "timestamp": "2026-08-17T19:03:49.890Z",
-  "gitRev": "dd88d2c",
+  "timestamp": "2026-08-17T19:10:21.566Z",
+  "gitRev": "d22d665",
+  "sourceFingerprint": "14e3083e42403b4b93cc5c67811110db44f24be74624be6620d66a9450326636",
   "command": "node --test",
   "reporter": "tap",
   "exitCode": 0,

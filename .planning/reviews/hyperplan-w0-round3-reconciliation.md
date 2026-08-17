@@ -6,19 +6,19 @@
 
 **Reconciliado em:** `2026-08-17T15:55:11-03:00`.
 
-## Limite de evidência atual
+## Limite de evidência capturada
 
 - Repositório: `stoltembergg-png/hank`.
-- Ref verificada: `main`.
-- Commit: `dd88d2c140b3d85022b9272dd71740caf1ee6ed4`.
-- Tree: `0eb00af8b827cb41948f18989ce7544a99cd8d56`.
-- `w0-contract-gate` no SHA exato: `completed/success`.
-- Branch protection reconsultada: `w0-contract-gate`, strict, `enforce_admins=true`, histórico linear, sem force-push e sem deleção.
-- Suíte local: `node --test` com 19/19 testes; architecture validator e queue validator passam.
-- ONP: 16/16 critérios provados; `onp-spec audit --ci` limpo.
+- Ref no momento da captura: `main`.
+- Commit capturado: `dd88d2c140b3d85022b9272dd71740caf1ee6ed4`.
+- Tree capturada: `0eb00af8b827cb41948f18989ce7544a99cd8d56`.
+- `w0-contract-gate` no SHA capturado: `completed/success`.
+- Branch protection reconsultada no momento da captura: `w0-contract-gate`, strict, `enforce_admins=true`, histórico linear, sem force-push e sem deleção.
+- Suíte local na captura: `node --test` com 19/19 testes; architecture validator e queue validator passam.
+- ONP na captura: 16/16 critérios provados; `onp-spec audit --ci` limpo.
 - Não existe implementação Rust/Tauri de produto nem runner real de agentes; portanto comportamento local, enforcement externo e autoridade runtime continuam separados.
 
-O snapshot anterior (`bdd53d2`/`efc1242`) permanece histórico da PR #4; não deve ser usado como identidade atual.
+Este bloco é um snapshot histórico de evidência, não uma afirmação permanente sobre o topo de `main`. O merge que introduziu ou atualizou este relatório necessariamente cria uma identidade posterior; qualquer decisão atual deve reconsultar `main`, branch protection e checks no GitHub. O snapshot anterior (`bdd53d2`/`efc1242`) permanece histórico da PR #4.
 
 ## Disposições preservadas
 
