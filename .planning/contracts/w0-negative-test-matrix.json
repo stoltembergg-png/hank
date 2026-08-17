@@ -1,0 +1,10 @@
+[
+  {"id":"forbidden-import","blocker":"ARCH-001","kind":"architecture","expected_status":"BLOCKED"},
+  {"id":"duplicate-owner","blocker":"ARCH-002","kind":"architecture","expected_status":"BLOCKED"},
+  {"id":"missing-dependency","blocker":"GOV-001","kind":"queue","expected_status":"BLOCKED"},
+  {"id":"cycle","blocker":"GOV-002","kind":"queue","expected_status":"BLOCKED"},
+  {"id":"main-branch","blocker":"GOV-003","kind":"execution","expected_status":"BLOCKED"},
+  {"id":"scope-drift","blocker":"GOV-003","kind":"execution","expected_status":"BLOCKED"},
+  {"id":"secret-artifact","blocker":"GOV-003","kind":"execution","expected_status":"BLOCKED"},
+  {"id":"stale-policy","blocker":"GOV-003","kind":"execution","expected_status":"NO_PROOF"}
+]
