@@ -140,6 +140,14 @@ O lote Round 1 foi concluído por cinco papéis, mas foi produzido antes das cor
 
 A rodada não autoriza apagar os artefatos ONP ou iniciar produto. O veredito continua `W0 = PARTIAL/NO_PROOF`.
 
+## Tentativa Round 3 duplicada — resultado inválido
+
+**Batch:** `deleg_d76b0535`.
+
+Os cinco papéis foram interrompidos antes de retornar os objetos estruturados exigidos. Apenas um fragmento parcial de S1 apareceu; não há disposições/evidence/surviving_fragment completos para V1–V5, R1–R5, A1–A5 ou C1–C5.
+
+A tentativa não substitui a rodada Round 3 completa já reconciliada em `deleg_983807e3`. O fragmento de S1 não foi adotado, nenhuma nova evidência foi promovida e o veredito W0 permanece inalterado.
+
 ## O que foi realmente fechado
 
 1. O graph validator agora rejeita IDs duplicados, ciclos e edges não declaradas.
