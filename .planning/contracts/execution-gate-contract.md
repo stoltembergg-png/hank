@@ -16,6 +16,10 @@ O runner deve capturar `card_id`, repository, branch, worktree, base SHA, tree S
 
 Cada comando possui exit code e digest de output; cada artifact possui path e SHA-256; o review aponta para o mesmo SHA/tree/policy. Rebase, CI tardio, retry sem idempotency, cancelamento ou crash invalida o manifest anterior e exige estado terminal explícito.
 
+## Integração do W0 gate
+
+Um `PASS` de W0 exige cinco reports distintos (`ARCH-001`, `ARCH-002`, `GOV-001`, `GOV-002`, `GOV-003`) com status `PASS` e identidade igual de SHA, tree, policy e schema. Report ausente, duplicado, stale ou com status não aprovado retorna `NO_PROOF`/`BLOCKED`; `reason` e um objeto `evidence` isolados nunca são suficientes.
+
 ## Estados
 
 O gate retorna somente `PASS`, `FAIL`, `BLOCKED` ou `NO_PROOF`, sempre com motivo e identidade. Um prompt ou comentário de agente nunca é aprovação.

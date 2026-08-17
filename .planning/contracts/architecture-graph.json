@@ -17,6 +17,14 @@
     {"from":"agent-runtime","to":"application-api","kind":"runtime"},
     {"from":"infrastructure","to":"agent-core","kind":"port-adapter"}
   ],
+  "allowed_edges":[
+    {"from":"tauri-shell","to":"application-api"},
+    {"from":"cli-adapter","to":"application-api"},
+    {"from":"fake-adapter","to":"application-api"},
+    {"from":"application-api","to":"agent-core"},
+    {"from":"agent-runtime","to":"application-api"},
+    {"from":"infrastructure","to":"agent-core"}
+  ],
   "forbidden_edges":[
     {"from":"agent-core","to":"tauri-shell","reason":"core cannot depend on shell"},
     {"from":"agent-core","to":"infrastructure","reason":"core cannot depend on concrete infrastructure"},

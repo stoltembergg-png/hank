@@ -3,7 +3,7 @@
   "$id": "hank://contracts/architecture-graph.schema.json",
   "title": "Hank Architecture Graph",
   "type": "object",
-  "required": ["schema_version", "layers", "edges", "forbidden_edges", "evidence_policy"],
+  "required": ["schema_version", "layers", "edges", "allowed_edges", "forbidden_edges", "evidence_policy"],
   "properties": {
     "schema_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+$"},
     "layers": {
@@ -23,6 +23,7 @@
       }
     },
     "edges": {"type": "array", "items": {"type": "object", "required": ["from", "to", "kind"], "properties": {"from": {"type": "string"}, "to": {"type": "string"}, "kind": {"type": "string"}}, "additionalProperties": false}},
+    "allowed_edges": {"type": "array", "items": {"type": "object", "required": ["from", "to"], "properties": {"from": {"type": "string"}, "to": {"type": "string"}}, "additionalProperties": false}},
     "forbidden_edges": {"type": "array", "items": {"type": "object", "required": ["from", "to", "reason"], "properties": {"from": {"type": "string"}, "to": {"type": "string"}, "reason": {"type": "string"}}, "additionalProperties": false}},
     "evidence_policy": {"type": "object", "required": ["required_identity", "allowed_statuses"], "properties": {"required_identity": {"type": "array", "items": {"type": "string"}}, "allowed_statuses": {"type": "array", "items": {"enum": ["PASS", "FAIL", "BLOCKED", "NO_PROOF"]}}}, "additionalProperties": false}
   },

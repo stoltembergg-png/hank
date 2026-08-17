@@ -114,11 +114,35 @@ export function validateCard(card, knownIds = []) {
   return { status: errors.length ? 'BLOCKED' : 'PASS', errors };
 }
 
+function graphHasCycle(edges) {
+  const adjacency = new Map();
+  for (const edge of edges) {
+    if (!adjacency.has(edge.from)) adjacency.set(edge.from, []);
+    adjacency.get(edge.from).push(edge.to);
+  }
+  const visiting = new Set();
+  const visited = new Set();
+  const visit = (id) => {
+    if (visiting.has(id)) return true;
+    if (visited.has(id)) return false;
+    visiting.add(id);
+    for (const next of adjacency.get(id) ?? []) if (visit(next)) return true;
+    visiting.delete(id);
+    visited.add(id);
+    return false;
+  };
+  return [...adjacency.keys()].some((id) => visit(id));
+}
+
 export function validateArchitectureGraph(graph = readJson('.planning/contracts/architecture-graph.json')) {
   const errors = [];
-  const ids = new Set((graph.layers ?? []).map((layer) => layer.id));
+  const layers = graph.layers ?? [];
+  const ids = new Set(layers.map((layer) => layer.id));
   const owners = new Set();
-  for (const layer of graph.layers ?? []) {
+  if (ids.size !== layers.length) errors.push('duplicate layer id');
+  if (!Array.isArray(graph.allowed_edges)) errors.push('allowed_edges missing');
+  const allowedEdges = new Set((graph.allowed_edges ?? []).map((edge) => `${edge.from}->${edge.to}`));
+  for (const layer of layers) {
     for (const key of ['id', 'owner', 'responsibility', 'process_lifecycle', 'contract']) if (!layer[key]) errors.push(`layer missing ${key}`);
     if (owners.has(layer.owner)) errors.push(`duplicate owner ${layer.owner}`);
     owners.add(layer.owner);
@@ -126,16 +150,29 @@ export function validateArchitectureGraph(graph = readJson('.planning/contracts/
   }
   for (const edge of graph.edges ?? []) {
     if (!ids.has(edge.from) || !ids.has(edge.to)) errors.push(`unknown edge ${edge.from}->${edge.to}`);
+    if (!allowedEdges.has(`${edge.from}->${edge.to}`)) errors.push(`undeclared edge ${edge.from}->${edge.to}`);
     if ((graph.forbidden_edges ?? []).some((bad) => bad.from === edge.from && bad.to === edge.to)) errors.push(`forbidden edge ${edge.from}->${edge.to}`);
   }
+  if (graphHasCycle(graph.edges ?? [])) errors.push('architecture edge cycle detected');
   return { status: errors.length ? 'BLOCKED' : 'PASS', errors };
+}
+
+const shaPattern = /^[0-9a-f]{40}$/;
+
+function isSafeRelativePath(value) {
+  if (typeof value !== 'string' || value.length === 0) return false;
+  if (value.startsWith('/') || value.startsWith('\\') || /^[A-Za-z]:[\\/]/.test(value)) return false;
+  return !value.split(/[\\/]/).includes('..');
 }
 
 export function evaluateExecution(input, observed = null) {
   if (input.branch === 'main' || input.branch === 'master') return { status: 'BLOCKED', reason: 'protected branch' };
-  if (input.author && input.reviewer && input.author === input.reviewer) return { status: 'BLOCKED', reason: 'self approval' };
+  if (!input.author || !input.reviewer) return { status: 'BLOCKED', reason: 'review identity incomplete' };
+  if (input.author === input.reviewer) return { status: 'BLOCKED', reason: 'self approval' };
+  if (!shaPattern.test(input.base_sha ?? '') || !shaPattern.test(input.tree_sha ?? '') || !input.policy_revision || !input.schema_revision) return { status: 'BLOCKED', reason: 'execution identity incomplete' };
   if (observed && (input.base_sha !== observed.base_sha || input.tree_sha !== observed.tree_sha || input.policy_revision !== observed.policy_revision || input.schema_revision !== observed.schema_revision)) return { status: 'NO_PROOF', reason: 'stale evidence identity' };
   if (!input.worktree || !input.allowed_files?.length || input.dirty_state !== 'clean') return { status: 'BLOCKED', reason: 'preflight incomplete' };
+  if (input.allowed_files.some((file) => !isSafeRelativePath(file)) || (input.scope ?? []).some((file) => !isSafeRelativePath(file))) return { status: 'BLOCKED', reason: 'unsafe path' };
   if ((input.scope ?? []).some((file) => !(input.allowed_files ?? []).includes(file))) return { status: 'BLOCKED', reason: 'scope outside allowlist' };
   return { status: 'PASS', reason: 'contract fields accepted' };
 }
@@ -143,8 +180,21 @@ export function evaluateExecution(input, observed = null) {
 export function evaluateGate(input) {
   const allowed = new Set(['PASS', 'FAIL', 'BLOCKED', 'NO_PROOF']);
   if (!allowed.has(input.status)) return { status: 'BLOCKED', reason: 'invalid gate state' };
-  if (!input.reason || !input.evidence) return { status: 'NO_PROOF', reason: 'missing reason or evidence' };
-  return { status: input.status, reason: input.reason };
+  const identity = input.evidence ?? {};
+  if (!input.reason || !identity.sha || !identity.tree || !identity.policy || !identity.schema) return { status: 'NO_PROOF', reason: 'missing reason or evidence identity' };
+  if (input.status !== 'PASS') return { status: input.status, reason: input.reason };
+  const required = ['ARCH-001', 'ARCH-002', 'GOV-001', 'GOV-002', 'GOV-003'];
+  if (!Array.isArray(input.reports) || input.reports.length !== required.length) return { status: 'NO_PROOF', reason: 'W0 reports incomplete' };
+  const reports = new Map(input.reports.map((report) => [report.blocker, report]));
+  for (const blocker of required) {
+    const report = reports.get(blocker);
+    if (!report) return { status: 'NO_PROOF', reason: `${blocker} report missing` };
+    if (report.sha !== identity.sha || report.tree !== identity.tree || report.policy !== identity.policy || report.schema !== identity.schema) return { status: 'NO_PROOF', reason: `${blocker} report identity stale` };
+    if (report.status === 'BLOCKED') return { status: 'BLOCKED', reason: `${blocker} report blocked` };
+    if (report.status === 'FAIL') return { status: 'FAIL', reason: `${blocker} report failed` };
+    if (report.status !== 'PASS') return { status: 'NO_PROOF', reason: `${blocker} report incomplete` };
+  }
+  return { status: 'PASS', reason: input.reason };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
