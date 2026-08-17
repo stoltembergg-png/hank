@@ -19,6 +19,10 @@
 - `agent-runtime → application-api`
 - `infrastructure → ports/application contracts`
 
+## Edges permitidas
+
+A lista `allowed_edges` é obrigatória e tipa cada relação `from → to`; uma edge ausente nessa lista, um ID de layer duplicado ou um ciclo retorna `BLOCKED`. `allowed_dependencies` não pode substituir uma port concreta por texto livre; `ports/application contracts` permanece somente uma marcação de `NO_PROOF` até receber identidade de contrato.
+
 ## Edges proibidas
 
 - `agent-core → tauri-shell`

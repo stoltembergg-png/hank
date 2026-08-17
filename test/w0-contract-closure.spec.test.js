@@ -22,7 +22,7 @@ const sha = '0123456789abcdef0123456789abcdef01234567';
 test('AC-001: Grafo de camadas e ownership @spec:AC-001', () => {
   const graph = json(contract('architecture-graph.json'));
   const schema = json(contract('architecture-graph.schema.json'));
-  assert.deepEqual(schema.required, ['schema_version', 'layers', 'edges', 'forbidden_edges', 'evidence_policy']);
+  assert.deepEqual(schema.required, ['schema_version', 'layers', 'edges', 'allowed_edges', 'forbidden_edges', 'evidence_policy']);
   assert.equal(validateArchitectureGraph(graph).status, 'PASS');
   for (const layer of graph.layers) for (const field of ['owner', 'responsibility', 'process_lifecycle', 'contract']) assert.ok(layer[field]);
 });
@@ -39,6 +39,16 @@ test('AC-002: Adapter não-Tauri exercita o mesmo caso de uso @spec:AC-002', () 
 test('AC-003: Edges proibidas falham fechadas @spec:AC-003', () => {
   const fixtures = json(contract('architecture-graph.invalid-fixtures.json'));
   for (const fixture of fixtures) assert.equal(validateArchitectureGraph(fixture.graph).status, fixture.expected_status);
+});
+
+test('AC-003: graph validator rejects duplicate IDs, cycles, and undeclared edges @spec:AC-003', () => {
+  const graph = json(contract('architecture-graph.json'));
+  const duplicate = { ...graph, layers: [...graph.layers, { ...graph.layers[0] }] };
+  const cycle = { ...graph, edges: [...graph.edges, { from: 'agent-core', to: 'application-api', kind: 'cycle' }] };
+  const undeclared = { ...graph, edges: [...graph.edges, { from: 'tauri-shell', to: 'agent-core', kind: 'bypass' }] };
+  assert.equal(validateArchitectureGraph(duplicate).status, 'BLOCKED');
+  assert.equal(validateArchitectureGraph(cycle).status, 'BLOCKED');
+  assert.equal(validateArchitectureGraph(undeclared).status, 'BLOCKED');
 });
 
 // US-002 — Ownership e dependências sem ambiguidade
@@ -106,6 +116,14 @@ test('AC-011: Worktree, branch e path allowlist são impostos @spec:AC-011', () 
   assert.equal(evaluateExecution(scopeDrift).status, 'BLOCKED');
 });
 
+test('AC-011: execution gate rejects incomplete reviewer and unsafe paths @spec:AC-011', () => {
+  const valid = { card_id: 'PR-001', repository: 'stoltembergg-png/hank', branch: 'feature/x', worktree: 'C:/work', base_sha: sha, tree_sha: sha, dirty_state: 'clean', scope: ['inside.txt'], non_goals: [], allowed_files: ['inside.txt'], allowed_commands: [], author: 'agent-a', reviewer: 'reviewer-b', policy_revision: 'p1', schema_revision: 's1', rollback: 'revert' };
+  assert.equal(evaluateExecution({ ...valid, reviewer: undefined }).status, 'BLOCKED');
+  assert.equal(evaluateExecution({ ...valid, scope: ['../outside.txt'], allowed_files: ['../outside.txt'] }).status, 'BLOCKED');
+  assert.equal(evaluateExecution({ ...valid, allowed_files: ['C:/outside.txt'], scope: ['C:/outside.txt'] }).status, 'BLOCKED');
+  assert.equal(evaluateExecution({ ...valid, base_sha: 'bad' }).status, 'BLOCKED');
+});
+
 test('AC-012: Review independente e anti-self-approval @spec:AC-012', () => {
   const valid = { card_id: 'PR-001', repository: 'stoltembergg-png/hank', branch: 'feature/x', worktree: 'C:/work', base_sha: sha, tree_sha: sha, dirty_state: 'clean', scope: ['inside.txt'], non_goals: [], allowed_files: ['inside.txt'], allowed_commands: [], author: 'agent-a', reviewer: 'reviewer-b', policy_revision: 'p1', schema_revision: 's1', rollback: 'revert' };
   assert.equal(evaluateExecution(valid).status, 'PASS');
@@ -126,10 +144,17 @@ test('AC-014: Fixtures negativas cobrem W0 @spec:AC-014', () => {
 });
 
 test('AC-015: Gate produz estados machine-readable @spec:AC-015', () => {
-  for (const status of ['PASS', 'NO_PROOF', 'BLOCKED']) {
-    const result = evaluateGate({ status, reason: 'fixture', evidence: { sha, tree: sha, policy: 'p1' } });
-    assert.equal(result.status, status);
-  }
+  const result = evaluateGate({ status: 'INVALID', reason: 'fixture', evidence: { sha, tree: sha, policy: 'p1', schema: 's1' } });
+  assert.equal(result.status, 'BLOCKED');
+});
+
+test('AC-015: gate requires all five W0 reports and matching identity @spec:AC-015', () => {
+  const reports = ['ARCH-001', 'ARCH-002', 'GOV-001', 'GOV-002', 'GOV-003'].map((blocker) => ({ blocker, status: 'PASS', sha, tree: sha, policy: 'p1', schema: 's1' }));
+  const base = { status: 'PASS', reason: 'all reports', evidence: { sha, tree: sha, policy: 'p1', schema: 's1' }, reports };
+  assert.equal(evaluateGate(base).status, 'PASS');
+  assert.equal(evaluateGate({ ...base, reports: reports.slice(0, 4) }).status, 'NO_PROOF');
+  assert.equal(evaluateGate({ ...base, reports: reports.map((report) => report.blocker === 'GOV-003' ? { ...report, status: 'BLOCKED' } : report) }).status, 'BLOCKED');
+  assert.equal(evaluateGate({ ...base, evidence: { ...base.evidence, tree: 'stale' } }).status, 'NO_PROOF');
 });
 
 test('AC-016: Auditoria não declara resolução sem prova @spec:AC-016', () => {
