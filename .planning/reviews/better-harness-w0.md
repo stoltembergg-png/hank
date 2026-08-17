@@ -23,10 +23,16 @@ Os commits T-001–T-006 fecham a especificação, schemas, fixtures, validator 
 
 O resultado do Harness, portanto, não autoriza declarar ARCH-001, ARCH-002, GOV-001, GOV-002 ou GOV-003 `RESOLVED`. O status correto permanece `PARTIAL/NO_PROOF` até que o verifier de cada finding produza evidência com repository, SHA, tree, policy/schema revision, run/check identity e reviewer distinto.
 
-## Próximos gates
+## Próximos gates — estado reconciliado
 
-1. Publicar a branch e executar o workflow `w0-contract-gate` em um PR real.
-2. Reconsultar branch protection e required check com autenticação; não assumir que a configuração existe.
-3. Adicionar secret scanner e fixtures de artifact/env/log antes de ativar o check como required.
-4. Definir e testar lease/idempotency/retry/cancel/fencing antes de permitir execução concorrente de agentes.
-5. Revalidar a fila após resolver os 35 label mismatches; snapshot stale reabre GOV-001/GOV-002.
+A revisão assíncrona Round 3 foi reconciliada em `.planning/reviews/hyperplan-w0-round3-reconciliation.md`. Os itens abaixo substituem a lista histórica deste arquivo:
+
+1. `V2/V3/V4`: corrigidos em `89dbabb` e exercitados no workflow protegido `w0-contract-gate`; não são mais falsos verdes locais conhecidos.
+2. `R5`: a observação de branch protection não verificada era stale; a consulta live atual confirmou `w0-contract-gate`, strict, `enforce_admins=true`, histórico linear, sem force-push e sem deleção.
+3. `W0-R1`: modelar `frontend` no grafo/ownership e fechar a boundary tipada sem iniciar daemon/IPC ou produto.
+4. `W0-R2`: criar snapshot/schema canônico da queue e validar equivalência com Markdown/labels sem normalização silenciosa; preservar 270 cards.
+5. `W0-R3`: implementar runner fail-closed com preflight, deny-before-write, manifests, digests, identity e fixtures de secrets/clean-room.
+6. `W0-R4`: definir leases, idempotência, fencing, retry, timeout, cancelamento e recovery antes de concorrência real.
+7. Adapter fake/CLI/Tauri executável, secret scanner efetivo e reviewer externo autenticado continuam `NO_PROOF` até haver implementação e canary correspondentes.
+
+O veredito continua `PARTIAL/NO_PROOF`; nenhuma lista de tarefas, teste local ou check verde isolado autoriza declarar W0 `RESOLVED`.

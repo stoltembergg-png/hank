@@ -46,7 +46,7 @@ O caminho pode abrir lanes apenas nos pontos indicados no DAG. Cross-cutting blo
 - **Evidência necessária:** diff do ADR/manifesto, grafo Cargo, saída do forbidden-import/adapter fixture, SHA/tree e policy revision; resultado deve ser revisado independentemente.
 - **Condição de desbloqueio:** `AB-001` aceito, fixture negativa definida e resultado `PASS` no SHA atual; sem isso PR-001–003 e dependentes continuam bloqueadas.
 - **Dependências:** SDD D-001/D-002; architecture-boundaries §§1, 3.1, 3.4 e 5.1; AI-001, AI-003, AI-035; PR-001 antes de PR-002/003.
-- **Status atual:** `PARTIAL/NO_PROOF` — D-001, AI-001/003/035 e a fronteira consolidada cobrem a decisão; não há prova de grafo, compile ou fixture executada.
+- **Status atual:** `PARTIAL/NO_PROOF` — o graph validator e os 19 testes negativos passam na `main` atual, mas não há compile do core Rust, adapter fake/CLI executável ou prova de que a camada `frontend` está modelada no grafo.
 
 ### ARCH-002
 
@@ -62,7 +62,7 @@ O caminho pode abrir lanes apenas nos pontos indicados no DAG. Cross-cutting blo
 - **Evidência necessária:** matriz versionada, metadata/grafo, lint de edges proibidas, fixture de ciclo e decisão de compatibilidade, todos ligados ao SHA/tree/policy.
 - **Condição de desbloqueio:** matriz completa e aceita, validator reproduzível e review independente; ausência de qualquer crate/edge mantém downstream bloqueado.
 - **Dependências:** ARCH-001; SDD D-002/D-004; architecture-boundaries §§3–4; AI-001–006; PR-001, 018–019 e contratos AB-001/002.
-- **Status atual:** `PARTIAL/NO_PROOF` — SDD e architecture-boundaries têm tabela de planos, dependências e ownership parcial; não há manifest/validator executado nem lifecycle completo.
+- **Status atual:** `PARTIAL/NO_PROOF` — graph validator, ciclo/edge fixtures e 19 testes passam na `main` atual; ownership/lifecycle ainda não cobrem a camada `frontend`, uma port/DTO tipada da Application e execução real dos adapters.
 
 ### GOV-001
 
@@ -78,7 +78,7 @@ O caminho pode abrir lanes apenas nos pontos indicados no DAG. Cross-cutting blo
 - **Evidência necessária:** relatório do parser/schema validator, inventário de 270 cards, lista das 35 divergências de labels e decisão registrada para cada uma, bound ao SHA/tree.
 - **Condição de desbloqueio:** parser aceita somente cards completos e a fila corrigida/normalizada é revalidada sem alterar silenciosamente as fontes.
 - **Dependências:** AI-038; SDD D-010 e §8; dependency-dag §1; queue contract; GOV-003 para execução.
-- **Status atual:** `PARTIAL/NO_PROOF` — queue contém 19 campos por card e o SDD registra 270 IDs, mas 35 label mismatches permanecem `NO_PROOF` e nenhum validator foi executado nesta entrega.
+- **Status atual:** `PARTIAL/NO_PROOF` — queue validator e workflow protegido confirmam 270 IDs/campos no snapshot atual, mas a fonte Markdown ainda não tem snapshot canônico estruturado, a equivalência parser→schema não é completa e os 35 label mismatches permanecem registrados como `NO_PROOF`.
 
 ### GOV-002
 
@@ -94,7 +94,7 @@ O caminho pode abrir lanes apenas nos pontos indicados no DAG. Cross-cutting blo
 - **Evidência necessária:** índice M16, parser de IDs, DAG normalizado, relatório de dependências e decisão de sequência, todos no mesmo SHA/tree/policy.
 - **Condição de desbloqueio:** validação mecânica 270/270, card #001 e decomposição M16 aceitos, com divergências da fila explicitamente reconciliadas.
 - **Dependências:** GOV-001; SDD D-010 e §8; dependency-dag §§1–4; queue-173-270 §§contrato/gates.
-- **Status atual:** `PARTIAL/NO_PROOF` — a queue já decompõe M16 e o DAG registra 270 cards, mas a exatidão normativa do card inicial e as correções documentais ainda não têm evidência de gate.
+- **Status atual:** `PARTIAL/NO_PROOF` — o parser confirma 270 IDs, PR-001 e M16 no índice e o workflow protegido passou; a exatidão ainda depende do snapshot canônico, da reconciliação de labels/dependências e do gate de autoridade independente.
 
 ### GOV-003
 
@@ -110,7 +110,7 @@ O caminho pode abrir lanes apenas nos pontos indicados no DAG. Cross-cutting blo
 - **Evidência necessária:** contrato versionado, preflight/scope manifest, log redigido de run, identidade de reviewer e decisão de rollback, ligados ao SHA/tree/policy.
 - **Condição de desbloqueio:** contrato aceito e fixture negativa reproduzível; cada card deve apontar o contrato e registrar a aplicação no SHA atual.
 - **Dependências:** GOV-001/002; SDD D-010, §2 e §7; AI-031–034; dependency-dag §5; PR-204–217.
-- **Status atual:** `PARTIAL/NO_PROOF` — invariantes e o SDD descrevem a obrigação, mas o contrato operacional e a evidência de run/review não foram fechados nesta entrega.
+- **Status atual:** `PARTIAL/NO_PROOF` — schema, preflight, graph/queue validators e 19 testes passam na `main`; GitHub exige o check protegido atual, mas ainda não existe runner real de agentes que faça deny-before-write, clean-room, secret scan, manifest/digest e reviewer autenticado distinto, nem lifecycle com lease/idempotência/fencing.
 
 ## W1 — Identidade, capability, sandbox, secrets, API e schema
 
