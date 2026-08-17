@@ -96,6 +96,20 @@ O retry do papel `researcher` entregou os quatro objetos exigidos. Todos os ataq
 
 O retry **não altera** o veredito nem reabre as correções V2/V3/V4. Ele reforça a regra de proveniência: claims dos delegados são observações fornecidas, enquanto as decisões atuais devem depender dos artefatos do worktree, testes executados e consultas live já registradas separadamente. Nenhuma nova alegação factual foi promovida a partir do bundle sem evidência.
 
+## Planner final — resultado inválido
+
+**Dispatch:** `deleg_161ad91c`.
+
+O planner final recebeu o bundle de W0, mas foi interrompido enquanto aguardava resposta do modelo (`status=interrupted`, oito chamadas de ferramenta). Não retornou o objeto estruturado exigido pelo schema, tarefas ordenadas, dependências, critérios, comandos ou gates verificáveis.
+
+O bundle parcial contém decisões e riscos úteis, mas não é um plano executável e foi produzido contra uma identidade anterior do repositório. Portanto:
+
+- o resultado não é apresentado como plano Hyperplan;
+- nenhum comando, SHA, autoridade GitHub ou merge é inferido dele;
+- `NO_PLAN` permanece o estado do planner final;
+- qualquer novo planner deverá receber o estado atual e uma nova revisão de proveniência, não este bundle stale;
+- o veredito W0 e os gates já reconciliados permanecem inalterados.
+
 ## O que foi realmente fechado
 
 1. O graph validator agora rejeita IDs duplicados, ciclos e edges não declaradas.
