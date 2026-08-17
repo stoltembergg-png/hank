@@ -81,6 +81,21 @@ A rodada tardia **não altera** o veredito `W0 = PARTIAL/NO_PROOF`, não reabre 
 
 Não foram adotadas novas alegações externas a partir do papel `researcher` interrompido.
 
+## Round 2 researcher retry
+
+**Batch:** `deleg_2123e610`.
+
+O retry do papel `researcher` entregou os quatro objetos exigidos. Todos os ataques foram `ATTACK` e marcaram `no evidence found` porque o bundle Round 1 continha apenas resumos e nomes de fontes, não os artefatos/código/resultados necessários para verificar os claims.
+
+- **SKEPTIC:** S1/S2 não podem ser usados para afirmar que requisitos W0 ou topologia futura são comprovadamente redundantes.
+- **VALIDATOR:** V1–V5 não podem ser usados como prova primária de comportamento específico sem código, execução ou casos verificáveis no bundle.
+- **ARCHITECT:** A1–A5 não podem ser tratados como lacunas confirmadas somente pelo resumo; exigem leitura direta dos grafos, rotas, schemas e runner.
+- **CREATIVE:** C1–C5 são propostas de desenho, não evidência de cobertura dos contratos W0.
+
+### Impacto
+
+O retry **não altera** o veredito nem reabre as correções V2/V3/V4. Ele reforça a regra de proveniência: claims dos delegados são observações fornecidas, enquanto as decisões atuais devem depender dos artefatos do worktree, testes executados e consultas live já registradas separadamente. Nenhuma nova alegação factual foi promovida a partir do bundle sem evidência.
+
 ## O que foi realmente fechado
 
 1. O graph validator agora rejeita IDs duplicados, ciclos e edges não declaradas.
