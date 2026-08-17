@@ -110,6 +110,36 @@ O bundle parcial contém decisões e riscos úteis, mas não é um plano execut�
 - qualquer novo planner deverá receber o estado atual e uma nova revisão de proveniência, não este bundle stale;
 - o veredito W0 e os gates já reconciliados permanecem inalterados.
 
+## Round 1 tardio — reconciliação contra o estado atual
+
+**Batch:** `deleg_c5df3eea`.
+
+O lote Round 1 foi concluído por cinco papéis, mas foi produzido antes das correções e merges posteriores. Seus claims foram tratados como input de revisão, não como snapshot atual; somente os pontos revalidados contra os artefatos e checks atuais foram preservados.
+
+### Disposições
+
+- **SKEPTIC S1–S6 — rejeitados como remoção ampla, refinados como controle de escopo:** não remover ONP/spec/tasks, prova, fixtures, schemas, validator, execution contract ou manifests sem inventário. PRs de produto, shell/frontend, CI e runtime continuam fora do fechamento W0, mas permanecem na roadmap; leases duráveis pertencem a W2/downstream.
+- **VALIDATOR V1 — residual:** fixtures/declarations não provam adapter fake/CLI/Tauri executável; manter `NO_PROOF` sem fabricar execução.
+- **VALIDATOR V2 — parcialmente corrigido:** IDs duplicados, ciclos e edges fora de `allowed_edges` agora falham; continua aberto o vínculo com política independente, owners de comandos e Cargo graph real.
+- **VALIDATOR V3 — parcialmente corrigido:** o gate agora exige cinco reports e identidade; continua aberto o vínculo do gate com queue/DAG, `gate_of` e predecessor de PR-001.
+- **VALIDATOR V4 — parcialmente corrigido:** reviewer ausente, branch literal proibida, identity e paths inseguros têm cobertura; continuam abertos refs equivalentes de branch, comandos autorizados, canonicalização Windows/UNC/junction e scanner de env/log/artifact.
+- **VALIDATOR V5/V6 — residual:** leases/idempotência/fencing e tentativa/retry/cancel/rebase/CI tardio exigem state machine downstream; não são implementados no W0 atual.
+- **RESEARCHER R1–R6 — mantidos como limite de prova:** W0 não é `RESOLVED`; comportamento local não prova enforcement/authority; queue/M16/PR-001 são planning até gate executado. Nenhuma autoridade externa antiga foi reutilizada sem consulta live.
+- **ARCHITECT A1 — refinado:** frontend deve ser uma matriz de rotas/owners, com apresentação → bridge/Application, sem inventar UI nem segunda autoridade.
+- **ARCHITECT A2 — refinado:** a boundary `infrastructure` pode permanecer um package, mas provider/storage/tool/event devem ter adapters leaf e owners semânticos únicos; não criar novos processos nesta wave.
+- **ARCHITECT A3 — refinado:** lifecycle/compatibilidade deve ter contrato estruturado mínimo (`start/ready/stop/fail`, generation, cancellation, terminal outcome e schema compatibility), sem prometer runtime real.
+- **ARCHITECT A4–A7 — preservados como W0-R2/W0-R3:** snapshot canônico da queue com aliases/colisões explícitos; runner como autoridade deny-before-write; reviewer/evidence binding; política de grafo independente dos dados do grafo.
+- **CREATIVE C1–C6 — alinhados:** manter boundary-first, parser/policy como adapters finos, clean-room mínimo, estados fechados e daemon/IPC fora do W0; nenhum scaffold necessário deve ser removido por estética.
+
+### Refinamento dos próximos gates
+
+1. **W0-R1:** acrescentar política independente do grafo, matriz frontend/route, owners leaf de infrastructure e DTO/lifecycle tipado.
+2. **W0-R2:** validar headings, labels, aliases e colisões semânticas; ligar snapshot canônico ao índice/DAG e distinguir `depends_on` de `gate_of` para bloquear PR-001 corretamente.
+3. **W0-R3:** canonicalizar refs/paths Windows, validar comandos e efeitos, exigir denylist independente, secret scan e identidade autenticada; prompt permanece apenas apresentação do manifest.
+4. **W0-R4:** modelar `run_id/attempt_id`, terminal winner, invalidation e precedência cancel×completion; leases só entram quando houver concorrência real.
+
+A rodada não autoriza apagar os artefatos ONP ou iniciar produto. O veredito continua `W0 = PARTIAL/NO_PROOF`.
+
 ## O que foi realmente fechado
 
 1. O graph validator agora rejeita IDs duplicados, ciclos e edges não declaradas.
