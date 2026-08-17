@@ -1,11 +1,11 @@
 {
   "feature": "w0-contract-closure",
-  "timestamp": "2026-08-17T18:06:29.505Z",
-  "gitRev": "6c9e2ea",
+  "timestamp": "2026-08-17T18:45:51.704Z",
+  "gitRev": "89dbabb",
   "command": "node --test",
   "reporter": "tap",
   "exitCode": 0,
-  "testsParsed": 16,
+  "testsParsed": 19,
   "results": {
     "AC-001": {
       "status": "pass",
