@@ -10,15 +10,15 @@
 
 - Repositório: `stoltembergg-png/hank`.
 - Ref verificada: `main`.
-- Commit: `bdd53d22372d49c555332673c918f873faf2ec21`.
-- Tree: `efc124281033c0ca0315d3eeed6385c40ea2810e`.
+- Commit: `dd88d2c140b3d85022b9272dd71740caf1ee6ed4`.
+- Tree: `0eb00af8b827cb41948f18989ce7544a99cd8d56`.
 - `w0-contract-gate` no SHA exato: `completed/success`.
 - Branch protection reconsultada: `w0-contract-gate`, strict, `enforce_admins=true`, histórico linear, sem force-push e sem deleção.
 - Suíte local: `node --test` com 19/19 testes; architecture validator e queue validator passam.
 - ONP: 16/16 critérios provados; `onp-spec audit --ci` limpo.
 - Não existe implementação Rust/Tauri de produto nem runner real de agentes; portanto comportamento local, enforcement externo e autoridade runtime continuam separados.
 
-A observação antiga de que GitHub/branch protection não havia sido reconsultado foi supersedida pela consulta acima. O snapshot antigo não deve ser reutilizado como estado atual.
+O snapshot anterior (`bdd53d2`/`efc1242`) permanece histórico da PR #4; não deve ser usado como identidade atual.
 
 ## Disposições preservadas
 
@@ -46,6 +46,40 @@ A observação antiga de que GitHub/branch protection não havia sido reconsulta
 | C3 | `CONCEDE` | Clean-room que apaga topologia ou não integra reports não é evidência. | Extensão mínima nas fronteiras atuais; não reconstruir scaffold. |
 | C4 | `DEFEND` | Estados `PASS`, `BLOCKED` e `NO_PROOF` com identity explícita são necessários. | Manter gate e exigir edge/evidence para cada transição. |
 | C5 | `DEFEND` | Daemon/IPC continuam fora do escopo W0 atual. | Não iniciar implementação de daemon/IPC nesta wave. |
+
+## Round 2 cross-attack tardio
+
+**Batch:** `deleg_7056c666`.
+
+O lote chegou depois da reconciliação do Round 3. Quatro papéis produziram ataques estruturados; o papel `researcher` foi interrompido após 10 chamadas e não entregou o contrato final. Portanto esta rodada tem **roster degradado** e não é tratada como Hyperplan completo nem como nova autoridade factual.
+
+### Sobreviventes incorporados
+
+- **S1/S2:** preservar scaffold, manifests, fixtures e uma topologia declarativa mínima; não remover artefatos sem prova de redundância e não criar executor futuro.
+- **V2/V3/V4:** os ataques `STANDS` confirmam que conectividade/integridade do grafo, reports integrados e deny-before-write são barreiras mínimas; as correções da PR #2 permanecem válidas.
+- **V1:** refinar o risco de oracle. Testes locais continuam úteis, mas as expectativas devem vir de fixtures/manifests independentes; isso não transforma adapter real em requisito já executado.
+- **V5:** restringir leases/heartbeat/fencing a recursos realmente concorrentes; estados one-shot continuam precisando de terminalidade e timeout, sem daemon obrigatório.
+- **R1/R2:** manter `PARTIAL/NO_PROOF` e separar intenção documental, comportamento, enforcement e autoridade.
+- **R3:** a queue não deve virar segundo runtime; o próximo gate deve ligar item, owner, artefato e teste sem reduzir os 270 cards.
+- **R4:** distinguir ausência de implementação de ausência de prova; planejamento não é progresso operacional, mas também não prova que o produto esteja ausente em qualquer árvore futura.
+- **R5:** autoridade GitHub só vale com consulta remota atual; o snapshot atual já foi reconsultado e está registrado no limite de evidência acima.
+- **A1:** modelar uma matriz de rotas/owners para frontend, classificando rota requerida, adapter ou fora de escopo; não inventar UI para preencher o grafo.
+- **A2/A5:** documentação e prompt não são adapter/runner; exigir vínculo a implementação ou declarar contrato-only e resultado observável.
+- **A3:** strings podem ser IDs/aliases intencionais, mas resolução deve ser centralizada, validada e fail-closed em rename/missing dependency.
+- **A4:** normalizar por vocabulário canônico e aliases explícitos, validando colisões semânticas; não reduzir a dívida por contagem.
+- **C1/C3/C5:** manter boundary-first, clean-room mínimo e daemon/IPC fora do W0 atual.
+- **C2/C4:** parser não substitui semântica; o enum de estados deve distinguir `PASS`, `FAIL`, `BLOCKED`, `NO_PROOF` e não promover ausência de execução a sucesso.
+
+### Impacto na decisão
+
+A rodada tardia **não altera** o veredito `W0 = PARTIAL/NO_PROOF`, não reabre V2/V3/V4 e não autoriza PR-001 de produto. Ela apenas estreita os próximos gates:
+
+1. W0-R1 deve ser uma matriz de rotas/ownership e boundary tipada, não implementação de frontend.
+2. W0-R2 deve validar vocabulário/aliases e colisões semânticas do snapshot canônico, não só contagem de labels.
+3. W0-R3 deve comparar manifest/fixture independente com o resultado do runner, sem duplicar a policy no prompt.
+4. W0-R4 deve aplicar leases/fencing somente a concorrência real e manter estados de não execução não-promovíveis.
+
+Não foram adotadas novas alegações externas a partir do papel `researcher` interrompido.
 
 ## O que foi realmente fechado
 
