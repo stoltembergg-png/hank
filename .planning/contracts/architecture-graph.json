@@ -1,0 +1,26 @@
+{
+  "schema_version":"1.0",
+  "layers":[
+    {"id":"agent-core","owner":"core-maintainer","responsibility":"domain rules and ports","allowed_dependencies":[],"process_lifecycle":"library without external boot","contract":"versioned command/result/event"},
+    {"id":"application-api","owner":"application-owner","responsibility":"use cases and envelopes","allowed_dependencies":["agent-core"],"process_lifecycle":"host-started service","contract":"request to result/event"},
+    {"id":"agent-runtime","owner":"runtime-owner","responsibility":"run lifecycle and recovery","allowed_dependencies":["application-api"],"process_lifecycle":"state machine with lease and recovery","contract":"run command to trace/result"},
+    {"id":"infrastructure","owner":"infrastructure-owner","responsibility":"storage/provider/tool adapters","allowed_dependencies":["ports/application contracts"],"process_lifecycle":"external resource with close/failure","contract":"adapter contract"},
+    {"id":"tauri-shell","owner":"desktop-owner","responsibility":"window bridge events packaging","allowed_dependencies":["application-api"],"process_lifecycle":"desktop process","contract":"UI intent to API envelope"},
+    {"id":"cli-adapter","owner":"cli-owner","responsibility":"non-Tauri application surface","allowed_dependencies":["application-api"],"process_lifecycle":"CLI process","contract":"CLI input to API envelope"},
+    {"id":"fake-adapter","owner":"test-owner","responsibility":"deterministic contract fixture","allowed_dependencies":["application-api"],"process_lifecycle":"test process","contract":"fixture to API envelope"}
+  ],
+  "edges":[
+    {"from":"tauri-shell","to":"application-api","kind":"adapter"},
+    {"from":"cli-adapter","to":"application-api","kind":"adapter"},
+    {"from":"fake-adapter","to":"application-api","kind":"adapter"},
+    {"from":"application-api","to":"agent-core","kind":"use-case"},
+    {"from":"agent-runtime","to":"application-api","kind":"runtime"},
+    {"from":"infrastructure","to":"agent-core","kind":"port-adapter"}
+  ],
+  "forbidden_edges":[
+    {"from":"agent-core","to":"tauri-shell","reason":"core cannot depend on shell"},
+    {"from":"agent-core","to":"infrastructure","reason":"core cannot depend on concrete infrastructure"},
+    {"from":"tauri-shell","to":"infrastructure","reason":"shell cannot bypass application API"}
+  ],
+  "evidence_policy":{"required_identity":["sha","tree","policy"],"allowed_statuses":["PASS","FAIL","BLOCKED","NO_PROOF"]}
+}

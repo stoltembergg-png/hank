@@ -1,0 +1,154 @@
+{
+  "runId": "w0-contracts-w0-contract-closure-msxjibpb",
+  "feature": "w0-contract-closure",
+  "agent": "claude",
+  "modo": "sequencial",
+  "paralelizar": null,
+  "modeloForcado": null,
+  "esforcoForcado": null,
+  "geradoEm": "2026-08-17 18:01",
+  "branchTrabalho": "spec/w0-contract-closure",
+  "baseDir": ".spec/features/w0-contract-closure",
+  "specDir": ".spec",
+  "repoName": "w0-contracts",
+  "logsDir": "../onp-worktrees/w0-contracts-w0-contract-closure-logs",
+  "ondas": [],
+  "faixas": [],
+  "sequenciais": [
+    {
+      "id": "T-001",
+      "titulo": "Consolidar baseline normativo W0",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        ".planning/master/blocker-closure-plan.md",
+        ".planning/master/sdd-master.md",
+        ".planning/master/architecture-invariants.md",
+        ".planning/master/dependency-dag.md",
+        ".planning/master/PR-EXECUTION-CONTRACT.md",
+        ".planning/master/agent-development-policy.md"
+      ],
+      "refs": [
+        "US-001",
+        "US-002",
+        "US-003",
+        "US-004",
+        "US-005",
+        "AC-001",
+        "AC-004",
+        "AC-007",
+        "AC-010",
+        "AC-016"
+      ]
+    },
+    {
+      "id": "T-002",
+      "titulo": "Definir contrato de fronteiras e ownership",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        ".planning/contracts/ADR-AB-001.md",
+        ".planning/contracts/AB-001-layer-ownership.md",
+        ".planning/contracts/architecture-graph.schema.json",
+        ".planning/contracts/architecture-graph.json",
+        ".planning/contracts/architecture-graph.invalid-fixtures.json"
+      ],
+      "refs": [
+        "US-001",
+        "US-002",
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "AC-006"
+      ]
+    },
+    {
+      "id": "T-003",
+      "titulo": "Definir schema e validator da fila/DAG",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        ".planning/contracts/queue-card.schema.json",
+        ".planning/contracts/queue-validator-contract.md",
+        ".planning/contracts/queue-invalid-fixtures.json",
+        ".planning/master/queue-index.md",
+        ".planning/master/dependency-dag.md"
+      ],
+      "refs": [
+        "US-003",
+        "AC-007",
+        "AC-008",
+        "AC-009"
+      ]
+    },
+    {
+      "id": "T-004",
+      "titulo": "Definir PR Execution Contract e evidence manifest",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        ".planning/contracts/PR-EXECUTION-CONTRACT.schema.json",
+        ".planning/contracts/evidence-manifest.schema.json",
+        ".planning/contracts/execution-gate-contract.md",
+        ".planning/contracts/execution-invalid-fixtures.json"
+      ],
+      "refs": [
+        "US-004",
+        "AC-010",
+        "AC-011",
+        "AC-012",
+        "AC-013"
+      ]
+    },
+    {
+      "id": "T-005",
+      "titulo": "Definir gate negativo e matriz de fechamento",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        ".planning/contracts/w0-negative-test-matrix.json",
+        ".planning/contracts/w0-closure-gate.md",
+        ".planning/master/blocker-closure-plan.md"
+      ],
+      "refs": [
+        "US-005",
+        "AC-014",
+        "AC-015",
+        "AC-016"
+      ]
+    },
+    {
+      "id": "T-006",
+      "titulo": "Auditar especificação ONP e evidência W0",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        ".spec/features/w0-contract-closure/spec.md",
+        ".spec/features/w0-contract-closure/tasks.md",
+        "test/w0-contract-closure.spec.test.js",
+        "tools/w0-contract-validator.mjs",
+        ".github/workflows/w0-contract-gate.yml"
+      ],
+      "refs": [
+        "US-001",
+        "US-002",
+        "US-003",
+        "US-004",
+        "US-005",
+        "AC-001",
+        "AC-003",
+        "AC-005",
+        "AC-008",
+        "AC-011",
+        "AC-013",
+        "AC-014",
+        "AC-015",
+        "AC-016"
+      ]
+    }
+  ],
+  "concluidas": [],
+  "avisos": []
+}

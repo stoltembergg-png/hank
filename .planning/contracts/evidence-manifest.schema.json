@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hank://contracts/evidence-manifest.schema.json",
+  "title": "Hank Evidence Manifest",
+  "type": "object",
+  "required": ["card_id","repository","base_sha","tree_sha","policy_revision","schema_revision","commands","artifacts","review","status","invalidated_by"],
+  "properties": {
+    "card_id":{"type":"string","pattern":"^PR-[0-9]{3}$"},
+    "repository":{"type":"string","minLength":1},
+    "base_sha":{"type":"string","pattern":"^[0-9a-f]{40}$"},
+    "tree_sha":{"type":"string","pattern":"^[0-9a-f]{40}$"},
+    "policy_revision":{"type":"string","minLength":1},
+    "schema_revision":{"type":"string","minLength":1},
+    "commands":{"type":"array","items":{"type":"object","required":["command","exit_code","output_digest"],"properties":{"command":{"type":"string"},"exit_code":{"type":"integer"},"output_digest":{"type":"string"}},"additionalProperties":false}},
+    "artifacts":{"type":"array","items":{"type":"object","required":["path","sha256"],"properties":{"path":{"type":"string"},"sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"}},"additionalProperties":false}},
+    "review":{"type":"object","required":["author","reviewer","review_sha"],"properties":{"author":{"type":"string"},"reviewer":{"type":"string"},"review_sha":{"type":"string","pattern":"^[0-9a-f]{40}$"}},"additionalProperties":false},
+    "status":{"enum":["PASS","FAIL","BLOCKED","NO_PROOF"]},
+    "invalidated_by":{"type":"array","items":{"enum":["base_sha","tree_sha","policy_revision","schema_revision","rebase","ci_identity"]}}
+  },
+  "additionalProperties": false
+}

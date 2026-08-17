@@ -1,0 +1,39 @@
+name: W0 contract gate
+
+on:
+  push:
+    branches:
+      - main
+      - chore/**
+      - plan/**
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w0-contract-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  w0-contract-gate:
+    name: w0-contract-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Report runtime
+        run: node --version
+
+      - name: Run contract tests
+        run: node --test
+
+      - name: Validate architecture graph
+        run: node tools/w0-contract-validator.mjs architecture
+
+      - name: Validate 270-card queue and DAG
+        run: node tools/w0-contract-validator.mjs queue

@@ -1,7 +1,6 @@
 # Rust
 /target
 **/*.rs.bk
-Cargo.lock
 
 # Tauri / Node
 node_modules/
@@ -36,3 +35,6 @@ venv/
 
 # Build artifacts
 *.log
+
+# Local linked worktrees
+.worktrees/
