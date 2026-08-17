@@ -1,0 +1,38 @@
+# Rust
+/target
+**/*.rs.bk
+Cargo.lock
+
+# Tauri / Node
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Environment / secrets
+.env
+.env.*
+*.pem
+*.key
+*.p12
+
+# Build artifacts
+*.log
