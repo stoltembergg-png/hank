@@ -62,7 +62,8 @@ mod tauri_tests {
     #[test]
     fn ac_103_csp_bloqueia_origem_remota() {
         // @spec:AC-103
-        let csp = manifest()["app"]["security"]["csp"]
+        let document = manifest();
+        let csp = document["app"]["security"]["csp"]
             .as_str()
             .expect("CSP ausente");
 
