@@ -1,7 +1,7 @@
 {
   "feature": "w0-contract-closure",
-  "timestamp": "2026-08-18T17:01:34.415Z",
-  "gitRev": "7e86e13",
+  "timestamp": "2026-08-18T17:47:34.371Z",
+  "gitRev": "7bbe772",
   "command": "node tools/run-all-tests.mjs",
   "reporter": "exitcode",
   "exitCode": 0,
