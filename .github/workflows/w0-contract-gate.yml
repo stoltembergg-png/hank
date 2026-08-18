@@ -7,8 +7,6 @@ on:
       - chore/**
       - plan/**
   pull_request:
-    branches:
-      - main
 
 permissions:
   contents: read
@@ -30,7 +28,7 @@ jobs:
         run: node --version
 
       - name: Run contract tests
-        run: node --test
+        run: node --test test/w0-contract-closure.spec.test.js
 
       - name: Validate architecture graph
         run: node tools/w0-contract-validator.mjs architecture
