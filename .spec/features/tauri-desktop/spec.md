@@ -66,14 +66,14 @@ Como desenvolvedor do core, quero um shell Tauri 2 que abra/fecha janela de form
 
 | ID | Suposição | Status | Resolução |
 |---|---|---|---|
-| ASM-101 | Rust 1.97+ e Node.js 20+ disponíveis no ambiente | aberta | — |
-| ASM-102 | Tauri 2.x estável suporta as capabilities mínimas necessárias | aberta | — |
-| ASM-103 | O core Rust (agent-core) já compila e está disponível via workspace | aberta | PR-001 preparado e validado localmente; merge e CI ainda pendentes |
+| ASM-101 | Rust 1.97+ e Node.js 20+ disponíveis no ambiente | confirmada | Build Tauri CI em Ubuntu com Rust 1.97 passou; o host Amazon Linux local continua sem WebKitGTK |
+| ASM-102 | Tauri 2.x estável suporta as capabilities mínimas necessárias | confirmada | Build e testes de aceitação Tauri passaram no runner Ubuntu |
+| ASM-103 | O core Rust (agent-core) já compila e está disponível via workspace | confirmada | PR-001 tem W0 verde e a cadeia Tauri compila no CI Ubuntu |
 
 ## Perguntas em aberto
 
 | ID | Pergunta | Status | Resposta |
 |---|---|---|---|
-| Q-101 | Qual versão exata do Tauri 2 (2.0.x, 2.1.x)? | aberta | — |
-| Q-102 | O frontend será TypeScript/React, Svelte, ou vanilla? | aberta | — |
-| Q-103 | Haverá suporte a macOS/Windows/Linux desde v0.1? | aberta | — |
+| Q-101 | Qual versão exata do Tauri 2 (2.0.x, 2.1.x)? | respondida | Cargo.lock fixa a linha Tauri 2.11.x usada pelo shell |
+| Q-102 | O frontend será TypeScript/React, Svelte, ou vanilla? | respondida | React + TypeScript, conforme PR-003 |
+| Q-103 | Haverá suporte a macOS/Windows/Linux desde v0.1? | respondida | Linux é a plataforma validada nesta etapa; macOS/Windows não são alegados |
