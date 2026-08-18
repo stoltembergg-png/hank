@@ -104,100 +104,100 @@
       "codigo": "AC_SEM_TESTE",
       "feature": "w0-contract-closure",
       "ref": "AC-006",
-      "ocorrencias": 1,
+      "ocorrencias": 2,
       "primeiraVez": "2026-08-17T17:50:05.894Z",
-      "ultimaVez": "2026-08-17T17:50:05.894Z",
-      "gitRev": "8a397d4"
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
     },
     "AC_SEM_TESTE::w0-contract-closure::AC-007": {
       "codigo": "AC_SEM_TESTE",
       "feature": "w0-contract-closure",
       "ref": "AC-007",
-      "ocorrencias": 1,
+      "ocorrencias": 2,
       "primeiraVez": "2026-08-17T17:50:05.894Z",
-      "ultimaVez": "2026-08-17T17:50:05.894Z",
-      "gitRev": "8a397d4"
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
     },
     "AC_SEM_TESTE::w0-contract-closure::AC-008": {
       "codigo": "AC_SEM_TESTE",
       "feature": "w0-contract-closure",
       "ref": "AC-008",
-      "ocorrencias": 1,
+      "ocorrencias": 2,
       "primeiraVez": "2026-08-17T17:50:05.894Z",
-      "ultimaVez": "2026-08-17T17:50:05.894Z",
-      "gitRev": "8a397d4"
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
     },
     "AC_SEM_TESTE::w0-contract-closure::AC-009": {
       "codigo": "AC_SEM_TESTE",
       "feature": "w0-contract-closure",
       "ref": "AC-009",
-      "ocorrencias": 1,
+      "ocorrencias": 2,
       "primeiraVez": "2026-08-17T17:50:05.894Z",
-      "ultimaVez": "2026-08-17T17:50:05.894Z",
-      "gitRev": "8a397d4"
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
     },
     "AC_SEM_TESTE::w0-contract-closure::AC-010": {
       "codigo": "AC_SEM_TESTE",
       "feature": "w0-contract-closure",
       "ref": "AC-010",
-      "ocorrencias": 1,
+      "ocorrencias": 2,
       "primeiraVez": "2026-08-17T17:50:05.894Z",
-      "ultimaVez": "2026-08-17T17:50:05.894Z",
-      "gitRev": "8a397d4"
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
     },
     "AC_SEM_TESTE::w0-contract-closure::AC-011": {
       "codigo": "AC_SEM_TESTE",
       "feature": "w0-contract-closure",
       "ref": "AC-011",
-      "ocorrencias": 1,
+      "ocorrencias": 2,
       "primeiraVez": "2026-08-17T17:50:05.894Z",
-      "ultimaVez": "2026-08-17T17:50:05.894Z",
-      "gitRev": "8a397d4"
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
     },
     "AC_SEM_TESTE::w0-contract-closure::AC-012": {
       "codigo": "AC_SEM_TESTE",
       "feature": "w0-contract-closure",
       "ref": "AC-012",
-      "ocorrencias": 1,
+      "ocorrencias": 2,
       "primeiraVez": "2026-08-17T17:50:05.894Z",
-      "ultimaVez": "2026-08-17T17:50:05.894Z",
-      "gitRev": "8a397d4"
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
     },
     "AC_SEM_TESTE::w0-contract-closure::AC-013": {
       "codigo": "AC_SEM_TESTE",
       "feature": "w0-contract-closure",
       "ref": "AC-013",
-      "ocorrencias": 1,
+      "ocorrencias": 2,
       "primeiraVez": "2026-08-17T17:50:05.894Z",
-      "ultimaVez": "2026-08-17T17:50:05.894Z",
-      "gitRev": "8a397d4"
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
     },
     "AC_SEM_TESTE::w0-contract-closure::AC-014": {
       "codigo": "AC_SEM_TESTE",
       "feature": "w0-contract-closure",
       "ref": "AC-014",
-      "ocorrencias": 1,
+      "ocorrencias": 2,
       "primeiraVez": "2026-08-17T17:50:05.894Z",
-      "ultimaVez": "2026-08-17T17:50:05.894Z",
-      "gitRev": "8a397d4"
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
     },
     "AC_SEM_TESTE::w0-contract-closure::AC-015": {
       "codigo": "AC_SEM_TESTE",
       "feature": "w0-contract-closure",
       "ref": "AC-015",
-      "ocorrencias": 1,
+      "ocorrencias": 2,
       "primeiraVez": "2026-08-17T17:50:05.894Z",
-      "ultimaVez": "2026-08-17T17:50:05.894Z",
-      "gitRev": "8a397d4"
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
     },
     "AC_SEM_TESTE::w0-contract-closure::AC-016": {
       "codigo": "AC_SEM_TESTE",
       "feature": "w0-contract-closure",
       "ref": "AC-016",
-      "ocorrencias": 1,
+      "ocorrencias": 2,
       "primeiraVez": "2026-08-17T17:50:05.894Z",
-      "ultimaVez": "2026-08-17T17:50:05.894Z",
-      "gitRev": "8a397d4"
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
     },
     "GLOB_SEM_ARQUIVOS::—::P-002": {
       "codigo": "GLOB_SEM_ARQUIVOS",
@@ -234,6 +234,546 @@
       "primeiraVez": "2026-08-17T17:58:07.414Z",
       "ultimaVez": "2026-08-17T17:58:07.414Z",
       "gitRev": "8a397d4"
+    },
+    "ID_DUPLICADO::w0-contract-closure::US-001": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "w0-contract-closure",
+      "ref": "US-001",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.437Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ID_DUPLICADO::w0-contract-closure::AC-001": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "w0-contract-closure",
+      "ref": "AC-001",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ID_DUPLICADO::w0-contract-closure::AC-002": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "w0-contract-closure",
+      "ref": "AC-002",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ID_DUPLICADO::w0-contract-closure::AC-003": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "w0-contract-closure",
+      "ref": "AC-003",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ID_DUPLICADO::w0-contract-closure::AC-004": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "w0-contract-closure",
+      "ref": "AC-004",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ID_DUPLICADO::w0-contract-closure::AC-005": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "w0-contract-closure",
+      "ref": "AC-005",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ID_DUPLICADO::w0-contract-closure::ASM-001": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "w0-contract-closure",
+      "ref": "ASM-001",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ID_DUPLICADO::w0-contract-closure::ASM-002": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "w0-contract-closure",
+      "ref": "ASM-002",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ID_DUPLICADO::w0-contract-closure::ASM-003": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "w0-contract-closure",
+      "ref": "ASM-003",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ID_DUPLICADO::w0-contract-closure::Q-001": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "w0-contract-closure",
+      "ref": "Q-001",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ID_DUPLICADO::w0-contract-closure::Q-002": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "w0-contract-closure",
+      "ref": "Q-002",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ID_DUPLICADO::w0-contract-closure::Q-003": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "w0-contract-closure",
+      "ref": "Q-003",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::foundation-workspace::AC-001": {
+      "codigo": "PROVA_FRACA",
+      "feature": "foundation-workspace",
+      "ref": "AC-001",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::foundation-workspace::AC-002": {
+      "codigo": "PROVA_FRACA",
+      "feature": "foundation-workspace",
+      "ref": "AC-002",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::foundation-workspace::AC-003": {
+      "codigo": "PROVA_FRACA",
+      "feature": "foundation-workspace",
+      "ref": "AC-003",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::foundation-workspace::AC-004": {
+      "codigo": "PROVA_FRACA",
+      "feature": "foundation-workspace",
+      "ref": "AC-004",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::foundation-workspace::AC-005": {
+      "codigo": "PROVA_FRACA",
+      "feature": "foundation-workspace",
+      "ref": "AC-005",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "VERIFY_OBSOLETO::w0-contract-closure::—": {
+      "codigo": "VERIFY_OBSOLETO",
+      "feature": "w0-contract-closure",
+      "ref": "—",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-core/src/agent.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-core/src/agent.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-core/src/budget.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-core/src/budget.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-core/src/error.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-core/src/error.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-core/src/memory.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-core/src/memory.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-core/src/project.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-core/src/project.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-core/src/session.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-core/src/session.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-core/src/skill.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-core/src/skill.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-core/src/workflow.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-core/src/workflow.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-protocol/src/capability.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-protocol/src/capability.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-protocol/src/envelope.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-protocol/src/envelope.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-protocol/src/ids.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-protocol/src/ids.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-protocol/src/policy.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-protocol/src/policy.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-protocol/src/version.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-protocol/src/version.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-runtime/src/memory.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-runtime/src/memory.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-runtime/src/provider.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-runtime/src/provider.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-runtime/src/python.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-runtime/src/python.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-runtime/src/sandbox.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-runtime/src/sandbox.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-runtime/src/scheduler.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-runtime/src/scheduler.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-runtime/src/skill_runtime.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-runtime/src/skill_runtime.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-runtime/src/tool.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-runtime/src/tool.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "ARQUIVO_ORFAO::—::crates/agent-runtime/src/workflow_runtime.rs": {
+      "codigo": "ARQUIVO_ORFAO",
+      "feature": "—",
+      "ref": "crates/agent-runtime/src/workflow_runtime.rs",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T16:57:24.442Z",
+      "ultimaVez": "2026-08-18T16:57:24.442Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::foundation-workspace::AC-301": {
+      "codigo": "PROVA_FRACA",
+      "feature": "foundation-workspace",
+      "ref": "AC-301",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.241Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::foundation-workspace::AC-302": {
+      "codigo": "PROVA_FRACA",
+      "feature": "foundation-workspace",
+      "ref": "AC-302",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::foundation-workspace::AC-303": {
+      "codigo": "PROVA_FRACA",
+      "feature": "foundation-workspace",
+      "ref": "AC-303",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::foundation-workspace::AC-304": {
+      "codigo": "PROVA_FRACA",
+      "feature": "foundation-workspace",
+      "ref": "AC-304",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::foundation-workspace::AC-305": {
+      "codigo": "PROVA_FRACA",
+      "feature": "foundation-workspace",
+      "ref": "AC-305",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-001": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-001",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-002": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-002",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-003": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-003",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-004": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-004",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-005": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-005",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-006": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-006",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-007": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-007",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-008": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-008",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-009": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-009",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-010": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-010",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-011": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-011",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-012": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-012",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-013": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-013",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-014": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-014",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-015": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-015",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
+    },
+    "PROVA_FRACA::w0-contract-closure::AC-016": {
+      "codigo": "PROVA_FRACA",
+      "feature": "w0-contract-closure",
+      "ref": "AC-016",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-18T17:01:36.244Z",
+      "ultimaVez": "2026-08-18T17:01:36.244Z",
+      "gitRev": "7e86e13"
     }
   }
 }

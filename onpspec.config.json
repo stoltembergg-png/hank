@@ -1,14 +1,19 @@
 {
-  "testCommand": "node --test",
-  "reporter": "tap",
+  "testCommand": "node tools/run-all-tests.mjs",
+  "reporter": "exitcode",
   "testGlobs": [
-    "test/**",
-    "tests/**",
-    "src/**/*.test.*",
-    "src/**/*.spec.*",
-    "__tests__/**"
+    "test/**/*.js",
+    "tests/**/*.rs",
+    "**/*_test.rs",
+    "**/tests.rs",
+    "frontend/tests/**/*.test.ts",
+    "apps/desktop/src-tauri/tests/**/*.rs"
   ],
   "srcGlobs": [
-    "src/**"
+    "crates/**/src/**/*.rs",
+    "src/**/*.rs",
+    "frontend/src/**/*.ts",
+    "frontend/src/**/*.tsx",
+    "apps/desktop/src-tauri/src/**/*.rs"
   ]
 }
