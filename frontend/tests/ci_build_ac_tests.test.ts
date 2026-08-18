@@ -15,6 +15,7 @@ function workflow(name: string): string {
 }
 
 function assertCommonGateProperties(content: string): void {
+  expect(content).not.toMatch(/pull_request:\s*\n\s+branches:\s+\[main\]/);
   expect(content).toContain('workflow_dispatch:');
   expect(content).toContain('permissions:');
   expect(content).toContain('contents: read');
