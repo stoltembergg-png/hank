@@ -45,5 +45,5 @@
 ## T-315 — Verificar build do workspace [pendente]
 
 - Refs: US-101, AC-101, AC-102, AC-103, AC-104, AC-105
-- Arquivos: apps/desktop/src-tauri/tests/tauri_ac_tests.rs, apps/desktop/src-tauri/Cargo.toml, .github/workflows/build-tauri.yml
+- Arquivos: apps/desktop/src-tauri/tests/tauri_ac_tests.rs, apps/desktop/src-tauri/Cargo.toml, tools/run-all-tests.mjs, .github/workflows/build-tauri.yml
 - Notas: cargo check/test e fmt em Ubuntu com WebKitGTK; valida AC-101..105
