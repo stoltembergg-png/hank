@@ -1,0 +1,28 @@
+//! Tipos estáveis, serialização e contratos de protocolo da plataforma multiagente.
+//!
+//! Esta crate define os tipos que cruzam fronteiras arquiteturais:
+//! - IDs tipados (ProjectId, AgentId, SessionId, etc.)
+//! - Envelopes de comando/resultado/evento
+//! - Schemas de capability, permission, policy
+//! - Versões de protocolo e compatibilidade
+
+pub mod capability;
+pub mod envelope;
+pub mod ids;
+pub mod policy;
+pub mod version;
+
+pub use capability::*;
+pub use envelope::*;
+pub use ids::*;
+pub use policy::*;
+pub use version::*;
+
+/// Versão atual do protocolo para negociação de compatibilidade
+pub const PROTOCOL_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub use chrono::{DateTime, Utc};
+pub use serde::{Deserialize, Serialize};
+pub use thiserror::Error;
+/// Re-export tipos comuns para conveniência
+pub use uuid::Uuid;

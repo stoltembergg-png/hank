@@ -1,0 +1,19 @@
+[package]
+name = "agent-core"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+description = "Domínio puro: IDs, entidades, invariantes, policies puras, state machines, budgets, errors e ports"
+
+[dependencies]
+agent-protocol = { path = "../agent-protocol" }
+serde = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+serde_json = "1.0"
+
+[dev-dependencies]
+test-support = { path = "../test-support" }
