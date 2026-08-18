@@ -73,6 +73,6 @@ Como desenvolvedor do frontend, quero um workspace que compile, faça lint e typ
 
 | ID | Pergunta | Status | Resposta |
 |---|---|---|---|
-| Q-201 | Qual framework: React, Svelte, Vue, vanilla TS? | resolvida | React + TypeScript |
-| Q-202 | Build tool: Vite, Webpack, Turbopack? | resolvida | Vite |
-| Q-203 | Testing: Vitest, Playwright, Cypress? | resolvida | Vitest |
+| Q-201 | Qual framework: React, Svelte, Vue, vanilla TS? | respondida | React + TypeScript |
+| Q-202 | Build tool: Vite, Webpack, Turbopack? | respondida | Vite |
+| Q-203 | Testing: Vitest, Playwright, Cypress? | respondida | Vitest |

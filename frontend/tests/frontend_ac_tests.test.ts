@@ -29,7 +29,8 @@ function readProductSource(): string {
 }
 
 describe('Frontend Workspace AC Tests', () => {
-  it('AC-201: scripts e lockfile do workspace existem @spec:AC-201', () => {
+  // @spec:AC-201
+  it('AC-201: scripts e lockfile do workspace existem', () => {
     const packageJsonPath = join(FRONTEND_ROOT, 'package.json');
     const lockfilePath = join(FRONTEND_ROOT, 'package-lock.json');
     expect(existsSync(packageJsonPath)).toBe(true);
@@ -49,7 +50,8 @@ describe('Frontend Workspace AC Tests', () => {
     expect(packageJson.devDependencies).toHaveProperty('@typescript-eslint/parser');
   });
 
-  it('AC-202: TypeScript strict sem any explícito @spec:AC-202', () => {
+  // @spec:AC-202
+  it('AC-202: TypeScript strict sem any explícito', () => {
     const tsconfig = JSON.parse(
       readFileSync(join(FRONTEND_ROOT, 'tsconfig.json'), 'utf8'),
     ) as { compilerOptions: Record<string, unknown> };
@@ -61,7 +63,8 @@ describe('Frontend Workspace AC Tests', () => {
     expect(readProductSource()).not.toMatch(/\bany\b/);
   });
 
-  it('AC-203: imports proibidos não aparecem no produto @spec:AC-203', () => {
+  // @spec:AC-203
+  it('AC-203: imports proibidos não aparecem no produto', () => {
     const imports = [...readProductSource().matchAll(/(?:from\s+|import\s*\(\s*)['"]([^'"]+)['"]/g)].map(
       (match) => match[1],
     );
@@ -69,7 +72,8 @@ describe('Frontend Workspace AC Tests', () => {
     expect(imports.filter((specifier) => forbidden.test(specifier))).toEqual([]);
   });
 
-  it('AC-204: CSP Tauri v2 é restritiva e sem allowlist legada @spec:AC-204', () => {
+  // @spec:AC-204
+  it('AC-204: CSP Tauri v2 é restritiva e sem allowlist legada', () => {
     const tauriConfPath = join(
       REPOSITORY_ROOT,
       'apps',
@@ -89,7 +93,8 @@ describe('Frontend Workspace AC Tests', () => {
     expect(JSON.stringify(manifest)).not.toContain('allowlist');
   });
 
-  it('AC-205: eventos de ciclo têm versão e não expõem conteúdo @spec:AC-205', () => {
+  // @spec:AC-205
+  it('AC-205: eventos de ciclo têm versão e não expõem conteúdo', () => {
     const appContent = readFileSync(join(FRONTEND_ROOT, 'src', 'App.tsx'), 'utf8');
     for (const event of ['mount', 'ready', 'unmount', 'error']) {
       expect(appContent).toContain(`event: '${event}'`);
