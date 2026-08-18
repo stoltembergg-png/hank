@@ -1,7 +1,7 @@
 {
   "feature": "frontend-workspace",
-  "timestamp": "2026-08-18T17:38:19.957Z",
-  "gitRev": "aed8185",
+  "timestamp": "2026-08-18T17:48:07.671Z",
+  "gitRev": "670f56e",
   "command": "node tools/run-all-tests.mjs",
   "reporter": "exitcode",
   "exitCode": 0,
