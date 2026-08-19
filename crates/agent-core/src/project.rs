@@ -32,7 +32,7 @@ pub enum ProjectStatus {
 }
 
 /// Configuração de configurações do projeto.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectSettings {
     pub default_budget: BudgetPolicy,
     pub default_agent_policy: AgentPolicyConfig,
