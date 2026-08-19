@@ -93,3 +93,45 @@
 - Arquivos: crates/agent-runtime/src/project_repo.rs, crates/agent-runtime/src/lib.rs, docs/project-repository.md
 - Notas: Implementação transacional do port ProjectRepository usando queries parametrizadas, paginação e mapeamento de DomainError
 
+## T-316 — Criar serviço de aplicação para criar Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/project_service.rs, crates/agent-runtime/src/lib.rs, docs/create-project-service.md
+- Notas: Use case de criação de projetos com validação de entrada, persistência transacional e publicação do evento ProjectCreated
+
+## T-317 — Criar serviço de aplicação para listar/buscar Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/project_query_service.rs, crates/agent-runtime/src/lib.rs, docs/list-project-service.md
+- Notas: Query use case para listagem paginada (com limites restritos 1..100) e recuperação de projetos por ID
+
+## T-318 — Criar serviço de aplicação para atualizar Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/project_update_service.rs, crates/agent-runtime/src/lib.rs, docs/update-project-service.md
+- Notas: Use case de atualização de projeto com concorrência otimista, bloqueio em arquivados e emissão do evento ProjectUpdated
+
+## T-319 — Criar serviço de aplicação para arquivar Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/project_archive_service.rs, crates/agent-runtime/src/lib.rs, docs/archive-project-service.md
+- Notas: Use case de arquivamento seguro e idempotente com emissão do evento ProjectArchived
+
+## T-320 — Vincular pastas locais a um Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: migrations/0002_project_folders.sql, crates/agent-core/src/project.rs, crates/agent-runtime/src/project_repo.rs, docs/project-folders.md
+- Notas: Suporte a vínculos Project->Folder no banco SQLite e no aggregate Project com prevenção de path traversal e unicidade
+
+## T-321 — Vincular repositórios Git a um Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: migrations/0003_project_repositories.sql, crates/agent-core/src/project.rs, crates/agent-runtime/src/project_repo.rs, docs/project-repositories.md
+- Notas: Registro e persistência segura de repositórios Git vinculados ao Project com validação de URL e sem execução Git
+
+## T-322 — Adicionar settings de Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-core/src/project.rs, crates/agent-runtime/src/project_repo.rs, docs/project-settings.md
+- Notas: Modelagem, validação de limites de retenção/agentes e persistência dedicada de ProjectSettings
+
+
+
+
+
+
+
+
