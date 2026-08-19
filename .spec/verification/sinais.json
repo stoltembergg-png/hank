@@ -392,10 +392,10 @@
       "codigo": "VERIFY_OBSOLETO",
       "feature": "w0-contract-closure",
       "ref": "—",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-18T16:57:24.442Z",
-      "ultimaVez": "2026-08-18T17:34:35.660Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "ARQUIVO_ORFAO::—::crates/agent-core/src/agent.rs": {
       "codigo": "ARQUIVO_ORFAO",
@@ -590,244 +590,244 @@
       "codigo": "PROVA_FRACA",
       "feature": "foundation-workspace",
       "ref": "AC-301",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.241Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::foundation-workspace::AC-302": {
       "codigo": "PROVA_FRACA",
       "feature": "foundation-workspace",
       "ref": "AC-302",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::foundation-workspace::AC-303": {
       "codigo": "PROVA_FRACA",
       "feature": "foundation-workspace",
       "ref": "AC-303",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::foundation-workspace::AC-304": {
       "codigo": "PROVA_FRACA",
       "feature": "foundation-workspace",
       "ref": "AC-304",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::foundation-workspace::AC-305": {
       "codigo": "PROVA_FRACA",
       "feature": "foundation-workspace",
       "ref": "AC-305",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-001": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-001",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-002": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-002",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-003": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-003",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-004": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-004",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-005": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-005",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-006": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-006",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-007": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-007",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-008": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-008",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-009": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-009",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-010": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-010",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-011": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-011",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-012": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-012",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-013": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-013",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-014": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-014",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-015": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-015",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::w0-contract-closure::AC-016": {
       "codigo": "PROVA_FRACA",
       "feature": "w0-contract-closure",
       "ref": "AC-016",
-      "ocorrencias": 3,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-18T17:01:36.244Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::ci-build::AC-401": {
       "codigo": "PROVA_FRACA",
       "feature": "ci-build",
       "ref": "AC-401",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-18T17:34:35.656Z",
-      "ultimaVez": "2026-08-18T17:35:17.339Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.992Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::ci-build::AC-402": {
       "codigo": "PROVA_FRACA",
       "feature": "ci-build",
       "ref": "AC-402",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-18T17:34:35.660Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::ci-build::AC-403": {
       "codigo": "PROVA_FRACA",
       "feature": "ci-build",
       "ref": "AC-403",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-18T17:34:35.660Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::ci-build::AC-404": {
       "codigo": "PROVA_FRACA",
       "feature": "ci-build",
       "ref": "AC-404",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-18T17:34:35.660Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::ci-build::AC-405": {
       "codigo": "PROVA_FRACA",
       "feature": "ci-build",
       "ref": "AC-405",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-18T17:34:35.660Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "VERIFY_OBSOLETO::foundation-workspace::—": {
       "codigo": "VERIFY_OBSOLETO",
       "feature": "foundation-workspace",
       "ref": "—",
-      "ocorrencias": 1,
+      "ocorrencias": 3,
       "primeiraVez": "2026-08-18T17:34:35.660Z",
-      "ultimaVez": "2026-08-18T17:34:35.660Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "Q_STATUS_INVALIDO::frontend-workspace::Q-201": {
       "codigo": "Q_STATUS_INVALIDO",
@@ -905,91 +905,109 @@
       "codigo": "AC_SEM_PROVA",
       "feature": "tauri-desktop",
       "ref": "AC-101",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-18T17:34:35.660Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "AC_SEM_PROVA::tauri-desktop::AC-102": {
       "codigo": "AC_SEM_PROVA",
       "feature": "tauri-desktop",
       "ref": "AC-102",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-18T17:34:35.660Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "AC_SEM_PROVA::tauri-desktop::AC-103": {
       "codigo": "AC_SEM_PROVA",
       "feature": "tauri-desktop",
       "ref": "AC-103",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-18T17:34:35.660Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "AC_SEM_PROVA::tauri-desktop::AC-104": {
       "codigo": "AC_SEM_PROVA",
       "feature": "tauri-desktop",
       "ref": "AC-104",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-18T17:34:35.660Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "AC_SEM_PROVA::tauri-desktop::AC-105": {
       "codigo": "AC_SEM_PROVA",
       "feature": "tauri-desktop",
       "ref": "AC-105",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-18T17:34:35.660Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::frontend-workspace::AC-201": {
       "codigo": "PROVA_FRACA",
       "feature": "frontend-workspace",
       "ref": "AC-201",
-      "ocorrencias": 1,
+      "ocorrencias": 3,
       "primeiraVez": "2026-08-18T17:35:17.343Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::frontend-workspace::AC-202": {
       "codigo": "PROVA_FRACA",
       "feature": "frontend-workspace",
       "ref": "AC-202",
-      "ocorrencias": 1,
+      "ocorrencias": 3,
       "primeiraVez": "2026-08-18T17:35:17.343Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::frontend-workspace::AC-203": {
       "codigo": "PROVA_FRACA",
       "feature": "frontend-workspace",
       "ref": "AC-203",
-      "ocorrencias": 1,
+      "ocorrencias": 3,
       "primeiraVez": "2026-08-18T17:35:17.343Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::frontend-workspace::AC-204": {
       "codigo": "PROVA_FRACA",
       "feature": "frontend-workspace",
       "ref": "AC-204",
-      "ocorrencias": 1,
+      "ocorrencias": 3,
       "primeiraVez": "2026-08-18T17:35:17.343Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     },
     "PROVA_FRACA::frontend-workspace::AC-205": {
       "codigo": "PROVA_FRACA",
       "feature": "frontend-workspace",
       "ref": "AC-205",
-      "ocorrencias": 1,
+      "ocorrencias": 3,
       "primeiraVez": "2026-08-18T17:35:17.343Z",
-      "ultimaVez": "2026-08-18T17:35:17.343Z",
-      "gitRev": "aed8185"
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
+    },
+    "VERIFY_OBSOLETO::ci-build::—": {
+      "codigo": "VERIFY_OBSOLETO",
+      "feature": "ci-build",
+      "ref": "—",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-19T16:41:02.471Z",
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
+    },
+    "VERIFY_OBSOLETO::frontend-workspace::—": {
+      "codigo": "VERIFY_OBSOLETO",
+      "feature": "frontend-workspace",
+      "ref": "—",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-19T16:41:02.472Z",
+      "ultimaVez": "2026-08-19T16:49:11.993Z",
+      "gitRev": "dd06b34"
     }
   }
 }

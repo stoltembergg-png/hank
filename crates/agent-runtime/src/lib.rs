@@ -9,6 +9,7 @@
 
 pub mod event_bus;
 pub mod memory;
+pub mod migrations;
 pub mod provider;
 pub mod python;
 pub mod sandbox;
@@ -19,4 +20,5 @@ pub mod tool;
 pub mod workflow_runtime;
 
 pub use agent_core::*;
+pub use migrations::*;
 pub use sqlite::*;
