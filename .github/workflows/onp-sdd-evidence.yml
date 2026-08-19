@@ -28,6 +28,31 @@ jobs:
         with:
           node-version: 20.19.1
 
+      - name: Install Rust and Tauri dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          timeout 180s sudo apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          timeout 300s sudo apt-get -o Acquire::ForceIPv4=true -o DPkg::Lock::Timeout=60 -o Dpkg::Use-Pty=0 install --no-install-recommends -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+          pkg-config --modversion javascriptcoregtk-4.1
+          pkg-config --modversion webkit2gtk-4.1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.97.1
+          components: rustfmt
+
       - name: Verify foundation workspace
         run: node tools/ci/run-onp-spec.mjs verify foundation-workspace
 
