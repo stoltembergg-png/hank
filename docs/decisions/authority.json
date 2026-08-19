@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "authority": "docs/decisions/README.md",
+  "adrs": ["ADR-TEMPLATE.md"],
+  "statuses": ["proposed", "accepted", "superseded", "rejected"],
+  "evidence_policy": {
+    "accepted_requires": ["sha", "tree", "policy"],
+    "secrets_forbidden": true,
+    "rollback_required": true
+  }
+}
