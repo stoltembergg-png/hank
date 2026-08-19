@@ -32,7 +32,7 @@ if (existsSync('apps/desktop/src-tauri/Cargo.toml')) {
 
 for (const { label, command, args } of commands) {
   console.log(`\n▶ ${label}: ${command} ${args.join(' ')}`);
-  const result = spawnSync(command, args, { stdio: 'inherit' });
+  const result = spawnSync(command, args, { stdio: 'inherit', shell: process.platform === 'win32' });
 
   if (result.error) {
     console.error(`✖ ${label} could not start: ${result.error.message}`);

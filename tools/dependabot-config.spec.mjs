@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const config = readFileSync('.github/dependabot.yml', 'utf8');
+const config = readFileSync('.github/dependabot.yml', 'utf8').replace(/\r\n/g, '\n');
 
 function section(ecosystem) {
   const start = config.indexOf(`package-ecosystem: ${ecosystem}`);

@@ -9,7 +9,8 @@ const allowed = new Set(['proposed', 'accepted', 'superseded', 'rejected']);
 const required = ['id', 'status', 'owner', 'date'];
 
 function parse(file) {
-  const text = fs.readFileSync(file, 'utf8');
+  const raw = fs.readFileSync(file, 'utf8');
+  const text = raw.replace(/\r\n/g, '\n');
   if (!text.startsWith('---\n')) throw new Error(`${file}: missing frontmatter`);
   const end = text.indexOf('\n---\n', 4);
   if (end < 0) throw new Error(`${file}: unterminated frontmatter`);

@@ -14,7 +14,9 @@ pub mod python;
 pub mod sandbox;
 pub mod scheduler;
 pub mod skill_runtime;
+pub mod sqlite;
 pub mod tool;
 pub mod workflow_runtime;
 
 pub use agent_core::*;
+pub use sqlite::*;
