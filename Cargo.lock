@@ -19,7 +19,6 @@ dependencies = [
 name = "agent-protocol"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "chrono",
  "semver",
  "serde",
