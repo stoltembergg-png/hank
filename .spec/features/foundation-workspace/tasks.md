@@ -123,6 +123,12 @@
 - Arquivos: migrations/0003_project_repositories.sql, crates/agent-core/src/project.rs, crates/agent-runtime/src/project_repo.rs, docs/project-repositories.md
 - Notas: Registro e persistência segura de repositórios Git vinculados ao Project com validação de URL e sem execução Git
 
+## T-322 — Adicionar settings de Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-core/src/project.rs, crates/agent-runtime/src/project_repo.rs, docs/project-settings.md
+- Notas: Modelagem, validação de limites de retenção/agentes e persistência dedicada de ProjectSettings
+
+
 
 
 

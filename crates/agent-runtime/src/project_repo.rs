@@ -265,6 +265,57 @@ impl ProjectRepository for SqliteProjectRepository {
         Ok(result.rows_affected() > 0)
     }
 
+    async fn update_settings(
+        &self,
+        project_id: &ProjectId,
+        settings: &ProjectSettings,
+    ) -> Result<(), DomainError> {
+        let settings_json = serde_json::to_string(settings).map_err(DomainError::Serialization)?;
+        let updated_at = Utc::now();
+
+        let result = sqlx::query("UPDATE projects SET settings = ?, updated_at = ? WHERE id = ?")
+            .bind(settings_json)
+            .bind(updated_at.to_rfc3339())
+            .bind(project_id.to_string())
+            .execute(&self.pool)
+            .await
+            .map_err(|e| {
+                DomainError::InvariantViolation(format!("erro ao atualizar configurações: {}", e))
+            })?;
+
+        if result.rows_affected() == 0 {
+            Err(DomainError::NotFound(format!(
+                "projeto não encontrado: {}",
+                project_id
+            )))
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn get_settings(
+        &self,
+        project_id: &ProjectId,
+    ) -> Result<Option<ProjectSettings>, DomainError> {
+        let row = sqlx::query("SELECT settings FROM projects WHERE id = ?")
+            .bind(project_id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| {
+                DomainError::InvariantViolation(format!("erro ao buscar configurações: {}", e))
+            })?;
+
+        match row {
+            Some(r) => {
+                let settings_json: String = r.get("settings");
+                let settings: ProjectSettings =
+                    serde_json::from_str(&settings_json).map_err(DomainError::Serialization)?;
+                Ok(Some(settings))
+            }
+            None => Ok(None),
+        }
+    }
+
     async fn add_folder(
         &self,
         project_id: &ProjectId,
@@ -603,5 +654,36 @@ mod tests {
         assert!(removed);
         let repos_after = repo.list_git_repos(&project.id).await.unwrap();
         assert_eq!(repos_after.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn settings_update_and_get() {
+        let repo = setup_repo().await;
+        let project = Project::create("Hank Settings", "gabriel", None).unwrap();
+        repo.save(&project).await.unwrap();
+
+        let custom_settings = ProjectSettings {
+            retention_days: 120,
+            max_active_agents: 8,
+            telemetry_enabled: true,
+            ..ProjectSettings::default()
+        };
+
+        repo.update_settings(&project.id, &custom_settings)
+            .await
+            .unwrap();
+
+        let retrieved = repo
+            .get_settings(&project.id)
+            .await
+            .unwrap()
+            .expect("settings devem existir");
+        assert_eq!(retrieved.retention_days, 120);
+        assert_eq!(retrieved.max_active_agents, 8);
+        assert!(retrieved.telemetry_enabled);
+
+        let non_existent = ProjectId::new();
+        let not_found = repo.get_settings(&non_existent).await.unwrap();
+        assert!(not_found.is_none());
     }
 }
