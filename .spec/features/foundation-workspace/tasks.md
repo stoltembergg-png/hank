@@ -83,6 +83,11 @@
 - Arquivos: crates/agent-core/src/config.rs, crates/agent-core/src/lib.rs, docs/agent-config.md
 - Notas: Envelope versionado, IDs obrigatórios, defaults determinísticos, deny unknown fields e limites bounded
 
+## T-334 — Adicionar tool permission schema [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-core/src/tool_permissions.rs, crates/agent-core/src/lib.rs, docs/tool-permissions.md
+- Notas: allow/ask/deny, Project/Agent/Session scope, default deny, expiry, conflitos e privileged wildcard rejection
+
 ## T-332 — Adicionar personality schema [pendente]
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-core/src/agent.rs, docs/personality-schema.md
