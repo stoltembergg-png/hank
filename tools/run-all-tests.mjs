@@ -1,10 +1,11 @@
+import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
 const commands = [
   {
     label: 'W0 contract tests',
     command: process.execPath,
-    args: ['--test'],
+    args: ['--test', 'test/w0-contract-closure.spec.test.js'],
   },
   {
     label: 'Rust workspace tests',
@@ -12,6 +13,22 @@ const commands = [
     args: ['test', '--workspace'],
   },
 ];
+
+if (existsSync('frontend/package.json')) {
+  commands.push({
+    label: 'Frontend Vitest tests',
+    command: process.platform === 'win32' ? 'npm.cmd' : 'npm',
+    args: ['--prefix', 'frontend', 'run', 'test'],
+  });
+}
+
+if (existsSync('apps/desktop/src-tauri/Cargo.toml')) {
+  commands.push({
+    label: 'Tauri acceptance tests',
+    command: 'cargo',
+    args: ['test', '--manifest-path', 'apps/desktop/src-tauri/Cargo.toml', '--locked'],
+  });
+}
 
 for (const { label, command, args } of commands) {
   console.log(`\n▶ ${label}: ${command} ${args.join(' ')}`);
@@ -28,4 +45,4 @@ for (const { label, command, args } of commands) {
   }
 }
 
-console.log('\n✔ Node and Rust test suites passed');
+console.log('\n✔ Selected Node, Rust, and Tauri test suites passed');
