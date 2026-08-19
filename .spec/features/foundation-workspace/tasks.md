@@ -67,3 +67,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-protocol/src/events.rs, crates/agent-protocol/src/ids.rs, crates/agent-protocol/src/lib.rs, docs/application-events.md
 - Notas: Envelope versionado, project-scoped, bounded e com rejeição de versão/sequence/payload inválidos
+
+## T-311 — Implementar event bus bounded [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/event_bus.rs, crates/agent-runtime/src/lib.rs, docs/event-bus.md
+- Notas: Bus tipado com FIFO, backpressure/lag explícito, fechamento determinístico e sem fila ilimitada
