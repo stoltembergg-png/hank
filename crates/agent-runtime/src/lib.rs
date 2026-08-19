@@ -7,6 +7,7 @@
 //! Pode depender de: agent-core, agent-protocol, tokio, sqlx, tracing
 //! NÃO deve vazar providers concretos para o core.
 
+pub mod event_bus;
 pub mod memory;
 pub mod provider;
 pub mod python;
