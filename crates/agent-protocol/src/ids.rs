@@ -45,7 +45,9 @@ macro_rules! typed_id {
             type Err = anyhow::Error;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
-                let s = s.strip_prefix(concat!($prefix, "-")).unwrap_or(s);
+                let s = s
+                    .strip_prefix(concat!($prefix, "-"))
+                    .ok_or_else(|| anyhow::anyhow!("invalid {} id prefix", $prefix))?;
                 Ok(Self(Uuid::parse_str(s)?))
             }
         }
@@ -81,3 +83,25 @@ typed_id!(CredentialId, "cred");
 typed_id!(GroupId, "grp");
 typed_id!(TaskId, "task");
 typed_id!(ArtifactId, "art");
+
+#[cfg(test)]
+mod tests {
+    use super::{AgentId, ProjectId};
+    use std::str::FromStr;
+
+    #[test]
+    fn typed_ids_roundtrip_with_required_prefix() {
+        let id = ProjectId::new();
+        let text = id.to_string();
+        assert!(text.starts_with("proj-"));
+        assert_eq!(ProjectId::from_str(&text).unwrap(), id);
+    }
+
+    #[test]
+    fn typed_ids_reject_wrong_prefix_and_malformed_values() {
+        let project = ProjectId::new();
+        assert!(AgentId::from_str(&project.to_string()).is_err());
+        assert!(ProjectId::from_str("proj-not-a-uuid").is_err());
+        assert!(ProjectId::from_str(&project.as_uuid().to_string()).is_err());
+    }
+}
