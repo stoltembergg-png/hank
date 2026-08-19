@@ -73,6 +73,11 @@
 - Arquivos: crates/agent-core/src/agent.rs, docs/agent-aggregate.md
 - Notas: Agent domain-only, project-bound, lifecycle explícito e limites de identidade/personality
 
+## T-330 — Adicionar Agent repository SQLite [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/agent_repo.rs, crates/agent-runtime/src/lib.rs, docs/agent-repository.md
+- Notas: CRUD project-scoped sobre schema migrado, queries parametrizadas, limites e mapping de erros
+
 ## T-311 — Implementar event bus bounded [pendente]
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-runtime/src/event_bus.rs, crates/agent-runtime/src/lib.rs, docs/event-bus.md
