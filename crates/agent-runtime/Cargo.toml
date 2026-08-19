@@ -15,6 +15,8 @@ sqlx = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 # tracing-subscriber = { workspace = true }  # disabled due to edition2024
 anyhow = { workspace = true }
 tempfile = { workspace = true }

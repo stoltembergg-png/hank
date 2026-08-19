@@ -58,7 +58,7 @@ pub struct ProjectFolder {
 
 /// Repositório de código vinculado ao escopo do projeto.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ProjectRepository {
+pub struct ProjectGitRepo {
     pub id: String,
     pub name: String,
     pub url: String,
@@ -79,7 +79,7 @@ pub struct Project {
     pub updated_at: DateTime<Utc>,
     pub settings: ProjectSettings,
     pub folders: Vec<ProjectFolder>,
-    pub repositories: Vec<ProjectRepository>,
+    pub repositories: Vec<ProjectGitRepo>,
     pub agents: HashSet<crate::ids::AgentId>,
     pub skills: HashSet<crate::ids::SkillId>,
     pub workflows: HashSet<crate::ids::WorkflowId>,
