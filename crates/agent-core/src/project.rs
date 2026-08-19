@@ -32,13 +32,16 @@ pub enum ProjectStatus {
 }
 
 /// Configuração de configurações do projeto.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ProjectSettings {
     pub default_budget: BudgetPolicy,
     pub default_agent_policy: AgentPolicyConfig,
     pub instruction_hierarchy: InstructionHierarchy,
     pub allowed_capabilities: crate::capability::CapabilitySet,
     pub retention_days: u32,
+    pub auto_archive_idle_days: Option<u32>,
+    pub telemetry_enabled: bool,
+    pub max_active_agents: u32,
 }
 
 impl Default for ProjectSettings {
@@ -49,7 +52,37 @@ impl Default for ProjectSettings {
             instruction_hierarchy: InstructionHierarchy::default(),
             allowed_capabilities: crate::capability::CapabilitySet::new(),
             retention_days: 90,
+            auto_archive_idle_days: None,
+            telemetry_enabled: false,
+            max_active_agents: 5,
         }
+    }
+}
+
+impl ProjectSettings {
+    /// Valida as restrições e limites das configurações do projeto.
+    pub fn validate(&self) -> Result<(), DomainError> {
+        if self.retention_days == 0 || self.retention_days > 3650 {
+            return Err(DomainError::Validation(
+                "retention_days deve estar no intervalo de 1 a 3650 dias".into(),
+            ));
+        }
+
+        if let Some(idle) = self.auto_archive_idle_days {
+            if idle == 0 || idle > 365 {
+                return Err(DomainError::Validation(
+                    "auto_archive_idle_days deve estar no intervalo de 1 a 365 dias".into(),
+                ));
+            }
+        }
+
+        if self.max_active_agents == 0 || self.max_active_agents > 50 {
+            return Err(DomainError::Validation(
+                "max_active_agents deve estar no intervalo de 1 a 50".into(),
+            ));
+        }
+
+        Ok(())
     }
 }
 
@@ -499,6 +532,20 @@ impl Project {
         }
         removed
     }
+
+    /// Atualiza as configurações do projeto após validação estrita.
+    pub fn update_settings(&mut self, settings: ProjectSettings) -> Result<(), DomainError> {
+        if self.status == ProjectStatus::Archived {
+            return Err(DomainError::InvalidStateTransition {
+                from: "archived".into(),
+                to: "settings_updated".into(),
+            });
+        }
+        settings.validate()?;
+        self.settings = settings;
+        self.updated_at = Utc::now();
+        Ok(())
+    }
 }
 
 /// Port de persistência para o aggregate Project (DIP / Clean Architecture).
@@ -533,6 +580,19 @@ pub trait ProjectRepository: Send + Sync {
         &self,
         id: &ProjectId,
     ) -> impl std::future::Future<Output = Result<bool, DomainError>> + Send;
+
+    /// Atualiza exclusivamente as configurações de um projeto.
+    fn update_settings(
+        &self,
+        project_id: &ProjectId,
+        settings: &ProjectSettings,
+    ) -> impl std::future::Future<Output = Result<(), DomainError>> + Send;
+
+    /// Busca exclusivamente as configurações de um projeto.
+    fn get_settings(
+        &self,
+        project_id: &ProjectId,
+    ) -> impl std::future::Future<Output = Result<Option<ProjectSettings>, DomainError>> + Send;
 
     /// Adiciona uma pasta ao escopo do projeto.
     fn add_folder(
@@ -750,5 +810,34 @@ mod tests {
         assert!(project.remove_repository(&repo_id));
         assert_eq!(project.repositories.len(), 0);
         assert!(!project.remove_repository(&repo_id));
+    }
+
+    #[test]
+    fn settings_validation_and_update() {
+        let mut project = Project::create("Hank", "gabriel", None).unwrap();
+        let mut settings = ProjectSettings::default();
+        settings.retention_days = 180;
+        settings.max_active_agents = 10;
+        settings.auto_archive_idle_days = Some(30);
+        settings.telemetry_enabled = true;
+
+        project.update_settings(settings.clone()).unwrap();
+        assert_eq!(project.settings.retention_days, 180);
+        assert_eq!(project.settings.max_active_agents, 10);
+        assert_eq!(project.settings.auto_archive_idle_days, Some(30));
+        assert!(project.settings.telemetry_enabled);
+
+        // Limites inválidos
+        let mut invalid_retention = settings.clone();
+        invalid_retention.retention_days = 0;
+        assert!(project.update_settings(invalid_retention).is_err());
+
+        let mut invalid_agents = settings.clone();
+        invalid_agents.max_active_agents = 51;
+        assert!(project.update_settings(invalid_agents).is_err());
+
+        let mut invalid_idle = settings;
+        invalid_idle.auto_archive_idle_days = Some(366);
+        assert!(project.update_settings(invalid_idle).is_err());
     }
 }
