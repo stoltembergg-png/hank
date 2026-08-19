@@ -1,11 +1,11 @@
 //! Implementação SQLite do ProjectRepository.
 //!
-//! Conforme PR-028 e PR-033: regras de persistência segura, isolamento e vinculação de folders.
+//! Conforme PR-028, PR-033 e PR-034: regras de persistência segura, isolamento, folders e git repositories.
 
 use agent_core::error::DomainError;
 use agent_core::ids::ProjectId;
 use agent_core::project::{
-    Project, ProjectFolder, ProjectRepository, ProjectSettings, ProjectStatus,
+    Project, ProjectFolder, ProjectGitRepo, ProjectRepository, ProjectSettings, ProjectStatus,
 };
 use chrono::{DateTime, Utc};
 use sqlx::{Pool, Row, Sqlite};
@@ -54,6 +54,9 @@ impl ProjectRepository for SqliteProjectRepository {
             Ok(_) => {
                 for folder in &project.folders {
                     self.add_folder(&project.id, folder).await?;
+                }
+                for repo in &project.repositories {
+                    self.add_git_repo(&project.id, repo).await?;
                 }
                 Ok(())
             }
@@ -119,6 +122,7 @@ impl ProjectRepository for SqliteProjectRepository {
                     serde_json::from_str(&settings_json).map_err(DomainError::Serialization)?;
 
                 let folders = self.list_folders(&id).await?;
+                let repositories = self.list_git_repos(&id).await?;
 
                 Ok(Some(Project {
                     id,
@@ -130,7 +134,7 @@ impl ProjectRepository for SqliteProjectRepository {
                     updated_at,
                     settings,
                     folders,
-                    repositories: Vec::new(),
+                    repositories,
                     agents: HashSet::new(),
                     skills: HashSet::new(),
                     workflows: HashSet::new(),
@@ -192,6 +196,7 @@ impl ProjectRepository for SqliteProjectRepository {
                 serde_json::from_str(&settings_json).map_err(DomainError::Serialization)?;
 
             let folders = self.list_folders(&id).await?;
+            let repositories = self.list_git_repos(&id).await?;
 
             projects.push(Project {
                 id,
@@ -203,7 +208,7 @@ impl ProjectRepository for SqliteProjectRepository {
                 updated_at,
                 settings,
                 folders,
-                repositories: Vec::new(),
+                repositories,
                 agents: HashSet::new(),
                 skills: HashSet::new(),
                 workflows: HashSet::new(),
@@ -340,6 +345,97 @@ impl ProjectRepository for SqliteProjectRepository {
 
         Ok(result.rows_affected() > 0)
     }
+
+    async fn add_git_repo(
+        &self,
+        project_id: &ProjectId,
+        repo: &ProjectGitRepo,
+    ) -> Result<(), DomainError> {
+        let result = sqlx::query(
+            "INSERT INTO project_repositories (id, project_id, name, url, branch, worktree_path, added_at) \
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&repo.id)
+        .bind(project_id.to_string())
+        .bind(&repo.name)
+        .bind(&repo.url)
+        .bind(&repo.branch)
+        .bind(&repo.worktree_path)
+        .bind(repo.added_at.to_rfc3339())
+        .execute(&self.pool)
+        .await;
+
+        match result {
+            Ok(_) => Ok(()),
+            Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
+                Err(DomainError::Duplicate(format!(
+                    "repositório já cadastrado neste projeto: {}",
+                    repo.url
+                )))
+            }
+            Err(e) => Err(DomainError::InvariantViolation(format!(
+                "erro no banco: {}",
+                e
+            ))),
+        }
+    }
+
+    async fn list_git_repos(
+        &self,
+        project_id: &ProjectId,
+    ) -> Result<Vec<ProjectGitRepo>, DomainError> {
+        let rows = sqlx::query(
+            "SELECT id, name, url, branch, worktree_path, added_at \
+             FROM project_repositories WHERE project_id = ? ORDER BY added_at ASC",
+        )
+        .bind(project_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            DomainError::InvariantViolation(format!("erro ao listar repositórios: {}", e))
+        })?;
+
+        let mut repos = Vec::with_capacity(rows.len());
+        for r in rows {
+            let id: String = r.get("id");
+            let name: String = r.get("name");
+            let url: String = r.get("url");
+            let branch: String = r.get("branch");
+            let worktree_path: Option<String> = r.get("worktree_path");
+            let added_at_str: String = r.get("added_at");
+            let added_at = DateTime::parse_from_rfc3339(&added_at_str)
+                .map_err(|e| DomainError::Validation(format!("data inválida: {}", e)))?
+                .with_timezone(&Utc);
+
+            repos.push(ProjectGitRepo {
+                id,
+                name,
+                url,
+                branch,
+                worktree_path,
+                added_at,
+            });
+        }
+        Ok(repos)
+    }
+
+    async fn remove_git_repo(
+        &self,
+        project_id: &ProjectId,
+        repo_id: &str,
+    ) -> Result<bool, DomainError> {
+        let result =
+            sqlx::query("DELETE FROM project_repositories WHERE project_id = ? AND id = ?")
+                .bind(project_id.to_string())
+                .bind(repo_id)
+                .execute(&self.pool)
+                .await
+                .map_err(|e| {
+                    DomainError::InvariantViolation(format!("erro ao deletar repositório: {}", e))
+                })?;
+
+        Ok(result.rows_affected() > 0)
+    }
 }
 
 #[cfg(test)]
@@ -462,5 +558,50 @@ mod tests {
         assert!(removed);
         let folders_after = repo.list_folders(&project.id).await.unwrap();
         assert_eq!(folders_after.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn git_repo_crud_and_persistence() {
+        let repo = setup_repo().await;
+        let project = Project::create("Hank With Repos", "gabriel", None).unwrap();
+        repo.save(&project).await.unwrap();
+
+        let repo1 = ProjectGitRepo::create(
+            "core-repo",
+            "https://github.com/hank/core.git",
+            "main",
+            Some("C:/wt/core".into()),
+        )
+        .unwrap();
+
+        let repo2 =
+            ProjectGitRepo::create("ui-repo", "https://github.com/hank/ui.git", "develop", None)
+                .unwrap();
+
+        repo.add_git_repo(&project.id, &repo1).await.unwrap();
+        repo.add_git_repo(&project.id, &repo2).await.unwrap();
+
+        // Duplicata por URL deve falhar
+        let dup =
+            ProjectGitRepo::create("core-dup", "https://github.com/hank/core.git", "main", None)
+                .unwrap();
+        let err = repo.add_git_repo(&project.id, &dup).await.unwrap_err();
+        assert!(matches!(err, DomainError::Duplicate(_)));
+
+        // Listagem
+        let repos = repo.list_git_repos(&project.id).await.unwrap();
+        assert_eq!(repos.len(), 2);
+        assert_eq!(repos[0].name, "core-repo");
+        assert_eq!(repos[1].name, "ui-repo");
+
+        // get_by_id carrega repositories
+        let loaded = repo.get_by_id(&project.id).await.unwrap().unwrap();
+        assert_eq!(loaded.repositories.len(), 2);
+
+        // Remoção
+        let removed = repo.remove_git_repo(&project.id, &repo1.id).await.unwrap();
+        assert!(removed);
+        let repos_after = repo.list_git_repos(&project.id).await.unwrap();
+        assert_eq!(repos_after.len(), 1);
     }
 }

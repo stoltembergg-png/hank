@@ -118,6 +118,12 @@
 - Arquivos: migrations/0002_project_folders.sql, crates/agent-core/src/project.rs, crates/agent-runtime/src/project_repo.rs, docs/project-folders.md
 - Notas: Suporte a vínculos Project->Folder no banco SQLite e no aggregate Project com prevenção de path traversal e unicidade
 
+## T-321 — Vincular repositórios Git a um Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: migrations/0003_project_repositories.sql, crates/agent-core/src/project.rs, crates/agent-runtime/src/project_repo.rs, docs/project-repositories.md
+- Notas: Registro e persistência segura de repositórios Git vinculados ao Project com validação de URL e sem execução Git
+
+
 
 
 
