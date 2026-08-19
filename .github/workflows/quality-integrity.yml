@@ -1,0 +1,33 @@
+name: Quality integrity
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-integrity-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrity:
+    name: Quality integrity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Run Actionlint
+        run: bash tools/ci/run-actionlint.sh
+
+      - name: Validate workflow integrity
+        run: node --test tools/workflow-integrity.spec.mjs
+
+      - name: Validate quality gate contract
+        run: node --test tools/quality-gate-contract.spec.mjs

@@ -48,7 +48,8 @@ describe('CI Build workflow AC tests', () => {
     assertCommonGateProperties(frontend);
     expect(frontend).toContain('node-version: 20.19.1');
     expect(frontend).toContain('cache-dependency-path: frontend/package-lock.json');
-    expect(frontend).toContain('npm ci --no-audit --no-fund');
+    expect(frontend).toContain('npm ci --no-fund');
+    expect(frontend).toContain('npm audit --audit-level=high');
     expect(frontend).toContain('npm run build');
     expect(frontend).toContain('path: frontend/dist/');
     expect(frontend).toContain('if-no-files-found: error');
@@ -69,7 +70,7 @@ describe('CI Build workflow AC tests', () => {
     const rust = workflow('build-rust.yml');
     const frontend = workflow('build-frontend.yml');
     expect(rust).toContain('runs-on: ubuntu-latest');
-    expect(rust).toContain('toolchain: 1.97.0');
+    expect(rust).toContain('toolchain: 1.97.1');
     expect(frontend).toContain('runs-on: ubuntu-latest');
     expect(frontend).toContain('node-version: 20.19.1');
   });
