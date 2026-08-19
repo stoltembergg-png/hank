@@ -78,6 +78,11 @@
 - Arquivos: crates/agent-runtime/src/agent_repo.rs, crates/agent-runtime/src/lib.rs, docs/agent-repository.md
 - Notas: CRUD project-scoped sobre schema migrado, queries parametrizadas, limites e mapping de erros
 
+## T-331 — Adicionar Agent configuration schema [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-core/src/config.rs, crates/agent-core/src/lib.rs, docs/agent-config.md
+- Notas: Envelope versionado, IDs obrigatórios, defaults determinísticos, deny unknown fields e limites bounded
+
 ## T-311 — Implementar event bus bounded [pendente]
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-runtime/src/event_bus.rs, crates/agent-runtime/src/lib.rs, docs/event-bus.md
