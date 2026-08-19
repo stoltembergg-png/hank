@@ -1,0 +1,37 @@
+{
+  "feature": "frontend-workspace",
+  "timestamp": "2026-08-18T17:48:07.671Z",
+  "gitRev": "670f56e",
+  "command": "node tools/run-all-tests.mjs",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-201": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-202": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-203": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-204": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-205": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}

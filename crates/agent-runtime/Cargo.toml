@@ -1,0 +1,21 @@
+[package]
+name = "agent-runtime"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+description = "Runtime de execução: Agent Runtime, Provider Port/Adapters, Tool Runtime, Sandbox Broker, Python Worker, Memory, Skills, Workflow, Scheduler"
+
+[dependencies]
+agent-core = { path = "../agent-core" }
+agent-protocol = { path = "../agent-protocol" }
+tokio = { workspace = true }
+sqlx = { workspace = true }
+tracing = { workspace = true }
+# tracing-subscriber = { workspace = true }  # disabled due to edition2024
+anyhow = { workspace = true }
+tempfile = { workspace = true }
+
+[dev-dependencies]
+test-support = { path = "../test-support" }

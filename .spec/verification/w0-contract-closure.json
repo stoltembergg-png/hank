@@ -1,92 +1,91 @@
 {
   "feature": "w0-contract-closure",
-  "timestamp": "2026-08-17T19:10:21.566Z",
-  "gitRev": "d22d665",
-  "sourceFingerprint": "14e3083e42403b4b93cc5c67811110db44f24be74624be6620d66a9450326636",
-  "command": "node --test",
-  "reporter": "tap",
+  "timestamp": "2026-08-18T17:35:04.864Z",
+  "gitRev": "aed8185",
+  "command": "node tools/run-all-tests.mjs",
+  "reporter": "exitcode",
   "exitCode": 0,
-  "testsParsed": 19,
+  "testsParsed": 0,
   "results": {
     "AC-001": {
       "status": "pass",
-      "testName": "AC-001: Grafo de camadas e ownership @spec:AC-001",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     },
     "AC-002": {
       "status": "pass",
-      "testName": "AC-002: Adapter não-Tauri exercita o mesmo caso de uso @spec:AC-002",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     },
     "AC-003": {
       "status": "pass",
-      "testName": "AC-003: Edges proibidas falham fechadas @spec:AC-003",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     },
     "AC-004": {
       "status": "pass",
-      "testName": "AC-004: Matriz cobre comandos e crates @spec:AC-004",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     },
     "AC-005": {
       "status": "pass",
-      "testName": "AC-005: Ciclos e edges inválidas são rejeitados @spec:AC-005",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     },
     "AC-006": {
       "status": "pass",
-      "testName": "AC-006: Lifecycle e compatibilidade estão definidos @spec:AC-006",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     },
     "AC-007": {
       "status": "pass",
-      "testName": "AC-007: Os 270 cards têm schema completo @spec:AC-007",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     },
     "AC-008": {
       "status": "pass",
-      "testName": "AC-008: Dependências e labels inválidos falham @spec:AC-008",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     },
     "AC-009": {
       "status": "pass",
-      "testName": "AC-009: PR-001 e M16 são inequívocos @spec:AC-009",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     },
     "AC-010": {
       "status": "pass",
-      "testName": "AC-010: Preflight captura identidade e escopo @spec:AC-010",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     },
     "AC-011": {
       "status": "pass",
-      "testName": "AC-011: Worktree, branch e path allowlist são impostos @spec:AC-011",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     },
     "AC-012": {
       "status": "pass",
-      "testName": "AC-012: Review independente e anti-self-approval @spec:AC-012",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     },
     "AC-013": {
       "status": "pass",
-      "testName": "AC-013: Evidência stale é invalidada @spec:AC-013",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     },
     "AC-014": {
       "status": "pass",
-      "testName": "AC-014: Fixtures negativas cobrem W0 @spec:AC-014",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     },
     "AC-015": {
       "status": "pass",
-      "testName": "AC-015: Gate produz estados machine-readable @spec:AC-015",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     },
     "AC-016": {
       "status": "pass",
-      "testName": "AC-016: Auditoria não declara resolução sem prova @spec:AC-016",
-      "method": "tap"
+      "testName": null,
+      "method": "exitcode"
     }
   },
   "principles": {}
