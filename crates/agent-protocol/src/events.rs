@@ -10,6 +10,8 @@ pub const MAX_EVENT_PAYLOAD_BYTES: usize = 64 * 1024;
 #[serde(rename_all = "snake_case")]
 pub enum EventKind {
     ProjectCreated,
+    ProjectUpdated,
+    ProjectArchived,
     AgentCreated,
     SessionStarted,
     ProviderUsageRecorded,

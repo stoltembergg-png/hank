@@ -103,5 +103,11 @@
 - Arquivos: crates/agent-runtime/src/project_query_service.rs, crates/agent-runtime/src/lib.rs, docs/list-project-service.md
 - Notas: Query use case para listagem paginada (com limites restritos 1..100) e recuperação de projetos por ID
 
+## T-318 — Criar serviço de aplicação para atualizar Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/project_update_service.rs, crates/agent-runtime/src/lib.rs, docs/update-project-service.md
+- Notas: Use case de atualização de projeto com concorrência otimista, bloqueio em arquivados e emissão do evento ProjectUpdated
+
+
 
 
