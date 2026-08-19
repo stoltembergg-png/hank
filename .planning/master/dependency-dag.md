@@ -3,6 +3,15 @@
 **Status:** DAG de planejamento normalizado; não é prova de execução.  
 **Fontes:** os três arquivos em `../queue/`, reconciliados com o source, o specification review e as architecture boundaries.
 
+## Baseline executada
+
+- M0 PR-001..PR-004: formalmente merged em `main` no SHA `34525d2396747cb45d9c5001efbdf8e30880eb00`.
+- PR-002, PR-003 e PR-004 foram validadas na cadeia empilhada antes do merge do predecessor.
+- Gates de qualidade previstos nos cards seguintes foram incorporados à baseline: fmt, Clippy, Rust tests/build, Frontend audit/lint/typecheck/test/build, Actionlint, CodeQL, Tauri e ONP.
+- O próximo predecessor não implementado é PR-011; PR-005–PR-010 e PR-012 não devem ser reexecutadas como trabalho duplicado.
+- Evidência final ONP: run `32209782480`, artifact identificado pelo SHA final, `audit --ci` PASS.
+
+
 ## 1. Método e resultado mecânico
 
 O parser lê somente o campo `Dependências anteriores`, expande `PR-a..PR-b` inclusivamente, ignora a frase explícita `PR-218+ não é dependência`, verifica existência e deduplica arestas. A direção normativa abaixo é `predecessor → dependent`.

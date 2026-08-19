@@ -2,6 +2,17 @@
 
 **Status:** índice derivado dos três arquivos de queue; os cards são planejamento, não execução.
 
+## Reconciliação de execução — 2026-08-19
+
+- `main` final: `34525d2396747cb45d9c5001efbdf8e30880eb00`.
+- PR-001..PR-004 foram formalmente merged após todos os required contexts verdes.
+- A baseline executada também cobre os gates planejados para PR-005–PR-010 e PR-012: Rust fmt/Clippy/test/build, Frontend audit/lint/typecheck/test/build, CodeQL e Tauri.
+- Esses cards permanecem rastreáveis como planejamento histórico e não devem gerar no-op.
+- O próximo card não implementado identificado pela DAG é PR-011 (Dependabot); a implementação dele não faz parte da closure global.
+- Evidência ONP final: run `32209782480`, artifact `onp-evidence-34525d2396747cb45d9c5001efbdf8e30880eb00`, `audit --ci` exit 0.
+- Enforcement final exige os nove contexts reais documentados em `docs/development/global-blocker-closure.md`.
+
+
 ## Cobertura e validação
 
 - 270 cards indexados exatamente uma vez: PR-001–PR-095 em `queue-001-095.md`, PR-096–PR-172 em `queue-096-172.md`, PR-173–PR-270 em `queue-173-270.md`.
