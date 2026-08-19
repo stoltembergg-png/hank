@@ -44,7 +44,7 @@ jobs:
             echo "repository=${GITHUB_REPOSITORY}"
             echo "event=${GITHUB_EVENT_NAME}"
             echo "sha=${GITHUB_SHA}"
-            echo "tree=$(git rev-parse HEAD^{tree})"
+            echo "tree=$(git rev-parse 'HEAD^{tree}')"
             echo "runner=${RUNNER_OS}"
             echo "node=$(node --version)"
           } >> "$GITHUB_STEP_SUMMARY"
