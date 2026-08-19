@@ -50,6 +50,9 @@ describe('CI Build workflow AC tests', () => {
     expect(frontend).toContain('cache-dependency-path: frontend/package-lock.json');
     expect(frontend).toContain('npm ci --no-fund');
     expect(frontend).toContain('npm audit --audit-level=high');
+    expect(frontend).toContain('npm run lint');
+    expect(frontend).toContain('npm run typecheck');
+    expect(frontend).toContain('npm run test');
     expect(frontend).toContain('npm run build');
     expect(frontend).toContain('path: frontend/dist/');
     expect(frontend).toContain('if-no-files-found: error');
