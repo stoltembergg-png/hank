@@ -58,7 +58,7 @@ pub struct ProjectFolder {
 
 /// Repositório de código vinculado ao escopo do projeto.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ProjectRepository {
+pub struct ProjectGitRepo {
     pub id: String,
     pub name: String,
     pub url: String,
@@ -79,7 +79,7 @@ pub struct Project {
     pub updated_at: DateTime<Utc>,
     pub settings: ProjectSettings,
     pub folders: Vec<ProjectFolder>,
-    pub repositories: Vec<ProjectRepository>,
+    pub repositories: Vec<ProjectGitRepo>,
     pub agents: HashSet<crate::ids::AgentId>,
     pub skills: HashSet<crate::ids::SkillId>,
     pub workflows: HashSet<crate::ids::WorkflowId>,
@@ -260,6 +260,40 @@ impl Project {
         }
         removed
     }
+}
+
+/// Port de persistência para o aggregate Project (DIP / Clean Architecture).
+pub trait ProjectRepository: Send + Sync {
+    /// Salva um novo projeto no armazenamento persistente.
+    fn save(
+        &self,
+        project: &Project,
+    ) -> impl std::future::Future<Output = Result<(), DomainError>> + Send;
+
+    /// Busca um projeto pelo ID tipado.
+    fn get_by_id(
+        &self,
+        id: &ProjectId,
+    ) -> impl std::future::Future<Output = Result<Option<Project>, DomainError>> + Send;
+
+    /// Lista projetos paginados.
+    fn list(
+        &self,
+        limit: usize,
+        offset: usize,
+    ) -> impl std::future::Future<Output = Result<Vec<Project>, DomainError>> + Send;
+
+    /// Atualiza um projeto existente.
+    fn update(
+        &self,
+        project: &Project,
+    ) -> impl std::future::Future<Output = Result<(), DomainError>> + Send;
+
+    /// Remove um projeto pelo ID.
+    fn delete(
+        &self,
+        id: &ProjectId,
+    ) -> impl std::future::Future<Output = Result<bool, DomainError>> + Send;
 }
 
 #[cfg(test)]
