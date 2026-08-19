@@ -33,7 +33,7 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           set -euo pipefail
-          for source in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/apt-mirrors.txt; do
+          for source in /etc/apt/sources.list /etc/apt/sources.list.d/* /etc/apt/apt-mirrors.txt; do
             if test -f "$source"; then
               sudo perl -0pi -e 's/azure\\.archive\\.ubuntu\\.com/archive.ubuntu.com/g' "$source"
             fi
