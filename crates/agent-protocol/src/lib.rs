@@ -8,12 +8,14 @@
 
 pub mod capability;
 pub mod envelope;
+pub mod events;
 pub mod ids;
 pub mod policy;
 pub mod version;
 
 pub use capability::*;
 pub use envelope::*;
+pub use events::*;
 pub use ids::*;
 pub use policy::*;
 pub use version::*;

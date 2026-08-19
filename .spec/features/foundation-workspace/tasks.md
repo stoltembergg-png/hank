@@ -25,7 +25,7 @@
 
 ## T-302 — Criar crate agent-core (domínio puro) [concluida]
 - Refs: US-301, AC-301, AC-303
-- Arquivos: crates/agent-core/Cargo.toml, crates/agent-core/src/lib.rs, crates/agent-core/src/agent.rs, crates/agent-core/src/budget.rs, crates/agent-core/src/error.rs, crates/agent-core/src/memory.rs, crates/agent-core/src/project.rs, crates/agent-core/src/session.rs, crates/agent-core/src/skill.rs, crates/agent-core/src/workflow.rs
+- Arquivos: crates/agent-core/Cargo.toml, crates/agent-core/src/lib.rs, crates/agent-core/src/agent.rs, crates/agent-core/src/budget.rs, crates/agent-core/src/error.rs, crates/agent-core/src/memory.rs, crates/agent-core/src/project.rs, crates/agent-core/src/session.rs, crates/agent-core/src/skill.rs, crates/agent-core/src/workflow.rs, docs/project-aggregate.md
 - Notas: Sem dependências de tauri, tao, wry, sqlx, tokio, providers concretos; apenas agent-protocol e std
 
 ## T-303 — Criar crate agent-runtime (execution/durable) [concluida]
@@ -57,3 +57,81 @@
 - Refs: US-301, AC-301, AC-302, AC-305
 - Arquivos: Cargo.toml, rust-toolchain.toml, Cargo.lock
 - Notas: Comando de validação; tarefa passa se ambos saírem com exit code 0
+
+## T-309 — Adicionar framework determinístico de fixtures [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/test-support/src/lib.rs, crates/test-support/src/fixtures.rs, docs/fixtures.md
+- Notas: Fixtures dev-only, sintéticas, offline, bounded, determinísticas por seed/hash e com cleanup obrigatório
+
+## T-310 — Adicionar contrato de eventos de aplicação [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-protocol/src/events.rs, crates/agent-protocol/src/ids.rs, crates/agent-protocol/src/lib.rs, docs/application-events.md
+- Notas: Envelope versionado, project-scoped, bounded e com rejeição de versão/sequence/payload inválidos
+
+## T-311 — Implementar event bus bounded [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/event_bus.rs, crates/agent-runtime/src/lib.rs, docs/event-bus.md
+- Notas: Bus tipado com FIFO, backpressure/lag explícito, fechamento determinístico e sem fila ilimitada
+
+## T-312 — Adicionar armazenamento SQLite transacional [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/sqlite.rs, crates/agent-runtime/src/lib.rs, docs/sqlite-storage.md
+- Notas: Conexão transacional SQLx/Tokio com WAL mode, foreign keys, validação de path traversal e sem acesso direto do frontend
+
+## T-313 — Adicionar migrações SQL de schema inicial [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: migrations/0001_initial_schema.sql, crates/agent-runtime/src/migrations.rs, crates/agent-runtime/src/lib.rs, docs/migrations.md
+- Notas: Execução transacional de migrações embutidas, criação de tabelas projects/agents/sessions/messages e integridade de foreign keys
+
+## T-314 — Adicionar fixtures determinísticas de IDs tipados [concluida]
+- Refs: US-301, AC-303
+- Arquivos: crates/test-support/src/ids.rs, crates/test-support/src/lib.rs, docs/ids.md
+- Notas: IDs tipados determinísticos por seed para testes reproduzíveis; catálogo de IDs e regra de não usar strings em contratos
+
+## T-315 — Implementar repositório SQLite para Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/project_repo.rs, crates/agent-runtime/src/lib.rs, docs/project-repository.md
+- Notas: Implementação transacional do port ProjectRepository usando queries parametrizadas, paginação e mapeamento de DomainError
+
+## T-316 — Criar serviço de aplicação para criar Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/project_service.rs, crates/agent-runtime/src/lib.rs, docs/create-project-service.md
+- Notas: Use case de criação de projetos com validação de entrada, persistência transacional e publicação do evento ProjectCreated
+
+## T-317 — Criar serviço de aplicação para listar/buscar Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/project_query_service.rs, crates/agent-runtime/src/lib.rs, docs/list-project-service.md
+- Notas: Query use case para listagem paginada (com limites restritos 1..100) e recuperação de projetos por ID
+
+## T-318 — Criar serviço de aplicação para atualizar Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/project_update_service.rs, crates/agent-runtime/src/lib.rs, docs/update-project-service.md
+- Notas: Use case de atualização de projeto com concorrência otimista, bloqueio em arquivados e emissão do evento ProjectUpdated
+
+## T-319 — Criar serviço de aplicação para arquivar Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/project_archive_service.rs, crates/agent-runtime/src/lib.rs, docs/archive-project-service.md
+- Notas: Use case de arquivamento seguro e idempotente com emissão do evento ProjectArchived
+
+## T-320 — Vincular pastas locais a um Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: migrations/0002_project_folders.sql, crates/agent-core/src/project.rs, crates/agent-runtime/src/project_repo.rs, docs/project-folders.md
+- Notas: Suporte a vínculos Project->Folder no banco SQLite e no aggregate Project com prevenção de path traversal e unicidade
+
+## T-321 — Vincular repositórios Git a um Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: migrations/0003_project_repositories.sql, crates/agent-core/src/project.rs, crates/agent-runtime/src/project_repo.rs, docs/project-repositories.md
+- Notas: Registro e persistência segura de repositórios Git vinculados ao Project com validação de URL e sem execução Git
+
+## T-322 — Adicionar settings de Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-core/src/project.rs, crates/agent-runtime/src/project_repo.rs, docs/project-settings.md
+- Notas: Modelagem, validação de limites de retenção/agentes e persistência dedicada de ProjectSettings
+
+
+
+
+
+
+
+

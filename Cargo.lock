@@ -19,7 +19,6 @@ dependencies = [
 name = "agent-protocol"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "chrono",
  "semver",
  "serde",
@@ -35,9 +34,13 @@ dependencies = [
  "agent-core",
  "agent-protocol",
  "anyhow",
+ "chrono",
+ "serde",
+ "serde_json",
  "sqlx",
  "tempfile",
  "test-support",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
 ]

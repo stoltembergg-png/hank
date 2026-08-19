@@ -6,3 +6,6 @@
 
 #[cfg(test)]
 pub mod arch_fixtures_test;
+
+pub mod fixtures;
+pub mod ids;
