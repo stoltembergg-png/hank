@@ -35,9 +35,11 @@ dependencies = [
  "agent-core",
  "agent-protocol",
  "anyhow",
+ "chrono",
  "sqlx",
  "tempfile",
  "test-support",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
 ]
