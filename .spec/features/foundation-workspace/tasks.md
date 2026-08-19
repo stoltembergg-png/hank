@@ -62,3 +62,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/test-support/src/lib.rs, crates/test-support/src/fixtures.rs, docs/fixtures.md
 - Notas: Fixtures dev-only, sintéticas, offline, bounded, determinísticas por seed/hash e com cleanup obrigatório
+
+## T-310 — Adicionar contrato de eventos de aplicação [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-protocol/src/events.rs, crates/agent-protocol/src/ids.rs, crates/agent-protocol/src/lib.rs, docs/application-events.md
+- Notas: Envelope versionado, project-scoped, bounded e com rejeição de versão/sequence/payload inválidos

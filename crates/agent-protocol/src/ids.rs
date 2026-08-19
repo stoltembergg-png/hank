@@ -83,6 +83,7 @@ typed_id!(CredentialId, "cred");
 typed_id!(GroupId, "grp");
 typed_id!(TaskId, "task");
 typed_id!(ArtifactId, "art");
+typed_id!(EventId, "evt");
 
 #[cfg(test)]
 mod tests {
