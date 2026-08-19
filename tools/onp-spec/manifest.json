@@ -1,0 +1,31 @@
+{
+  "files": {
+    "scripts/lib/src/cli.js": "083db6dcc427f40ebf4729012a7bb2696130313aef31b59b4b6c94b9532876e2",
+    "scripts/lib/src/config.js": "a37fb317184b68de487ebed372977f925be8101850fc067c85c3e3548b1a35ac",
+    "scripts/lib/src/core/audit.js": "2d2743abe292727ad55921ef584ee22fdf6f843e2754b1c26bbe99c599b37d27",
+    "scripts/lib/src/core/labels.js": "dd6b17c2311045d44dc36ab6641ab09f1ee42b3a29eab342fc413338b14ea0ee",
+    "scripts/lib/src/core/ledger.js": "839266be39f322540e78421cee44f2e5acf5fe058a561fe78b134b1eb6c10060",
+    "scripts/lib/src/core/licoes.js": "f8066b99d5e0798c67cb1a2fec667095ed0bda1e588a169962de18e43da1cb77",
+    "scripts/lib/src/core/plano.js": "a65b33e82bc165607d36719ff774e206196d3c8c2b2599d14d2413c73b80be25",
+    "scripts/lib/src/core/project.js": "b2f86c5c52b1abc8ee3aff1cb2face73597195ecfedd51f9cd40de75113a3880",
+    "scripts/lib/src/core/report.js": "adc75811db6f3c20dc15323f64cc38d34ccf010b37541c9e51c8df5ffe214758",
+    "scripts/lib/src/core/resumo.js": "3c07fec48155415d9cb4c0dccce8515b19040dad20c912b702f919634c050cc0",
+    "scripts/lib/src/core/scaffold.js": "44fbb85c92beb47b55633f7d8ca747aaec04f562b264389bc59a209975effc52",
+    "scripts/lib/src/core/sinais.js": "d86c8eae5ff43eb00b8f9bc2b77e524f94eabe94871521e8d7690064beeec75a",
+    "scripts/lib/src/core/verify.js": "244698a2aadbb59162765be4a7b3b941d92a80f3c66b2ae946c18a301ec2f7ef",
+    "scripts/lib/src/index.js": "f17e607d4bd821d5e1cad5b7761327277b87a1d5e5af8ebb17a35251789930f8",
+    "scripts/lib/src/parsers/annotations.js": "33fc21b68fb04dbeb9eaf5f78448e521426c7ec942cb3452aa1358d118e43af5",
+    "scripts/lib/src/parsers/constitution.js": "c2e3cfea1dd89ac24a52a2f2b978cd53be66800b1e22ea2de01937eafd55b65b",
+    "scripts/lib/src/parsers/spec.js": "a0ba7f6c7bd07029802ea84b496561826512996a99b77469ce018cab690eb69c",
+    "scripts/lib/src/parsers/tasks.js": "bc6e9f0d475f3303d4a9d3d6266ed5d11c8c46996e2ae3892915dc0cfc70b472",
+    "scripts/lib/src/util/text.js": "cc8edc286895d3cb50140703cb7f9c3f7b772a7e066a2692262face00184e578",
+    "scripts/lib/templates/constituicao-base.md": "2bf065192237d3230dfecd60d97bcb4602bafb4964fb88551d70c85a3f573255",
+    "scripts/lib/templates/constituicao-lgpd-educacao.md": "53e5fbbc1003fa711721e92b1eb649bdd27424cae4b229e8b59059f3c96123d0",
+    "scripts/lib/templates/spec.md": "6deddfabb8c66d351c24e45f9bfc3e1fea91eb7b4eabdd564bb086a7084b5499",
+    "scripts/lib/templates/tasks.md": "d63fb6b6cb5ef92dcb9a07a709ee7add3901bc9d9690c91e7ffb07589364efed",
+    "scripts/onp-spec.mjs": "e43f4d442f7111d9cf3d3d9b506d9bdfcac8b78b569ae2bf61ffd5d3e52dfd72"
+  },
+  "source": "Hermes skill snapshot; upstream provenance unavailable",
+  "tool": "onp-spec-driven",
+  "version": "3.6.0"
+}
