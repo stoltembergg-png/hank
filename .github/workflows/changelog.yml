@@ -1,0 +1,33 @@
+name: Changelog proposal
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: changelog-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  proposal:
+    name: Changelog proposal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Generate unpublished changelog proposal
+        run: node tools/changelog.mjs --range origin/main...HEAD --output /tmp/CHANGELOG.proposed.md
+
+      - name: Validate proposal fixtures
+        run: node --test tools/changelog.spec.mjs
+
+      - name: Record proposal digest
+        run: sha256sum /tmp/CHANGELOG.proposed.md
