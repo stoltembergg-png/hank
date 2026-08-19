@@ -17,6 +17,10 @@ pub const MAX_PROJECT_DESCRIPTION_LEN: usize = 1024;
 pub const MAX_PROJECT_OWNER_LEN: usize = 128;
 pub const MAX_FOLDER_NAME_LEN: usize = 128;
 pub const MAX_FOLDER_PATH_LEN: usize = 1024;
+pub const MAX_REPO_NAME_LEN: usize = 128;
+pub const MAX_REPO_URL_LEN: usize = 1024;
+pub const MAX_REPO_BRANCH_LEN: usize = 256;
+pub const MAX_REPO_WORKTREE_LEN: usize = 1024;
 
 /// Estado do ciclo de vida do projeto.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -121,6 +125,112 @@ pub struct ProjectGitRepo {
     pub branch: String,
     pub worktree_path: Option<String>,
     pub added_at: DateTime<Utc>,
+}
+
+impl ProjectGitRepo {
+    /// Cria e valida um registro de repositório Git vinculado ao projeto.
+    pub fn create(
+        name: impl Into<String>,
+        url: impl Into<String>,
+        branch: impl Into<String>,
+        worktree_path: Option<String>,
+    ) -> Result<Self, DomainError> {
+        let name = name.into().trim().to_string();
+        let url = url.into().trim().to_string();
+        let branch = branch.into().trim().to_string();
+
+        if name.is_empty() {
+            return Err(DomainError::Validation(
+                "nome do repositório não pode ser vazio".into(),
+            ));
+        }
+        if name.len() > MAX_REPO_NAME_LEN {
+            return Err(DomainError::Validation(format!(
+                "nome do repositório excede limite de {} caracteres",
+                MAX_REPO_NAME_LEN
+            )));
+        }
+        if name.chars().any(|c| c.is_control()) {
+            return Err(DomainError::Validation(
+                "nome do repositório contém caracteres de controle".into(),
+            ));
+        }
+
+        if url.is_empty() {
+            return Err(DomainError::Validation(
+                "url do repositório não pode ser vazia".into(),
+            ));
+        }
+        if url.len() > MAX_REPO_URL_LEN {
+            return Err(DomainError::Validation(format!(
+                "url do repositório excede limite de {} caracteres",
+                MAX_REPO_URL_LEN
+            )));
+        }
+        if url.chars().any(|c| c.is_control()) {
+            return Err(DomainError::Validation(
+                "url do repositório contém caracteres de controle".into(),
+            ));
+        }
+        if url.contains('@') && (url.starts_with("http://") || url.starts_with("https://")) {
+            return Err(DomainError::Validation(
+                "url do repositório não pode conter credenciais embutidas".into(),
+            ));
+        }
+
+        if branch.is_empty() {
+            return Err(DomainError::Validation(
+                "branch padrão não pode ser vazia".into(),
+            ));
+        }
+        if branch.len() > MAX_REPO_BRANCH_LEN {
+            return Err(DomainError::Validation(format!(
+                "branch excede limite de {} caracteres",
+                MAX_REPO_BRANCH_LEN
+            )));
+        }
+        if branch.chars().any(|c| c.is_control()) {
+            return Err(DomainError::Validation(
+                "branch contém caracteres de controle".into(),
+            ));
+        }
+
+        let validated_worktree = if let Some(wt) = worktree_path {
+            let trimmed = wt.trim().to_string();
+            if trimmed.is_empty() {
+                None
+            } else {
+                if trimmed.len() > MAX_REPO_WORKTREE_LEN {
+                    return Err(DomainError::Validation(format!(
+                        "worktree_path excede limite de {} caracteres",
+                        MAX_REPO_WORKTREE_LEN
+                    )));
+                }
+                if trimmed.chars().any(|c| c.is_control()) {
+                    return Err(DomainError::Validation(
+                        "worktree_path contém caracteres de controle".into(),
+                    ));
+                }
+                if trimmed.contains("..") {
+                    return Err(DomainError::Validation(
+                        "worktree_path não pode conter path traversal (..)".into(),
+                    ));
+                }
+                Some(trimmed)
+            }
+        } else {
+            None
+        };
+
+        Ok(Self {
+            id: format!("repo-{}", uuid::Uuid::new_v4()),
+            name,
+            url,
+            branch,
+            worktree_path: validated_worktree,
+            added_at: Utc::now(),
+        })
+    }
 }
 
 /// Entidade Aggregate Root: Project.
@@ -332,6 +442,42 @@ impl Project {
         removed
     }
 
+    /// Adiciona um repositório Git validado ao escopo do projeto.
+    pub fn add_repository(&mut self, repo: ProjectGitRepo) -> Result<(), DomainError> {
+        if self.status == ProjectStatus::Archived {
+            return Err(DomainError::InvalidStateTransition {
+                from: "archived".into(),
+                to: "repository_added".into(),
+            });
+        }
+
+        if self
+            .repositories
+            .iter()
+            .any(|r| r.url == repo.url || r.id == repo.id)
+        {
+            return Err(DomainError::Duplicate(format!(
+                "repositório já cadastrado neste projeto: {}",
+                repo.url
+            )));
+        }
+
+        self.repositories.push(repo);
+        self.updated_at = Utc::now();
+        Ok(())
+    }
+
+    /// Remove um repositório Git vinculado ao projeto.
+    pub fn remove_repository(&mut self, repo_id: &str) -> bool {
+        let initial_len = self.repositories.len();
+        self.repositories.retain(|r| r.id != repo_id);
+        let removed = self.repositories.len() < initial_len;
+        if removed {
+            self.updated_at = Utc::now();
+        }
+        removed
+    }
+
     /// Vincula um agente ao projeto se ainda não associado.
     pub fn add_agent(&mut self, agent_id: crate::ids::AgentId) -> Result<(), DomainError> {
         if self.status == ProjectStatus::Archived {
@@ -406,6 +552,26 @@ pub trait ProjectRepository: Send + Sync {
         &self,
         project_id: &ProjectId,
         folder_id: &str,
+    ) -> impl std::future::Future<Output = Result<bool, DomainError>> + Send;
+
+    /// Adiciona um repositório Git ao escopo do projeto.
+    fn add_git_repo(
+        &self,
+        project_id: &ProjectId,
+        repo: &ProjectGitRepo,
+    ) -> impl std::future::Future<Output = Result<(), DomainError>> + Send;
+
+    /// Lista repositórios Git vinculados a um projeto.
+    fn list_git_repos(
+        &self,
+        project_id: &ProjectId,
+    ) -> impl std::future::Future<Output = Result<Vec<ProjectGitRepo>, DomainError>> + Send;
+
+    /// Remove um repositório Git de um projeto.
+    fn remove_git_repo(
+        &self,
+        project_id: &ProjectId,
+        repo_id: &str,
     ) -> impl std::future::Future<Output = Result<bool, DomainError>> + Send;
 }
 
@@ -528,5 +694,61 @@ mod tests {
         assert!(project.remove_folder(&folder_id));
         assert_eq!(project.folders.len(), 0);
         assert!(!project.remove_folder(&folder_id));
+    }
+
+    #[test]
+    fn git_repo_creation_and_validation() {
+        let valid = ProjectGitRepo::create(
+            "hank-repo",
+            "https://github.com/stoltembergg-png/hank.git",
+            "main",
+            Some("C:/worktrees/hank".into()),
+        )
+        .unwrap();
+        assert_eq!(valid.name, "hank-repo");
+        assert_eq!(valid.branch, "main");
+        assert!(valid.id.starts_with("repo-"));
+
+        // Nome vazio
+        assert!(ProjectGitRepo::create("", "https://github.com/hank.git", "main", None).is_err());
+        // URL com credenciais embutidas
+        assert!(ProjectGitRepo::create(
+            "repo",
+            "https://user:pass@github.com/hank.git",
+            "main",
+            None
+        )
+        .is_err());
+        // Worktree com traversal
+        assert!(ProjectGitRepo::create(
+            "repo",
+            "https://github.com/hank.git",
+            "main",
+            Some("C:/wt/../secret".into())
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn git_repo_association_duplicate_and_removal() {
+        let mut project = Project::create("Hank", "gabriel", None).unwrap();
+        let repo1 =
+            ProjectGitRepo::create("hank-repo", "https://github.com/hank.git", "main", None)
+                .unwrap();
+        let repo_id = repo1.id.clone();
+
+        project.add_repository(repo1).unwrap();
+        assert_eq!(project.repositories.len(), 1);
+
+        // Duplicata por URL deve falhar
+        let repo_dup =
+            ProjectGitRepo::create("hank-repo2", "https://github.com/hank.git", "main", None)
+                .unwrap();
+        assert!(project.add_repository(repo_dup).is_err());
+
+        // Remoção
+        assert!(project.remove_repository(&repo_id));
+        assert_eq!(project.repositories.len(), 0);
+        assert!(!project.remove_repository(&repo_id));
     }
 }
