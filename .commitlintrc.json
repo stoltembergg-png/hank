@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "types": [
+    "build",
+    "chore",
+    "ci",
+    "docs",
+    "feat",
+    "fix",
+    "perf",
+    "refactor",
+    "revert",
+    "style",
+    "test"
+  ],
+  "subjectMaxLength": 72,
+  "breakingChange": "Use `!` before `:` or a `BREAKING CHANGE:` footer."
+}
