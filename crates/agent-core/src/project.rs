@@ -815,11 +815,13 @@ mod tests {
     #[test]
     fn settings_validation_and_update() {
         let mut project = Project::create("Hank", "gabriel", None).unwrap();
-        let mut settings = ProjectSettings::default();
-        settings.retention_days = 180;
-        settings.max_active_agents = 10;
-        settings.auto_archive_idle_days = Some(30);
-        settings.telemetry_enabled = true;
+        let settings = ProjectSettings {
+            retention_days: 180,
+            max_active_agents: 10,
+            auto_archive_idle_days: Some(30),
+            telemetry_enabled: true,
+            ..ProjectSettings::default()
+        };
 
         project.update_settings(settings.clone()).unwrap();
         assert_eq!(project.settings.retention_days, 180);

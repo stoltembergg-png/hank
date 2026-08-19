@@ -662,10 +662,12 @@ mod tests {
         let project = Project::create("Hank Settings", "gabriel", None).unwrap();
         repo.save(&project).await.unwrap();
 
-        let mut custom_settings = ProjectSettings::default();
-        custom_settings.retention_days = 120;
-        custom_settings.max_active_agents = 8;
-        custom_settings.telemetry_enabled = true;
+        let custom_settings = ProjectSettings {
+            retention_days: 120,
+            max_active_agents: 8,
+            telemetry_enabled: true,
+            ..ProjectSettings::default()
+        };
 
         repo.update_settings(&project.id, &custom_settings)
             .await
