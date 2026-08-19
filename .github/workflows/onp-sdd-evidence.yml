@@ -15,7 +15,7 @@ jobs:
   verify:
     name: ONP SDD verify and audit
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           timeout 180s sudo apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
-          timeout 300s sudo apt-get -o Acquire::ForceIPv4=true -o DPkg::Lock::Timeout=60 -o Dpkg::Use-Pty=0 install --no-install-recommends -y \
+          timeout 900s sudo apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=5 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 -o DPkg::Lock::Timeout=60 -o Dpkg::Use-Pty=0 install --no-install-recommends -y \
             libwebkit2gtk-4.1-dev \
             build-essential \
             curl \
