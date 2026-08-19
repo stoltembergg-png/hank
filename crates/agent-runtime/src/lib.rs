@@ -10,6 +10,7 @@
 pub mod event_bus;
 pub mod memory;
 pub mod migrations;
+pub mod project_query_service;
 pub mod project_repo;
 pub mod project_service;
 pub mod provider;
@@ -23,6 +24,7 @@ pub mod workflow_runtime;
 
 pub use agent_core::*;
 pub use migrations::*;
+pub use project_query_service::*;
 pub use project_repo::*;
 pub use project_service::*;
 pub use sqlite::*;
