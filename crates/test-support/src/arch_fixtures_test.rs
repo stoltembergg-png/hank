@@ -131,7 +131,7 @@ fn detect_cycles() {
 
     // Adiciona nós
     for pkg in &workspace_packages {
-        let idx = graph.add_node(pkg.name.clone());
+        let idx = graph.add_node(pkg.name.to_string());
         node_indices.insert(pkg.name.as_str(), idx);
     }
 
@@ -185,7 +185,7 @@ fn metadata_lists_expected_crates() {
         .packages
         .iter()
         .filter(|p| metadata.workspace_members.contains(&p.id))
-        .map(|p| p.name.clone())
+        .map(|p| p.name.to_string())
         .collect();
 
     let mut expected = vec![
