@@ -59,3 +59,9 @@
 - Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
 - Arquivos: frontend/src/CreateProjectForm.tsx, frontend/tests/create_project_contract.test.ts, docs/create-project-ui.md
 - Notas: DTO allowlisted, validação bounded, submit lock e estados validation/conflict/error/success via service injetado
+
+## T-328 — Adicionar UI de detalhe de Projects [pendente]
+
+- Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
+- Arquivos: frontend/src/ProjectDetail.tsx, frontend/tests/project_detail_contract.test.ts, docs/project-detail-ui.md
+- Notas: Update/archive via services injetados, version check, confirmação explícita e estado archived terminal
