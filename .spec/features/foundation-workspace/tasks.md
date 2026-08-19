@@ -68,6 +68,11 @@
 - Arquivos: crates/agent-protocol/src/events.rs, crates/agent-protocol/src/ids.rs, crates/agent-protocol/src/lib.rs, docs/application-events.md
 - Notas: Envelope versionado, project-scoped, bounded e com rejeição de versão/sequence/payload inválidos
 
+## T-329 — Validar Agent aggregate e project binding [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-core/src/agent.rs, docs/agent-aggregate.md
+- Notas: Agent domain-only, project-bound, lifecycle explícito e limites de identidade/personality
+
 ## T-311 — Implementar event bus bounded [pendente]
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-runtime/src/event_bus.rs, crates/agent-runtime/src/lib.rs, docs/event-bus.md

@@ -61,6 +61,32 @@ pub struct Agent {
 }
 
 impl Agent {
+    pub fn validate(&self) -> Result<(), crate::error::DomainError> {
+        let name = self.name.trim();
+        if name.is_empty() || name.len() > 120 {
+            return Err(crate::error::DomainError::Validation(
+                "agent name is empty or oversized".into(),
+            ));
+        }
+        if self.personality.name.trim().is_empty() || self.personality.name.len() > 120 {
+            return Err(crate::error::DomainError::Validation(
+                "personality name is empty or oversized".into(),
+            ));
+        }
+        if self.personality.traits.len() > 32
+            || self
+                .personality
+                .traits
+                .iter()
+                .any(|trait_name| trait_name.len() > 80)
+        {
+            return Err(crate::error::DomainError::Validation(
+                "personality traits exceed limits".into(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn new(project_id: ProjectId, name: String, policy: AgentPolicyConfig) -> Self {
         let now = Utc::now();
         Self {
@@ -105,5 +131,44 @@ impl Agent {
             self.updated_at = Utc::now();
         }
         removed
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn agent_validation_accepts_project_bound_defaults() {
+        let agent = Agent::new(
+            ProjectId::new(),
+            "worker".into(),
+            AgentPolicyConfig::default(),
+        );
+        agent.validate().unwrap();
+    }
+
+    #[test]
+    fn agent_validation_rejects_empty_or_oversized_identity() {
+        let mut agent = Agent::new(
+            ProjectId::new(),
+            "worker".into(),
+            AgentPolicyConfig::default(),
+        );
+        agent.name = " ".into();
+        assert!(agent.validate().is_err());
+        agent.name = "x".repeat(121);
+        assert!(agent.validate().is_err());
+    }
+
+    #[test]
+    fn agent_validation_bounds_personality_traits() {
+        let mut agent = Agent::new(
+            ProjectId::new(),
+            "worker".into(),
+            AgentPolicyConfig::default(),
+        );
+        agent.personality.traits = vec!["trait".into(); 33];
+        assert!(agent.validate().is_err());
     }
 }
