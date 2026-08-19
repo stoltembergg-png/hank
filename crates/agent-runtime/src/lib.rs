@@ -10,6 +10,7 @@
 pub mod event_bus;
 pub mod memory;
 pub mod migrations;
+pub mod project_repo;
 pub mod provider;
 pub mod python;
 pub mod sandbox;
@@ -21,4 +22,5 @@ pub mod workflow_runtime;
 
 pub use agent_core::*;
 pub use migrations::*;
+pub use project_repo::*;
 pub use sqlite::*;

@@ -262,6 +262,40 @@ impl Project {
     }
 }
 
+/// Port de persistência para o aggregate Project (DIP / Clean Architecture).
+pub trait ProjectRepository: Send + Sync {
+    /// Salva um novo projeto no armazenamento persistente.
+    fn save(
+        &self,
+        project: &Project,
+    ) -> impl std::future::Future<Output = Result<(), DomainError>> + Send;
+
+    /// Busca um projeto pelo ID tipado.
+    fn get_by_id(
+        &self,
+        id: &ProjectId,
+    ) -> impl std::future::Future<Output = Result<Option<Project>, DomainError>> + Send;
+
+    /// Lista projetos paginados.
+    fn list(
+        &self,
+        limit: usize,
+        offset: usize,
+    ) -> impl std::future::Future<Output = Result<Vec<Project>, DomainError>> + Send;
+
+    /// Atualiza um projeto existente.
+    fn update(
+        &self,
+        project: &Project,
+    ) -> impl std::future::Future<Output = Result<(), DomainError>> + Send;
+
+    /// Remove um projeto pelo ID.
+    fn delete(
+        &self,
+        id: &ProjectId,
+    ) -> impl std::future::Future<Output = Result<bool, DomainError>> + Send;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

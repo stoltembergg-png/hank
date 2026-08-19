@@ -87,3 +87,9 @@
 - Refs: US-301, AC-303
 - Arquivos: crates/test-support/src/ids.rs, crates/test-support/src/lib.rs, docs/ids.md
 - Notas: IDs tipados determinísticos por seed para testes reproduzíveis; catálogo de IDs e regra de não usar strings em contratos
+
+## T-315 — Implementar repositório SQLite para Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/project_repo.rs, crates/agent-runtime/src/lib.rs, docs/project-repository.md
+- Notas: Implementação transacional do port ProjectRepository usando queries parametrizadas, paginação e mapeamento de DomainError
+
