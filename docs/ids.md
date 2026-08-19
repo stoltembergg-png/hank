@@ -32,6 +32,7 @@ are rejected at conversion time.
 | GroupId       | grp    | Grupo                                  |
 | TaskId        | task   | Tarefa                                 |
 | ArtifactId    | art    | Artefato                               |
+| EventId       | evt    | Evento de aplicação (PR-023)           |
 
 ## Rule
 
