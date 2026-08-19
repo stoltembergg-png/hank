@@ -83,4 +83,7 @@
 - Arquivos: migrations/0001_initial_schema.sql, crates/agent-runtime/src/migrations.rs, crates/agent-runtime/src/lib.rs, docs/migrations.md
 - Notas: Execução transacional de migrações embutidas, criação de tabelas projects/agents/sessions/messages e integridade de foreign keys
 
-
+## T-314 — Adicionar fixtures determinísticas de IDs tipados [concluida]
+- Refs: US-301, AC-303
+- Arquivos: crates/test-support/src/ids.rs, crates/test-support/src/lib.rs, docs/ids.md
+- Notas: IDs tipados determinísticos por seed para testes reproduzíveis; catálogo de IDs e regra de não usar strings em contratos
