@@ -8,7 +8,7 @@
 - M0 PR-001..PR-004: formalmente merged em `main` no SHA `34525d2396747cb45d9c5001efbdf8e30880eb00`.
 - PR-002, PR-003 e PR-004 foram validadas na cadeia empilhada antes do merge do predecessor.
 - Gates de qualidade previstos nos cards seguintes foram incorporados à baseline: fmt, Clippy, Rust tests/build, Frontend audit/lint/typecheck/test/build, Actionlint, CodeQL, Tauri e ONP.
-- O próximo predecessor não implementado é PR-011; PR-005–PR-010 e PR-012 não devem ser reexecutadas como trabalho duplicado.
+- O próximo predecessor não implementado é PR-013; PR-011 foi concluída em `b51b688`. PR-005–PR-010 e PR-012 não devem ser reexecutadas como trabalho duplicado.
 - Evidência final ONP: run `32209782480`, artifact identificado pelo SHA final, `audit --ci` PASS.
 
 
