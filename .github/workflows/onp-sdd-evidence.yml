@@ -53,6 +53,9 @@ jobs:
           toolchain: 1.97.1
           components: rustfmt
 
+      - name: Install frontend dependencies
+        run: npm ci --no-fund
+
       - name: Verify foundation workspace
         run: node tools/ci/run-onp-spec.mjs verify foundation-workspace
 
