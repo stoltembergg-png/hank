@@ -57,3 +57,8 @@
 - Refs: US-301, AC-301, AC-302, AC-305
 - Arquivos: Cargo.toml, rust-toolchain.toml, Cargo.lock
 - Notas: Comando de validação; tarefa passa se ambos saírem com exit code 0
+
+## T-309 — Adicionar framework determinístico de fixtures [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/test-support/src/lib.rs, crates/test-support/src/fixtures.rs, docs/fixtures.md
+- Notas: Fixtures dev-only, sintéticas, offline, bounded, determinísticas por seed/hash e com cleanup obrigatório
