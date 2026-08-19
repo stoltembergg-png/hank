@@ -26,7 +26,7 @@ pub enum ProjectStatus {
 }
 
 /// Configuração de configurações do projeto.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectSettings {
     pub default_budget: BudgetPolicy,
     pub default_agent_policy: AgentPolicyConfig,
@@ -68,7 +68,7 @@ pub struct ProjectRepository {
 }
 
 /// Entidade Aggregate Root: Project.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
     pub id: ProjectId,
     pub name: String,
@@ -275,7 +275,7 @@ mod tests {
         assert_eq!(project.owner, "gabriel");
         assert_eq!(project.status, ProjectStatus::Active);
         assert_eq!(project.description, Some("Dev workspace".into()));
-        assert!(project.id.as_str().starts_with("proj-"));
+        assert!(project.id.to_string().starts_with("proj-"));
     }
 
     #[test]
