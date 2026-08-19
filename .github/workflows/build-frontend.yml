@@ -1,0 +1,89 @@
+name: Build Frontend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-frontend-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Setup pinned Node.js 20
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 20.19.1
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Record build identity
+        shell: bash
+        working-directory: .
+        run: |
+          set -euo pipefail
+          {
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "sha=${GITHUB_SHA}"
+            echo "tree=$(git rev-parse 'HEAD^{tree}')"
+            echo "runner=${RUNNER_OS}"
+            echo "node=$(node --version)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install locked dependencies
+        run: npm ci --no-fund
+
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=high
+
+      - name: Run frontend lint
+        run: npm run lint
+
+      - name: Run frontend typecheck
+        run: npm run typecheck
+
+      - name: Run frontend tests
+        run: npm run test
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Upload frontend build artifact
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: frontend-build-${{ github.sha }}
+          path: frontend/dist/
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Require artifact digest
+        working-directory: .
+        env:
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: tools/ci/require-artifact-digest.sh
+
+      - name: Record artifact digest
+        working-directory: .
+        env:
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: echo "frontend_artifact_digest=$ARTIFACT_DIGEST" >> "$GITHUB_STEP_SUMMARY"

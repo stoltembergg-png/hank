@@ -14,6 +14,14 @@ const commands = [
   },
 ];
 
+if (existsSync('frontend/package.json')) {
+  commands.push({
+    label: 'Frontend Vitest tests',
+    command: process.platform === 'win32' ? 'npm.cmd' : 'npm',
+    args: ['--prefix', 'frontend', 'run', 'test'],
+  });
+}
+
 if (existsSync('apps/desktop/src-tauri/Cargo.toml')) {
   commands.push({
     label: 'Tauri acceptance tests',

@@ -1,33 +1,33 @@
 {
-  "feature": "foundation-workspace",
-  "timestamp": "2026-08-18T17:35:07.997Z",
-  "gitRev": "aed8185",
+  "feature": "ci-build",
+  "timestamp": "2026-08-18T17:48:36.478Z",
+  "gitRev": "b8b8c30",
   "command": "node tools/run-all-tests.mjs",
   "reporter": "exitcode",
   "exitCode": 0,
   "testsParsed": 0,
   "results": {
-    "AC-301": {
+    "AC-401": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-302": {
+    "AC-402": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-303": {
+    "AC-403": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-304": {
+    "AC-404": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-305": {
+    "AC-405": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
