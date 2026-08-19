@@ -24,7 +24,8 @@ impl SqliteProjectRepository {
 
 impl ProjectRepository for SqliteProjectRepository {
     async fn save(&self, project: &Project) -> Result<(), DomainError> {
-        let settings_json = serde_json::to_string(&project.settings).map_err(DomainError::Serialization)?;
+        let settings_json =
+            serde_json::to_string(&project.settings).map_err(DomainError::Serialization)?;
 
         let status_str = match project.status {
             ProjectStatus::Active => "active",
@@ -49,10 +50,13 @@ impl ProjectRepository for SqliteProjectRepository {
 
         match result {
             Ok(_) => Ok(()),
-            Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
-                Err(DomainError::Duplicate(format!("projeto já existe: {}", project.id)))
-            }
-            Err(e) => Err(DomainError::InvariantViolation(format!("erro no banco: {}", e))),
+            Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => Err(
+                DomainError::Duplicate(format!("projeto já existe: {}", project.id)),
+            ),
+            Err(e) => Err(DomainError::InvariantViolation(format!(
+                "erro no banco: {}",
+                e
+            ))),
         }
     }
 
@@ -84,19 +88,28 @@ impl ProjectRepository for SqliteProjectRepository {
                     "active" => ProjectStatus::Active,
                     "paused" => ProjectStatus::Paused,
                     "archived" => ProjectStatus::Archived,
-                    other => return Err(DomainError::Validation(format!("status desconhecido: {}", other))),
+                    other => {
+                        return Err(DomainError::Validation(format!(
+                            "status desconhecido: {}",
+                            other
+                        )))
+                    }
                 };
 
                 let created_at = DateTime::parse_from_rfc3339(&created_at_str)
-                    .map_err(|e| DomainError::Validation(format!("data created_at inválida: {}", e)))?
+                    .map_err(|e| {
+                        DomainError::Validation(format!("data created_at inválida: {}", e))
+                    })?
                     .with_timezone(&Utc);
 
                 let updated_at = DateTime::parse_from_rfc3339(&updated_at_str)
-                    .map_err(|e| DomainError::Validation(format!("data updated_at inválida: {}", e)))?
+                    .map_err(|e| {
+                        DomainError::Validation(format!("data updated_at inválida: {}", e))
+                    })?
                     .with_timezone(&Utc);
 
-                let settings: ProjectSettings = serde_json::from_str(&settings_json)
-                    .map_err(DomainError::Serialization)?;
+                let settings: ProjectSettings =
+                    serde_json::from_str(&settings_json).map_err(DomainError::Serialization)?;
 
                 Ok(Some(Project {
                     id,
@@ -150,7 +163,12 @@ impl ProjectRepository for SqliteProjectRepository {
                 "active" => ProjectStatus::Active,
                 "paused" => ProjectStatus::Paused,
                 "archived" => ProjectStatus::Archived,
-                other => return Err(DomainError::Validation(format!("status desconhecido: {}", other))),
+                other => {
+                    return Err(DomainError::Validation(format!(
+                        "status desconhecido: {}",
+                        other
+                    )))
+                }
             };
 
             let created_at = DateTime::parse_from_rfc3339(&created_at_str)
@@ -161,8 +179,8 @@ impl ProjectRepository for SqliteProjectRepository {
                 .map_err(|e| DomainError::Validation(format!("data updated_at inválida: {}", e)))?
                 .with_timezone(&Utc);
 
-            let settings: ProjectSettings = serde_json::from_str(&settings_json)
-                .map_err(DomainError::Serialization)?;
+            let settings: ProjectSettings =
+                serde_json::from_str(&settings_json).map_err(DomainError::Serialization)?;
 
             projects.push(Project {
                 id,
@@ -185,7 +203,8 @@ impl ProjectRepository for SqliteProjectRepository {
     }
 
     async fn update(&self, project: &Project) -> Result<(), DomainError> {
-        let settings_json = serde_json::to_string(&project.settings).map_err(DomainError::Serialization)?;
+        let settings_json =
+            serde_json::to_string(&project.settings).map_err(DomainError::Serialization)?;
 
         let status_str = match project.status {
             ProjectStatus::Active => "active",
@@ -209,7 +228,10 @@ impl ProjectRepository for SqliteProjectRepository {
         .map_err(|e| DomainError::InvariantViolation(format!("erro ao atualizar projeto: {}", e)))?;
 
         if result.rows_affected() == 0 {
-            Err(DomainError::NotFound(format!("projeto não encontrado: {}", project.id)))
+            Err(DomainError::NotFound(format!(
+                "projeto não encontrado: {}",
+                project.id
+            )))
         } else {
             Ok(())
         }
@@ -220,7 +242,9 @@ impl ProjectRepository for SqliteProjectRepository {
             .bind(id.to_string())
             .execute(&self.pool)
             .await
-            .map_err(|e| DomainError::InvariantViolation(format!("erro ao deletar projeto: {}", e)))?;
+            .map_err(|e| {
+                DomainError::InvariantViolation(format!("erro ao deletar projeto: {}", e))
+            })?;
 
         Ok(result.rows_affected() > 0)
     }
@@ -245,7 +269,11 @@ mod tests {
 
         repo.save(&project).await.unwrap();
 
-        let retrieved = repo.get_by_id(&project.id).await.unwrap().expect("projeto deve existir");
+        let retrieved = repo
+            .get_by_id(&project.id)
+            .await
+            .unwrap()
+            .expect("projeto deve existir");
         assert_eq!(retrieved.id, project.id);
         assert_eq!(retrieved.name, "Hank Dev");
         assert_eq!(retrieved.owner, "gabriel");
