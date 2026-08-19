@@ -32,7 +32,7 @@ cargo_metadata = "0.23"
 semver = { version = "1.0", features = ["serde"] }
 tempfile = "3.8"
 getrandom = "0.2"
-syn = "2"
+syn = "3"
 rand = "0.8"
 
 # [workspace.lints]  # Disabled due to format issues; add back when Rust version supports it
