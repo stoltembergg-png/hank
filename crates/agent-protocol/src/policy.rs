@@ -133,11 +133,59 @@ pub struct AgentPolicyConfig {
 
 /// Hierarquia de instruções (ordem de precedência)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct InstructionHierarchy {
     pub layers: Vec<InstructionLayer>,
+    pub max_total_bytes: usize,
+}
+
+impl InstructionHierarchy {
+    pub const DEFAULT_MAX_TOTAL_BYTES: usize = 32 * 1024;
+
+    pub fn validate(&self) -> Result<(), String> {
+        if self.layers.is_empty() || self.layers.len() > 8 {
+            return Err("instruction hierarchy must contain 1..=8 layers".into());
+        }
+        if self.max_total_bytes == 0 || self.max_total_bytes > 256 * 1024 {
+            return Err("instruction hierarchy size budget is invalid".into());
+        }
+        let mut seen = std::collections::HashSet::new();
+        let mut total = 0usize;
+        for layer in &self.layers {
+            if !seen.insert(layer.source) {
+                return Err("instruction source appears more than once".into());
+            }
+            if layer.name.trim().is_empty() || layer.name.len() > 80 {
+                return Err("instruction layer name is invalid".into());
+            }
+            if layer.source == InstructionSource::Security && layer.overridable {
+                return Err("security instruction layer cannot be overridden".into());
+            }
+            if layer.precedence == 0 {
+                return Err("instruction precedence must be positive".into());
+            }
+            total = total.saturating_add(layer.name.len());
+        }
+        if total > self.max_total_bytes {
+            return Err("instruction hierarchy exceeds its size budget".into());
+        }
+        Ok(())
+    }
+
+    pub fn ordered_layers(&self) -> Vec<InstructionLayer> {
+        let mut layers = self.layers.clone();
+        layers.sort_by(|left, right| {
+            right
+                .precedence
+                .cmp(&left.precedence)
+                .then_with(|| left.source.cmp(&right.source))
+        });
+        layers
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct InstructionLayer {
     pub name: String,
     pub source: InstructionSource,
@@ -145,7 +193,7 @@ pub struct InstructionLayer {
     pub overridable: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InstructionSource {
     System,
@@ -211,6 +259,58 @@ impl Default for InstructionHierarchy {
                     overridable: true,
                 },
             ],
+            max_total_bytes: InstructionHierarchy::DEFAULT_MAX_TOTAL_BYTES,
         }
+    }
+}
+
+#[cfg(test)]
+mod instruction_hierarchy_tests {
+    use super::*;
+
+    #[test]
+    fn default_hierarchy_has_stable_order_and_validates() {
+        let hierarchy = InstructionHierarchy::default();
+        hierarchy.validate().unwrap();
+        let sources: Vec<_> = hierarchy
+            .ordered_layers()
+            .into_iter()
+            .map(|layer| layer.source)
+            .collect();
+        assert_eq!(
+            sources,
+            vec![
+                InstructionSource::System,
+                InstructionSource::Security,
+                InstructionSource::Project,
+                InstructionSource::Agent,
+                InstructionSource::Workflow,
+                InstructionSource::Skill,
+                InstructionSource::Conversation,
+                InstructionSource::User,
+            ]
+        );
+    }
+
+    #[test]
+    fn duplicate_sources_and_security_override_fail_closed() {
+        let mut hierarchy = InstructionHierarchy::default();
+        hierarchy.layers.push(hierarchy.layers[0].clone());
+        assert!(hierarchy.validate().is_err());
+        let mut hierarchy = InstructionHierarchy::default();
+        hierarchy.layers[1].overridable = true;
+        assert!(hierarchy.validate().is_err());
+    }
+
+    #[test]
+    fn unknown_fields_and_excessive_budget_fail_closed() {
+        let mut value = serde_json::to_value(InstructionHierarchy::default()).unwrap();
+        value["hidden_layer"] = serde_json::json!("user");
+        assert!(serde_json::from_value::<InstructionHierarchy>(value).is_err());
+        let hierarchy = InstructionHierarchy {
+            max_total_bytes: 1,
+            ..Default::default()
+        };
+        assert!(hierarchy.validate().is_err());
     }
 }
