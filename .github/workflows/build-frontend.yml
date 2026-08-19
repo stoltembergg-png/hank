@@ -47,7 +47,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install locked dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm ci --no-fund
+
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=high
 
       - name: Build frontend
         run: npm run build
