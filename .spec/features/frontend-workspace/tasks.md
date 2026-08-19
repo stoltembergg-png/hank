@@ -47,3 +47,9 @@
 - Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
 - Arquivos: frontend/tests/frontend_ac_tests.test.ts, frontend/src/App.tsx, frontend/src/App.css
 - Notas: Testes cobrindo AC-201..205: build/lint/typecheck, CSP, logs
+
+## T-326 — Adicionar UI de listagem de Projects [pendente]
+
+- Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
+- Arquivos: frontend/src/ProjectList.tsx, frontend/tests/project_list_contract.test.ts, docs/project-list-ui.md
+- Notas: Lista bounded via application service injetado; estados loading/empty/error/ready; sem acesso a storage/Tauri/provider
