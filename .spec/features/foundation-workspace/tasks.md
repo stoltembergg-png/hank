@@ -88,6 +88,11 @@
 - Arquivos: crates/agent-core/src/agent.rs, docs/personality-schema.md
 - Notas: Personality bounded, deny unknown fields, rejeição de secrets/instruction override e validação independente
 
+## T-333 — Adicionar instruction hierarchy contract [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-protocol/src/policy.rs, docs/instruction-hierarchy.md
+- Notas: Ordem determinística, sources únicas, security immutable, size budget e validação fail-closed
+
 ## T-311 — Implementar event bus bounded [pendente]
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-runtime/src/event_bus.rs, crates/agent-runtime/src/lib.rs, docs/event-bus.md
