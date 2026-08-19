@@ -29,5 +29,8 @@ jobs:
       - name: Validate workflow integrity
         run: node --test tools/workflow-integrity.spec.mjs
 
+      - name: Validate Dependabot configuration
+        run: node --test tools/dependabot-config.spec.mjs
+
       - name: Validate quality gate contract
         run: node --test tools/quality-gate-contract.spec.mjs
