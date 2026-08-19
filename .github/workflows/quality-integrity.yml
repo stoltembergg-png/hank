@@ -32,5 +32,8 @@ jobs:
       - name: Validate Dependabot configuration
         run: node --test tools/dependabot-config.spec.mjs
 
+      - name: Validate architecture documentation
+        run: node --test tools/architecture-docs.spec.mjs
+
       - name: Validate quality gate contract
         run: node --test tools/quality-gate-contract.spec.mjs
