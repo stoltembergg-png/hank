@@ -33,11 +33,13 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           set -euo pipefail
-          for source in /etc/apt/sources.list /etc/apt/sources.list.d/* /etc/apt/apt-mirrors.txt; do
-            if test -f "$source"; then
-              sudo perl -0pi -e 's/azure\\.archive\\.ubuntu\\.com/archive.ubuntu.com/g' "$source"
-            fi
+          find /etc/apt -type f -print0 | while IFS= read -r -d '' source; do
+            sudo perl -0pi -e 's/azure\\.archive\\.ubuntu\\.com/archive.ubuntu.com/g' "$source"
           done
+          if sudo grep -Rqs 'azure\\.archive\\.ubuntu\\.com' /etc/apt; then
+            echo 'Azure Ubuntu mirror reference remains after normalization' >&2
+            exit 1
+          fi
           timeout 300s sudo apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=5 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 update
           timeout 900s sudo apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=5 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60 -o DPkg::Lock::Timeout=60 -o Dpkg::Use-Pty=0 install --no-install-recommends -y \
             libwebkit2gtk-4.1-dev \
