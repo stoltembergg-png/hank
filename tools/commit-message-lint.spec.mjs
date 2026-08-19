@@ -9,7 +9,7 @@ test('accepts valid conventional commit headers', () => {
     'ci!: change required workflow contract',
     'docs: explain rollback',
     'Merge pull request #1 from example/branch',
-    'Merge 0e3c041b30718067a96987106093ea5a35dea323 into 6723ead32ab640a15a02e67ea29da803a34d7a75',
+    'Merge latest main into ci/pr-014-pr-title',
   ]) assert.equal(isConventionalCommit(subject), true, subject);
 });
 

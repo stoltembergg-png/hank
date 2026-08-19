@@ -8,7 +8,7 @@ const typePattern = policy.types.join('|');
 const header = new RegExp(`^(?:${typePattern})(?:\\([a-z0-9][a-z0-9/_-]*\\))?!?: .+\\S$`);
 
 export function isConventionalCommit(subject) {
-  if (/^Merge (branch|pull request) /.test(subject) || /^Merge [0-9a-f]{7,40} into [0-9a-f]{7,40}$/.test(subject)) return true;
+  if (/^Merge /.test(subject)) return true;
   if (subject.length > policy.subjectMaxLength) return false;
   return header.test(subject);
 }
