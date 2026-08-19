@@ -173,6 +173,7 @@ const ICONE_ESTADO = {
 const celula = (s) =>
   String(s == null ? '' : s)
     .replace(/\s+/g, ' ')
+    .replace(/\\/g, '\\\\')
     .replace(/\|/g, '\\|')
     .trim() || '—';
 

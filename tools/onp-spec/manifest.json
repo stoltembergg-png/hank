@@ -1,6 +1,6 @@
 {
   "files": {
-    "scripts/lib/src/cli.js": "083db6dcc427f40ebf4729012a7bb2696130313aef31b59b4b6c94b9532876e2",
+    "scripts/lib/src/cli.js": "ebefa6d0582827118cfb500f0c3a51def512af0837ed346cd1656943326920c2",
     "scripts/lib/src/config.js": "a37fb317184b68de487ebed372977f925be8101850fc067c85c3e3548b1a35ac",
     "scripts/lib/src/core/audit.js": "2d2743abe292727ad55921ef584ee22fdf6f843e2754b1c26bbe99c599b37d27",
     "scripts/lib/src/core/labels.js": "dd6b17c2311045d44dc36ab6641ab09f1ee42b3a29eab342fc413338b14ea0ee",
@@ -23,6 +23,9 @@
     "scripts/lib/templates/constituicao-lgpd-educacao.md": "53e5fbbc1003fa711721e92b1eb649bdd27424cae4b229e8b59059f3c96123d0",
     "scripts/lib/templates/spec.md": "6deddfabb8c66d351c24e45f9bfc3e1fea91eb7b4eabdd564bb086a7084b5499",
     "scripts/lib/templates/tasks.md": "d63fb6b6cb5ef92dcb9a07a709ee7add3901bc9d9690c91e7ffb07589364efed",
+    "scripts/lib/src/core/report.js": "6d3df368ab3eb21e2df6ec13e9c548b09a7e6642df6d9dc1fd8c1eda32885ce5",
+    "scripts/lib/src/core/resumo.js": "e4f9159a5bab953ccac14af69d92e01371d212d999f4844f0e810e15cbe5c31f",
+    "scripts/lib/src/core/scaffold.js": "ece498cdd65b5f384262878d38185212142b98ca678e6262ce14e2ea15378ad8",
     "scripts/onp-spec.mjs": "e43f4d442f7111d9cf3d3d9b506d9bdfcac8b78b569ae2bf61ffd5d3e52dfd72"
   },
   "source": "Hermes skill snapshot; upstream provenance unavailable",

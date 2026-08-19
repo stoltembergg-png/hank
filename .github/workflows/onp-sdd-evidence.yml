@@ -54,6 +54,7 @@ jobs:
           components: rustfmt
 
       - name: Install frontend dependencies
+        working-directory: frontend
         run: npm ci --no-fund
 
       - name: Verify foundation workspace

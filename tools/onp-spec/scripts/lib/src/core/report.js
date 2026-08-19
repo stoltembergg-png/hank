@@ -59,7 +59,7 @@ export function renderMarkdown(audit, { title = 'Relatório de auditoria' } = {}
     for (const f of findings) {
       const loc = f.file ? `${f.file}${f.line ? `:${f.line}` : ''}` : '—';
       lines.push(
-        `| ${f.severity} | ${findingLabel(f.code)} (\`${f.code}\`) | ${f.feature || '—'} | ${f.message.replace(/\|/g, '\\|')} | ${loc} |`
+        `| ${f.severity} | ${findingLabel(f.code)} (\`${f.code}\`) | ${f.feature || '—'} | ${f.message.replace(/\\/g, '\\\\').replace(/\|/g, '\\|')} | ${loc} |`
       );
     }
   } else {

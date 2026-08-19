@@ -630,8 +630,12 @@ function cmdResumo(config, positional, flags) {
 // insere ou substitui um campo de lista (- Modelo:/- Esforço:) dentro da
 // seção da tarefa em tasks.md — no MESMO formato que o parser lê; é assim
 // que o usuário ajusta o custo por tarefa sem editar arquivo na mão
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function definirCampoTarefa(linhas, taskId, matcher, rotulo, valor) {
-  const reTitulo = new RegExp(`^##\\s+${taskId}\\s*${DASH}\\s*`);
+  const reTitulo = new RegExp(`^##\\s+${escapeRegExp(taskId)}\\s*${DASH}\\s*`);
   const inicio = linhas.findIndex((l) => reTitulo.test(l));
   if (inicio === -1) return false;
   let fim = linhas.length;
@@ -686,7 +690,7 @@ function cmdTarefa(config, positional, flags = {}) {
     return 2;
   }
   let conteudo = readFileSync(tasksPath, 'utf-8');
-  const re = new RegExp(`^(##\\s+${taskId}\\s*${DASH}\\s*.*?)(\\s*\\[[^\\]]+\\])?\\s*$`, 'm');
+  const re = new RegExp(`^(##\\s+${escapeRegExp(taskId)}\\s*${DASH}\\s*.*?)(\\s*\\[[^\\]]+\\])?\\s*$`, 'm');
   if (!re.test(conteudo)) {
     console.error(`tarefa ${taskId} não encontrada em ${config.specDir}/features/${featureName}/tasks.md`);
     return 2;

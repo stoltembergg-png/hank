@@ -32,10 +32,14 @@ function jsFail(style, message) {
   return `  assert.fail('${message}');`;
 }
 
+function escapeJsString(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
 function renderJsTest(style, story, ac) {
   const lines = [];
   lines.push(`// ${story.id} — ${story.title}`);
-  lines.push(`test('${ac.id}: ${ac.title.replace(/'/g, "\\'")} @spec:${ac.id}', () => {`);
+  lines.push(`test('${ac.id}: ${escapeJsString(ac.title)} @spec:${ac.id}', () => {`);
   for (const g of ac.given) lines.push(`  // Dado: ${g}`);
   for (const w of ac.when) lines.push(`  // Quando: ${w}`);
   for (const t of ac.then) lines.push(`  // Então: ${t}`);
@@ -140,7 +144,7 @@ function renderJsPrinciple(style, principle, tag) {
   const lines = [];
   lines.push(`// ${principle.id} [${principle.level}] — ${principle.title}`);
   lines.push(
-    `test('${principle.id}: ${principle.title.replace(/'/g, "\\'")} @principle:${tag}', () => {`
+    `test('${principle.id}: ${escapeJsString(principle.title)} @principle:${tag}', () => {`
   );
   lines.push(jsFail(style, `princípio ${principle.id} ainda não provado — implemente este teste`));
   lines.push('});');
