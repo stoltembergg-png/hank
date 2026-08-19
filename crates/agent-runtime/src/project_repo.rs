@@ -1,10 +1,12 @@
 //! Implementação SQLite do ProjectRepository.
 //!
-//! Conforme PR-028 e regras de persistência segura e isolamento.
+//! Conforme PR-028 e PR-033: regras de persistência segura, isolamento e vinculação de folders.
 
 use agent_core::error::DomainError;
 use agent_core::ids::ProjectId;
-use agent_core::project::{Project, ProjectRepository, ProjectSettings, ProjectStatus};
+use agent_core::project::{
+    Project, ProjectFolder, ProjectRepository, ProjectSettings, ProjectStatus,
+};
 use chrono::{DateTime, Utc};
 use sqlx::{Pool, Row, Sqlite};
 use std::collections::HashSet;
@@ -49,7 +51,12 @@ impl ProjectRepository for SqliteProjectRepository {
         .await;
 
         match result {
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                for folder in &project.folders {
+                    self.add_folder(&project.id, folder).await?;
+                }
+                Ok(())
+            }
             Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => Err(
                 DomainError::Duplicate(format!("projeto já existe: {}", project.id)),
             ),
@@ -111,6 +118,8 @@ impl ProjectRepository for SqliteProjectRepository {
                 let settings: ProjectSettings =
                     serde_json::from_str(&settings_json).map_err(DomainError::Serialization)?;
 
+                let folders = self.list_folders(&id).await?;
+
                 Ok(Some(Project {
                     id,
                     name,
@@ -120,7 +129,7 @@ impl ProjectRepository for SqliteProjectRepository {
                     created_at,
                     updated_at,
                     settings,
-                    folders: Vec::new(),
+                    folders,
                     repositories: Vec::new(),
                     agents: HashSet::new(),
                     skills: HashSet::new(),
@@ -182,6 +191,8 @@ impl ProjectRepository for SqliteProjectRepository {
             let settings: ProjectSettings =
                 serde_json::from_str(&settings_json).map_err(DomainError::Serialization)?;
 
+            let folders = self.list_folders(&id).await?;
+
             projects.push(Project {
                 id,
                 name,
@@ -191,7 +202,7 @@ impl ProjectRepository for SqliteProjectRepository {
                 created_at,
                 updated_at,
                 settings,
-                folders: Vec::new(),
+                folders,
                 repositories: Vec::new(),
                 agents: HashSet::new(),
                 skills: HashSet::new(),
@@ -244,6 +255,87 @@ impl ProjectRepository for SqliteProjectRepository {
             .await
             .map_err(|e| {
                 DomainError::InvariantViolation(format!("erro ao deletar projeto: {}", e))
+            })?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    async fn add_folder(
+        &self,
+        project_id: &ProjectId,
+        folder: &ProjectFolder,
+    ) -> Result<(), DomainError> {
+        let result = sqlx::query(
+            "INSERT INTO project_folders (id, project_id, name, path, created_at) \
+             VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind(&folder.id)
+        .bind(project_id.to_string())
+        .bind(&folder.name)
+        .bind(&folder.path)
+        .bind(folder.created_at.to_rfc3339())
+        .execute(&self.pool)
+        .await;
+
+        match result {
+            Ok(_) => Ok(()),
+            Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
+                Err(DomainError::Duplicate(format!(
+                    "pasta já cadastrada neste projeto: {}",
+                    folder.path
+                )))
+            }
+            Err(e) => Err(DomainError::InvariantViolation(format!(
+                "erro no banco: {}",
+                e
+            ))),
+        }
+    }
+
+    async fn list_folders(
+        &self,
+        project_id: &ProjectId,
+    ) -> Result<Vec<ProjectFolder>, DomainError> {
+        let rows = sqlx::query(
+            "SELECT id, name, path, created_at FROM project_folders WHERE project_id = ? ORDER BY created_at ASC",
+        )
+        .bind(project_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DomainError::InvariantViolation(format!("erro ao listar pastas: {}", e)))?;
+
+        let mut folders = Vec::with_capacity(rows.len());
+        for r in rows {
+            let id: String = r.get("id");
+            let name: String = r.get("name");
+            let path: String = r.get("path");
+            let created_at_str: String = r.get("created_at");
+            let created_at = DateTime::parse_from_rfc3339(&created_at_str)
+                .map_err(|e| DomainError::Validation(format!("data inválida: {}", e)))?
+                .with_timezone(&Utc);
+
+            folders.push(ProjectFolder {
+                id,
+                name,
+                path,
+                created_at,
+            });
+        }
+        Ok(folders)
+    }
+
+    async fn remove_folder(
+        &self,
+        project_id: &ProjectId,
+        folder_id: &str,
+    ) -> Result<bool, DomainError> {
+        let result = sqlx::query("DELETE FROM project_folders WHERE project_id = ? AND id = ?")
+            .bind(project_id.to_string())
+            .bind(folder_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| {
+                DomainError::InvariantViolation(format!("erro ao deletar pasta: {}", e))
             })?;
 
         Ok(result.rows_affected() > 0)
@@ -336,5 +428,39 @@ mod tests {
 
         let deleted_again = repo.delete(&project.id).await.unwrap();
         assert!(!deleted_again);
+    }
+
+    #[tokio::test]
+    async fn folder_crud_and_persistence() {
+        let repo = setup_repo().await;
+        let project = Project::create("Hank With Folders", "gabriel", None).unwrap();
+        repo.save(&project).await.unwrap();
+
+        let folder1 = ProjectFolder::create("src", "C:/repos/hank/src").unwrap();
+        let folder2 = ProjectFolder::create("docs", "C:/repos/hank/docs").unwrap();
+
+        repo.add_folder(&project.id, &folder1).await.unwrap();
+        repo.add_folder(&project.id, &folder2).await.unwrap();
+
+        // Duplicata deve retornar DomainError::Duplicate
+        let dup = ProjectFolder::create("src_dup", "C:/repos/hank/src").unwrap();
+        let err = repo.add_folder(&project.id, &dup).await.unwrap_err();
+        assert!(matches!(err, DomainError::Duplicate(_)));
+
+        // Listagem
+        let folders = repo.list_folders(&project.id).await.unwrap();
+        assert_eq!(folders.len(), 2);
+        assert_eq!(folders[0].name, "src");
+        assert_eq!(folders[1].name, "docs");
+
+        // get_by_id carrega folders
+        let loaded = repo.get_by_id(&project.id).await.unwrap().unwrap();
+        assert_eq!(loaded.folders.len(), 2);
+
+        // Remoção
+        let removed = repo.remove_folder(&project.id, &folder1.id).await.unwrap();
+        assert!(removed);
+        let folders_after = repo.list_folders(&project.id).await.unwrap();
+        assert_eq!(folders_after.len(), 1);
     }
 }

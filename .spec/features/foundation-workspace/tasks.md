@@ -113,6 +113,12 @@
 - Arquivos: crates/agent-runtime/src/project_archive_service.rs, crates/agent-runtime/src/lib.rs, docs/archive-project-service.md
 - Notas: Use case de arquivamento seguro e idempotente com emissão do evento ProjectArchived
 
+## T-320 — Vincular pastas locais a um Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: migrations/0002_project_folders.sql, crates/agent-core/src/project.rs, crates/agent-runtime/src/project_repo.rs, docs/project-folders.md
+- Notas: Suporte a vínculos Project->Folder no banco SQLite e no aggregate Project com prevenção de path traversal e unicidade
+
+
 
 
 
