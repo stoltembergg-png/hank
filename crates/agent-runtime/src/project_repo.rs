@@ -1,10 +1,12 @@
 //! Implementação SQLite do ProjectRepository.
 //!
-//! Conforme PR-028 e regras de persistência segura e isolamento.
+//! Conforme PR-028, PR-033 e PR-034: regras de persistência segura, isolamento, folders e git repositories.
 
 use agent_core::error::DomainError;
 use agent_core::ids::ProjectId;
-use agent_core::project::{Project, ProjectRepository, ProjectSettings, ProjectStatus};
+use agent_core::project::{
+    Project, ProjectFolder, ProjectGitRepo, ProjectRepository, ProjectSettings, ProjectStatus,
+};
 use chrono::{DateTime, Utc};
 use sqlx::{Pool, Row, Sqlite};
 use std::collections::HashSet;
@@ -49,7 +51,15 @@ impl ProjectRepository for SqliteProjectRepository {
         .await;
 
         match result {
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                for folder in &project.folders {
+                    self.add_folder(&project.id, folder).await?;
+                }
+                for repo in &project.repositories {
+                    self.add_git_repo(&project.id, repo).await?;
+                }
+                Ok(())
+            }
             Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => Err(
                 DomainError::Duplicate(format!("projeto já existe: {}", project.id)),
             ),
@@ -111,6 +121,9 @@ impl ProjectRepository for SqliteProjectRepository {
                 let settings: ProjectSettings =
                     serde_json::from_str(&settings_json).map_err(DomainError::Serialization)?;
 
+                let folders = self.list_folders(&id).await?;
+                let repositories = self.list_git_repos(&id).await?;
+
                 Ok(Some(Project {
                     id,
                     name,
@@ -120,8 +133,8 @@ impl ProjectRepository for SqliteProjectRepository {
                     created_at,
                     updated_at,
                     settings,
-                    folders: Vec::new(),
-                    repositories: Vec::new(),
+                    folders,
+                    repositories,
                     agents: HashSet::new(),
                     skills: HashSet::new(),
                     workflows: HashSet::new(),
@@ -182,6 +195,9 @@ impl ProjectRepository for SqliteProjectRepository {
             let settings: ProjectSettings =
                 serde_json::from_str(&settings_json).map_err(DomainError::Serialization)?;
 
+            let folders = self.list_folders(&id).await?;
+            let repositories = self.list_git_repos(&id).await?;
+
             projects.push(Project {
                 id,
                 name,
@@ -191,8 +207,8 @@ impl ProjectRepository for SqliteProjectRepository {
                 created_at,
                 updated_at,
                 settings,
-                folders: Vec::new(),
-                repositories: Vec::new(),
+                folders,
+                repositories,
                 agents: HashSet::new(),
                 skills: HashSet::new(),
                 workflows: HashSet::new(),
@@ -245,6 +261,229 @@ impl ProjectRepository for SqliteProjectRepository {
             .map_err(|e| {
                 DomainError::InvariantViolation(format!("erro ao deletar projeto: {}", e))
             })?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    async fn update_settings(
+        &self,
+        project_id: &ProjectId,
+        settings: &ProjectSettings,
+    ) -> Result<(), DomainError> {
+        let settings_json = serde_json::to_string(settings).map_err(DomainError::Serialization)?;
+        let updated_at = Utc::now();
+
+        let result = sqlx::query("UPDATE projects SET settings = ?, updated_at = ? WHERE id = ?")
+            .bind(settings_json)
+            .bind(updated_at.to_rfc3339())
+            .bind(project_id.to_string())
+            .execute(&self.pool)
+            .await
+            .map_err(|e| {
+                DomainError::InvariantViolation(format!("erro ao atualizar configurações: {}", e))
+            })?;
+
+        if result.rows_affected() == 0 {
+            Err(DomainError::NotFound(format!(
+                "projeto não encontrado: {}",
+                project_id
+            )))
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn get_settings(
+        &self,
+        project_id: &ProjectId,
+    ) -> Result<Option<ProjectSettings>, DomainError> {
+        let row = sqlx::query("SELECT settings FROM projects WHERE id = ?")
+            .bind(project_id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| {
+                DomainError::InvariantViolation(format!("erro ao buscar configurações: {}", e))
+            })?;
+
+        match row {
+            Some(r) => {
+                let settings_json: String = r.get("settings");
+                let settings: ProjectSettings =
+                    serde_json::from_str(&settings_json).map_err(DomainError::Serialization)?;
+                Ok(Some(settings))
+            }
+            None => Ok(None),
+        }
+    }
+
+    async fn add_folder(
+        &self,
+        project_id: &ProjectId,
+        folder: &ProjectFolder,
+    ) -> Result<(), DomainError> {
+        let result = sqlx::query(
+            "INSERT INTO project_folders (id, project_id, name, path, created_at) \
+             VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind(&folder.id)
+        .bind(project_id.to_string())
+        .bind(&folder.name)
+        .bind(&folder.path)
+        .bind(folder.created_at.to_rfc3339())
+        .execute(&self.pool)
+        .await;
+
+        match result {
+            Ok(_) => Ok(()),
+            Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
+                Err(DomainError::Duplicate(format!(
+                    "pasta já cadastrada neste projeto: {}",
+                    folder.path
+                )))
+            }
+            Err(e) => Err(DomainError::InvariantViolation(format!(
+                "erro no banco: {}",
+                e
+            ))),
+        }
+    }
+
+    async fn list_folders(
+        &self,
+        project_id: &ProjectId,
+    ) -> Result<Vec<ProjectFolder>, DomainError> {
+        let rows = sqlx::query(
+            "SELECT id, name, path, created_at FROM project_folders WHERE project_id = ? ORDER BY created_at ASC",
+        )
+        .bind(project_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DomainError::InvariantViolation(format!("erro ao listar pastas: {}", e)))?;
+
+        let mut folders = Vec::with_capacity(rows.len());
+        for r in rows {
+            let id: String = r.get("id");
+            let name: String = r.get("name");
+            let path: String = r.get("path");
+            let created_at_str: String = r.get("created_at");
+            let created_at = DateTime::parse_from_rfc3339(&created_at_str)
+                .map_err(|e| DomainError::Validation(format!("data inválida: {}", e)))?
+                .with_timezone(&Utc);
+
+            folders.push(ProjectFolder {
+                id,
+                name,
+                path,
+                created_at,
+            });
+        }
+        Ok(folders)
+    }
+
+    async fn remove_folder(
+        &self,
+        project_id: &ProjectId,
+        folder_id: &str,
+    ) -> Result<bool, DomainError> {
+        let result = sqlx::query("DELETE FROM project_folders WHERE project_id = ? AND id = ?")
+            .bind(project_id.to_string())
+            .bind(folder_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| {
+                DomainError::InvariantViolation(format!("erro ao deletar pasta: {}", e))
+            })?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    async fn add_git_repo(
+        &self,
+        project_id: &ProjectId,
+        repo: &ProjectGitRepo,
+    ) -> Result<(), DomainError> {
+        let result = sqlx::query(
+            "INSERT INTO project_repositories (id, project_id, name, url, branch, worktree_path, added_at) \
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&repo.id)
+        .bind(project_id.to_string())
+        .bind(&repo.name)
+        .bind(&repo.url)
+        .bind(&repo.branch)
+        .bind(&repo.worktree_path)
+        .bind(repo.added_at.to_rfc3339())
+        .execute(&self.pool)
+        .await;
+
+        match result {
+            Ok(_) => Ok(()),
+            Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
+                Err(DomainError::Duplicate(format!(
+                    "repositório já cadastrado neste projeto: {}",
+                    repo.url
+                )))
+            }
+            Err(e) => Err(DomainError::InvariantViolation(format!(
+                "erro no banco: {}",
+                e
+            ))),
+        }
+    }
+
+    async fn list_git_repos(
+        &self,
+        project_id: &ProjectId,
+    ) -> Result<Vec<ProjectGitRepo>, DomainError> {
+        let rows = sqlx::query(
+            "SELECT id, name, url, branch, worktree_path, added_at \
+             FROM project_repositories WHERE project_id = ? ORDER BY added_at ASC",
+        )
+        .bind(project_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            DomainError::InvariantViolation(format!("erro ao listar repositórios: {}", e))
+        })?;
+
+        let mut repos = Vec::with_capacity(rows.len());
+        for r in rows {
+            let id: String = r.get("id");
+            let name: String = r.get("name");
+            let url: String = r.get("url");
+            let branch: String = r.get("branch");
+            let worktree_path: Option<String> = r.get("worktree_path");
+            let added_at_str: String = r.get("added_at");
+            let added_at = DateTime::parse_from_rfc3339(&added_at_str)
+                .map_err(|e| DomainError::Validation(format!("data inválida: {}", e)))?
+                .with_timezone(&Utc);
+
+            repos.push(ProjectGitRepo {
+                id,
+                name,
+                url,
+                branch,
+                worktree_path,
+                added_at,
+            });
+        }
+        Ok(repos)
+    }
+
+    async fn remove_git_repo(
+        &self,
+        project_id: &ProjectId,
+        repo_id: &str,
+    ) -> Result<bool, DomainError> {
+        let result =
+            sqlx::query("DELETE FROM project_repositories WHERE project_id = ? AND id = ?")
+                .bind(project_id.to_string())
+                .bind(repo_id)
+                .execute(&self.pool)
+                .await
+                .map_err(|e| {
+                    DomainError::InvariantViolation(format!("erro ao deletar repositório: {}", e))
+                })?;
 
         Ok(result.rows_affected() > 0)
     }
@@ -336,5 +575,115 @@ mod tests {
 
         let deleted_again = repo.delete(&project.id).await.unwrap();
         assert!(!deleted_again);
+    }
+
+    #[tokio::test]
+    async fn folder_crud_and_persistence() {
+        let repo = setup_repo().await;
+        let project = Project::create("Hank With Folders", "gabriel", None).unwrap();
+        repo.save(&project).await.unwrap();
+
+        let folder1 = ProjectFolder::create("src", "C:/repos/hank/src").unwrap();
+        let folder2 = ProjectFolder::create("docs", "C:/repos/hank/docs").unwrap();
+
+        repo.add_folder(&project.id, &folder1).await.unwrap();
+        repo.add_folder(&project.id, &folder2).await.unwrap();
+
+        // Duplicata deve retornar DomainError::Duplicate
+        let dup = ProjectFolder::create("src_dup", "C:/repos/hank/src").unwrap();
+        let err = repo.add_folder(&project.id, &dup).await.unwrap_err();
+        assert!(matches!(err, DomainError::Duplicate(_)));
+
+        // Listagem
+        let folders = repo.list_folders(&project.id).await.unwrap();
+        assert_eq!(folders.len(), 2);
+        assert_eq!(folders[0].name, "src");
+        assert_eq!(folders[1].name, "docs");
+
+        // get_by_id carrega folders
+        let loaded = repo.get_by_id(&project.id).await.unwrap().unwrap();
+        assert_eq!(loaded.folders.len(), 2);
+
+        // Remoção
+        let removed = repo.remove_folder(&project.id, &folder1.id).await.unwrap();
+        assert!(removed);
+        let folders_after = repo.list_folders(&project.id).await.unwrap();
+        assert_eq!(folders_after.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn git_repo_crud_and_persistence() {
+        let repo = setup_repo().await;
+        let project = Project::create("Hank With Repos", "gabriel", None).unwrap();
+        repo.save(&project).await.unwrap();
+
+        let repo1 = ProjectGitRepo::create(
+            "core-repo",
+            "https://github.com/hank/core.git",
+            "main",
+            Some("C:/wt/core".into()),
+        )
+        .unwrap();
+
+        let repo2 =
+            ProjectGitRepo::create("ui-repo", "https://github.com/hank/ui.git", "develop", None)
+                .unwrap();
+
+        repo.add_git_repo(&project.id, &repo1).await.unwrap();
+        repo.add_git_repo(&project.id, &repo2).await.unwrap();
+
+        // Duplicata por URL deve falhar
+        let dup =
+            ProjectGitRepo::create("core-dup", "https://github.com/hank/core.git", "main", None)
+                .unwrap();
+        let err = repo.add_git_repo(&project.id, &dup).await.unwrap_err();
+        assert!(matches!(err, DomainError::Duplicate(_)));
+
+        // Listagem
+        let repos = repo.list_git_repos(&project.id).await.unwrap();
+        assert_eq!(repos.len(), 2);
+        assert_eq!(repos[0].name, "core-repo");
+        assert_eq!(repos[1].name, "ui-repo");
+
+        // get_by_id carrega repositories
+        let loaded = repo.get_by_id(&project.id).await.unwrap().unwrap();
+        assert_eq!(loaded.repositories.len(), 2);
+
+        // Remoção
+        let removed = repo.remove_git_repo(&project.id, &repo1.id).await.unwrap();
+        assert!(removed);
+        let repos_after = repo.list_git_repos(&project.id).await.unwrap();
+        assert_eq!(repos_after.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn settings_update_and_get() {
+        let repo = setup_repo().await;
+        let project = Project::create("Hank Settings", "gabriel", None).unwrap();
+        repo.save(&project).await.unwrap();
+
+        let custom_settings = ProjectSettings {
+            retention_days: 120,
+            max_active_agents: 8,
+            telemetry_enabled: true,
+            ..ProjectSettings::default()
+        };
+
+        repo.update_settings(&project.id, &custom_settings)
+            .await
+            .unwrap();
+
+        let retrieved = repo
+            .get_settings(&project.id)
+            .await
+            .unwrap()
+            .expect("settings devem existir");
+        assert_eq!(retrieved.retention_days, 120);
+        assert_eq!(retrieved.max_active_agents, 8);
+        assert!(retrieved.telemetry_enabled);
+
+        let non_existent = ProjectId::new();
+        let not_found = repo.get_settings(&non_existent).await.unwrap();
+        assert!(not_found.is_none());
     }
 }
