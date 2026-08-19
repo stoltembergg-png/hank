@@ -92,6 +92,4 @@ A baseline M0 executada cobre PR-001..PR-004 e os gates de qualidade que estavam
 separados no planejamento (fmt, Clippy, Rust tests, Frontend lint/typecheck/test,
 CodeQL e dependency audit). Esses cards não devem ser reimplementados como no-op.
 
-O próximo card ainda não implementado na fila original é PR-011 (Dependabot).
-Ele permanece fora desta rodada; nenhuma feature nova foi iniciada durante o
-fechamento global.
+O próximo card ainda não implementado na fila original é PR-013 (commits convencionais). PR-011 (Dependabot) foi concluída em `b51b688` com configuração bounded, testes fail-closed e política documentada. PR-005–PR-010 e PR-012 já estão cobertas pela baseline e não devem gerar no-op.
