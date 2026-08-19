@@ -78,3 +78,9 @@
 - Arquivos: crates/agent-runtime/src/sqlite.rs, crates/agent-runtime/src/lib.rs, docs/sqlite-storage.md
 - Notas: Conexão transacional SQLx/Tokio com WAL mode, foreign keys, validação de path traversal e sem acesso direto do frontend
 
+## T-313 — Adicionar migrações SQL de schema inicial [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: migrations/0001_initial_schema.sql, crates/agent-runtime/src/migrations.rs, crates/agent-runtime/src/lib.rs, docs/migrations.md
+- Notas: Execução transacional de migrações embutidas, criação de tabelas projects/agents/sessions/messages e integridade de foreign keys
+
+
