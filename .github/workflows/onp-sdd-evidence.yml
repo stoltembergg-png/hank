@@ -1,0 +1,90 @@
+name: ONP SDD evidence
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: onp-sdd-evidence-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: ONP SDD verify and audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Setup pinned Node.js 20
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 20.19.1
+
+      - name: Install Rust and Tauri dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          timeout 180s sudo apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          timeout 300s sudo apt-get -o Acquire::ForceIPv4=true -o DPkg::Lock::Timeout=60 -o Dpkg::Use-Pty=0 install --no-install-recommends -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+          pkg-config --modversion javascriptcoregtk-4.1
+          pkg-config --modversion webkit2gtk-4.1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.97.1
+          components: rustfmt
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-fund
+
+      - name: Verify foundation workspace
+        run: node tools/ci/run-onp-spec.mjs verify foundation-workspace
+
+      - name: Verify frontend workspace
+        run: node tools/ci/run-onp-spec.mjs verify frontend-workspace
+
+      - name: Verify CI build
+        run: node tools/ci/run-onp-spec.mjs verify ci-build
+
+      - name: Verify W0 contract closure
+        run: node tools/ci/run-onp-spec.mjs verify w0-contract-closure
+
+      - name: Verify Tauri desktop
+        run: node tools/ci/run-onp-spec.mjs verify tauri-desktop
+
+      - name: Audit SDD
+        run: node tools/ci/run-onp-spec.mjs audit --ci
+
+      - name: Upload ONP evidence
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: onp-evidence-${{ github.sha }}
+          path: .spec/verification/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Require evidence artifact digest
+        env:
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: tools/ci/require-artifact-digest.sh
