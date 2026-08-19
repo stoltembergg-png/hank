@@ -4,9 +4,8 @@
 //! sem depender de UUIDs aleatórios. Nunca toca estado de produção.
 
 use agent_protocol::ids::{
-    AgentId, ArtifactId, CredentialId, GroupId, MemoryId, MessageId, NodeId,
-    ProjectId, ProviderId, RequestId, RunId, SessionId, SkillId, TaskId,
-    ToolId, TraceId, WorkflowId,
+    AgentId, ArtifactId, CredentialId, GroupId, MemoryId, MessageId, NodeId, ProjectId, ProviderId,
+    RequestId, RunId, SessionId, SkillId, TaskId, ToolId, TraceId, WorkflowId,
 };
 use agent_protocol::Uuid;
 
