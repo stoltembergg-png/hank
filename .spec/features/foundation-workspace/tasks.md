@@ -93,3 +93,9 @@
 - Arquivos: crates/agent-runtime/src/project_repo.rs, crates/agent-runtime/src/lib.rs, docs/project-repository.md
 - Notas: Implementação transacional do port ProjectRepository usando queries parametrizadas, paginação e mapeamento de DomainError
 
+## T-316 — Criar serviço de aplicação para criar Project [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/project_service.rs, crates/agent-runtime/src/lib.rs, docs/create-project-service.md
+- Notas: Use case de criação de projetos com validação de entrada, persistência transacional e publicação do evento ProjectCreated
+
+
