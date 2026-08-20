@@ -202,3 +202,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/provider-core/src/stream.rs, crates/provider-core/src/lib.rs, crates/provider-core/tests/stream_contract.rs, docs/streaming-events.md
 - Notas: envelope start/delta/tool/usage/finish/error/cancel, sequence/generation, terminalidade única, buffer bounded, backpressure e rejeição fail-closed
+
+## T-354 — Implementar adapter OpenAI-compatible isolado [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: Cargo.toml, Cargo.lock, crates/provider-adapters/openai-compatible/Cargo.toml, crates/provider-adapters/openai-compatible/src/lib.rs, crates/provider-adapters/openai-compatible/tests/adapter_contract.rs, crates/test-support/src/arch_fixtures_test.rs, docs/openai-compatible-adapter.md
+- Notas: transport injetável offline, endpoint HTTPS bounded, credential ref opaca, mapping complete/stream/error, timeout/cancel, sem retry implícito e sem execução de tools
