@@ -277,3 +277,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/provider-core/src/lib.rs, crates/provider-core/src/health.rs, crates/provider-core/tests/health_contract.rs, docs/provider-health.md, .spec/features/foundation-workspace/tasks.md
 - Notas: project/account credential scope, registry enabled guard, DefaultHealthProbe via ModelProvider::health, stable status/reason taxonomy, timeout policy, async cancellation, rate/debounce metadata cache, latency/evidence and redaction
+
+## T-369 — Definir política de fallback provider-neutral [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/provider-core/src/lib.rs, crates/provider-core/src/fallback.rs, crates/provider-core/tests/fallback_contract.rs, docs/fallback-policy.md, .spec/features/foundation-workspace/tasks.md
+- Notas: pure decision engine, retryable matrix 429/timeout/outage/quota, non-retryable auth/invalid/policy termination, deterministic healthy/capability/scope filtering, bounded attempts/tokens/cost, cancellation and stream attempt identity
