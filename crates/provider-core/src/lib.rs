@@ -17,6 +17,7 @@ use std::sync::{
 use thiserror::Error;
 
 pub mod capabilities;
+pub mod request;
 
 pub const MAX_PROVIDER_ID_LEN: usize = 120;
 pub const MAX_MODEL_ID_LEN: usize = 200;
