@@ -222,3 +222,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: Cargo.toml, Cargo.lock, crates/provider-adapters/gemini/Cargo.toml, crates/provider-adapters/gemini/src/lib.rs, crates/provider-adapters/gemini/tests/provider_contract.rs, crates/test-support/src/arch_fixtures_test.rs, docs/gemini-provider.md
 - Notas: contents/parts/generationConfig/candidates mapping, streamGenerateContent, capabilities/limits explícitos, endpoint/credential opacos, timeout/cancel e sem SDK/discovery/UI
+
+## T-358 — Adicionar adapter/descriptor OpenRouter sem fallback implícito [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: Cargo.toml, Cargo.lock, crates/provider-adapters/openrouter/Cargo.toml, crates/provider-adapters/openrouter/src/lib.rs, crates/provider-adapters/openrouter/tests/provider_contract.rs, crates/test-support/src/arch_fixtures_test.rs, docs/openrouter-provider.md
+- Notas: rota lógica/upstream determinística, identity preservation, capability validation, upstream error explícito, endpoint/credential bounded e sem fallback/policy bypass

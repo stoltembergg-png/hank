@@ -1138,6 +1138,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "provider-adapter-openrouter"
+version = "0.1.0"
+dependencies = [
+ "provider-adapter-openai-compatible",
+ "provider-core",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "provider-core"
 version = "0.1.0"
 dependencies = [
