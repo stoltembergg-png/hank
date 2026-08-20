@@ -1,6 +1,6 @@
 /**
  * Contratos de tipo para gerenciamento de Projects no frontend.
- * Conforme PR-036 e PR-030 (ListProjectsService).
+ * Conforme PR-036, PR-037 e PR-030/PR-029 (ListProjectsService, CreateProjectService).
  */
 
 export type ProjectStatus = 'active' | 'paused' | 'archived';
@@ -26,4 +26,17 @@ export interface ListProjectsOutput {
   total: number;
   limit: number;
   offset: number;
+}
+
+export interface CreateProjectInput {
+  name: string;
+  owner: string;
+  description?: string | null;
+  correlation_id?: string | null;
+}
+
+export interface CreateProjectOutput {
+  project: ProjectSummary;
+  event_id?: string | null;
+  correlation_id?: string | null;
 }

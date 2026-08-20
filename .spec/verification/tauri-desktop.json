@@ -1,7 +1,7 @@
 {
   "feature": "tauri-desktop",
-  "timestamp": "2026-08-20T00:17:47.401Z",
-  "gitRev": "e8ff636",
+  "timestamp": "2026-08-20T00:20:53.216Z",
+  "gitRev": "1645937",
   "command": "node tools/run-all-tests.mjs",
   "reporter": "exitcode",
   "exitCode": 0,

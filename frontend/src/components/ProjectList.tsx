@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ProjectApiClient, defaultProjectApi } from '../api/projects';
 import { ProjectSummary, ProjectStatus } from '../types/project';
+import { CreateProjectForm } from './CreateProjectForm';
 import './ProjectList.css';
 
 export interface ProjectListProps {
@@ -19,6 +20,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   const [offset, setOffset] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState<boolean>(false);
 
   const fetchProjects = useCallback(async () => {
     setIsLoading(true);
@@ -52,6 +54,12 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     setOffset((prev) => Math.max(0, prev - pageSize));
   };
 
+  const handleProjectCreated = () => {
+    setIsCreating(false);
+    setOffset(0);
+    fetchProjects();
+  };
+
   const currentPage = Math.floor(offset / pageSize) + 1;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -59,7 +67,25 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     <section className="project-list-container" aria-label="Gerenciamento de Projetos">
       <header className="project-list-header">
         <h2>Projetos ({total})</h2>
+        {!isCreating && (
+          <button
+            type="button"
+            className="btn-new-project"
+            onClick={() => setIsCreating(true)}
+            aria-label="Abrir formulário de criação de projeto"
+          >
+            + Novo Projeto
+          </button>
+        )}
       </header>
+
+      {isCreating && (
+        <CreateProjectForm
+          apiClient={apiClient}
+          onSuccess={handleProjectCreated}
+          onCancel={() => setIsCreating(false)}
+        />
+      )}
 
       {isLoading && (
         <div className="project-state-message" role="status" aria-busy="true">

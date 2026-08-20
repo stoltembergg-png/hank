@@ -20,6 +20,23 @@
   color: #f1f5f9;
 }
 
+.btn-new-project {
+  padding: 0.45rem 0.9rem;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-new-project:hover {
+  background: #1d4ed8;
+}
+
+
 .project-list {
   display: flex;
   flex-direction: column;
