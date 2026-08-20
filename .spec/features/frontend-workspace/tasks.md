@@ -65,3 +65,8 @@
 - Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
 - Arquivos: frontend/src/ProjectDetail.tsx, frontend/tests/project_detail_contract.test.ts, docs/project-detail-ui.md
 - Notas: Update/archive via services injetados, version check, confirmação explícita e estado archived terminal
+
+## T-338 — Mapear implementação legacy de Project list [pendente]
+- Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
+- Arquivos: frontend/src/api/projects.ts, frontend/src/components/ProjectList.tsx, frontend/src/types/project.ts, frontend/tests/project_list_ac_tests.test.ts
+- Notas: Project-scoped list component/service contract; loading/empty/error/pagination; sem acesso direto a storage
