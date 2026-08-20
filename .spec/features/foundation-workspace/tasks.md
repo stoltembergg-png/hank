@@ -182,3 +182,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: Cargo.toml, Cargo.lock, crates/provider-core/Cargo.toml, crates/provider-core/src/lib.rs, crates/provider-core/tests/provider_contract.rs, crates/test-support/src/arch_fixtures_test.rs, docs/provider-core.md
 - Notas: Trait object-safe para complete/stream/list/health, IDs opacos, credential ref redacted, cancellation/backpressure typed, MockProvider offline e nenhum SDK/concrete provider
+
+## T-350 — Definir schema de capabilities de modelo [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/provider-core/src/capabilities.rs, crates/provider-core/src/lib.rs, crates/provider-core/tests/capability_contract.rs, docs/model-capabilities.md
+- Notas: supported/unsupported/unknown explícitos, limites bounded, comparação determinística e rejeição antes do adapter
