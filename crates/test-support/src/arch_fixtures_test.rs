@@ -195,6 +195,7 @@ fn metadata_lists_expected_crates() {
         "provider-core",
         "provider-adapter-openai-compatible",
         "provider-adapter-openai",
+        "provider-adapter-anthropic",
         "test-support",
         "xtask",
     ];

@@ -212,3 +212,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: Cargo.toml, Cargo.lock, crates/provider-adapters/openai/Cargo.toml, crates/provider-adapters/openai/src/lib.rs, crates/provider-adapters/openai/tests/provider_contract.rs, crates/test-support/src/arch_fixtures_test.rs, docs/openai-provider.md
 - Notas: provider ID/model mapping/capabilities determinísticos, validação pré-adapter, wrapper sobre compatível, credential/endpoint opacos e sem discovery/OAuth/UI
+
+## T-356 — Adicionar adapter/descriptor Anthropic e transport boundary compartilhado [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: Cargo.toml, Cargo.lock, crates/provider-core/src/transport.rs, crates/provider-core/src/lib.rs, crates/provider-adapters/openai-compatible/src/lib.rs, crates/provider-adapters/anthropic/Cargo.toml, crates/provider-adapters/anthropic/src/lib.rs, crates/provider-adapters/anthropic/tests/provider_contract.rs, crates/test-support/src/arch_fixtures_test.rs, docs/anthropic-provider.md
+- Notas: transport HTTPS/credential/backpressure compartilhado em provider-core, Anthropic content/stop/stream mapping, capabilities explícitas, timeout/cancel, sem discovery/OAuth/UI e sem secrets
