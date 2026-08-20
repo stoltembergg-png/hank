@@ -217,3 +217,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: Cargo.toml, Cargo.lock, crates/provider-core/src/transport.rs, crates/provider-core/src/lib.rs, crates/provider-adapters/openai-compatible/src/lib.rs, crates/provider-adapters/anthropic/Cargo.toml, crates/provider-adapters/anthropic/src/lib.rs, crates/provider-adapters/anthropic/tests/provider_contract.rs, crates/test-support/src/arch_fixtures_test.rs, docs/anthropic-provider.md
 - Notas: transport HTTPS/credential/backpressure compartilhado em provider-core, Anthropic content/stop/stream mapping, capabilities explícitas, timeout/cancel, sem discovery/OAuth/UI e sem secrets
+
+## T-357 — Adicionar adapter/descriptor Gemini provider-neutral [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: Cargo.toml, Cargo.lock, crates/provider-adapters/gemini/Cargo.toml, crates/provider-adapters/gemini/src/lib.rs, crates/provider-adapters/gemini/tests/provider_contract.rs, crates/test-support/src/arch_fixtures_test.rs, docs/gemini-provider.md
+- Notas: contents/parts/generationConfig/candidates mapping, streamGenerateContent, capabilities/limits explícitos, endpoint/credential opacos, timeout/cancel e sem SDK/discovery/UI
