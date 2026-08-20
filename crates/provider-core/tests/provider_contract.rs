@@ -22,8 +22,9 @@ async fn mock_provider_compiles_against_object_safe_trait_and_supports_lifecycle
     ));
 
     assert_eq!(provider.provider_id().as_str(), "mock-provider");
-    assert!(provider.capabilities().supports_completion);
-    assert!(provider.capabilities().supports_streaming);
+    let caps = provider.capabilities();
+    assert!(caps.supports_feature(provider_core::capabilities::CapabilityFeature::ToolUse));
+    assert!(caps.supports_feature(provider_core::capabilities::CapabilityFeature::Streaming));
     assert_eq!(provider.health().await.unwrap(), HealthStatus::Healthy);
     assert_eq!(provider.list_models().await.unwrap().len(), 1);
 
