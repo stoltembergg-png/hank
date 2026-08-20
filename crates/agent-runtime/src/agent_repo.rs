@@ -1,3 +1,4 @@
+#![allow(clippy::manual_async_fn)]
 use agent_core::agent::{Agent, AgentStatus};
 use agent_core::error::DomainError;
 use agent_core::ids::{AgentId, ProjectId};
@@ -77,6 +78,43 @@ impl SqliteAgentRepository {
         } else {
             Ok(())
         }
+    }
+}
+
+impl agent_core::AgentRepository for SqliteAgentRepository {
+    #[allow(clippy::manual_async_fn)]
+    fn save(
+        &self,
+        agent: &Agent,
+    ) -> impl std::future::Future<Output = Result<(), DomainError>> + Send {
+        async move { self.save(agent).await }
+    }
+
+    #[allow(clippy::manual_async_fn)]
+    fn get(
+        &self,
+        project_id: &ProjectId,
+        agent_id: &AgentId,
+    ) -> impl std::future::Future<Output = Result<Option<Agent>, DomainError>> + Send {
+        async move { self.get(project_id, agent_id).await }
+    }
+
+    #[allow(clippy::manual_async_fn)]
+    fn list(
+        &self,
+        project_id: &ProjectId,
+        limit: usize,
+        offset: usize,
+    ) -> impl std::future::Future<Output = Result<Vec<Agent>, DomainError>> + Send {
+        async move { self.list(project_id, limit, offset).await }
+    }
+
+    #[allow(clippy::manual_async_fn)]
+    fn update(
+        &self,
+        agent: &Agent,
+    ) -> impl std::future::Future<Output = Result<(), DomainError>> + Send {
+        async move { self.update(agent).await }
     }
 }
 

@@ -72,6 +72,8 @@ pub enum DomainError {
     Uuid(#[from] uuid::Error),
     #[error("IO error")]
     Io(#[from] std::io::Error),
+    #[error("Concurrency conflict")]
+    ConcurrencyConflict { expected: String, actual: String },
 }
 
 impl DomainError {
@@ -91,6 +93,7 @@ impl DomainError {
             Self::Serialization(_) => DomainErrorCode::Serialization,
             Self::Uuid(_) => DomainErrorCode::Uuid,
             Self::Io(_) => DomainErrorCode::Io,
+            Self::ConcurrencyConflict { .. } => DomainErrorCode::InvariantViolation,
         }
     }
 
@@ -100,6 +103,7 @@ impl DomainError {
                 Retryability::Conditional
             }
             Self::Io(_) => Retryability::Safe,
+            Self::ConcurrencyConflict { .. } => Retryability::Never,
             _ => Retryability::Never,
         }
     }

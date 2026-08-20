@@ -1,5 +1,6 @@
 //! Entidade Agent e configuração de domínio.
 
+use crate::error::DomainError;
 use crate::ids::{AgentId, ProjectId, SkillId};
 use crate::policy::AgentPolicyConfig;
 use chrono::{DateTime, Utc};
@@ -162,6 +163,36 @@ impl Agent {
         }
         removed
     }
+}
+
+/// Port de persistência para o aggregate Agent (DIP / Clean Architecture).
+pub trait AgentRepository: Send + Sync {
+    /// Salva um novo agente no armazenamento persistente.
+    fn save(
+        &self,
+        agent: &Agent,
+    ) -> impl std::future::Future<Output = Result<(), DomainError>> + Send;
+
+    /// Busca um agente pelo ID tipado dentro de um projeto.
+    fn get(
+        &self,
+        project_id: &ProjectId,
+        agent_id: &AgentId,
+    ) -> impl std::future::Future<Output = Result<Option<Agent>, DomainError>> + Send;
+
+    /// Lista agentes de um projeto paginados.
+    fn list(
+        &self,
+        project_id: &ProjectId,
+        limit: usize,
+        offset: usize,
+    ) -> impl std::future::Future<Output = Result<Vec<Agent>, DomainError>> + Send;
+
+    /// Atualiza um agente existente.
+    fn update(
+        &self,
+        agent: &Agent,
+    ) -> impl std::future::Future<Output = Result<(), DomainError>> + Send;
 }
 
 #[cfg(test)]

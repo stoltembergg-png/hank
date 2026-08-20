@@ -562,6 +562,14 @@ pub trait ProjectRepository: Send + Sync {
         id: &ProjectId,
     ) -> impl std::future::Future<Output = Result<Option<Project>, DomainError>> + Send;
 
+    /// Alias for get_by_id for compatibility.
+    fn get(
+        &self,
+        id: &ProjectId,
+    ) -> impl std::future::Future<Output = Result<Option<Project>, DomainError>> + Send {
+        self.get_by_id(id)
+    }
+
     /// Lista projetos paginados.
     fn list(
         &self,
