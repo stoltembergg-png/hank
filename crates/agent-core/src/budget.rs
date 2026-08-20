@@ -13,19 +13,14 @@ pub const MAX_PARALLEL_INVOCATIONS_LIMIT: u32 = 64;
 pub const MAX_WALL_TIME_SECONDS_LIMIT: u64 = 604_800; // 7 days
 
 /// Período de renovação periódica do orçamento.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ResetPeriod {
+    #[default]
     Never,
     Daily,
     Weekly,
     Monthly,
-}
-
-impl Default for ResetPeriod {
-    fn default() -> Self {
-        Self::Never
-    }
 }
 
 /// Escopo de granularidade do orçamento.
@@ -102,7 +97,6 @@ impl ReservationId {
     }
 }
 
-
 impl Default for ReservationId {
     fn default() -> Self {
         Self::new()
@@ -164,9 +158,7 @@ impl BudgetAccount {
     pub fn reset_if_needed(&mut self, now: DateTime<Utc>) -> bool {
         let should_reset = match self.limits.reset_period {
             ResetPeriod::Never => false,
-            ResetPeriod::Daily => {
-                now.date_naive() > self.last_reset_at.date_naive()
-            }
+            ResetPeriod::Daily => now.date_naive() > self.last_reset_at.date_naive(),
             ResetPeriod::Weekly => {
                 let days = (now.date_naive() - self.last_reset_at.date_naive()).num_days();
                 days >= 7 || (now.iso_week() != self.last_reset_at.iso_week())
@@ -188,11 +180,7 @@ impl BudgetAccount {
     }
 
     /// Verifica se há saldo disponível sem alocar.
-    pub fn check_availability(
-        &self,
-        tokens: u64,
-        cost_micro_usd: u64,
-    ) -> Result<(), DomainError> {
+    pub fn check_availability(&self, tokens: u64, cost_micro_usd: u64) -> Result<(), DomainError> {
         let total_tokens = self
             .used_tokens
             .checked_add(self.reserved_tokens)
@@ -479,11 +467,15 @@ mod tests {
             past,
         );
 
-        account.direct_consume(900, 90_000, past).expect("consume past");
+        account
+            .direct_consume(900, 90_000, past)
+            .expect("consume past");
         assert_eq!(account.used_tokens, 900);
 
         // No momento atual (2 dias depois), consome novamente e dispara reset
-        account.direct_consume(500, 50_000, now).expect("consume after reset");
+        account
+            .direct_consume(500, 50_000, now)
+            .expect("consume after reset");
         assert_eq!(account.used_tokens, 500);
     }
 
