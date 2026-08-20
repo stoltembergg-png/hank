@@ -22,6 +22,7 @@ pub mod provider_service;
 pub mod python;
 pub mod sandbox;
 pub mod scheduler;
+pub mod session_repo;
 pub mod skill_runtime;
 pub mod sqlite;
 pub mod tool;
