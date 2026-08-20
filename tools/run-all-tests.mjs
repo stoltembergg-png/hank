@@ -1,5 +1,10 @@
 import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+
+const defaultCargo = join(homedir(), '.cargo', 'bin', process.platform === 'win32' ? 'cargo.exe' : 'cargo');
+const cargoCmd = existsSync(defaultCargo) ? defaultCargo : 'cargo';
 
 const commands = [
   {
@@ -9,7 +14,7 @@ const commands = [
   },
   {
     label: 'Rust workspace tests',
-    command: 'cargo',
+    command: cargoCmd,
     args: ['test', '--workspace'],
   },
 ];
@@ -25,7 +30,7 @@ if (existsSync('frontend/package.json')) {
 if (existsSync('apps/desktop/src-tauri/Cargo.toml')) {
   commands.push({
     label: 'Tauri acceptance tests',
-    command: 'cargo',
+    command: cargoCmd,
     args: ['test', '--manifest-path', 'apps/desktop/src-tauri/Cargo.toml', '--locked'],
   });
 }

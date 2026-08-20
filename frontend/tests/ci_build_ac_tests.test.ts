@@ -78,17 +78,22 @@ describe('CI Build workflow AC tests', () => {
   // @spec:AC-405
   it('AC-405: fixture rejeita artifact sem digest', () => {
     const script = join(REPOSITORY_ROOT, 'tools', 'ci', 'require-artifact-digest.sh');
-    const missing = spawnSync('bash', [script], {
+    const bashBin =
+      process.platform === 'win32' && existsSync('C:\\Program Files\\Git\\bin\\bash.exe')
+        ? 'C:\\Program Files\\Git\\bin\\bash.exe'
+        : 'bash';
+    const missing = spawnSync(bashBin, [script], {
       env: { ...process.env, ARTIFACT_DIGEST: '' },
       encoding: 'utf8',
     });
     expect(missing.status).not.toBe(0);
-    expect(missing.stderr).toContain('artifact digest is missing');
+    expect(missing.stderr ?? '').toContain('artifact digest is missing');
 
-    const valid = spawnSync('bash', [script], {
+    const valid = spawnSync(bashBin, [script], {
       env: { ...process.env, ARTIFACT_DIGEST: 'sha256:test' },
       encoding: 'utf8',
     });
     expect(valid.status).toBe(0);
   });
 });
+
