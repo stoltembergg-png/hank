@@ -100,3 +100,8 @@
 - Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
 - Arquivos: frontend/src/api/agent-model-policy.ts, frontend/src/agents/builder/model/ModelPolicyPage.tsx, frontend/src/agents/builder/model/types.ts, frontend/src/agents/builder/model/ModelPolicyPage.css, frontend/tests/agent_model_policy_ac_tests.test.tsx, docs/agent-model-policy-page.md
 - Notas: Provider-neutral IDs, bounded limits/modalities, explicit capability/provider state, no credentials/endpoints, stale-safe typed service boundary
+
+## T-346 — Adicionar página de permissões do Agent [concluida]
+- Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
+- Arquivos: frontend/src/api/agent-tool-permissions.ts, frontend/src/agents/builder/permissions/PermissionsPage.tsx, frontend/src/agents/builder/permissions/types.ts, frontend/src/agents/builder/permissions/PermissionsPage.css, frontend/tests/agent_permissions_ac_tests.test.tsx, docs/agent-permissions-page.md
+- Notas: Default deny imutável, allow/ask/deny, escopo bounded, conflitos/wildcards rejeitados, grants sensíveis exigem ask/deny e estado unsupported explícito
