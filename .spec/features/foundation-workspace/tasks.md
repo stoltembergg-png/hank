@@ -257,3 +257,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/auth-core/src/lib.rs, crates/auth-core/src/callback.rs, crates/auth-core/tests/callback_contract.rs, docs/oauth-callback.md, .spec/features/foundation-workspace/tasks.md
 - Notas: deep-link allowlist hank://oauth/callback, parser bounded, provider/account/project binding, state/replay/timeout/cancel validation, opaque CredentialRef result e sem token logs/open redirect/UI command
+
+## T-365 — Adicionar provider settings UI service-only [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: frontend/src/api/provider-settings.ts, frontend/src/providers/settings/ProviderSettingsPage.tsx, frontend/src/providers/settings/ProviderSettingsPage.css, frontend/tests/provider_settings_ac_tests.test.tsx, docs/provider-settings-ui.md, .spec/features/foundation-workspace/tasks.md
+- Notas: typed bridge/service intents, status/pending/revoked/unavailable states, OAuth stale callback handling, accessible UI, no secret/code/token DOM or browser storage
