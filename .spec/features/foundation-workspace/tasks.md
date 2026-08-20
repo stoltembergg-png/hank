@@ -237,3 +237,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/provider-core/src/lib.rs, crates/provider-core/src/registry.rs, crates/provider-core/tests/provider_contract.rs, crates/provider-core/tests/registry_contract.rs, docs/provider-registry.md, onpspec.config.json, .spec/features/foundation-workspace/tasks.md
 - Notas: registro determinístico, duplicate/lookup, enable/disable, capability filter, sealing fail-closed, thread-safety observável, canonical CapabilityReport e sem credential/fallback/plugin/UI
+
+## T-361 — Adicionar credential service provider-neutral [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/provider-core/src/lib.rs, crates/provider-core/src/credentials.rs, crates/provider-core/tests/credentials_contract.rs, docs/credential-service.md, .spec/features/foundation-workspace/tasks.md
+- Notas: opaque CredentialRef, project/account authorization, connect/disconnect/revoke/resolve, unavailable/cancelled states, bounded metadata, redaction, in-memory fixture sem persistência ou plaintext

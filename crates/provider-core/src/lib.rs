@@ -17,6 +17,7 @@ use std::sync::{
 use thiserror::Error;
 
 pub mod capabilities;
+pub mod credentials;
 pub mod registry;
 pub mod request;
 pub mod response;
