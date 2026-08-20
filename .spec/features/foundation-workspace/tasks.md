@@ -287,3 +287,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-runtime/Cargo.toml, crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/provider_service.rs, crates/agent-runtime/tests/provider_application_contract.rs, docs/provider-application-service.md, .spec/features/foundation-workspace/tasks.md
 - Notas: única fachada runtime provider-neutral, registry/credential/capability checks, complete/stream DTOs, fallback orchestration, cancellation, terminal stream, attempt identity, no adapter import/type leakage or secret payload
+
+## T-371 — Adicionar Session entity [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-core/src/session.rs, crates/agent-core/tests/session_contract.rs, docs/session-entity.md, .spec/features/foundation-workspace/tasks.md
+- Notas: project/agent binding, correlation/schema version, Created/Active/Closing/Closed/Failed lifecycle, terminal/idempotent close, project-scoped participants, bounded metadata/budget/trace refs, no prompt/secret/provider types
