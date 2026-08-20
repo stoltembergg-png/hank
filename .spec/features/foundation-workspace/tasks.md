@@ -272,3 +272,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: frontend/src/api/model-selector.ts, frontend/src/providers/model-selector/ModelSelectorPage.tsx, frontend/src/providers/model-selector/ModelSelectorPage.css, frontend/tests/model_selector_ac_tests.test.tsx, docs/model-selector.md, .spec/features/foundation-workspace/tasks.md
 - Notas: discovery/policy service-only, capability filtering supported-only, disabled/expired/unknown reasons, stale conflict preservation, bounded identifiers, accessible radios, no secret/token/endpoint DOM ou fallback
+
+## T-368 — Adicionar provider health check service [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/provider-core/src/lib.rs, crates/provider-core/src/health.rs, crates/provider-core/tests/health_contract.rs, docs/provider-health.md, .spec/features/foundation-workspace/tasks.md
+- Notas: project/account credential scope, registry enabled guard, DefaultHealthProbe via ModelProvider::health, stable status/reason taxonomy, timeout policy, async cancellation, rate/debounce metadata cache, latency/evidence and redaction
