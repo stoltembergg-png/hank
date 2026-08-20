@@ -242,3 +242,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/provider-core/src/lib.rs, crates/provider-core/src/credentials.rs, crates/provider-core/tests/credentials_contract.rs, docs/credential-service.md, .spec/features/foundation-workspace/tasks.md
 - Notas: opaque CredentialRef, project/account authorization, connect/disconnect/revoke/resolve, unavailable/cancelled states, bounded metadata, redaction, in-memory fixture sem persistência ou plaintext
+
+## T-362 — Adicionar encrypted secret storage boundary [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: Cargo.toml, Cargo.lock, crates/secrets-core/Cargo.toml, crates/secrets-core/src/lib.rs, crates/secrets-core/tests/secret_store_contract.rs, docs/encrypted-secret-storage.md, .spec/features/foundation-workspace/tasks.md
+- Notas: SecureSecretBackend injetável para OS keychain/Stronghold, SecretMaterial bounded/zeroized, put/get/delete/rotate, account/scope binding, unavailable fail-closed, mock backend somente em testes e sem plaintext fallback
