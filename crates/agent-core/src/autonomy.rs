@@ -8,12 +8,15 @@ pub const MAX_APPROVER_ID_LEN: usize = 128;
 pub const MAX_REASON_LEN: usize = 256;
 
 /// Níveis formais de autonomia do agente (L0–L4).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum AutonomyLevel {
     /// L0: Sugestão e apenas leitura. Qualquer execução requer aprovação.
     L0None,
     /// L1: Assistido. Apenas leituras e ferramentas seguras sem efeito colateral.
+    #[default]
     L1Assisted,
     /// L2: Semi-autônomo. Executa tarefas delimitadas no escopo do projeto.
     L2SemiAutonomous,
@@ -21,12 +24,6 @@ pub enum AutonomyLevel {
     L3Autonomous,
     /// L4: Totalmente autônomo dentro dos limites estritos de sandbox e budget.
     L4FullyAutonomous,
-}
-
-impl Default for AutonomyLevel {
-    fn default() -> Self {
-        Self::L1Assisted
-    }
 }
 
 /// Tipos de operações controladas por autonomia.
@@ -325,9 +322,10 @@ mod tests {
 
     #[test]
     fn unknown_fields_fail_closed() {
-        let mut value =
-            serde_json::to_value(AutonomyPolicy::defaults_for_level(AutonomyLevel::L1Assisted))
-                .unwrap();
+        let mut value = serde_json::to_value(AutonomyPolicy::defaults_for_level(
+            AutonomyLevel::L1Assisted,
+        ))
+        .unwrap();
         value["self_escalate"] = serde_json::json!(true);
         assert!(serde_json::from_value::<AutonomyPolicy>(value).is_err());
     }
@@ -350,15 +348,24 @@ mod tests {
     #[test]
     fn evaluation_matrix_satisfies_level_contracts() {
         let l0 = AutonomyPolicy::defaults_for_level(AutonomyLevel::L0None);
-        assert_eq!(l0.evaluate(AutonomyOperation::ReadData), AutonomyDecision::Allow);
+        assert_eq!(
+            l0.evaluate(AutonomyOperation::ReadData),
+            AutonomyDecision::Allow
+        );
         assert_eq!(
             l0.evaluate(AutonomyOperation::ExecuteSafeTool),
             AutonomyDecision::RequireHumanApproval
         );
-        assert_eq!(l0.evaluate(AutonomyOperation::SpawnSubAgent), AutonomyDecision::Deny);
+        assert_eq!(
+            l0.evaluate(AutonomyOperation::SpawnSubAgent),
+            AutonomyDecision::Deny
+        );
 
         let l1 = AutonomyPolicy::defaults_for_level(AutonomyLevel::L1Assisted);
-        assert_eq!(l1.evaluate(AutonomyOperation::ReadData), AutonomyDecision::Allow);
+        assert_eq!(
+            l1.evaluate(AutonomyOperation::ReadData),
+            AutonomyDecision::Allow
+        );
         assert_eq!(
             l1.evaluate(AutonomyOperation::ExecuteSafeTool),
             AutonomyDecision::Allow
@@ -393,8 +400,12 @@ mod tests {
     fn transition_downgrade_is_always_permitted() {
         let now = Utc::now();
         let l3 = AutonomyPolicy::defaults_for_level(AutonomyLevel::L3Autonomous);
-        assert!(l3.validate_transition(AutonomyLevel::L1Assisted, None, now).is_ok());
-        assert!(l3.validate_transition(AutonomyLevel::L0None, None, now).is_ok());
+        assert!(l3
+            .validate_transition(AutonomyLevel::L1Assisted, None, now)
+            .is_ok());
+        assert!(l3
+            .validate_transition(AutonomyLevel::L0None, None, now)
+            .is_ok());
     }
 
     #[test]
@@ -403,7 +414,9 @@ mod tests {
         let l1 = AutonomyPolicy::defaults_for_level(AutonomyLevel::L1Assisted);
 
         // Sem aprovação: erro
-        assert!(l1.validate_transition(AutonomyLevel::L2SemiAutonomous, None, now).is_err());
+        assert!(l1
+            .validate_transition(AutonomyLevel::L2SemiAutonomous, None, now)
+            .is_err());
 
         // Com aprovação válida
         let valid_approval = AutonomyTransitionApproval {
@@ -424,7 +437,11 @@ mod tests {
             expires_at: Some(now - chrono::Duration::minutes(5)),
         };
         assert!(l1
-            .validate_transition(AutonomyLevel::L2SemiAutonomous, Some(&expired_approval), now)
+            .validate_transition(
+                AutonomyLevel::L2SemiAutonomous,
+                Some(&expired_approval),
+                now
+            )
             .is_err());
     }
 }
