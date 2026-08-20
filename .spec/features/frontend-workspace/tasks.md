@@ -110,3 +110,8 @@
 - Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
 - Arquivos: frontend/src/api/agent-instructions.ts, frontend/src/agents/builder/instructions/InstructionsPage.tsx, frontend/src/agents/builder/instructions/types.ts, frontend/src/agents/builder/instructions/InstructionsPage.css, frontend/tests/agent_instructions_ac_tests.test.tsx, docs/agent-instructions-page.md
 - Notas: Camada Agent fixa, budget bounded, provenance, preview plain-text não confiável, stale protection e ausência de system/security/prompt send
+
+## T-348 — Adicionar página de autonomia do Agent [concluida]
+- Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
+- Arquivos: frontend/src/api/agent-autonomy.ts, frontend/src/agents/builder/autonomy/AutonomyPage.tsx, frontend/src/agents/builder/autonomy/types.ts, frontend/src/agents/builder/autonomy/AutonomyPage.css, frontend/tests/agent_autonomy_ac_tests.test.tsx, docs/agent-autonomy-page.md
+- Notas: L0-L4, matriz de decisões, downgrade reversível, escalação com approval bounded, stale/unsupported fail-closed e sem autoelevação
