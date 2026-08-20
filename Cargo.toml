@@ -10,6 +10,7 @@ members = [
     "crates/provider-adapters/anthropic",
     "crates/provider-adapters/gemini",
     "crates/provider-adapters/openrouter",
+    "crates/provider-adapters/ollama",
     "crates/test-support",
     "crates/xtask",
 ]

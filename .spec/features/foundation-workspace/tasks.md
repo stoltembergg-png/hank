@@ -227,3 +227,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: Cargo.toml, Cargo.lock, crates/provider-adapters/openrouter/Cargo.toml, crates/provider-adapters/openrouter/src/lib.rs, crates/provider-adapters/openrouter/tests/provider_contract.rs, crates/test-support/src/arch_fixtures_test.rs, docs/openrouter-provider.md
 - Notas: rota lógica/upstream determinística, identity preservation, capability validation, upstream error explícito, endpoint/credential bounded e sem fallback/policy bypass
+
+## T-359 — Adicionar adapter/descriptor Ollama com validação de endpoint local [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: Cargo.toml, Cargo.lock, crates/provider-adapters/ollama/Cargo.toml, crates/provider-adapters/ollama/src/lib.rs, crates/provider-adapters/ollama/tests/provider_contract.rs, crates/test-support/src/arch_fixtures_test.rs, docs/ollama-provider.md
+- Notas: messages/options mapping, localhost endpoint allowlist, capabilities/limits explícitos, sem process launch/shell/install, timeout/cancel, endpoint HTTPS validated
