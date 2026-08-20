@@ -1,0 +1,194 @@
+.instructions-page {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 24px;
+  color: #1a1a1a;
+  font-family: system-ui, sans-serif;
+}
+
+.instructions-page__header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.instructions-page__header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.instructions-page__header button,
+.instructions-page__actions button,
+.instructions-page__error button {
+  padding: 8px 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+  color: #24292f;
+  cursor: pointer;
+  font: inherit;
+}
+
+.instructions-page__header button:hover:not(:disabled),
+.instructions-page__actions button:first-child:hover:not(:disabled) {
+  background: #f6f8fa;
+}
+
+.instructions-page__loading,
+.instructions-page__error,
+.instructions-page__unsupported,
+.instructions-page__boundary,
+.instructions-page__budget,
+.instructions-page__preview {
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.instructions-page__loading {
+  background: #f6f8fa;
+  color: #57606a;
+  text-align: center;
+}
+
+.instructions-page__error {
+  margin-bottom: 16px;
+  border: 1px solid #ff818266;
+  background: #ffebe9;
+  color: #cf222e;
+}
+
+.instructions-page__error p {
+  margin: 0;
+}
+
+.instructions-page__error button {
+  margin-top: 10px;
+  border-color: #cf222e;
+  color: #cf222e;
+}
+
+.instructions-page__unsupported {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  border: 1px solid #d4a72c66;
+  background: #fff8c5;
+  color: #4d2d00;
+}
+
+.instructions-page__boundary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 18px;
+  border: 1px solid #b6d7ff;
+  background: #ddf4ff;
+  color: #0a3069;
+}
+
+.instructions-page__form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.instructions-page__field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.instructions-page__field label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.instructions-page__field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 220px;
+  padding: 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+  color: #24292f;
+  font: 0.95rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: vertical;
+}
+
+.instructions-page__field textarea:focus,
+.instructions-page__header button:focus,
+.instructions-page__actions button:focus,
+.instructions-page__error button:focus {
+  outline: 3px solid #54aeff66;
+  outline-offset: 1px;
+  border-color: #0969da;
+}
+
+.instructions-page__field textarea:disabled {
+  background: #f6f8fa;
+  color: #57606a;
+  cursor: not-allowed;
+}
+
+.instructions-page__hint {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: #57606a;
+  font-size: 0.8rem;
+}
+
+.instructions-page__hint span {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.instructions-page__budget {
+  border: 1px solid #d0d7de;
+  background: #f6f8fa;
+  color: #57606a;
+  font-size: 0.85rem;
+}
+
+.instructions-page__preview {
+  border: 1px solid #d0d7de;
+  background: #f6f8fa;
+}
+
+.instructions-page__preview h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.instructions-page__preview pre {
+  margin: 0;
+  padding: 12px;
+  border-radius: 6px;
+  background: #fff;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 0.9rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.instructions-page__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.instructions-page__actions button:last-child {
+  border-color: #0969da;
+  background: #0969da;
+  color: #fff;
+}
+
+.instructions-page__actions button:last-child:hover:not(:disabled) {
+  background: #0757b5;
+}
+
+.instructions-page button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
