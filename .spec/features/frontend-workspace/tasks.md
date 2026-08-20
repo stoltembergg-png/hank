@@ -85,3 +85,8 @@
 - Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
 - Arquivos: frontend/src/api/agents.ts, frontend/src/components/AgentList.tsx, frontend/src/types/agent.ts, frontend/tests/agent_list_ac_tests.test.tsx
 - Notas: Project-scoped list via AgentApiClient; loading/empty/error/pagination; sem acesso direto a storage/Tauri/provider
+
+## T-343 — Adicionar página de identidade do Agent Builder [concluida]
+- Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
+- Arquivos: frontend/src/agents/builder/identity/AgentIdentityPage.tsx, frontend/src/agents/builder/identity/types.ts, frontend/src/agents/builder/identity/AgentIdentityPage.css, frontend/tests/agent_identity_ac_tests.test.tsx, docs/agent-identity-page.md
+- Notas: Form with name/description, validation, optimistic version, cancel/confirm, stale/archived/permission handling; update service as sole write path
