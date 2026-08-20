@@ -90,3 +90,8 @@
 - Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
 - Arquivos: frontend/src/agents/builder/identity/AgentIdentityPage.tsx, frontend/src/agents/builder/identity/types.ts, frontend/src/agents/builder/identity/AgentIdentityPage.css, frontend/tests/agent_identity_ac_tests.test.tsx, docs/agent-identity-page.md
 - Notas: Form with name/description, validation, optimistic version, cancel/confirm, stale/archived/permission handling; update service as sole write path
+
+## T-344 — Adicionar página de personalidade do Agent [concluida]
+- Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
+- Arquivos: frontend/src/agents/builder/personality/PersonalityPage.tsx, frontend/src/agents/builder/personality/types.ts, frontend/src/agents/builder/personality/PersonalityPage.css, frontend/tests/agent_personality_ac_tests.test.tsx, docs/agent-personality-page.md
+- Notas: Personality bounded, plain-text preview, Agent-layer precedence warning, injection/secret rejection, stale-safe update service and inactive protection
