@@ -267,3 +267,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/provider-core/src/lib.rs, crates/provider-core/src/discovery.rs, crates/provider-core/tests/discovery_contract.rs, docs/model-discovery.md, .spec/features/foundation-workspace/tasks.md
 - Notas: registry/credential integration, normalized CapabilityReport records, requirements fail-closed, pagination bounded, metadata-only cache/invalidation, unavailable/expired/cancelled handling e sem raw provider payload
+
+## T-367 — Adicionar model selector provider-neutral [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: frontend/src/api/model-selector.ts, frontend/src/providers/model-selector/ModelSelectorPage.tsx, frontend/src/providers/model-selector/ModelSelectorPage.css, frontend/tests/model_selector_ac_tests.test.tsx, docs/model-selector.md, .spec/features/foundation-workspace/tasks.md
+- Notas: discovery/policy service-only, capability filtering supported-only, disabled/expired/unknown reasons, stale conflict preservation, bounded identifiers, accessible radios, no secret/token/endpoint DOM ou fallback
