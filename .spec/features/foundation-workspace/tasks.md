@@ -207,3 +207,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: Cargo.toml, Cargo.lock, crates/provider-adapters/openai-compatible/Cargo.toml, crates/provider-adapters/openai-compatible/src/lib.rs, crates/provider-adapters/openai-compatible/tests/adapter_contract.rs, crates/test-support/src/arch_fixtures_test.rs, docs/openai-compatible-adapter.md
 - Notas: transport injetável offline, endpoint HTTPS bounded, credential ref opaca, mapping complete/stream/error, timeout/cancel, sem retry implícito e sem execução de tools
+
+## T-355 — Adicionar descriptor/provider OpenAI provider-neutral [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: Cargo.toml, Cargo.lock, crates/provider-adapters/openai/Cargo.toml, crates/provider-adapters/openai/src/lib.rs, crates/provider-adapters/openai/tests/provider_contract.rs, crates/test-support/src/arch_fixtures_test.rs, docs/openai-provider.md
+- Notas: provider ID/model mapping/capabilities determinísticos, validação pré-adapter, wrapper sobre compatível, credential/endpoint opacos e sem discovery/OAuth/UI

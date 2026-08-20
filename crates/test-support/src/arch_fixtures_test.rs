@@ -194,6 +194,7 @@ fn metadata_lists_expected_crates() {
         "agent-protocol",
         "provider-core",
         "provider-adapter-openai-compatible",
+        "provider-adapter-openai",
         "test-support",
         "xtask",
     ];

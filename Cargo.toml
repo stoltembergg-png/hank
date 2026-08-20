@@ -6,6 +6,7 @@ members = [
     "crates/agent-protocol",
     "crates/provider-core",
     "crates/provider-adapters/openai-compatible",
+    "crates/provider-adapters/openai",
     "crates/test-support",
     "crates/xtask",
 ]
