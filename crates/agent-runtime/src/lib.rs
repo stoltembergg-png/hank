@@ -8,6 +8,7 @@
 //! NÃO deve vazar providers concretos para o core.
 
 pub mod agent_repo;
+pub mod agent_service;
 pub mod event_bus;
 pub mod memory;
 pub mod migrations;
@@ -26,6 +27,7 @@ pub mod tool;
 pub mod workflow_runtime;
 
 pub use agent_core::*;
+pub use agent_service::*;
 pub use migrations::*;
 pub use project_archive_service::*;
 pub use project_query_service::*;

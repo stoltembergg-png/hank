@@ -13,6 +13,8 @@ pub enum EventKind {
     ProjectUpdated,
     ProjectArchived,
     AgentCreated,
+    AgentUpdated,
+    AgentArchived,
     SessionStarted,
     ProviderUsageRecorded,
     RunCompleted,
