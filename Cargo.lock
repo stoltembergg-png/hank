@@ -1098,6 +1098,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "provider-adapter-anthropic"
+version = "0.1.0"
+dependencies = [
+ "provider-core",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "provider-adapter-openai"
 version = "0.1.0"
 dependencies = [
