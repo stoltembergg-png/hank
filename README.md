@@ -1,15 +1,19 @@
 <div align="center">
 
-# Hank
+  <img src="./name.png" alt="Hank Logo" width="460" />
 
-**Plataforma desktop multiagente orientada a governança, autonomia controlada e alta performance.**
+  <br />
 
-[![Rust](https://img.shields.io/badge/Rust-2021-DEA584?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![Tauri](https://img.shields.io/badge/Tauri-v2.0-24C8D8?style=flat-square&logo=tauri&logoColor=white)](https://v2.tauri.app/)
-[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![SQLite](https://img.shields.io/badge/SQLite-SQLx-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://sqlite.org/)
-[![License](https://img.shields.io/badge/License-MIT%20%2F%20Apache--2.0-blue?style=flat-square)](LICENSE)
+  **Plataforma desktop multiagente orientada a governança, autonomia controlada e alta performance.**
+
+  <br />
+
+  [![Rust](https://img.shields.io/badge/Rust-2021-DEA584?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+  [![Tauri](https://img.shields.io/badge/Tauri-v2.0-24C8D8?style=flat-square&logo=tauri&logoColor=white)](https://v2.tauri.app/)
+  [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+  [![SQLite](https://img.shields.io/badge/SQLite-SQLx-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://sqlite.org/)
+  [![License](https://img.shields.io/badge/License-MIT%20%2F%20Apache--2.0-blue?style=flat-square)](LICENSE)
 
 </div>
 
@@ -160,6 +164,7 @@ hank/
 ├── migrations/           # Migrações SQL do banco de dados SQLite
 ├── tools/                # Scripts de validação de contratos, CI e testes
 ├── Hank.png              # Captura de tela / preview da aplicação
+├── name.png              # Logotipo / Identidade visual do Hank
 ├── Cargo.toml            # Configuração do Workspace Rust
 └── README.md             # Documentação principal do repositório
 ```
