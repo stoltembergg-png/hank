@@ -252,3 +252,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: Cargo.toml, Cargo.lock, crates/auth-core/Cargo.toml, crates/auth-core/src/lib.rs, crates/auth-core/tests/oauth_contract.rs, docs/oauth-framework.md, .spec/features/foundation-workspace/tasks.md
 - Notas: state/PKCE S256/redirect exactness, one-shot flow, replay/expiry/cancel/capacity fail-closed, TokenExchangeBackend handoff de CredentialRef, sem client secrets/token storage/UI/provider endpoint
+
+## T-364 — Adicionar tratamento de OAuth callback provider-neutral [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/auth-core/src/lib.rs, crates/auth-core/src/callback.rs, crates/auth-core/tests/callback_contract.rs, docs/oauth-callback.md, .spec/features/foundation-workspace/tasks.md
+- Notas: deep-link allowlist hank://oauth/callback, parser bounded, provider/account/project binding, state/replay/timeout/cancel validation, opaque CredentialRef result e sem token logs/open redirect/UI command
