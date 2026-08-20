@@ -5,7 +5,7 @@
 //! behind this boundary.
 
 use futures_core::Stream;
-use futures_util::stream;
+use futures_util::stream as futures_stream;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::future::Future;
@@ -19,6 +19,7 @@ use thiserror::Error;
 pub mod capabilities;
 pub mod request;
 pub mod response;
+pub mod stream;
 
 pub const MAX_PROVIDER_ID_LEN: usize = 120;
 pub const MAX_MODEL_ID_LEN: usize = 200;
@@ -363,7 +364,7 @@ impl ModelProvider for MockProvider {
         if config.max_buffered_events < 2 {
             return Err(ModelProviderError::Backpressure);
         }
-        Ok(Box::pin(stream::iter([
+        Ok(Box::pin(futures_stream::iter([
             Ok(ProviderStreamEvent {
                 sequence: 0,
                 text: format!("mock response: {}", request.prompt),
