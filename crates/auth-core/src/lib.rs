@@ -1,5 +1,7 @@
 //! Provider-neutral OAuth authorization flow framework.
 
+pub mod callback;
+
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use provider_core::{CredentialRef, ProviderId};
 use sha2::{Digest, Sha256};
@@ -19,6 +21,24 @@ const MAX_ACTIVE_FLOWS: usize = 256;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct OAuthFlowId(u64);
+
+impl OAuthFlowId {
+    pub fn parse(value: &str) -> Result<Self, OAuthError> {
+        let number = value
+            .strip_prefix("flow_")
+            .ok_or(OAuthError::NotFound)?
+            .parse::<u64>()
+            .map_err(|_| OAuthError::NotFound)?;
+        if number == 0 {
+            return Err(OAuthError::NotFound);
+        }
+        Ok(Self(number))
+    }
+
+    pub fn as_str(&self) -> String {
+        format!("flow_{}", self.0)
+    }
+}
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct OAuthState(String);
