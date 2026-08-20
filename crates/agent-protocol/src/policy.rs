@@ -9,6 +9,7 @@ use std::collections::HashMap;
 
 /// Política de modelo do agente
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct ModelPolicy {
     pub provider: String,
     pub model: String,
@@ -16,9 +17,150 @@ pub struct ModelPolicy {
     pub fallback: Option<Box<ModelPolicy>>,
     pub max_tokens: Option<u32>,
     pub temperature: Option<f32>,
+    pub modalities: Vec<ModelModality>,
+    pub max_context_tokens: Option<u32>,
 }
 
-/// Política de ferramentas do agente
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModelModality {
+    Text,
+    Image,
+    Audio,
+    Video,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CapabilityState {
+    Required,
+    Unspecified,
+}
+
+impl ModelPolicy {
+    pub fn validate(&self) -> Result<(), String> {
+        self.validate_depth(0)
+    }
+
+    fn validate_depth(&self, depth: usize) -> Result<(), String> {
+        if depth > 4 {
+            return Err("model fallback depth exceeds limit".into());
+        }
+        if self.provider.trim().is_empty()
+            || self.provider.len() > 120
+            || self.model.trim().is_empty()
+            || self.model.len() > 200
+            || self.provider.contains("://")
+            || self.model.contains("://")
+        {
+            return Err("model/provider identifier is invalid".into());
+        }
+        if self.parameters.len() > 64
+            || self.parameters.keys().any(|key| {
+                let key = key.to_ascii_lowercase();
+                key.contains("key")
+                    || key.contains("token")
+                    || key.contains("secret")
+                    || key.contains("password")
+                    || key.contains("endpoint")
+                    || key.contains("url")
+            })
+        {
+            return Err("model policy contains forbidden parameter metadata".into());
+        }
+        if self
+            .max_tokens
+            .is_some_and(|value| !(1..=1_000_000).contains(&value))
+            || self
+                .max_context_tokens
+                .is_some_and(|value| !(1..=2_000_000).contains(&value))
+            || self
+                .temperature
+                .is_some_and(|value| !value.is_finite() || !(0.0..=2.0).contains(&value))
+        {
+            return Err("model policy limits are invalid".into());
+        }
+        if self.modalities.is_empty() || self.modalities.len() > 4 {
+            return Err("model policy modalities are invalid".into());
+        }
+        let mut unique = std::collections::HashSet::new();
+        if self
+            .modalities
+            .iter()
+            .any(|modality| !unique.insert(*modality))
+        {
+            return Err("model policy modalities contain duplicates".into());
+        }
+        if let Some(fallback) = &self.fallback {
+            fallback.validate_depth(depth + 1)?;
+        }
+        Ok(())
+    }
+
+    pub fn capability_for(&self, modality: ModelModality) -> CapabilityState {
+        if self.modalities.contains(&modality) {
+            CapabilityState::Required
+        } else {
+            CapabilityState::Unspecified
+        }
+    }
+}
+
+#[cfg(test)]
+mod model_policy_tests {
+    use super::*;
+
+    #[test]
+    fn provider_neutral_model_policy_validates_and_roundtrips() {
+        let policy = ModelPolicy {
+            provider: "provider.example".into(),
+            model: "model.example".into(),
+            parameters: HashMap::new(),
+            fallback: None,
+            max_tokens: Some(4096),
+            temperature: Some(0.2),
+            modalities: vec![ModelModality::Text],
+            max_context_tokens: Some(16_384),
+        };
+        policy.validate().unwrap();
+        let encoded = serde_json::to_string(&policy).unwrap();
+        let decoded: ModelPolicy = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(
+            serde_json::to_value(decoded).unwrap(),
+            serde_json::to_value(policy).unwrap()
+        );
+    }
+
+    #[test]
+    fn model_policy_rejects_credentials_endpoints_and_invalid_limits() {
+        let mut policy = ModelPolicy::default();
+        policy
+            .parameters
+            .insert("api_key".into(), serde_json::json!("secret"));
+        assert!(policy.validate().is_err());
+        let policy = ModelPolicy {
+            max_tokens: Some(0),
+            ..Default::default()
+        };
+        assert!(policy.validate().is_err());
+        let policy = ModelPolicy {
+            provider: "https://example.invalid".into(),
+            ..Default::default()
+        };
+        assert!(policy.validate().is_err());
+    }
+
+    #[test]
+    fn unsupported_modality_is_explicit_not_supported() {
+        let policy = ModelPolicy {
+            modalities: vec![ModelModality::Audio],
+            ..Default::default()
+        };
+        assert_eq!(
+            policy.capability_for(ModelModality::Audio),
+            CapabilityState::Required
+        );
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ToolPolicy {
     pub allowed: CapabilitySet,
