@@ -95,3 +95,8 @@
 - Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
 - Arquivos: frontend/src/agents/builder/personality/PersonalityPage.tsx, frontend/src/agents/builder/personality/types.ts, frontend/src/agents/builder/personality/PersonalityPage.css, frontend/tests/agent_personality_ac_tests.test.tsx, docs/agent-personality-page.md
 - Notas: Personality bounded, plain-text preview, Agent-layer precedence warning, injection/secret rejection, stale-safe update service and inactive protection
+
+## T-345 — Adicionar página de política de modelo do Agent [concluida]
+- Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
+- Arquivos: frontend/src/api/agent-model-policy.ts, frontend/src/agents/builder/model/ModelPolicyPage.tsx, frontend/src/agents/builder/model/types.ts, frontend/src/agents/builder/model/ModelPolicyPage.css, frontend/tests/agent_model_policy_ac_tests.test.tsx, docs/agent-model-policy-page.md
+- Notas: Provider-neutral IDs, bounded limits/modalities, explicit capability/provider state, no credentials/endpoints, stale-safe typed service boundary

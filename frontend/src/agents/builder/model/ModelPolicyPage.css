@@ -1,0 +1,240 @@
+.model-policy-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px;
+  color: #1a1a1a;
+  font-family: system-ui, sans-serif;
+}
+
+.model-policy-page__header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.model-policy-page__header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.model-policy-page__header button,
+.model-policy-page__actions button,
+.model-policy-page__error button {
+  padding: 8px 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+  color: #24292f;
+  cursor: pointer;
+  font: inherit;
+}
+
+.model-policy-page__header button:hover:not(:disabled),
+.model-policy-page__actions button:first-child:hover:not(:disabled) {
+  background: #f6f8fa;
+}
+
+.model-policy-page__loading,
+.model-policy-page__error,
+.model-policy-page__unsupported,
+.model-policy-page__boundary,
+.model-policy-capabilities {
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.model-policy-page__loading {
+  background: #f6f8fa;
+  color: #57606a;
+  text-align: center;
+}
+
+.model-policy-page__error {
+  margin-bottom: 16px;
+  border: 1px solid #ff818266;
+  background: #ffebe9;
+  color: #cf222e;
+}
+
+.model-policy-page__error p {
+  margin: 0;
+}
+
+.model-policy-page__error button {
+  margin-top: 10px;
+  border-color: #cf222e;
+  color: #cf222e;
+}
+
+.model-policy-page__unsupported {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 18px;
+  border: 1px solid #d4a72c66;
+  background: #fff8c5;
+  color: #4d2d00;
+}
+
+.model-policy-page__boundary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 18px;
+  border: 1px solid #b6d7ff;
+  background: #ddf4ff;
+  color: #0a3069;
+}
+
+.model-policy-page__form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.model-policy-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.model-policy-field label,
+.model-policy-modalities legend {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.model-policy-field input,
+.model-policy-field select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+  color: #24292f;
+  font: inherit;
+}
+
+.model-policy-field input:focus,
+.model-policy-page__header button:focus,
+.model-policy-page__actions button:focus,
+.model-policy-page__error button:focus {
+  outline: 3px solid #54aeff66;
+  outline-offset: 1px;
+  border-color: #0969da;
+}
+
+.model-policy-field input:disabled,
+.model-policy-page__actions button:disabled,
+.model-policy-page__header button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.model-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.model-policy-modalities {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+}
+
+.model-policy-modalities__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.model-policy-modalities__options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: capitalize;
+}
+
+.model-policy-modalities small {
+  display: block;
+  margin-top: 10px;
+  color: #57606a;
+}
+
+.model-policy-capabilities {
+  border: 1px solid #d0d7de;
+  background: #f6f8fa;
+}
+
+.model-policy-capabilities h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.model-policy-capabilities ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.capability {
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-size: 0.85rem;
+  text-transform: capitalize;
+}
+
+.capability--supported {
+  background: #dafbe1;
+  color: #116329;
+}
+
+.capability--unsupported {
+  background: #ffebe9;
+  color: #cf222e;
+}
+
+.capability--unknown {
+  background: #fff8c5;
+  color: #4d2d00;
+}
+
+.model-policy-page__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.model-policy-page__actions button:last-child {
+  border-color: #0969da;
+  background: #0969da;
+  color: #fff;
+}
+
+.model-policy-page__actions button:last-child:hover:not(:disabled) {
+  background: #0757b5;
+}
+
+.model-policy-page__actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .model-policy-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .model-policy-capabilities ul {
+    grid-template-columns: 1fr;
+  }
+}
