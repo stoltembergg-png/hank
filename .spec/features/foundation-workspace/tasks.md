@@ -187,3 +187,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/provider-core/src/capabilities.rs, crates/provider-core/src/lib.rs, crates/provider-core/tests/capability_contract.rs, docs/model-capabilities.md
 - Notas: supported/unsupported/unknown explícitos, limites bounded, comparação determinística e rejeição antes do adapter
+
+## T-351 — Definir normalized request provider-neutral [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/provider-core/src/request.rs, crates/provider-core/src/lib.rs, crates/provider-core/tests/request_contract.rs, docs/normalized-request.md
+- Notas: envelope versionado com identity/project scope, roles/messages bounded, capabilities, tool metadata, budget, cancellation e redacted summary
