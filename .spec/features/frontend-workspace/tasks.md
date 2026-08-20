@@ -70,3 +70,9 @@
 - Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
 - Arquivos: frontend/src/api/projects.ts, frontend/src/components/ProjectList.tsx, frontend/src/types/project.ts, frontend/tests/project_list_ac_tests.test.ts
 - Notas: Project-scoped list component/service contract; loading/empty/error/pagination; sem acesso direto a storage
+
+## T-339 — Mapear implementação legacy de Project create [pendente]
+- Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
+- Arquivos: frontend/src/api/projects.ts, frontend/src/components/CreateProjectForm.tsx, frontend/src/components/ProjectList.tsx, frontend/src/types/project.ts, frontend/tests/create_project_ac_tests.test.ts, frontend/tests/project_list_ac_tests.test.ts
+- Notas: Create DTO allowlisted, validation, submit state e service boundary; sem acesso direto a storage
+
