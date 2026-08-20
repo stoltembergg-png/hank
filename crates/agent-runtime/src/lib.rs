@@ -11,6 +11,7 @@ pub mod agent_repo;
 pub mod agent_service;
 pub mod event_bus;
 pub mod memory;
+pub mod message_repo;
 pub mod migrations;
 pub mod project_archive_service;
 pub mod project_query_service;
