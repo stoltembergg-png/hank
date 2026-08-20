@@ -88,6 +88,11 @@
 - Arquivos: crates/agent-core/src/tool_permissions.rs, crates/agent-core/src/lib.rs, docs/tool-permissions.md
 - Notas: allow/ask/deny, Project/Agent/Session scope, default deny, expiry, conflitos e privileged wildcard rejection
 
+## T-335 — Adicionar model policy schema [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-protocol/src/policy.rs, docs/model-policy.md
+- Notas: Identificadores provider-neutral, modalities explícitas, limites bounded, fallback depth e rejeição de secrets/endpoints
+
 ## T-332 — Adicionar personality schema [pendente]
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-core/src/agent.rs, docs/personality-schema.md
