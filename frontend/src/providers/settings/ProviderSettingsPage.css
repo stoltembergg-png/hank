@@ -1,0 +1,144 @@
+.provider-settings-page {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.provider-settings-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.provider-settings-header h1,
+.provider-settings-empty h2,
+.provider-account-card h2 {
+  margin: 0;
+}
+
+.provider-settings-header p,
+.provider-account-heading p,
+.provider-account-updated {
+  color: #64748b;
+}
+
+.eyebrow {
+  margin: 0 0 0.35rem;
+  color: #2563eb;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.provider-settings-header button,
+.provider-account-actions button {
+  min-height: 2.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.55rem;
+  background: #fff;
+  color: #0f172a;
+  cursor: pointer;
+  padding: 0.55rem 0.9rem;
+}
+
+.provider-settings-header button:hover,
+.provider-account-actions button:hover:not(:disabled) {
+  border-color: #2563eb;
+}
+
+.provider-settings-header button:focus-visible,
+.provider-account-actions button:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.provider-account-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.provider-account-card,
+.provider-settings-empty {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.8rem;
+  background: #fff;
+  padding: 1.25rem;
+  box-shadow: 0 3px 12px rgb(15 23 42 / 0.05);
+}
+
+.provider-account-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.provider-account-heading p {
+  margin: 0.35rem 0 0;
+}
+
+.provider-status {
+  border-radius: 999px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.status-connected { background: #dcfce7; color: #166534; }
+.status-revoked, .status-error { background: #fee2e2; color: #991b1b; }
+.status-pending { background: #fef3c7; color: #92400e; }
+.status-unavailable { background: #e2e8f0; color: #334155; }
+
+.provider-account-updated,
+.provider-ref-meta {
+  margin: 0.8rem 0 0;
+  font-size: 0.9rem;
+}
+
+.provider-ref-meta {
+  color: #166534;
+  font-weight: 600;
+}
+
+.provider-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.provider-account-actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.provider-settings-alert {
+  border-radius: 0.55rem;
+  background: #eff6ff;
+  color: #1e40af;
+  padding: 0.8rem 1rem;
+}
+
+.provider-settings-alert.error {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .provider-settings-page { padding: 1rem; }
+  .provider-settings-header { flex-direction: column; }
+}
