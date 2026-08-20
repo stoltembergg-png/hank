@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ProjectList } from './components/ProjectList';
 import './App.css';
 
 function App() {
@@ -8,7 +9,7 @@ function App() {
   useEffect(() => {
     console.log({ event: 'mount', version, timestamp: new Date().toISOString() });
     setStatus('booting');
-    
+
     const timer = setTimeout(() => {
       try {
         console.log({ event: 'ready', version, timestamp: new Date().toISOString() });
@@ -37,8 +38,8 @@ function App() {
         <span className={`status ${status}`}>{status}</span>
       </header>
       <main>
-        <p>Version: {version}</p>
-        <p>Frontend workspace initialized and decoupled from Tauri/core.</p>
+        <p className="app-version">Version: {version}</p>
+        <ProjectList />
       </main>
     </div>
   );

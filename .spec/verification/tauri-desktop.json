@@ -1,33 +1,33 @@
 {
-  "feature": "frontend-workspace",
-  "timestamp": "2026-08-20T00:17:38.417Z",
+  "feature": "tauri-desktop",
+  "timestamp": "2026-08-20T00:17:47.401Z",
   "gitRev": "e8ff636",
   "command": "node tools/run-all-tests.mjs",
   "reporter": "exitcode",
   "exitCode": 0,
   "testsParsed": 0,
   "results": {
-    "AC-201": {
+    "AC-101": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-202": {
+    "AC-102": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-203": {
+    "AC-103": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-204": {
+    "AC-104": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-205": {
+    "AC-105": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"

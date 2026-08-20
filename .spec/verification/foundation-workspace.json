@@ -1,7 +1,7 @@
 {
   "feature": "foundation-workspace",
-  "timestamp": "2026-08-18T17:35:07.997Z",
-  "gitRev": "aed8185",
+  "timestamp": "2026-08-20T00:18:05.056Z",
+  "gitRev": "e8ff636",
   "command": "node tools/run-all-tests.mjs",
   "reporter": "exitcode",
   "exitCode": 0,
