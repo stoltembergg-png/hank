@@ -193,6 +193,7 @@ fn metadata_lists_expected_crates() {
         "agent-runtime",
         "agent-protocol",
         "provider-core",
+        "provider-adapter-openai-compatible",
         "test-support",
         "xtask",
     ];
