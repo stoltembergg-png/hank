@@ -178,10 +178,7 @@
 - Arquivos: crates/agent-core/src/project.rs, crates/agent-runtime/src/project_repo.rs, docs/project-settings.md
 - Notas: Modelagem, validação de limites de retenção/agentes e persistência dedicada de ProjectSettings
 
-
-
-
-
-
-
-
+## T-349 — Definir trait ModelProvider provider-neutral [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: Cargo.toml, Cargo.lock, crates/provider-core/Cargo.toml, crates/provider-core/src/lib.rs, crates/provider-core/tests/provider_contract.rs, crates/test-support/src/arch_fixtures_test.rs, docs/provider-core.md
+- Notas: Trait object-safe para complete/stream/list/health, IDs opacos, credential ref redacted, cancellation/backpressure typed, MockProvider offline e nenhum SDK/concrete provider

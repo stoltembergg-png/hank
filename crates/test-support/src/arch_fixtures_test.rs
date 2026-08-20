@@ -192,6 +192,7 @@ fn metadata_lists_expected_crates() {
         "agent-core",
         "agent-runtime",
         "agent-protocol",
+        "provider-core",
         "test-support",
         "xtask",
     ];
