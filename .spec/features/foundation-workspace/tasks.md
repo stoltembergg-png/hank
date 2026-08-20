@@ -192,3 +192,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/provider-core/src/request.rs, crates/provider-core/src/lib.rs, crates/provider-core/tests/request_contract.rs, docs/normalized-request.md
 - Notas: envelope versionado com identity/project scope, roles/messages bounded, capabilities, tool metadata, budget, cancellation e redacted summary
+
+## T-352 — Definir normalized response provider-neutral [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/provider-core/src/response.rs, crates/provider-core/src/lib.rs, crates/provider-core/tests/response_contract.rs, docs/normalized-response.md
+- Notas: status/finish forward-compatible, output parts bounded, usage/cost optional, error taxonomy redacted e summary observável sem payload bruto
