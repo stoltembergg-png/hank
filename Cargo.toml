@@ -8,6 +8,7 @@ members = [
     "crates/provider-adapters/openai-compatible",
     "crates/provider-adapters/openai",
     "crates/provider-adapters/anthropic",
+    "crates/provider-adapters/gemini",
     "crates/test-support",
     "crates/xtask",
 ]
