@@ -1,0 +1,212 @@
+.personality-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px;
+  color: #1a1a1a;
+  font-family: system-ui, sans-serif;
+}
+
+.personality-page__header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.personality-page__header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.personality-page__back {
+  padding: 8px 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+  color: #24292f;
+  cursor: pointer;
+}
+
+.personality-page__back:hover:not(:disabled),
+.personality-page__actions button:first-child:hover:not(:disabled) {
+  background: #f6f8fa;
+}
+
+.personality-page__loading,
+.personality-page__error,
+.personality-page__inactive,
+.personality-page__boundary,
+.personality-page__preview {
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.personality-page__loading {
+  color: #57606a;
+  background: #f6f8fa;
+  text-align: center;
+}
+
+.personality-page__error {
+  margin-bottom: 16px;
+  border: 1px solid #ff818266;
+  background: #ffebe9;
+  color: #cf222e;
+}
+
+.personality-page__error p {
+  margin: 0;
+}
+
+.personality-page__error button {
+  margin-top: 10px;
+  padding: 7px 12px;
+  border: 1px solid #cf222e;
+  border-radius: 6px;
+  background: #fff;
+  color: #cf222e;
+  cursor: pointer;
+}
+
+.personality-page__boundary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 20px;
+  border: 1px solid #b6d7ff;
+  background: #ddf4ff;
+  color: #0a3069;
+  font-size: 0.9rem;
+}
+
+.personality-page__form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.personality-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.personality-field label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.personality-field input,
+.personality-field textarea,
+.personality-field select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+  color: #24292f;
+  font: inherit;
+}
+
+.personality-field textarea {
+  resize: vertical;
+}
+
+.personality-field input:focus,
+.personality-field textarea:focus,
+.personality-field select:focus,
+.personality-page__back:focus,
+.personality-page__actions button:focus {
+  outline: 3px solid #54aeff66;
+  outline-offset: 1px;
+  border-color: #0969da;
+}
+
+.personality-field input:disabled,
+.personality-field textarea:disabled,
+.personality-field select:disabled {
+  background: #f6f8fa;
+  color: #57606a;
+  cursor: not-allowed;
+}
+
+.personality-field__hint {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: #57606a;
+  font-size: 0.78rem;
+}
+
+.personality-field__hint span {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.personality-page__inactive {
+  border: 1px solid #d4a72c66;
+  background: #fff8c5;
+  color: #4d2d00;
+}
+
+.personality-page__preview {
+  border: 1px solid #d0d7de;
+  background: #f6f8fa;
+}
+
+.personality-page__preview h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.personality-page__preview-layer {
+  margin: 0 0 10px;
+  color: #57606a;
+  font-size: 0.8rem;
+}
+
+.personality-page__preview-content {
+  padding: 12px;
+  border-radius: 6px;
+  background: #fff;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.personality-page__preview-content p {
+  margin: 8px 0 0;
+}
+
+.personality-page__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.personality-page__actions button {
+  padding: 9px 16px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+  color: #24292f;
+  cursor: pointer;
+  font: inherit;
+}
+
+.personality-page__actions button:last-child {
+  border-color: #0969da;
+  background: #0969da;
+  color: #fff;
+}
+
+.personality-page__actions button:last-child:hover:not(:disabled) {
+  background: #0757b5;
+}
+
+.personality-page__actions button:disabled,
+.personality-page__back:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
