@@ -307,3 +307,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: migrations/0005_message_storage.sql, crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/message_repo.rs, crates/agent-runtime/tests/message_storage_contract.rs, docs/message-storage.md, .spec/features/foundation-workspace/tasks.md
 - Notas: migration ordering/provenance/status/parts, explicit project/session append scope, unique idempotency/order index, duplicate/stale/out-of-order rejection, partial recovery, terminal update and bounded pagination
+
+## T-375 — Adicionar context builder interface [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/context.rs, crates/agent-runtime/tests/context_contract.rs, docs/context-builder.md, .spec/features/foundation-workspace/tasks.md
+- Notas: deterministic source precedence, bounded token/source/content budgets, missing/duplicate/sensitive omissions, untrusted provenance, tool metadata-only, cancellation and no retrieval/provider/tool execution
