@@ -105,3 +105,8 @@
 - Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
 - Arquivos: frontend/src/api/agent-tool-permissions.ts, frontend/src/agents/builder/permissions/PermissionsPage.tsx, frontend/src/agents/builder/permissions/types.ts, frontend/src/agents/builder/permissions/PermissionsPage.css, frontend/tests/agent_permissions_ac_tests.test.tsx, docs/agent-permissions-page.md
 - Notas: Default deny imutável, allow/ask/deny, escopo bounded, conflitos/wildcards rejeitados, grants sensíveis exigem ask/deny e estado unsupported explícito
+
+## T-347 — Adicionar editor de instruções da camada Agent [concluida]
+- Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
+- Arquivos: frontend/src/api/agent-instructions.ts, frontend/src/agents/builder/instructions/InstructionsPage.tsx, frontend/src/agents/builder/instructions/types.ts, frontend/src/agents/builder/instructions/InstructionsPage.css, frontend/tests/agent_instructions_ac_tests.test.tsx, docs/agent-instructions-page.md
+- Notas: Camada Agent fixa, budget bounded, provenance, preview plain-text não confiável, stale protection e ausência de system/security/prompt send
