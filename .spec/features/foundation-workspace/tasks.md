@@ -247,3 +247,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: Cargo.toml, Cargo.lock, crates/secrets-core/Cargo.toml, crates/secrets-core/src/lib.rs, crates/secrets-core/tests/secret_store_contract.rs, docs/encrypted-secret-storage.md, .spec/features/foundation-workspace/tasks.md
 - Notas: SecureSecretBackend injetável para OS keychain/Stronghold, SecretMaterial bounded/zeroized, put/get/delete/rotate, account/scope binding, unavailable fail-closed, mock backend somente em testes e sem plaintext fallback
+
+## T-363 — Adicionar OAuth framework provider-neutral [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: Cargo.toml, Cargo.lock, crates/auth-core/Cargo.toml, crates/auth-core/src/lib.rs, crates/auth-core/tests/oauth_contract.rs, docs/oauth-framework.md, .spec/features/foundation-workspace/tasks.md
+- Notas: state/PKCE S256/redirect exactness, one-shot flow, replay/expiry/cancel/capacity fail-closed, TokenExchangeBackend handoff de CredentialRef, sem client secrets/token storage/UI/provider endpoint
