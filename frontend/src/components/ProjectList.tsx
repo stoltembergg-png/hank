@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ProjectApiClient, defaultProjectApi } from '../api/projects';
 import { ProjectSummary, ProjectStatus } from '../types/project';
 import { CreateProjectForm } from './CreateProjectForm';
+import { ProjectDetailView } from './ProjectDetailView';
 import './ProjectList.css';
 
 export interface ProjectListProps {
@@ -21,6 +22,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState<boolean>(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   const fetchProjects = useCallback(async () => {
     setIsLoading(true);
@@ -59,6 +61,32 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     setOffset(0);
     fetchProjects();
   };
+
+  const handleProjectUpdated = (updated: ProjectSummary) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === updated.id ? updated : p)),
+    );
+  };
+
+  const handleProjectArchived = (archived: ProjectSummary) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === archived.id ? archived : p)),
+    );
+  };
+
+  if (selectedProjectId) {
+    const selected = projects.find((p) => p.id === selectedProjectId);
+    return (
+      <ProjectDetailView
+        projectId={selectedProjectId}
+        initialProject={selected}
+        apiClient={apiClient}
+        onBack={() => setSelectedProjectId(null)}
+        onProjectUpdated={handleProjectUpdated}
+        onProjectArchived={handleProjectArchived}
+      />
+    );
+  }
 
   const currentPage = Math.floor(offset / pageSize) + 1;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -112,7 +140,19 @@ export const ProjectList: React.FC<ProjectListProps> = ({
         <>
           <ul className="project-list" role="list">
             {projects.map((project) => (
-              <li key={project.id} className="project-card" role="listitem">
+              <li
+                key={project.id}
+                className="project-card clickable"
+                role="listitem"
+                onClick={() => setSelectedProjectId(project.id)}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    setSelectedProjectId(project.id);
+                  }
+                }}
+                aria-label={`Ver detalhes de ${project.name}`}
+              >
                 <div className="project-card-main">
                   <span className="project-card-title">{project.name}</span>
                   {project.description && (

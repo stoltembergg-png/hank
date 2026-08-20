@@ -54,12 +54,23 @@
   background: #1e293b;
   border: 1px solid #334155;
   border-radius: 8px;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.project-card.clickable {
+  cursor: pointer;
 }
 
 .project-card:hover {
   border-color: #64748b;
+  background: #233146;
 }
+
+.project-card:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 
 .project-card-main {
   display: flex;
