@@ -4,6 +4,7 @@
   "testGlobs": [
     "test/**/*.js",
     "tests/**/*.rs",
+    "crates/**/tests/**/*.rs",
     "**/*_test.rs",
     "**/tests.rs",
     "frontend/tests/**/*.test.ts",

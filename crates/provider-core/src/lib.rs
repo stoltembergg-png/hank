@@ -17,6 +17,7 @@ use std::sync::{
 use thiserror::Error;
 
 pub mod capabilities;
+pub mod registry;
 pub mod request;
 pub mod response;
 pub mod stream;
@@ -29,7 +30,7 @@ pub const MAX_REQUEST_ID_LEN: usize = 128;
 pub const MAX_PROMPT_BYTES: usize = 1_048_576;
 pub const MAX_STREAM_BUFFERED_EVENTS: usize = 1024;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd)]
 pub struct ProviderId(String);
 
 impl ProviderId {
@@ -189,16 +190,6 @@ impl CancellationToken {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProviderCapabilities {
-    pub supports_completion: bool,
-    pub supports_streaming: bool,
-    pub supports_model_listing: bool,
-    pub supports_health: bool,
-    pub max_tokens: u32,
-    pub max_context_tokens: u32,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelDescriptor {
     pub model_id: ModelId,
@@ -270,7 +261,7 @@ pub type ProviderStream<'a> =
 pub trait ModelProvider: Send + Sync {
     fn provider_id(&self) -> &ProviderId;
     fn version(&self) -> &str;
-    fn capabilities(&self) -> ProviderCapabilities;
+    fn capabilities(&self) -> crate::capabilities::CapabilityReport;
     fn complete(
         &self,
         request: ProviderRequest,
@@ -291,23 +282,64 @@ pub struct MockProvider {
     provider_id: ProviderId,
     version: String,
     model_id: ModelId,
-    capabilities: ProviderCapabilities,
+    capabilities: crate::capabilities::CapabilityReport,
 }
 
 impl MockProvider {
     pub fn new(provider_id: ProviderId, version: impl Into<String>) -> Self {
+        let version_owned = version.into();
+        let capabilities = crate::capabilities::CapabilityReport {
+            schema_version: 1,
+            provider_id: provider_id.clone(),
+            model_id: ModelId::parse("mock-model").expect("static mock model id is valid"),
+            version: version_owned.clone(),
+            source: crate::capabilities::CapabilitySource::Provider,
+            modalities: std::collections::BTreeMap::from([
+                (
+                    crate::capabilities::ModelModality::Text,
+                    crate::capabilities::CapabilityState::Supported,
+                ),
+                (
+                    crate::capabilities::ModelModality::Image,
+                    crate::capabilities::CapabilityState::Unsupported,
+                ),
+                (
+                    crate::capabilities::ModelModality::Audio,
+                    crate::capabilities::CapabilityState::Unsupported,
+                ),
+                (
+                    crate::capabilities::ModelModality::Video,
+                    crate::capabilities::CapabilityState::Unsupported,
+                ),
+            ]),
+            features: std::collections::BTreeMap::from([
+                (
+                    crate::capabilities::CapabilityFeature::Streaming,
+                    crate::capabilities::CapabilityState::Supported,
+                ),
+                (
+                    crate::capabilities::CapabilityFeature::ToolUse,
+                    crate::capabilities::CapabilityState::Supported,
+                ),
+                (
+                    crate::capabilities::CapabilityFeature::Vision,
+                    crate::capabilities::CapabilityState::Supported,
+                ),
+                (
+                    crate::capabilities::CapabilityFeature::AudioInput,
+                    crate::capabilities::CapabilityState::Unsupported,
+                ),
+            ]),
+            limits: crate::capabilities::CapabilityLimits {
+                max_context_tokens: Some(32_768),
+                max_output_tokens: Some(8_192),
+            },
+        };
         Self {
             provider_id,
-            version: version.into(),
+            version: version_owned,
             model_id: ModelId::parse("mock-model").expect("static mock model id is valid"),
-            capabilities: ProviderCapabilities {
-                supports_completion: true,
-                supports_streaming: true,
-                supports_model_listing: true,
-                supports_health: true,
-                max_tokens: 8_192,
-                max_context_tokens: 32_768,
-            },
+            capabilities,
         }
     }
 }
@@ -319,8 +351,8 @@ impl ModelProvider for MockProvider {
     fn version(&self) -> &str {
         &self.version
     }
-    fn capabilities(&self) -> ProviderCapabilities {
-        self.capabilities
+    fn capabilities(&self) -> crate::capabilities::CapabilityReport {
+        self.capabilities.clone()
     }
 
     fn complete(
@@ -328,15 +360,11 @@ impl ModelProvider for MockProvider {
         request: ProviderRequest,
         cancellation: CancellationToken,
     ) -> ProviderFuture<'_, Result<ProviderResponse, ModelProviderError>> {
-        let supported = self.capabilities.supports_completion;
         let model_id = request.model_id.clone();
         let prompt = request.prompt.clone();
         Box::pin(async move {
             if cancellation.is_cancelled() {
                 return Err(ModelProviderError::Cancelled);
-            }
-            if !supported {
-                return Err(ModelProviderError::UnsupportedOperation("complete".into()));
             }
             Ok(ProviderResponse {
                 model_id,
@@ -359,7 +387,10 @@ impl ModelProvider for MockProvider {
         if cancellation.is_cancelled() {
             return Err(ModelProviderError::Cancelled);
         }
-        if !self.capabilities.supports_streaming {
+        if !self
+            .capabilities
+            .supports_feature(crate::capabilities::CapabilityFeature::Streaming)
+        {
             return Err(ModelProviderError::UnsupportedOperation("stream".into()));
         }
         if config.max_buffered_events < 2 {
@@ -380,7 +411,9 @@ impl ModelProvider for MockProvider {
     }
 
     fn list_models(&self) -> ProviderFuture<'_, Result<Vec<ModelDescriptor>, ModelProviderError>> {
-        let supported = self.capabilities.supports_model_listing;
+        let supported = self
+            .capabilities
+            .supports_feature(crate::capabilities::CapabilityFeature::ToolUse);
         let model_id = self.model_id.clone();
         Box::pin(async move {
             if !supported {
@@ -396,7 +429,9 @@ impl ModelProvider for MockProvider {
     }
 
     fn health(&self) -> ProviderFuture<'_, Result<HealthStatus, ModelProviderError>> {
-        let supported = self.capabilities.supports_health;
+        let supported = self
+            .capabilities
+            .supports_feature(crate::capabilities::CapabilityFeature::Vision);
         Box::pin(async move {
             if !supported {
                 return Err(ModelProviderError::UnsupportedOperation("health".into()));

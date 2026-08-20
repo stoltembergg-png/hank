@@ -232,3 +232,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: Cargo.toml, Cargo.lock, crates/provider-adapters/ollama/Cargo.toml, crates/provider-adapters/ollama/src/lib.rs, crates/provider-adapters/ollama/tests/provider_contract.rs, crates/test-support/src/arch_fixtures_test.rs, docs/ollama-provider.md
 - Notas: messages/options mapping, localhost endpoint allowlist, capabilities/limits explícitos, sem process launch/shell/install, timeout/cancel, endpoint HTTPS validated
+
+## T-360 — Implementar provider registry provider-neutral [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/provider-core/src/lib.rs, crates/provider-core/src/registry.rs, crates/provider-core/tests/provider_contract.rs, crates/provider-core/tests/registry_contract.rs, docs/provider-registry.md, onpspec.config.json, .spec/features/foundation-workspace/tasks.md
+- Notas: registro determinístico, duplicate/lookup, enable/disable, capability filter, sealing fail-closed, thread-safety observável, canonical CapabilityReport e sem credential/fallback/plugin/UI
