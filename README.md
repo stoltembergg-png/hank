@@ -19,9 +19,10 @@
 
 ---
 
+<div align="center">
 ## Prévia da Aplicação
 
-<div align="center">
+
   <img src="./Hank.png" alt="Interface Desktop do Hank" width="900" style="border-radius: 6px; border: 1px solid #30363d;" />
 </div>
 
