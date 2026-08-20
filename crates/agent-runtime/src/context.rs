@@ -125,6 +125,8 @@ pub enum ContextOmissionReason {
     Duplicate,
     Sensitive,
     Missing,
+    ConversationWindow,
+    Disallowed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -233,6 +235,8 @@ impl ContextBuilder {
         })
     }
 }
+
+pub mod basic;
 
 fn contains_forbidden_marker(value: &str) -> bool {
     let normalized = value.to_ascii_lowercase();
