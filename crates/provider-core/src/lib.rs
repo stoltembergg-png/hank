@@ -18,6 +18,7 @@ use thiserror::Error;
 
 pub mod capabilities;
 pub mod credentials;
+pub mod discovery;
 pub mod registry;
 pub mod request;
 pub mod response;
