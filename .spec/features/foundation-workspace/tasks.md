@@ -262,3 +262,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: frontend/src/api/provider-settings.ts, frontend/src/providers/settings/ProviderSettingsPage.tsx, frontend/src/providers/settings/ProviderSettingsPage.css, frontend/tests/provider_settings_ac_tests.test.tsx, docs/provider-settings-ui.md, .spec/features/foundation-workspace/tasks.md
 - Notas: typed bridge/service intents, status/pending/revoked/unavailable states, OAuth stale callback handling, accessible UI, no secret/code/token DOM or browser storage
+
+## T-366 — Adicionar model discovery service [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/provider-core/src/lib.rs, crates/provider-core/src/discovery.rs, crates/provider-core/tests/discovery_contract.rs, docs/model-discovery.md, .spec/features/foundation-workspace/tasks.md
+- Notas: registry/credential integration, normalized CapabilityReport records, requirements fail-closed, pagination bounded, metadata-only cache/invalidation, unavailable/expired/cancelled handling e sem raw provider payload
