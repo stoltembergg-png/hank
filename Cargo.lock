@@ -35,6 +35,8 @@ dependencies = [
  "agent-protocol",
  "anyhow",
  "chrono",
+ "futures-util",
+ "provider-core",
  "serde",
  "serde_json",
  "sqlx",
