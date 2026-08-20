@@ -98,6 +98,11 @@
 - Arquivos: crates/agent-core/src/autonomy.rs, crates/agent-core/src/lib.rs, docs/autonomy-policy.md
 - Notas: Níveis L0-L4, evaluation matrix, approval/expiry, downgrade permitido e autoelevação rejeitada
 
+## T-337 — Adicionar budget policy multi-scope [pendente]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-core/src/budget.rs, crates/agent-core/src/lib.rs, docs/budget-policy.md
+- Notas: Limites Project/Agent/Session/Workflow/Task, reservation lifecycle, reset e overflow fail-closed
+
 ## T-332 — Adicionar personality schema [pendente]
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-core/src/agent.rs, docs/personality-schema.md
