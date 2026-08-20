@@ -15,6 +15,8 @@ const MAX_METADATA_KEY_LEN: usize = 128;
 const MAX_METADATA_VALUE_BYTES: usize = 4_096;
 const MAX_REFERENCE_LEN: usize = 128;
 const MAX_FAILURE_REASON_LEN: usize = 256;
+const MAX_MESSAGE_PARTS: usize = 64;
+const MAX_MESSAGE_PART_BYTES: usize = 1_048_576;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -299,7 +301,8 @@ fn contains_forbidden_marker(value: &str) -> bool {
     .any(|marker| normalized.contains(marker))
 }
 
-/// Papel da mensagem.
+/// Papel semântico da mensagem. Provenance é separado para que um campo de
+/// role não possa elevar instruções de conteúdo não confiável.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MessageRole {
@@ -310,12 +313,107 @@ pub enum MessageRole {
     ToolResult,
 }
 
-/// Mensagem de sessão. Persistência e contexto ficam fora desta entidade.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MessageProvenance {
+    System,
+    User,
+    Agent,
+    Provider,
+    Tool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MessageStatus {
+    Draft,
+    Streaming,
+    Complete,
+    Failed,
+    Cancelled,
+}
+
+impl MessageStatus {
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Complete | Self::Failed | Self::Cancelled)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MessagePartKind {
+    Text,
+    ToolCall,
+    ToolResult,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MessagePart {
+    pub kind: MessagePartKind,
+    pub content: String,
+    pub untrusted: bool,
+}
+
+impl MessagePart {
+    pub fn new(
+        kind: MessagePartKind,
+        content: impl Into<String>,
+        untrusted: bool,
+    ) -> Result<Self, MessageError> {
+        let content = content.into();
+        validate_message_text(&content)?;
+        if contains_forbidden_marker(&content) {
+            return Err(MessageError::ForbiddenContent);
+        }
+        Ok(Self {
+            kind,
+            content,
+            untrusted,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum MessageError {
+    #[error("message metadata or content is invalid")]
+    InvalidMetadata,
+    #[error("message contains forbidden secret-like content")]
+    ForbiddenContent,
+    #[error("message part limit is exceeded")]
+    PartLimit,
+    #[error("message state transition is invalid: {from:?} -> {to:?}")]
+    InvalidTransition {
+        from: MessageStatus,
+        to: MessageStatus,
+    },
+    #[error("message is terminal")]
+    Terminal,
+    #[error("message belongs to another session")]
+    SessionMismatch,
+    #[error("message generation is stale: expected {expected}, got {actual}")]
+    StaleGeneration { expected: u64, actual: u64 },
+    #[error("message generation is ahead: expected {expected}, got {actual}")]
+    FutureGeneration { expected: u64, actual: u64 },
+    #[error("message sequence was duplicated: {0}")]
+    DuplicateSequence(u64),
+    #[error("message sequence is out of order: expected {expected}, got {actual}")]
+    OutOfOrder { expected: u64, actual: u64 },
+    #[error("message ordering is already terminal")]
+    AfterTerminal,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
+    pub schema_version: u32,
     pub id: MessageId,
     pub session_id: SessionId,
     pub role: MessageRole,
+    pub provenance: MessageProvenance,
+    pub status: MessageStatus,
+    pub correlation_id: String,
+    pub sequence: u64,
+    pub generation: u64,
+    pub parts: Vec<MessagePart>,
     pub content: String,
     pub tool_calls: Vec<ToolCall>,
     pub tool_results: Vec<ToolResult>,
@@ -324,6 +422,212 @@ pub struct Message {
     pub created_at: DateTime<Utc>,
 }
 
+impl Message {
+    pub const SCHEMA_VERSION: u32 = 1;
+
+    pub fn new(
+        session_id: SessionId,
+        role: MessageRole,
+        provenance: MessageProvenance,
+        sequence: u64,
+        generation: u64,
+        content: impl Into<String>,
+    ) -> Result<Self, MessageError> {
+        if generation == 0 {
+            return Err(MessageError::InvalidMetadata);
+        }
+        let id = MessageId::new();
+        let content = content.into();
+        let untrusted = matches!(
+            provenance,
+            MessageProvenance::User | MessageProvenance::Provider | MessageProvenance::Tool
+        );
+        let part = MessagePart::new(MessagePartKind::Text, content.clone(), untrusted)?;
+        validate_message_text(&format!("corr_{id}"))?;
+        Ok(Self {
+            schema_version: Self::SCHEMA_VERSION,
+            id,
+            session_id,
+            role,
+            provenance,
+            status: MessageStatus::Draft,
+            correlation_id: format!("corr_{id}"),
+            sequence,
+            generation,
+            parts: vec![part],
+            content,
+            tool_calls: Vec::new(),
+            tool_results: Vec::new(),
+            tokens: 0,
+            cost_usd: 0.0,
+            created_at: Utc::now(),
+        })
+    }
+
+    pub fn validate(&self) -> Result<(), MessageError> {
+        if self.schema_version != Self::SCHEMA_VERSION
+            || self.generation == 0
+            || self.correlation_id.trim().is_empty()
+            || self.correlation_id.len() > MAX_CORRELATION_ID_LEN
+            || self.correlation_id.chars().any(char::is_control)
+            || self.parts.is_empty()
+            || self.parts.len() > MAX_MESSAGE_PARTS
+        {
+            return Err(MessageError::InvalidMetadata);
+        }
+        validate_message_text(&self.content)?;
+        for part in &self.parts {
+            validate_message_text(&part.content)?;
+            if contains_forbidden_marker(&part.content) {
+                return Err(MessageError::ForbiddenContent);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn add_part(&mut self, part: MessagePart) -> Result<(), MessageError> {
+        self.ensure_mutable()?;
+        if self.parts.len() >= MAX_MESSAGE_PARTS {
+            return Err(MessageError::PartLimit);
+        }
+        self.parts.push(part);
+        self.content = self
+            .parts
+            .iter()
+            .filter(|part| part.kind == MessagePartKind::Text)
+            .map(|part| part.content.as_str())
+            .collect::<Vec<_>>()
+            .join("");
+        Ok(())
+    }
+
+    pub fn start_stream(&mut self) -> Result<(), MessageError> {
+        if self.status == MessageStatus::Streaming {
+            return Ok(());
+        }
+        self.transition(MessageStatus::Streaming)
+    }
+
+    pub fn complete(&mut self) -> Result<(), MessageError> {
+        if self.status == MessageStatus::Complete {
+            return Ok(());
+        }
+        self.transition(MessageStatus::Complete)
+    }
+
+    pub fn fail(&mut self, reason: impl Into<String>) -> Result<(), MessageError> {
+        let reason = reason.into();
+        validate_message_text(&reason)?;
+        self.transition(MessageStatus::Failed)
+    }
+
+    pub fn cancel(&mut self) -> Result<(), MessageError> {
+        self.transition(MessageStatus::Cancelled)
+    }
+
+    fn ensure_mutable(&self) -> Result<(), MessageError> {
+        if self.status.is_terminal() {
+            Err(MessageError::Terminal)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn transition(&mut self, next: MessageStatus) -> Result<(), MessageError> {
+        if self.status.is_terminal() {
+            return Err(MessageError::Terminal);
+        }
+        let valid = matches!(
+            (self.status, next),
+            (MessageStatus::Draft, MessageStatus::Streaming)
+                | (MessageStatus::Draft, MessageStatus::Failed)
+                | (MessageStatus::Draft, MessageStatus::Cancelled)
+                | (MessageStatus::Streaming, MessageStatus::Complete)
+                | (MessageStatus::Streaming, MessageStatus::Failed)
+                | (MessageStatus::Streaming, MessageStatus::Cancelled)
+        );
+        if !valid {
+            return Err(MessageError::InvalidTransition {
+                from: self.status,
+                to: next,
+            });
+        }
+        self.status = next;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MessageOrdering {
+    session_id: SessionId,
+    generation: u64,
+    next_sequence: u64,
+    terminal: bool,
+}
+
+impl MessageOrdering {
+    pub fn new(session_id: SessionId, generation: u64) -> Result<Self, MessageError> {
+        if generation == 0 {
+            return Err(MessageError::InvalidMetadata);
+        }
+        Ok(Self {
+            session_id,
+            generation,
+            next_sequence: 0,
+            terminal: false,
+        })
+    }
+
+    pub fn accept(&mut self, message: Message) -> Result<(), MessageError> {
+        message.validate()?;
+        if message.session_id != self.session_id {
+            return Err(MessageError::SessionMismatch);
+        }
+        if message.generation < self.generation {
+            return Err(MessageError::StaleGeneration {
+                expected: self.generation,
+                actual: message.generation,
+            });
+        }
+        if message.generation > self.generation {
+            return Err(MessageError::FutureGeneration {
+                expected: self.generation,
+                actual: message.generation,
+            });
+        }
+        if self.terminal {
+            return Err(MessageError::AfterTerminal);
+        }
+        if message.sequence < self.next_sequence {
+            return Err(MessageError::DuplicateSequence(message.sequence));
+        }
+        if message.sequence > self.next_sequence {
+            return Err(MessageError::OutOfOrder {
+                expected: self.next_sequence,
+                actual: message.sequence,
+            });
+        }
+        self.next_sequence = self
+            .next_sequence
+            .checked_add(1)
+            .ok_or(MessageError::InvalidMetadata)?;
+        self.terminal = message.status.is_terminal();
+        Ok(())
+    }
+
+    pub fn is_terminal(&self) -> bool {
+        self.terminal
+    }
+}
+
+fn validate_message_text(value: &str) -> Result<(), MessageError> {
+    if value.len() > MAX_MESSAGE_PART_BYTES || value.chars().any(char::is_control) {
+        return Err(MessageError::InvalidMetadata);
+    }
+    Ok(())
+}
+
+/// Existing tool-call payload. Tool execution remains outside this entity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCall {
     pub id: String,

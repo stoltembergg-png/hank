@@ -292,3 +292,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-core/src/session.rs, crates/agent-core/tests/session_contract.rs, docs/session-entity.md, .spec/features/foundation-workspace/tasks.md
 - Notas: project/agent binding, correlation/schema version, Created/Active/Closing/Closed/Failed lifecycle, terminal/idempotent close, project-scoped participants, bounded metadata/budget/trace refs, no prompt/secret/provider types
+
+## T-372 — Adicionar Message entity [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-core/src/session.rs, crates/agent-core/tests/message_contract.rs, docs/message-entity.md, .spec/features/foundation-workspace/tasks.md
+- Notas: role/provenance/untrusted parts, session binding, generation/sequence ordering, duplicate/stale/out-of-order rejection, bounded content, terminal message states and no tool execution/provider payload
