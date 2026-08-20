@@ -76,3 +76,7 @@
 - Arquivos: frontend/src/api/projects.ts, frontend/src/components/CreateProjectForm.tsx, frontend/src/components/ProjectList.tsx, frontend/src/types/project.ts, frontend/tests/create_project_ac_tests.test.ts, frontend/tests/project_list_ac_tests.test.ts
 - Notas: Create DTO allowlisted, validation, submit state e service boundary; sem acesso direto a storage
 
+## T-340 — Mapear implementação legacy de Project detail [pendente]
+- Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
+- Arquivos: frontend/src/api/projects.ts, frontend/src/components/CreateProjectForm.tsx, frontend/src/components/ProjectDetailView.tsx, frontend/src/components/ProjectList.tsx, frontend/src/types/project.ts, frontend/tests/create_project_ac_tests.test.ts, frontend/tests/project_detail_ac_tests.test.ts, frontend/tests/project_list_ac_tests.test.ts
+- Notas: Detail update/archive com optimistic version, confirmação explícita e estados conflict/error; sem acesso direto a storage
