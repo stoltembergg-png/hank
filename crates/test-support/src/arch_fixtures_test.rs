@@ -198,6 +198,7 @@ fn metadata_lists_expected_crates() {
         "provider-adapter-anthropic",
         "provider-adapter-gemini",
         "provider-adapter-openrouter",
+        "provider-adapter-ollama",
         "test-support",
         "xtask",
     ];
