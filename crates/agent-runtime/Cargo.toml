@@ -10,6 +10,8 @@ description = "Runtime de execução: Agent Runtime, Provider Port/Adapters, Too
 [dependencies]
 agent-core = { path = "../agent-core" }
 agent-protocol = { path = "../agent-protocol" }
+provider-core = { path = "../provider-core" }
+futures-util = { workspace = true }
 tokio = { workspace = true }
 sqlx = { workspace = true }
 tracing = { workspace = true }

@@ -282,3 +282,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/provider-core/src/lib.rs, crates/provider-core/src/fallback.rs, crates/provider-core/tests/fallback_contract.rs, docs/fallback-policy.md, .spec/features/foundation-workspace/tasks.md
 - Notas: pure decision engine, retryable matrix 429/timeout/outage/quota, non-retryable auth/invalid/policy termination, deterministic healthy/capability/scope filtering, bounded attempts/tokens/cost, cancellation and stream attempt identity
+
+## T-370 — Adicionar provider application/invocation service [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/Cargo.toml, crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/provider_service.rs, crates/agent-runtime/tests/provider_application_contract.rs, docs/provider-application-service.md, .spec/features/foundation-workspace/tasks.md
+- Notas: única fachada runtime provider-neutral, registry/credential/capability checks, complete/stream DTOs, fallback orchestration, cancellation, terminal stream, attempt identity, no adapter import/type leakage or secret payload
