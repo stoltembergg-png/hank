@@ -302,3 +302,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: migrations/0004_session_storage.sql, crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/session_repo.rs, crates/agent-runtime/tests/session_storage_contract.rs, docs/session-storage.md, .spec/features/foundation-workspace/tasks.md
 - Notas: migration forward extension/version safety, SQLite repository create/get/list/update/close, project scope/FK, bounded pagination, optimistic updated_at conflict, atomic no-overwrite semantics and no Message/prompt/credential storage
+
+## T-374 — Adicionar Message storage [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: migrations/0005_message_storage.sql, crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/message_repo.rs, crates/agent-runtime/tests/message_storage_contract.rs, docs/message-storage.md, .spec/features/foundation-workspace/tasks.md
+- Notas: migration ordering/provenance/status/parts, explicit project/session append scope, unique idempotency/order index, duplicate/stale/out-of-order rejection, partial recovery, terminal update and bounded pagination
