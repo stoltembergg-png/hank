@@ -312,3 +312,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/context.rs, crates/agent-runtime/tests/context_contract.rs, docs/context-builder.md, .spec/features/foundation-workspace/tasks.md
 - Notas: deterministic source precedence, bounded token/source/content budgets, missing/duplicate/sensitive omissions, untrusted provenance, tool metadata-only, cancellation and no retrieval/provider/tool execution
+
+## T-376 — Adicionar basic context builder [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/context.rs, crates/agent-runtime/src/context/basic.rs, crates/agent-runtime/tests/basic_context_contract.rs, docs/basic-context-builder.md, .spec/features/foundation-workspace/tasks.md
+- Notas: concrete deterministic layer assembly over bounded inputs, conversation window, budget/truncation omissions, layer-kind fail-closed validation, task/tool metadata boundaries and no direct storage/provider/UI access
