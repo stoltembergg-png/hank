@@ -1,0 +1,52 @@
+{
+  "feature": "release-prereleases",
+  "timestamp": "2026-08-21T13:38:08.911Z",
+  "gitRev": "610da29",
+  "command": "node --test test/release-prerelease.js",
+  "reporter": "tap",
+  "exitCode": 0,
+  "testsParsed": 10,
+  "results": {
+    "AC-624": {
+      "status": "pass",
+      "testName": "AC-624: generates deterministic unique SemVer prerelease tag @spec:AC-624",
+      "method": "tap"
+    },
+    "AC-625": {
+      "status": "pass",
+      "testName": "AC-625: rejects divergence across Cargo, frontend, Tauri, release manifest, and app display @spec:AC-625",
+      "method": "tap"
+    },
+    "AC-626": {
+      "status": "pass",
+      "testName": "AC-626: fails closed on missing or failed post-merge checks @spec:AC-626",
+      "method": "tap"
+    },
+    "AC-627": {
+      "status": "pass",
+      "testName": "AC-624/627: rejects invalid version and tag reuse @spec:AC-624 @spec:AC-627",
+      "method": "tap"
+    },
+    "AC-628": {
+      "status": "pass",
+      "testName": "AC-628: generates immutable manifest and changelog with test instructions @spec:AC-628",
+      "method": "tap"
+    },
+    "AC-629": {
+      "status": "pass",
+      "testName": "AC-629: classifies changes and applies release policy @spec:AC-629",
+      "method": "tap"
+    },
+    "AC-630": {
+      "status": "pass",
+      "testName": "AC-630: publication requires least privilege and refuses permission failure @spec:AC-630",
+      "method": "tap"
+    },
+    "AC-631": {
+      "status": "pass",
+      "testName": "AC-631: rollback is explicit, bounded, and does not silently delete anything @spec:AC-631",
+      "method": "tap"
+    }
+  },
+  "principles": {}
+}

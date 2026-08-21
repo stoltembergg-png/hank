@@ -1,0 +1,237 @@
+name: Publish testable prerelease
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-prerelease-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  BASE_VERSION: 0.1.0
+  REQUIRED_POST_MERGE_CHECKS: Build Frontend,Build Rust,Build Tauri Desktop,w0-contract-gate,CodeQL (rust),CodeQL (javascript-typescript)
+
+jobs:
+  preflight:
+    name: Preflight and post-merge gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      tag: ${{ steps.identity.outputs.tag }}
+      sha: ${{ steps.identity.outputs.sha }}
+      tree: ${{ steps.identity.outputs.tree }}
+      card: ${{ steps.provenance.outputs.card }}
+      prs: ${{ steps.provenance.outputs.prs }}
+      classification: ${{ steps.provenance.outputs.classification }}
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Require integrated main commit
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(git branch --show-current)" != "HEAD" || git show-ref --verify --quiet refs/remotes/origin/main
+          test "$(git merge-base HEAD origin/main)" = "$GITHUB_SHA"
+
+      - name: Verify version manifests
+        run: node tools/release-prerelease.mjs verify-version
+
+      - name: Capture immutable identity
+        id: identity
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          tree=$(git rev-parse 'HEAD^{tree}')
+          tag=$(node tools/release-prerelease.mjs tag --version "$BASE_VERSION" --sha "$sha")
+          {
+            echo "sha=$sha"
+            echo "tree=$tree"
+            echo "tag=$tag"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Reject an existing tag
+        run: |
+          set -euo pipefail
+          test -z "$(git ls-remote --tags origin 'refs/tags/${{ steps.identity.outputs.tag }}')"
+
+      - name: Verify merged PR provenance
+        id: provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ steps.identity.outputs.sha }}
+        run: |
+          set -euo pipefail
+          prs=$(gh api "repos/$REPOSITORY/commits/$SHA/pulls" --jq '[.[].number] | @json')
+          test "$prs" != "[]"
+          card=$(node --input-type=module -e "const p=JSON.parse(process.argv[1]); if (!p.length) process.exit(1); process.stdout.write('PR-' + p[0])" "$prs")
+          git log -20 --format=%s > /tmp/release-subjects.txt
+          classification=$(node tools/release-prerelease.mjs classify --file /tmp/release-subjects.txt)
+          {
+            echo "prs=$prs"
+            echo "card=$card"
+            echo "classification=$classification"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Wait for required post-merge checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ steps.identity.outputs.sha }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 40); do
+            echo "polling required post-merge checks: attempt $attempt/40"
+            gh api --paginate "repos/$REPOSITORY/commits/$SHA/check-runs" --jq '[.check_runs[] | {name,status,conclusion}]' > /tmp/checks.json
+            node tools/release-prerelease.mjs checks --file /tmp/checks.json --required "$REQUIRED_POST_MERGE_CHECKS" && exit 0
+            sleep 30
+          done
+          echo "required post-merge checks did not reach success" >&2
+          exit 1
+
+      - name: Record preflight evidence
+        run: |
+          {
+            echo "### Prerelease preflight"
+            echo "- Exact main commit: ${{ steps.identity.outputs.sha }}"
+            echo "- Immutable tag candidate: ${{ steps.identity.outputs.tag }}"
+            echo "- Logical card: ${{ steps.provenance.outputs.card }}"
+            echo "- Classification: ${{ steps.provenance.outputs.classification }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  package:
+    name: Package prerelease artifacts
+    needs: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Generate changelog and test instructions
+        env:
+          TAG: ${{ needs.preflight.outputs.tag }}
+          SHA: ${{ needs.preflight.outputs.sha }}
+          CARD: ${{ needs.preflight.outputs.card }}
+          PRS: ${{ needs.preflight.outputs.prs }}
+          CLASSIFICATION: ${{ needs.preflight.outputs.classification }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/prerelease
+          prs_csv=$(node --input-type=module -e "process.stdout.write(JSON.parse(process.argv[1]).join(','))" "$PRS")
+          node tools/release-prerelease.mjs changelog --tag "$TAG" --card "$CARD" --prs "$prs_csv" > /tmp/prerelease/RELEASE_NOTES.md
+          printf '%s\n' "Download the archive and release-manifest.json. Verify manifest.sha256 matches the downloaded manifest, confirm exact commit $SHA, then run cargo test --workspace --locked and npm --prefix frontend test. This is a prerelease and is not a stable release." > /tmp/prerelease/TEST_INSTRUCTIONS.md
+          tar --exclude='./.git' --exclude='./frontend/node_modules' --exclude='./target' --exclude='./apps/desktop/src-tauri/target' -czf "/tmp/prerelease/hank-${TAG}.tar.gz" .
+          sha256sum "/tmp/prerelease/hank-${TAG}.tar.gz" > /tmp/prerelease/SHA256SUMS
+
+      - name: Generate immutable release manifest
+        env:
+          TAG: ${{ needs.preflight.outputs.tag }}
+          SHA: ${{ needs.preflight.outputs.sha }}
+          TREE: ${{ needs.preflight.outputs.tree }}
+          CARD: ${{ needs.preflight.outputs.card }}
+          PRS: ${{ needs.preflight.outputs.prs }}
+          CLASSIFICATION: ${{ needs.preflight.outputs.classification }}
+        run: |
+          set -euo pipefail
+          node - <<'NODE' > /tmp/manifest-input.json
+          const fs = require('node:fs');
+          const tag = process.env.TAG;
+          const sha = process.env.SHA;
+          const changelog = fs.readFileSync('/tmp/prerelease/RELEASE_NOTES.md', 'utf8');
+          const testInstructions = fs.readFileSync('/tmp/prerelease/TEST_INSTRUCTIONS.md', 'utf8');
+          process.stdout.write(JSON.stringify({tag, version: tag.slice(1), sha, tree: process.env.TREE, card: process.env.CARD, classification: JSON.parse(process.env.CLASSIFICATION), relatedPullRequests: JSON.parse(process.env.PRS), artifacts: ['hank-' + tag + '.tar.gz', 'RELEASE_NOTES.md', 'TEST_INSTRUCTIONS.md', 'SHA256SUMS'], changelog, testInstructions}));
+          NODE
+          node tools/release-prerelease.mjs manifest --input /tmp/manifest-input.json --output /tmp/prerelease/release-manifest.json
+          sha256sum /tmp/prerelease/release-manifest.json > /tmp/prerelease/manifest.sha256
+
+      - name: Upload prerelease bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: prerelease-${{ needs.preflight.outputs.tag }}
+          path: /tmp/prerelease/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish immutable GitHub prerelease
+    needs: [preflight, package]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Download prerelease bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: prerelease-${{ needs.preflight.outputs.tag }}
+          path: /tmp/prerelease
+
+      - name: Publish or verify idempotent release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+          SHA: ${{ needs.preflight.outputs.sha }}
+        run: |
+          set -euo pipefail
+          tag_ref=$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')
+          if test -n "$tag_ref"; then
+            release=$(gh api "repos/$REPOSITORY/releases/tags/$TAG" 2>/dev/null || true)
+            test -n "$release" || { echo 'tag exists without release; refusing reuse'; exit 1; }
+            target=$(printf '%s' "$release" | jq -r '.target_commitish')
+            test "$target" = "$SHA" || { echo 'existing release targets a different commit'; exit 1; }
+            echo 'matching release already exists; idempotent no-op'
+          else
+            gh release create "$TAG" "/tmp/prerelease/hank-${TAG}.tar.gz" /tmp/prerelease/RELEASE_NOTES.md /tmp/prerelease/TEST_INSTRUCTIONS.md /tmp/prerelease/SHA256SUMS /tmp/prerelease/release-manifest.json /tmp/prerelease/manifest.sha256 \
+              --target "$SHA" --title "$TAG (prerelease)" --notes-file /tmp/prerelease/RELEASE_NOTES.md --prerelease
+          fi
+
+      - name: Verify immutable publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+          SHA: ${{ needs.preflight.outputs.sha }}
+        run: |
+          set -euo pipefail
+          published_ref=$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')
+          test "$published_ref" = "$SHA"
+          release=$(gh api "repos/$REPOSITORY/releases/tags/$TAG")
+          prerelease=$(printf '%s' "$release" | jq -r .prerelease)
+          target=$(printf '%s' "$release" | jq -r .target_commitish)
+          test "$prerelease" = true
+          test "$target" = "$SHA"
+          {
+            echo "### Published prerelease"
+            echo "- Tag: $TAG"
+            echo "- Exact main commit: $SHA"
+            echo "- Prerelease: true"
+            echo "- Tag overwrite: prohibited"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -8,13 +8,15 @@
     "**/*_test.rs",
     "**/tests.rs",
     "frontend/tests/**/*.test.ts",
-    "apps/desktop/src-tauri/tests/**/*.rs"
+    "apps/desktop/src-tauri/tests/**/*.rs",
+    "test/release-prerelease.js"
   ],
   "srcGlobs": [
     "crates/**/src/**/*.rs",
     "src/**/*.rs",
     "frontend/src/**/*.ts",
     "frontend/src/**/*.tsx",
-    "apps/desktop/src-tauri/src/**/*.rs"
+    "apps/desktop/src-tauri/src/**/*.rs",
+    "tools/release-prerelease.mjs"
   ]
 }

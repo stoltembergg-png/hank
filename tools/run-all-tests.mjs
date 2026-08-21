@@ -8,6 +8,11 @@ const cargoCmd = existsSync(defaultCargo) ? defaultCargo : 'cargo';
 
 const commands = [
   {
+    label: 'Prerelease contract tests',
+    command: process.execPath,
+    args: ['--test', 'test/release-prerelease.js'],
+  },
+  {
     label: 'W0 contract tests',
     command: process.execPath,
     args: ['--test', 'test/w0-contract-closure.spec.test.js'],

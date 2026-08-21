@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { ProjectList } from './components/ProjectList';
+import { APP_VERSION } from './version';
 import './App.css';
 
 function App() {
   const [status, setStatus] = useState<'booting' | 'ready' | 'error'>('booting');
-  const [version] = useState<string>('0.1.0');
+  const [version] = useState<string>(APP_VERSION);
 
   useEffect(() => {
     console.log({ event: 'mount', version, timestamp: new Date().toISOString() });
