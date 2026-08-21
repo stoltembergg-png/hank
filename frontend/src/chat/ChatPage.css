@@ -81,6 +81,11 @@
   border-radius: 0.6rem;
 }
 
+.chat-tool-calls {
+  display: grid;
+  gap: 0.8rem;
+}
+
 .chat-messages {
   display: flex;
   flex-direction: column;

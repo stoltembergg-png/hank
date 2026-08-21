@@ -1,7 +1,8 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ChatPage, type ChatTransport } from '@/chat/ChatPage';
 import type { ChatStreamEvent, ChatStreamSubscription } from '@/contracts/chat-stream';
+import type { ToolCallViewModel } from '@/chat/tool-call/ToolCallCard';
 
 const session: Omit<ChatStreamSubscription, 'stream_id' | 'command_id'> = {
   caller: { caller_id: 'caller-1', class: 'desktop' },
@@ -51,6 +52,28 @@ function event(
 }
 
 describe('ChatPage', () => {
+  // @spec:AC-662 @spec:AC-664
+  it('renders tool calls as scoped read-only cards without executing them', () => {
+    const transport = makeTransport();
+    const toolCall: ToolCallViewModel = {
+      id: 'tool-call-1',
+      projectId: session.project_id,
+      agentId: session.agent_id,
+      toolName: 'git_status',
+      toolVersion: '1.0.0',
+      traceId: 'trace-1',
+      state: 'denied',
+      arguments: { path: 'workspace' },
+    };
+
+    render(<ChatPage session={session} transport={transport} toolCalls={[toolCall]} />);
+
+    const card = screen.getByRole('article', { name: 'Tool call git_status' });
+    expect(card).toBeInTheDocument();
+    expect(within(card).getByRole('status')).toHaveTextContent('Negada');
+    expect(screen.queryByRole('button', { name: 'Executar ferramenta' })).not.toBeInTheDocument();
+  });
+
   it('sends a scoped command and renders ordered streaming assistant output', async () => {
     const transport = makeTransport();
     render(

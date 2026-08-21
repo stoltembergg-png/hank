@@ -1,0 +1,27 @@
+{
+  "feature": "tool-call-rendering",
+  "timestamp": "2026-08-21T22:39:49.482Z",
+  "gitRev": "98a4f98",
+  "command": "pnpm --dir frontend run test",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-662": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-663": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-664": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}

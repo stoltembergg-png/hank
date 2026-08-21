@@ -5,6 +5,7 @@ import {
 } from '@/contracts/chat-stream';
 import { SafeMarkdown } from './markdown/SafeMarkdown';
 import { ProviderIndicator, type ProviderIndicatorData } from './indicators/ProviderIndicator';
+import { ToolCallCard, type ToolCallViewModel } from './tool-call/ToolCallCard';
 import { UsageSummary, type UsageReadModel } from './usage/UsageSummary';
 import './ChatPage.css';
 
@@ -42,12 +43,16 @@ export function ChatPage({
   createIds = defaultIds,
   indicator,
   usage,
+  toolCalls = [],
+  onApproveToolCall,
 }: {
   session: ChatSessionScope;
   transport: ChatTransport;
   createIds?: ChatIdFactory;
   indicator?: ProviderIndicatorData;
   usage?: UsageReadModel;
+  toolCalls?: ToolCallViewModel[];
+  onApproveToolCall?: (call: ToolCallViewModel) => void;
 }) {
   const [draft, setDraft] = useState('');
   const [messages, setMessages] = useState<RenderedMessage[]>([]);
@@ -171,6 +176,17 @@ export function ChatPage({
 
       {error && <p className="chat-error" role="alert">{error}</p>}
       {usage && <UsageSummary usage={usage} />}
+      {toolCalls.length > 0 && (
+        <section className="chat-tool-calls" aria-label="Chamadas de ferramentas">
+          {toolCalls.map((call) => (
+            <ToolCallCard
+              key={call.id}
+              call={call}
+              onApprove={onApproveToolCall ? () => onApproveToolCall(call) : undefined}
+            />
+          ))}
+        </section>
+      )}
 
       <ol className="chat-messages" aria-live="polite" aria-label="Mensagens da sessão">
         {messages.length === 0 && <li className="chat-empty">Envie uma mensagem para iniciar a sessão.</li>}

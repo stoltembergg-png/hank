@@ -108,6 +108,9 @@ jobs:
       - name: Verify frontend workspace
         run: node tools/ci/run-onp-spec.mjs verify frontend-workspace
 
+      - name: Verify tool-call rendering
+        run: node tools/ci/run-onp-spec.mjs verify tool-call-rendering
+
       - name: Verify CI build
         run: node tools/ci/run-onp-spec.mjs verify ci-build
 

@@ -8,6 +8,7 @@
     "**/*_test.rs",
     "**/tests.rs",
     "frontend/tests/**/*.test.ts",
+    "frontend/tests/**/*.test.tsx",
     "apps/desktop/src-tauri/tests/**/*.rs",
     "test/release-prerelease.js"
   ],
