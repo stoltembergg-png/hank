@@ -5,6 +5,7 @@ import {
 } from '@/contracts/chat-stream';
 import { SafeMarkdown } from './markdown/SafeMarkdown';
 import { ProviderIndicator, type ProviderIndicatorData } from './indicators/ProviderIndicator';
+import { UsageSummary, type UsageReadModel } from './usage/UsageSummary';
 import './ChatPage.css';
 
 export type ChatSessionScope = Omit<ChatStreamSubscription, 'stream_id' | 'command_id'>;
@@ -40,11 +41,13 @@ export function ChatPage({
   transport,
   createIds = defaultIds,
   indicator,
+  usage,
 }: {
   session: ChatSessionScope;
   transport: ChatTransport;
   createIds?: ChatIdFactory;
   indicator?: ProviderIndicatorData;
+  usage?: UsageReadModel;
 }) {
   const [draft, setDraft] = useState('');
   const [messages, setMessages] = useState<RenderedMessage[]>([]);
@@ -167,6 +170,7 @@ export function ChatPage({
       </header>
 
       {error && <p className="chat-error" role="alert">{error}</p>}
+      {usage && <UsageSummary usage={usage} />}
 
       <ol className="chat-messages" aria-live="polite" aria-label="Mensagens da sessão">
         {messages.length === 0 && <li className="chat-empty">Envie uma mensagem para iniciar a sessão.</li>}
