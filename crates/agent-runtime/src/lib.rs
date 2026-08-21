@@ -9,6 +9,7 @@
 
 pub mod agent_repo;
 pub mod agent_service;
+pub mod cancellation;
 pub mod context;
 pub mod event_bus;
 pub mod execution;

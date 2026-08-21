@@ -327,3 +327,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/streaming.rs, crates/agent-runtime/tests/streaming_contract.rs, docs/provider-streaming.md, .spec/features/foundation-workspace/tasks.md
 - Notas: normalized stream consumer over ProviderApplicationService, sequence/generation fencing, delta/message updates, terminal mapping, cancellation, backpressure-ready bounded events and redacted failures
+
+## T-379 — Adicionar cancellation boundary [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/cancellation.rs, crates/agent-runtime/tests/cancellation_contract.rs, docs/cancellation-boundary.md, .spec/features/foundation-workspace/tasks.md
+- Notas: bounded token registry, idempotent cancel/unregister, synchronized Execution/Message terminal cancellation, completion race semantics, concurrency safety and no process/provider-specific kill
