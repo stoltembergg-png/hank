@@ -337,3 +337,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/retry.rs, crates/agent-runtime/tests/retry_contract.rs, docs/retry-policy.md, .spec/features/foundation-workspace/tasks.md
 - Notas: pure transient-error matrix, bounded deterministic backoff/jitter contract, max attempts/token/cancellation budget, attempt identity and no retry for auth/invalid/cancel/tool/destructive operations
+
+## T-381 — Adicionar Session application service [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/session_service.rs, crates/agent-runtime/tests/session_service_contract.rs, docs/session-service.md, .spec/features/foundation-workspace/tasks.md
+- Notas: project/agent/session lifecycle authorization, user/assistant persistence, injected provider application invoker, Execution orchestration, success/failure/cancel terminal results, bounded concurrency and no UI/adapter direct access
