@@ -1,7 +1,8 @@
-//! Tool core contract: trait, context, request/response, and error types.
+//! Tool core contract: trait, context, request/response, registry, and errors.
 
 pub mod context;
 pub mod error;
+pub mod registry;
 pub mod request;
 pub mod response;
 pub mod schema;

@@ -115,6 +115,54 @@ Como desenvolvedor do core, quero um contrato Tool assíncrono, provider-agnosti
 - **Quando** executo `cargo test -p tool-core --test schema_contract`
 - **Então** testes cobrem schema válido/malformado, payload, unknown fields, version compatibility, nested/array constraints, sensitive metadata e ausência de vazamento de conteúdo
 
+#### AC-616 — Registro válido indexa tool sem executar handler @spec:AC-616
+
+- **Dado** um `ToolRegistrationRequest` válido, com schema válido, origem autorizada, scope e trace bounded
+- **Quando** chamo `ToolRegistry::register`
+- **Então** a tool é indexada por nome/version/scope, lifecycle começa Active e o handler não é executado
+
+#### AC-617 — Registry rejeita duplicidade, schema inválido, origem/scope incompatível e capacidade excedida @spec:AC-617
+
+- **Dado** uma tentativa de registro conflitante ou malformada
+- **Quando** chamo `register`
+- **Então** retorna erro tipado e não altera o estado anterior; IDs/version/scope são bounded e não atravessam projetos
+
+#### AC-618 — Lookup é determinístico, project-isolated e capability-aware @spec:AC-618
+
+- **Dado** tools globais e project-scoped com nomes/versões iguais ou diferentes
+- **Quando** chamo `resolve` ou `list_visible`
+- **Então** project scope tem precedência sobre global, projeto errado não resolve, capability ausente/mismatch falha e listagem é determinística
+
+#### AC-619 — Lifecycle impede resolução inativa sem remover metadata @spec:AC-619
+
+- **Dado** uma tool registrada
+- **Quando** altero lifecycle para Disabled/Retired e resolvo
+- **Então** resolução falha com estado tipado; metadata continua listável e alterações não executam handler
+
+#### AC-620 — Unregister e restore fornecem rollback bounded @spec:AC-620
+
+- **Dado** uma tool registrada
+- **Quando** chamo `unregister` e depois `restore`
+- **Então** a resolução desaparece e volta com a mesma identidade/scope/origem/lifecycle; duplicidade e restore inválido falham fechadamente
+
+#### AC-621 — Registry suporta seal e concorrência sem estado global @spec:AC-621
+
+- **Dado** operações concorrentes de register/resolve/lifecycle/list
+- **Quando** executo em múltiplas threads e selo o registry
+- **Então** não há corrida/panic/cross-project leak; leituras continuam possíveis e mutações após seal retornam `Sealed`
+
+#### AC-622 — Registry não confia em descrição/metadata e não executa tools @spec:AC-622
+
+- **Dado** descrições, metadata ou payloads não confiáveis e uma tool fake observável
+- **Quando** registro/listo/resolvo
+- **Então** somente schema/capability/origin/lifecycle participam da decisão; nenhum conteúdo vira instrução e nenhum handler é chamado
+
+#### AC-623 — Contract tests do registry cobrem dedupe, rollback, lifecycle e isolamento @spec:AC-623
+
+- **Dado** `crates/tool-core/tests/registry_contract.rs`
+- **Quando** executo `cargo test -p tool-core --test registry_contract`
+- **Então** cobre registro válido, duplicata, lookup existente/inexistente, project scope, capability filter, lifecycle, deterministic listing, unregister/restore, seal, capacity e concorrência
+
 ## Fora de escopo
 
 - Implementação de ferramentas concretas (filesystem, terminal, HTTP, Git, Python)
