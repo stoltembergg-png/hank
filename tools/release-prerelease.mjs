@@ -163,7 +163,7 @@ function main() {
   }
   if (command === 'manifest') {
     const input = JSON.parse(readFileSync(arg('--input'), 'utf8'));
-    const output = JSON.stringify(buildManifest(input), null, 2) + '\\n';
+    const output = JSON.stringify(buildManifest(input), null, 2) + '\n';
     const destination = arg('--output');
     if (destination) writeFileSync(destination, output);
     else process.stdout.write(output);
