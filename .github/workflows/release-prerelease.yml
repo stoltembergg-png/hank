@@ -141,7 +141,7 @@ jobs:
           node tools/release-prerelease.mjs changelog --tag "$TAG" --card "$CARD" --prs "$prs_csv" > /tmp/prerelease/RELEASE_NOTES.md
           printf '%s\n' "Download the archive and release-manifest.json. Verify manifest.sha256 matches the downloaded manifest, confirm exact commit $SHA, then run cargo test --workspace --locked and npm --prefix frontend test. This is a prerelease and is not a stable release." > /tmp/prerelease/TEST_INSTRUCTIONS.md
           tar --exclude='./.git' --exclude='./frontend/node_modules' --exclude='./target' --exclude='./apps/desktop/src-tauri/target' -czf "/tmp/prerelease/hank-${TAG}.tar.gz" .
-          sha256sum "/tmp/prerelease/hank-${TAG}.tar.gz" > /tmp/prerelease/SHA256SUMS
+          (cd /tmp/prerelease && sha256sum "hank-${TAG}.tar.gz" > SHA256SUMS)
 
       - name: Generate immutable release manifest
         env:
@@ -162,7 +162,7 @@ jobs:
           process.stdout.write(JSON.stringify({tag, version: tag.slice(1), sha, tree: process.env.TREE, card: process.env.CARD, classification: JSON.parse(process.env.CLASSIFICATION), relatedPullRequests: JSON.parse(process.env.PRS), artifacts: ['hank-' + tag + '.tar.gz', 'RELEASE_NOTES.md', 'TEST_INSTRUCTIONS.md', 'SHA256SUMS'], changelog, testInstructions}));
           NODE
           node tools/release-prerelease.mjs manifest --input /tmp/manifest-input.json --output /tmp/prerelease/release-manifest.json
-          sha256sum /tmp/prerelease/release-manifest.json > /tmp/prerelease/manifest.sha256
+          (cd /tmp/prerelease && sha256sum release-manifest.json > manifest.sha256)
 
       - name: Upload prerelease bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
