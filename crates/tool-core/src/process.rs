@@ -1,16 +1,16 @@
 //! Structured, non-shell process execution primitive.
 
-use crate::PermissionDecision;
+use crate::{
+    PermissionDecision, ToolCancellation, ToolExecutionStatus, ToolExecutionWindow,
+    ToolTerminalState,
+};
 use agent_core::ids::ProjectId;
 use agent_protocol::ids::TraceId;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
-use std::time::{Duration, Instant};
+use std::sync::{Arc, atomic::AtomicBool};
+use std::time::Duration;
 
 pub const DEFAULT_MAX_OUTPUT_BYTES: usize = 64 * 1024;
 
@@ -104,6 +104,9 @@ pub fn run_process(
     cancel: Arc<AtomicBool>,
 ) -> Result<ProcessResult, ProcessError> {
     spec.validate()?;
+    let window =
+        ToolExecutionWindow::with_cancellation(spec.timeout, ToolCancellation::from_flag(cancel))
+            .map_err(|_| ProcessError::InvalidLimits)?;
     let mut command = Command::new(&spec.program);
     command
         .args(&spec.args)
@@ -114,33 +117,39 @@ pub fn run_process(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = command.spawn().map_err(|_| ProcessError::SpawnFailed)?;
-    let started = Instant::now();
     loop {
-        if cancel.load(Ordering::SeqCst) {
-            let _ = child.kill();
-            let output = child
-                .wait_with_output()
-                .map_err(|_| ProcessError::SpawnFailed)?;
-            return Ok(result_from_output(
-                spec.trace_id,
-                output,
-                false,
-                true,
-                spec.max_output_bytes,
-            ));
-        }
-        if started.elapsed() >= spec.timeout {
-            let _ = child.kill();
-            let output = child
-                .wait_with_output()
-                .map_err(|_| ProcessError::SpawnFailed)?;
-            return Ok(result_from_output(
-                spec.trace_id,
-                output,
-                true,
-                false,
-                spec.max_output_bytes,
-            ));
+        match window.poll() {
+            ToolExecutionStatus::Terminal(ToolTerminalState::Cancelled) => {
+                let output = terminate_child(child)?;
+                return Ok(result_from_output(
+                    spec.trace_id,
+                    output,
+                    false,
+                    true,
+                    spec.max_output_bytes,
+                ));
+            }
+            ToolExecutionStatus::Terminal(ToolTerminalState::TimedOut) => {
+                let output = terminate_child(child)?;
+                return Ok(result_from_output(
+                    spec.trace_id,
+                    output,
+                    true,
+                    false,
+                    spec.max_output_bytes,
+                ));
+            }
+            ToolExecutionStatus::Terminal(ToolTerminalState::Completed) => {
+                let output = terminate_child(child)?;
+                return Ok(result_from_output(
+                    spec.trace_id,
+                    output,
+                    false,
+                    false,
+                    spec.max_output_bytes,
+                ));
+            }
+            ToolExecutionStatus::Active => {}
         }
         if child
             .try_wait()
@@ -150,16 +159,24 @@ pub fn run_process(
             let output = child
                 .wait_with_output()
                 .map_err(|_| ProcessError::SpawnFailed)?;
+            let state = window.finish();
             return Ok(result_from_output(
                 spec.trace_id,
                 output,
-                false,
-                false,
+                state == ToolTerminalState::TimedOut,
+                state == ToolTerminalState::Cancelled,
                 spec.max_output_bytes,
             ));
         }
         std::thread::sleep(Duration::from_millis(5));
     }
+}
+
+fn terminate_child(mut child: std::process::Child) -> Result<std::process::Output, ProcessError> {
+    let _ = child.kill();
+    child
+        .wait_with_output()
+        .map_err(|_| ProcessError::SpawnFailed)
 }
 
 fn result_from_output(

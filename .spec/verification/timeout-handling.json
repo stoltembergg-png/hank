@@ -1,0 +1,32 @@
+{
+  "feature": "timeout-handling",
+  "timestamp": "2026-08-21T23:29:44.036Z",
+  "gitRev": "3e6052f",
+  "command": "node tools/run-all-tests.mjs",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-665": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-666": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-667": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-668": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}

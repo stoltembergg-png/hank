@@ -1,6 +1,8 @@
 //! Read-only filesystem tool constrained to canonical project roots.
 
-use crate::{PermissionDecision, ToolError};
+use crate::{
+    PermissionDecision, ToolError, ToolExecutionStatus, ToolExecutionWindow, ToolTerminalState,
+};
 use agent_core::ids::ProjectId;
 use agent_protocol::ids::TraceId;
 use std::fs;
@@ -41,6 +43,10 @@ pub enum FilesystemReadError {
     InvalidUtf8,
     #[error("read limit is invalid")]
     InvalidLimit,
+    #[error("filesystem read timed out")]
+    Timeout,
+    #[error("filesystem read was cancelled")]
+    Cancelled,
 }
 
 #[derive(Debug, Clone)]
@@ -81,6 +87,28 @@ impl FilesystemReadTool {
         permission: PermissionDecision,
         trace_id: TraceId,
     ) -> Result<FilesystemReadResult, FilesystemReadError> {
+        self.read_inner(project_id, logical_path, permission, trace_id, None)
+    }
+
+    pub fn read_with_window(
+        &self,
+        project_id: ProjectId,
+        logical_path: &str,
+        permission: PermissionDecision,
+        trace_id: TraceId,
+        window: &ToolExecutionWindow,
+    ) -> Result<FilesystemReadResult, FilesystemReadError> {
+        self.read_inner(project_id, logical_path, permission, trace_id, Some(window))
+    }
+
+    fn read_inner(
+        &self,
+        project_id: ProjectId,
+        logical_path: &str,
+        permission: PermissionDecision,
+        trace_id: TraceId,
+        window: Option<&ToolExecutionWindow>,
+    ) -> Result<FilesystemReadResult, FilesystemReadError> {
         if project_id != self.project_id {
             return Err(FilesystemReadError::ProjectUnauthorized);
         }
@@ -88,6 +116,9 @@ impl FilesystemReadTool {
             return Err(FilesystemReadError::PermissionDenied);
         }
         let relative = validate_relative_path(logical_path)?;
+        if let Some(window) = window {
+            ensure_active(window)?;
+        }
         let candidate = self
             .roots
             .iter()
@@ -104,6 +135,13 @@ impl FilesystemReadTool {
         let content = std::str::from_utf8(bounded)
             .map_err(|_| FilesystemReadError::InvalidUtf8)?
             .to_owned();
+        if let Some(window) = window {
+            match window.finish() {
+                ToolTerminalState::Completed => {}
+                ToolTerminalState::TimedOut => return Err(FilesystemReadError::Timeout),
+                ToolTerminalState::Cancelled => return Err(FilesystemReadError::Cancelled),
+            }
+        }
         Ok(FilesystemReadResult {
             logical_path: relative.to_string_lossy().into_owned(),
             trace_id,
@@ -111,6 +149,21 @@ impl FilesystemReadTool {
             truncated,
             content,
         })
+    }
+}
+
+fn ensure_active(window: &ToolExecutionWindow) -> Result<(), FilesystemReadError> {
+    match window.poll() {
+        ToolExecutionStatus::Active => Ok(()),
+        ToolExecutionStatus::Terminal(ToolTerminalState::TimedOut) => {
+            Err(FilesystemReadError::Timeout)
+        }
+        ToolExecutionStatus::Terminal(ToolTerminalState::Cancelled) => {
+            Err(FilesystemReadError::Cancelled)
+        }
+        ToolExecutionStatus::Terminal(ToolTerminalState::Completed) => {
+            Err(FilesystemReadError::Timeout)
+        }
     }
 }
 

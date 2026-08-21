@@ -16,6 +16,7 @@ pub mod request;
 pub mod response;
 pub mod schema;
 pub mod terminal;
+pub mod timeout;
 pub mod trait_def;
 
 pub use context::*;
@@ -33,4 +34,5 @@ pub use request::*;
 pub use response::*;
 pub use schema::*;
 pub use terminal::*;
+pub use timeout::*;
 pub use trait_def::*;

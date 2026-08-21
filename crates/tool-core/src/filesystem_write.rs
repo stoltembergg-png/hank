@@ -1,6 +1,6 @@
 //! Atomic, project-confined filesystem write with bounded rollback.
 
-use crate::PermissionDecision;
+use crate::{PermissionDecision, ToolExecutionStatus, ToolExecutionWindow, ToolTerminalState};
 use agent_core::ids::ProjectId;
 use agent_protocol::ids::TraceId;
 use std::collections::BTreeMap;
@@ -36,6 +36,10 @@ pub enum FilesystemWriteError {
     Filesystem,
     #[error("rollback snapshot is unavailable")]
     SnapshotUnavailable,
+    #[error("filesystem write timed out")]
+    Timeout,
+    #[error("filesystem write was cancelled")]
+    Cancelled,
 }
 
 #[derive(Debug, Clone)]
@@ -86,6 +90,50 @@ impl FilesystemWriteTool {
         trace_id: TraceId,
         operation_key: &str,
     ) -> Result<FilesystemWriteResult, FilesystemWriteError> {
+        self.write_inner(
+            project_id,
+            logical_path,
+            content,
+            permission,
+            trace_id,
+            operation_key,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn write_with_window(
+        &self,
+        project_id: ProjectId,
+        logical_path: &str,
+        content: &[u8],
+        permission: PermissionDecision,
+        trace_id: TraceId,
+        operation_key: &str,
+        window: &ToolExecutionWindow,
+    ) -> Result<FilesystemWriteResult, FilesystemWriteError> {
+        self.write_inner(
+            project_id,
+            logical_path,
+            content,
+            permission,
+            trace_id,
+            operation_key,
+            Some(window),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn write_inner(
+        &self,
+        project_id: ProjectId,
+        logical_path: &str,
+        content: &[u8],
+        permission: PermissionDecision,
+        trace_id: TraceId,
+        operation_key: &str,
+        window: Option<&ToolExecutionWindow>,
+    ) -> Result<FilesystemWriteResult, FilesystemWriteError> {
         if project_id != self.project_id {
             return Err(FilesystemWriteError::ProjectUnauthorized);
         }
@@ -97,6 +145,9 @@ impl FilesystemWriteTool {
         }
         if content.len() > self.max_bytes {
             return Err(FilesystemWriteError::PayloadTooLarge);
+        }
+        if let Some(window) = window {
+            ensure_active(window)?;
         }
         let path = self.resolve_target(logical_path)?;
         let mut snapshots = self
@@ -123,6 +174,18 @@ impl FilesystemWriteTool {
             return Err(FilesystemWriteError::Filesystem);
         }
         snapshots.insert(operation_key.to_string(), Snapshot { path, previous });
+        if let Some(window) = window {
+            let state = window.finish();
+            if state != ToolTerminalState::Completed {
+                drop(snapshots);
+                self.rollback(operation_key)?;
+                return Err(match state {
+                    ToolTerminalState::TimedOut => FilesystemWriteError::Timeout,
+                    ToolTerminalState::Cancelled => FilesystemWriteError::Cancelled,
+                    ToolTerminalState::Completed => FilesystemWriteError::Filesystem,
+                });
+            }
+        }
         Ok(FilesystemWriteResult {
             logical_path: logical_path.to_string(),
             trace_id,
@@ -187,5 +250,20 @@ impl FilesystemWriteTool {
             }
         }
         Err(FilesystemWriteError::OutsideRoot)
+    }
+}
+
+fn ensure_active(window: &ToolExecutionWindow) -> Result<(), FilesystemWriteError> {
+    match window.poll() {
+        ToolExecutionStatus::Active => Ok(()),
+        ToolExecutionStatus::Terminal(ToolTerminalState::TimedOut) => {
+            Err(FilesystemWriteError::Timeout)
+        }
+        ToolExecutionStatus::Terminal(ToolTerminalState::Cancelled) => {
+            Err(FilesystemWriteError::Cancelled)
+        }
+        ToolExecutionStatus::Terminal(ToolTerminalState::Completed) => {
+            Err(FilesystemWriteError::Timeout)
+        }
     }
 }

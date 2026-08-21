@@ -1,6 +1,7 @@
 //! Bounded HTTP client contract with explicit egress policy.
 
 use crate::PermissionDecision;
+use crate::{ToolExecutionStatus, ToolExecutionWindow, ToolTerminalState};
 use agent_core::ids::ProjectId;
 use agent_protocol::ids::TraceId;
 use reqwest::Method;
@@ -54,16 +55,31 @@ pub enum HttpError {
     InvalidLimits,
     #[error("HTTP request failed")]
     RequestFailed,
+    #[error("HTTP request timed out")]
+    Timeout,
+    #[error("HTTP request was cancelled")]
+    Cancelled,
     #[error("response is not valid UTF-8")]
     InvalidResponse,
 }
 
 pub fn execute_http(request: &HttpRequest) -> Result<HttpResponse, HttpError> {
+    let window = ToolExecutionWindow::new(request.timeout).map_err(|_| HttpError::InvalidLimits)?;
+    execute_http_with_window(request, &window)
+}
+
+pub fn execute_http_with_window(
+    request: &HttpRequest,
+    window: &ToolExecutionWindow,
+) -> Result<HttpResponse, HttpError> {
     if !request.permission.is_allowed() {
         return Err(HttpError::PermissionDenied);
     }
     if request.timeout.is_zero() || request.max_response_bytes == 0 {
         return Err(HttpError::InvalidLimits);
+    }
+    if let ToolExecutionStatus::Terminal(state) = window.poll() {
+        return Err(map_terminal_state(state));
     }
     let url = reqwest::Url::parse(&request.url).map_err(|_| HttpError::InvalidUrl)?;
     if !matches!(url.scheme(), "http" | "https") {
@@ -91,8 +107,12 @@ pub fn execute_http(request: &HttpRequest) -> Result<HttpResponse, HttpError> {
     }
     let method =
         Method::from_bytes(request.method.as_bytes()).map_err(|_| HttpError::InvalidMethod)?;
+    let timeout = request.timeout.min(window.remaining());
+    if timeout.is_zero() {
+        return Err(HttpError::Timeout);
+    }
     let client = Client::builder()
-        .timeout(request.timeout)
+        .timeout(timeout)
         .redirect(Policy::none())
         .build()
         .map_err(|_| HttpError::RequestFailed)?;
@@ -106,18 +126,38 @@ pub fn execute_http(request: &HttpRequest) -> Result<HttpResponse, HttpError> {
     if let Some(body) = &request.body {
         builder = builder.body(body.clone());
     }
-    let response = builder.send().map_err(|_| HttpError::RequestFailed)?;
+    let response = builder.send().map_err(|_| match window.poll() {
+        ToolExecutionStatus::Terminal(state) => map_terminal_state(state),
+        ToolExecutionStatus::Active => HttpError::RequestFailed,
+    })?;
     let status = response.status().as_u16();
     let bytes = response.bytes().map_err(|_| HttpError::RequestFailed)?;
     let truncated = bytes.len() > request.max_response_bytes;
     let body = String::from_utf8(bytes[..bytes.len().min(request.max_response_bytes)].to_vec())
         .map_err(|_| HttpError::InvalidResponse)?;
+    if let ToolExecutionStatus::Terminal(state) = window.poll() {
+        return Err(map_terminal_state(state));
+    }
+    if window.finish() != ToolTerminalState::Completed {
+        return Err(map_terminal_state(match window.poll() {
+            ToolExecutionStatus::Terminal(state) => state,
+            ToolExecutionStatus::Active => ToolTerminalState::TimedOut,
+        }));
+    }
     Ok(HttpResponse {
         trace_id: request.trace_id,
         status,
         body,
         truncated,
     })
+}
+
+fn map_terminal_state(state: ToolTerminalState) -> HttpError {
+    match state {
+        ToolTerminalState::Completed => HttpError::RequestFailed,
+        ToolTerminalState::TimedOut => HttpError::Timeout,
+        ToolTerminalState::Cancelled => HttpError::Cancelled,
+    }
 }
 
 fn is_private_host(host: &str) -> bool {

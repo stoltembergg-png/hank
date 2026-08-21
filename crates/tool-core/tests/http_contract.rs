@@ -4,7 +4,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::net::TcpListener;
 use std::thread;
 use std::time::Duration;
-use tool_core::{HttpError, HttpRequest, PermissionDecision, execute_http};
+use tool_core::{
+    HttpError, HttpRequest, PermissionDecision, ToolExecutionWindow, execute_http,
+    execute_http_with_window,
+};
 
 fn request(url: String) -> HttpRequest {
     let host = reqwest::Url::parse(&url)
@@ -75,4 +78,23 @@ fn rejects_unallowlisted_scheme_host_and_redirects_are_not_followed() {
     assert_eq!(execute_http(&scheme), Err(HttpError::InvalidScheme));
     scheme.url = "https://not-allowed.example/".into();
     assert_eq!(execute_http(&scheme), Err(HttpError::HostNotAllowed));
+}
+
+#[test]
+// @spec:AC-666 @spec:AC-668
+fn http_adapter_honors_shared_cancel_and_deadline_before_dispatch() {
+    let request = request("http://127.0.0.1:9/blocked".into());
+    let cancelled = ToolExecutionWindow::new(Duration::from_secs(1)).unwrap();
+    cancelled.cancel();
+    assert_eq!(
+        execute_http_with_window(&request, &cancelled),
+        Err(HttpError::Cancelled)
+    );
+
+    let expired = ToolExecutionWindow::new(Duration::from_millis(1)).unwrap();
+    thread::sleep(Duration::from_millis(10));
+    assert_eq!(
+        execute_http_with_window(&request, &expired),
+        Err(HttpError::Timeout)
+    );
 }

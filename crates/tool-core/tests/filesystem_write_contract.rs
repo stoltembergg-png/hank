@@ -1,8 +1,13 @@
 use agent_core::ids::ProjectId;
 use agent_protocol::ids::TraceId;
 use std::fs;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use tempfile::tempdir;
-use tool_core::{FilesystemWriteError, FilesystemWriteTool, PermissionDecision};
+use tool_core::{
+    FilesystemWriteError, FilesystemWriteTool, PermissionDecision, ToolCancellation,
+    ToolExecutionWindow,
+};
 
 fn allowed() -> PermissionDecision {
     PermissionDecision::Allowed { reason: "test" }
@@ -101,4 +106,31 @@ fn rejects_permission_path_project_payload_and_duplicate_without_mutation() {
     tool.write(project, "x.txt", b"y", allowed(), TraceId::new(), "same")
         .unwrap();
     assert_eq!(fs::read_to_string(root.path().join("x.txt")).unwrap(), "x");
+}
+
+#[test]
+// @spec:AC-666 @spec:AC-667
+fn write_with_window_honors_cancel_before_mutation() {
+    let root = tempdir().unwrap();
+    let project = ProjectId::new();
+    let tool = FilesystemWriteTool::new(project, vec![root.path().to_path_buf()], 32).unwrap();
+    let window = ToolExecutionWindow::with_cancellation(
+        std::time::Duration::from_secs(1),
+        ToolCancellation::from_flag(Arc::new(AtomicBool::new(true))),
+    )
+    .unwrap();
+
+    assert_eq!(
+        tool.write_with_window(
+            project,
+            "cancelled.txt",
+            b"must not persist",
+            allowed(),
+            TraceId::new(),
+            "cancelled-op",
+            &window,
+        ),
+        Err(FilesystemWriteError::Cancelled)
+    );
+    assert!(!root.path().join("cancelled.txt").exists());
 }
