@@ -79,6 +79,42 @@ Como desenvolvedor do core, quero um contrato Tool assíncrono, provider-agnosti
 - **Quando** executo `cargo test -p tool-core`
 - **Então** 34 testes passam cobrindo: context validation, request validation, schema validation, trait can_handle (tool name/version/capability/policy), execute success, serialization roundtrip para todos os tipos, Box/Arc trait objects, PolicyDecision/ToolEnvironment variants, ToolError variants
 
+#### AC-610 — ToolSchema valida semântica de versão e shape @spec:AC-610
+
+- **Dado** um `ToolSchema` com nome/version semânticos, input/output JSON Schema e declarações bounded
+- **Quando** chamo `schema.validate()`
+- **Então** schemas válidos passam; versão malformada, keyword desconhecida, shape recursivo inválido, capability duplicada/inválida e metadata excedente falham com erro estruturado
+
+#### AC-611 — ToolSchema valida payloads contra limites, tipos e campos obrigatórios @spec:AC-611
+
+- **Dado** um payload de entrada ou saída
+- **Quando** chamo `validate_input` ou `validate_output`
+- **Então** bytes, profundidade, tipos, `required`, string/array limits, enum e shape são verificados antes do handler; payload excedente falha sem expor conteúdo bruto
+
+#### AC-612 — Política explícita para campos desconhecidos @spec:AC-612
+
+- **Dado** um schema de objeto e payload com campo não declarado
+- **Quando** uso `SchemaValidationPolicy::strict()` ou `permissive()`
+- **Então** strict rejeita campo desconhecido salvo `additionalProperties` explícito; permissive aceita somente quando o schema não o proíbe; o resultado é determinístico
+
+#### AC-613 — Compatibilidade de versões tem regra explícita @spec:AC-613
+
+- **Dado** um schema na versão semver `1.2.0` e uma versão requisitada
+- **Quando** chamo `compatibility_with`
+- **Então** a igualdade retorna `Exact`, mesma major retorna `SameMajor`, major diferente retorna `Incompatible` e versão inválida falha fechadamente
+
+#### AC-614 — Schema não aceita campos sensíveis ou instruções executáveis ocultas @spec:AC-614
+
+- **Dado** input/output schema, description ou metadata contendo campo sensível, control character, traversal, command/URL injection ou conteúdo acima do limite
+- **Quando** chamo `schema.validate()`
+- **Então** a validação rejeita o schema; descrições/examples permanecem dados não confiáveis e nunca alteram capability, ambiente ou policy
+
+#### AC-615 — Contract tests do schema cobrem limites, compatibilidade e isolamento @spec:AC-615
+
+- **Dado** `crates/tool-core/tests/schema_contract.rs`
+- **Quando** executo `cargo test -p tool-core --test schema_contract`
+- **Então** testes cobrem schema válido/malformado, payload, unknown fields, version compatibility, nested/array constraints, sensitive metadata e ausência de vazamento de conteúdo
+
 ## Fora de escopo
 
 - Implementação de ferramentas concretas (filesystem, terminal, HTTP, Git, Python)
