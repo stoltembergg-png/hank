@@ -1,0 +1,27 @@
+{
+  "feature": "filesystem-write",
+  "timestamp": "2026-08-21T15:09:26.976Z",
+  "gitRev": "cccf0e0",
+  "command": "cargo test -p tool-core --test filesystem_write_contract",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-640": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-641": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-642": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}
