@@ -372,3 +372,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: frontend/src/chat/indicators/ProviderIndicator.tsx, frontend/src/chat/indicators/ProviderIndicator.css, frontend/src/chat/ChatPage.tsx, frontend/src/chat/ChatPage.css, frontend/tests/provider-indicator.test.tsx, docs/provider-indicator.md, .spec/features/foundation-workspace/tasks.md
 - Notas: normalized optional metadata, explicit selected/fallback/unknown/unavailable/degraded and capability states, bounded safe identifiers, redaction of malformed/secret-like values and accessible ChatPage integration without provider inference
+
+## T-388 — Adicionar token usage metrics [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/usage.rs, crates/agent-runtime/tests/usage_contract.rs, frontend/src/chat/usage/UsageSummary.tsx, frontend/src/chat/usage/UsageSummary.css, frontend/src/chat/ChatPage.tsx, frontend/tests/usage-summary.test.tsx, docs/token-metrics.md, .spec/features/foundation-workspace/tasks.md
+- Notas: terminal attempt-idempotent usage events, checked bounded aggregation by Project/Agent/Session, missing/estimated/provider-reported source/confidence, currency mismatch explicit and optional UI read model without billing claims

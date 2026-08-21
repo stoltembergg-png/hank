@@ -34,6 +34,7 @@ pub mod skill_runtime;
 pub mod sqlite;
 pub mod streaming;
 pub mod tool;
+pub mod usage;
 pub mod workflow_runtime;
 
 pub use agent_core::*;
