@@ -317,3 +317,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-runtime/src/context.rs, crates/agent-runtime/src/context/basic.rs, crates/agent-runtime/tests/basic_context_contract.rs, docs/basic-context-builder.md, .spec/features/foundation-workspace/tasks.md
 - Notas: concrete deterministic layer assembly over bounded inputs, conversation window, budget/truncation omissions, layer-kind fail-closed validation, task/tool metadata boundaries and no direct storage/provider/UI access
+
+## T-377 — Adicionar Agent execution state machine [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/execution/mod.rs, crates/agent-runtime/tests/execution_contract.rs, docs/execution-state-machine.md, .spec/features/foundation-workspace/tasks.md
+- Notas: Preparing/Running/Streaming/Completed/Failed/Cancelled states, exactly-one terminal transition, provider application coordinator, generation/invocation fences, bounded budgets/concurrency, cancellation and snapshot recovery
