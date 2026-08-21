@@ -110,13 +110,13 @@ fn filters_and_rejects_invalid_project_path_permission_and_filter() {
     ));
 }
 
+#[cfg(unix)]
 #[test]
 // @spec:AC-645
 fn rejects_symlink_escape_and_returns_metadata_only() {
     let root = tempdir().unwrap();
     let outside = tempdir().unwrap();
     fs::write(outside.path().join("secret.txt"), "secret").unwrap();
-    #[cfg(unix)]
     std::os::unix::fs::symlink(
         outside.path().join("secret.txt"),
         root.path().join("escape.txt"),
@@ -124,7 +124,6 @@ fn rejects_symlink_escape_and_returns_metadata_only() {
     .unwrap();
     let tool =
         DirectoryListTool::new(ProjectId::new(), vec![root.path().to_path_buf()], 10).unwrap();
-    #[cfg(unix)]
     assert!(matches!(
         tool.list(
             tool.project_id(),

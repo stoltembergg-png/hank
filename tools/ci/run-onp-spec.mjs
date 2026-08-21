@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve, relative, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { onpRootFrom, portableTextSha256 } from './onp-bootstrap.mjs';
 
-const root = resolve(new URL('../onp-spec/', import.meta.url).pathname);
+const root = onpRootFrom(import.meta.url);
 const manifestPath = resolve(root, 'manifest.json');
 
 export function verifyManifest(manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))) {
@@ -17,7 +17,7 @@ export function verifyManifest(manifest = JSON.parse(readFileSync(manifestPath, 
     if (!resolvedRelative || resolvedRelative.startsWith(`..${sep}`) || resolvedRelative === '..') {
       throw new Error(`unsafe ONP manifest path: ${relativePath}`);
     }
-    const actual = createHash('sha256').update(readFileSync(absolute)).digest('hex');
+    const actual = portableTextSha256(readFileSync(absolute));
     if (actual !== expected) {
       throw new Error(`ONP tool checksum mismatch: ${relativePath}`);
     }

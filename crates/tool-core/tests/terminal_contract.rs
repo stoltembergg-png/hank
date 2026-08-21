@@ -1,3 +1,5 @@
+#![cfg(unix)]
+
 use agent_core::ids::ProjectId;
 use agent_protocol::ids::TraceId;
 use std::collections::{BTreeMap, BTreeSet};
@@ -6,7 +8,6 @@ use std::sync::{Arc, atomic::AtomicBool};
 use std::time::Duration;
 use tool_core::{PermissionDecision, ProcessSpec, TerminalAdapter, TerminalError, TerminalRequest};
 
-#[cfg(unix)]
 fn request(key: &str) -> TerminalRequest {
     let cwd = std::env::current_dir().unwrap();
     let program = PathBuf::from("/bin/printf");
@@ -29,7 +30,6 @@ fn request(key: &str) -> TerminalRequest {
     }
 }
 
-#[cfg(unix)]
 #[test]
 // @spec:AC-649
 fn terminal_delegates_to_process_primitive_and_returns_round_one() {
@@ -41,7 +41,6 @@ fn terminal_delegates_to_process_primitive_and_returns_round_one() {
     assert_eq!(result.round, 1);
 }
 
-#[cfg(unix)]
 #[test]
 // @spec:AC-649
 fn terminal_rejects_missing_invalid_round_and_duplicate_operation() {
@@ -66,7 +65,6 @@ fn terminal_rejects_missing_invalid_round_and_duplicate_operation() {
     ));
 }
 
-#[cfg(unix)]
 #[test]
 // @spec:AC-650
 fn terminal_preserves_process_permission_and_cancellation_failures() {

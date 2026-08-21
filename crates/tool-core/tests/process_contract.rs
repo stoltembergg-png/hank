@@ -1,3 +1,5 @@
+#![cfg(unix)]
+
 use agent_core::ids::ProjectId;
 use agent_protocol::ids::TraceId;
 use std::collections::{BTreeMap, BTreeSet};
@@ -9,16 +11,13 @@ use std::sync::{
 use std::time::Duration;
 use tool_core::{PermissionDecision, ProcessError, ProcessSpec, run_process};
 
-#[cfg(unix)]
 fn fixture_program() -> PathBuf {
     PathBuf::from("/bin/printf")
 }
-#[cfg(unix)]
 fn sleep_program() -> PathBuf {
     PathBuf::from("/bin/sleep")
 }
 
-#[cfg(unix)]
 fn spec(program: PathBuf) -> ProcessSpec {
     let cwd = std::env::current_dir().unwrap();
     ProcessSpec {
@@ -36,7 +35,6 @@ fn spec(program: PathBuf) -> ProcessSpec {
     }
 }
 
-#[cfg(unix)]
 #[test]
 // @spec:AC-646
 fn allowlisted_structured_process_runs_without_shell() {
@@ -47,7 +45,6 @@ fn allowlisted_structured_process_runs_without_shell() {
     assert!(!result.timed_out && !result.cancelled);
 }
 
-#[cfg(unix)]
 #[test]
 // @spec:AC-647
 fn rejects_shell_program_permission_cwd_and_sensitive_environment() {
@@ -62,7 +59,6 @@ fn rejects_shell_program_permission_cwd_and_sensitive_environment() {
     assert_eq!(env.validate(), Err(ProcessError::EnvironmentNotAllowed));
 }
 
-#[cfg(unix)]
 #[test]
 // @spec:AC-648
 fn timeout_and_cancellation_kill_child_and_bound_output() {
