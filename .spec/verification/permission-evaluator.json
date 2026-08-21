@@ -1,0 +1,27 @@
+{
+  "feature": "permission-evaluator",
+  "timestamp": "2026-08-21T14:48:22.000Z",
+  "gitRev": "8ca241d",
+  "command": "cargo test -p tool-core --test permission_contract",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-632": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-633": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-634": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}
