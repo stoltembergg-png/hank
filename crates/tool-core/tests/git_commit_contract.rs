@@ -7,7 +7,15 @@ use tempfile::tempdir;
 use tool_core::{GitCommitError, GitCommitRequest, GitCommitTool, PermissionDecision};
 
 fn git() -> std::path::PathBuf {
-    which::which("git").unwrap()
+    find_git().unwrap_or_else(|| panic!("git executable not found in PATH"))
+}
+
+fn find_git() -> Option<std::path::PathBuf> {
+    let executable = if cfg!(windows) { "git.exe" } else { "git" };
+    let path = std::env::var_os("PATH")?;
+    std::env::split_paths(path.as_os_str())
+        .map(|directory| directory.join(executable))
+        .find(|candidate| candidate.is_file())
 }
 
 fn repo() -> (tempfile::TempDir, ProjectId) {

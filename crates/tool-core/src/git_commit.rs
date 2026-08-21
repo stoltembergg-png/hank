@@ -261,7 +261,7 @@ mod tests {
     fn setup_test_repo() -> (tempfile::TempDir, PathBuf, PathBuf) {
         let dir = tempdir().unwrap();
         let repo = dir.path().to_path_buf();
-        let git = which::which("git").unwrap();
+        let git = find_git().unwrap_or_else(|| panic!("git executable not found in PATH"));
 
         Command::new(&git)
             .args(["init"])
@@ -280,6 +280,14 @@ mod tests {
             .unwrap();
 
         (dir, repo, git)
+    }
+
+    fn find_git() -> Option<PathBuf> {
+        let executable = if cfg!(windows) { "git.exe" } else { "git" };
+        let path = std::env::var_os("PATH")?;
+        std::env::split_paths(path.as_os_str())
+            .map(|directory| directory.join(executable))
+            .find(|candidate| candidate.is_file())
     }
 
     fn create_test_tool(repo: &Path, git: &Path) -> GitCommitTool {
@@ -551,7 +559,7 @@ mod tests {
     fn test_commit_rejects_invalid_repo() {
         let dir = tempdir().unwrap();
         let repo = dir.path().to_path_buf();
-        let git = which::which("git").unwrap();
+        let git = find_git().unwrap_or_else(|| panic!("git executable not found in PATH"));
         let project_id = ProjectId::new();
 
         let tool = GitCommitTool::new(project_id, repo, git);
