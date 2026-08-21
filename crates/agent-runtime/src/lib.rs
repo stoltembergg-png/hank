@@ -28,6 +28,7 @@ pub mod retry;
 pub mod sandbox;
 pub mod scheduler;
 pub mod session_repo;
+pub mod session_service;
 pub mod skill_runtime;
 pub mod sqlite;
 pub mod streaming;
