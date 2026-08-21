@@ -1,0 +1,27 @@
+{
+  "feature": "process-primitive",
+  "timestamp": "2026-08-21T15:48:48.317Z",
+  "gitRev": "d519f52",
+  "command": "cargo test -p tool-core --test process_contract",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-646": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-647": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-648": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}

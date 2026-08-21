@@ -87,6 +87,9 @@ jobs:
       - name: Verify directory list
         run: node tools/ci/run-onp-spec.mjs verify directory-list
 
+      - name: Verify process primitive
+        run: node tools/ci/run-onp-spec.mjs verify process-primitive
+
       - name: Verify frontend workspace
         run: node tools/ci/run-onp-spec.mjs verify frontend-workspace
 
