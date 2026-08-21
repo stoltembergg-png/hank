@@ -1,3 +1,5 @@
+pub mod streaming;
+
 use tauri::{Manager, WindowEvent};
 
 fn main() {

@@ -8,6 +8,7 @@
 
 pub mod capability;
 pub mod chat_command;
+pub mod chat_stream;
 pub mod envelope;
 pub mod events;
 pub mod ids;
