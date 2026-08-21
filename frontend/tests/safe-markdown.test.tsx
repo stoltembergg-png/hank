@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { MAX_MARKDOWN_BYTES, SafeMarkdown } from '@/chat/markdown/SafeMarkdown';
 
@@ -29,6 +29,15 @@ describe('SafeMarkdown', () => {
     expect(container.textContent).toContain('unsafe');
   });
 
+  it('routes fenced blocks to the non-executable code renderer', () => {
+    const { container } = render(
+      <SafeMarkdown source={'```rust\nprintln!("<script>");\n```'} />,
+    );
+    expect(container.querySelector('pre code')).toHaveClass('language-rust');
+    expect(container.querySelector('pre code')).toHaveTextContent('println!("<script>");');
+    expect(container.querySelector('script')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copiar código' })).toBeInTheDocument();
+  });
   it('bounds large input and keeps a deterministic plain-text fallback', () => {
     const source = 'x'.repeat(MAX_MARKDOWN_BYTES + 10_000);
     const { container } = render(<SafeMarkdown source={source} />);

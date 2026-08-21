@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { CodeBlock } from '../code-block/CodeBlock';
 import './SafeMarkdown.css';
 
 export const MAX_MARKDOWN_BYTES = 128 * 1024;
@@ -41,6 +42,20 @@ function renderBlocks(source: string): ReactNode[] {
     const line = lines[index];
     if (line.trim() === '') {
       index += 1;
+      continue;
+    }
+
+    const fence = /^```([A-Za-z0-9_+-]*)\s*$/u.exec(line);
+    if (fence) {
+      const codeLines: string[] = [];
+      index += 1;
+      while (index < lines.length && !/^```\s*$/u.test(lines[index])) {
+        codeLines.push(lines[index]);
+        index += 1;
+      }
+      if (index < lines.length) index += 1;
+      blocks.push(<CodeBlock key={key} code={codeLines.join('\n')} language={fence[1] || undefined} />);
+      key += 1;
       continue;
     }
 
@@ -98,7 +113,10 @@ function renderBlocks(source: string): ReactNode[] {
 }
 
 function isBlockStart(line: string): boolean {
-  return /^(#{1,4})\s+.+$/u.test(line) || /^[-*]\s+.+$/u.test(line) || /^\d+[.]\s+.+$/u.test(line);
+  return /^```[A-Za-z0-9_+-]*\s*$/u.test(line)
+    || /^(#{1,4})\s+.+$/u.test(line)
+    || /^[-*]\s+.+$/u.test(line)
+    || /^\d+[.]\s+.+$/u.test(line);
 }
 
 function renderInline(source: string, keyPrefix: string): ReactNode[] {

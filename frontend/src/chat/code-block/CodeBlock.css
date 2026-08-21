@@ -1,0 +1,57 @@
+.safe-code-block {
+  margin: 0.75rem 0;
+  overflow: hidden;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 0.6rem;
+}
+
+.safe-code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.7rem;
+  color: #cbd5e1;
+  background: #1e293b;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: lowercase;
+}
+
+.safe-code-block-header button {
+  padding: 0.3rem 0.55rem;
+  color: #e2e8f0;
+  background: #334155;
+  border: 1px solid #64748b;
+  border-radius: 0.35rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.safe-code-block-header button:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.safe-code-block pre {
+  max-height: 24rem;
+  margin: 0;
+  padding: 0.9rem;
+  overflow: auto;
+}
+
+.safe-code-block code {
+  color: #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.86rem;
+  white-space: pre;
+}
+
+.safe-code-block-status {
+  display: block;
+  min-height: 1.15rem;
+  padding: 0 0.7rem 0.45rem;
+  color: #bfdbfe;
+  font-size: 0.75rem;
+}

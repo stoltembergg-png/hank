@@ -362,3 +362,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: frontend/src/chat/markdown/SafeMarkdown.tsx, frontend/src/chat/markdown/SafeMarkdown.css, frontend/src/chat/ChatPage.tsx, frontend/tests/safe-markdown.test.tsx, docs/safe-markdown.md, .spec/features/foundation-workspace/tasks.md
 - Notas: bounded deterministic Markdown subset, escaped raw HTML, http/https-only external links, plain fallback for unsafe schemes, no arbitrary HTML/JS and ChatPage integration; fenced code blocks remain PR-093 scope
+
+## T-386 — Adicionar safe code-block renderer [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: frontend/src/chat/code-block/CodeBlock.tsx, frontend/src/chat/code-block/CodeBlock.css, frontend/src/chat/markdown/SafeMarkdown.tsx, frontend/tests/code-block.test.tsx, frontend/tests/safe-markdown.test.tsx, docs/code-block.md, .spec/features/foundation-workspace/tasks.md
+- Notas: fenced code integration, language allowlist, escaped plain text, ANSI/control sanitization, bounded block, explicit clipboard gesture/status and no execution/autolink/file/shell capability
