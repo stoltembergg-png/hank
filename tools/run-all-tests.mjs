@@ -18,6 +18,11 @@ const commands = [
     args: ['--test', 'test/w0-contract-closure.spec.test.js'],
   },
   {
+    label: 'ONP bootstrap contract tests',
+    command: process.execPath,
+    args: ['--test', 'test/onp-bootstrap-paths.js'],
+  },
+  {
     label: 'Rust workspace tests',
     command: cargoCmd,
     args: ['test', '--workspace'],

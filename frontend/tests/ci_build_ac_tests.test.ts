@@ -70,6 +70,9 @@ describe('CI Build workflow AC tests', () => {
     const rust = workflow('build-rust.yml');
     const frontend = workflow('build-frontend.yml');
     expect(rust).toContain('runs-on: ubuntu-latest');
+    expect(rust).toMatch(
+      /build-rust-windows:[\s\S]*?name: Build Rust Windows[\s\S]*?runs-on: windows-2022[\s\S]*?cargo test --workspace --locked[\s\S]*?cargo clippy --workspace --all-targets --locked -- -D warnings/,
+    );
     expect(rust).toContain('toolchain: 1.97.1');
     expect(frontend).toContain('runs-on: ubuntu-latest');
     expect(frontend).toContain('node-version: 20.19.1');
