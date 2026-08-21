@@ -29,7 +29,7 @@ Como desenvolvedor do core, quero um workspace Cargo com crates isoladas e resol
 
 - **Dado** um workspace Cargo recém-inicializado
 - **Quando** executo `cargo metadata --format-version=1`
-- **Então** a saída enumera exatamente os packages: `agent-core`, `agent-runtime`, `agent-protocol`, `test-support` (dev-only) e `xtask`, sem crates extras ou placeholders silenciosos
+- **Então** a saída enumera exatamente os packages: `agent-core`, `agent-runtime`, `agent-protocol`, `provider-core`, `provider-adapter-openai-compatible`, `provider-adapter-openai`, `provider-adapter-anthropic`, `provider-adapter-gemini`, `provider-adapter-openrouter`, `provider-adapter-ollama`, `tool-core`, `test-support` (dev-only) e `xtask`, sem crates extras ou placeholders silenciosos
 
 #### AC-302 — Workspace compila sem erros em modo check @spec:AC-302
 
