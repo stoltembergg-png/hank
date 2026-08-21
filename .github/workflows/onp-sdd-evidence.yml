@@ -84,6 +84,9 @@ jobs:
       - name: Verify filesystem write
         run: node tools/ci/run-onp-spec.mjs verify filesystem-write
 
+      - name: Verify directory list
+        run: node tools/ci/run-onp-spec.mjs verify directory-list
+
       - name: Verify frontend workspace
         run: node tools/ci/run-onp-spec.mjs verify frontend-workspace
 
