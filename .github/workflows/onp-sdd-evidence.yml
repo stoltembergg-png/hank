@@ -72,6 +72,9 @@ jobs:
       - name: Verify tools core
         run: node tools/ci/run-onp-spec.mjs verify tools-core
 
+      - name: Verify release prereleases
+        run: node tools/ci/run-onp-spec.mjs verify release-prereleases
+
       - name: Verify frontend workspace
         run: node tools/ci/run-onp-spec.mjs verify frontend-workspace
 
