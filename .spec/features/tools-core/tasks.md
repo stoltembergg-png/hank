@@ -9,3 +9,8 @@
 - Refs: US-601, AC-601, AC-602, AC-603, AC-604, AC-605, AC-606, AC-607, AC-608, AC-609
 - Arquivos: .spec/features/tools-core/spec.md, .spec/features/tools-core/tasks.md
 - Notas: spec ONP completa com 9 critérios de aceite, 4 suposições confirmadas, 3 perguntas respondidas; fora de escopo ferramentas concretas, registry, permission evaluator, sandbox
+
+## T-391 — Implementar validação semântica e payload do ToolSchema (PR-097) [concluida]
+- Refs: US-601, AC-610, AC-611, AC-612, AC-613, AC-614, AC-615
+- Arquivos: crates/tool-core/src/schema.rs, crates/tool-core/tests/schema_contract.rs, crates/tool-core/Cargo.toml, Cargo.lock, docs/tool-schema.md, .spec/features/tools-core/spec.md, .spec/features/tools-core/tasks.md
+- Notas: validação bounded de schema/payload, policy strict/permissive para unknown fields, compatibilidade semver explícita, rejeição fail-closed de shape/sensitive metadata e contract tests
