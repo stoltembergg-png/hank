@@ -75,6 +75,9 @@ jobs:
       - name: Verify release prereleases
         run: node tools/ci/run-onp-spec.mjs verify release-prereleases
 
+      - name: Verify permission evaluator
+        run: node tools/ci/run-onp-spec.mjs verify permission-evaluator
+
       - name: Verify frontend workspace
         run: node tools/ci/run-onp-spec.mjs verify frontend-workspace
 
