@@ -367,3 +367,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: frontend/src/chat/code-block/CodeBlock.tsx, frontend/src/chat/code-block/CodeBlock.css, frontend/src/chat/markdown/SafeMarkdown.tsx, frontend/tests/code-block.test.tsx, frontend/tests/safe-markdown.test.tsx, docs/code-block.md, .spec/features/foundation-workspace/tasks.md
 - Notas: fenced code integration, language allowlist, escaped plain text, ANSI/control sanitization, bounded block, explicit clipboard gesture/status and no execution/autolink/file/shell capability
+
+## T-387 — Adicionar provider/model indicators honestos [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: frontend/src/chat/indicators/ProviderIndicator.tsx, frontend/src/chat/indicators/ProviderIndicator.css, frontend/src/chat/ChatPage.tsx, frontend/src/chat/ChatPage.css, frontend/tests/provider-indicator.test.tsx, docs/provider-indicator.md, .spec/features/foundation-workspace/tasks.md
+- Notas: normalized optional metadata, explicit selected/fallback/unknown/unavailable/degraded and capability states, bounded safe identifiers, redaction of malformed/secret-like values and accessible ChatPage integration without provider inference

@@ -4,6 +4,7 @@ import {
   type ChatStreamSubscription,
 } from '@/contracts/chat-stream';
 import { SafeMarkdown } from './markdown/SafeMarkdown';
+import { ProviderIndicator, type ProviderIndicatorData } from './indicators/ProviderIndicator';
 import './ChatPage.css';
 
 export type ChatSessionScope = Omit<ChatStreamSubscription, 'stream_id' | 'command_id'>;
@@ -38,10 +39,12 @@ export function ChatPage({
   session,
   transport,
   createIds = defaultIds,
+  indicator,
 }: {
   session: ChatSessionScope;
   transport: ChatTransport;
   createIds?: ChatIdFactory;
+  indicator?: ProviderIndicatorData;
 }) {
   const [draft, setDraft] = useState('');
   const [messages, setMessages] = useState<RenderedMessage[]>([]);
@@ -155,9 +158,12 @@ export function ChatPage({
           <p className="chat-eyebrow">Sessão single-agent</p>
           <h1>Chat</h1>
         </div>
-        <span className={`chat-status chat-status-${status}`} role="status">
-          {statusLabel(status)}
-        </span>
+        <div className="chat-header-meta">
+          {indicator && <ProviderIndicator data={indicator} />}
+          <span className={`chat-status chat-status-${status}`} role="status">
+            {statusLabel(status)}
+          </span>
+        </div>
       </header>
 
       {error && <p className="chat-error" role="alert">{error}</p>}
