@@ -215,11 +215,19 @@ jobs:
         working-directory: frontend
         run: npm ci --no-fund
 
+      - name: Build frontend bundle
+        shell: pwsh
+        run: npm --prefix frontend run build
+
       - name: Build Windows NSIS installer
         shell: pwsh
         run: |
-          $config = Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/src-tauri/tauri.conf.json'
-          npm --prefix frontend exec -- tauri build --ci --config $config --bundles nsis
+          $config = Get-Content (Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/src-tauri/tauri.conf.json') | ConvertFrom-Json
+          $config.build.beforeBuildCommand = ''
+          $config.build.frontendDist = Join-Path $env:GITHUB_WORKSPACE 'frontend/dist'
+          $temporaryConfig = Join-Path $env:RUNNER_TEMP 'tauri.windows.conf.json'
+          $config | ConvertTo-Json -Depth 20 | Set-Content $temporaryConfig
+          npm --prefix frontend exec -- tauri build --ci --config $temporaryConfig --bundles nsis
 
       - name: Rename installer deterministically
         shell: pwsh
