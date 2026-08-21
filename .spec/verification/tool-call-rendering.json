@@ -1,7 +1,7 @@
 {
   "feature": "tool-call-rendering",
-  "timestamp": "2026-08-21T22:38:18.181Z",
-  "gitRev": "b88cb58",
+  "timestamp": "2026-08-21T22:39:49.482Z",
+  "gitRev": "98a4f98",
   "command": "pnpm --dir frontend run test",
   "reporter": "exitcode",
   "exitCode": 0,
