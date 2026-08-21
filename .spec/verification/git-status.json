@@ -1,0 +1,22 @@
+{
+  "feature": "git-status",
+  "timestamp": "2026-08-21T17:24:28.685Z",
+  "gitRev": "4936cb4",
+  "command": "cargo test -p tool-core --test git_status_contract",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-654": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-655": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}

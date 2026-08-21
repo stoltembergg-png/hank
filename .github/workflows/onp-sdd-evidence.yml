@@ -96,6 +96,9 @@ jobs:
       - name: Verify HTTP tool
         run: node tools/ci/run-onp-spec.mjs verify http-tool
 
+      - name: Verify Git status
+        run: node tools/ci/run-onp-spec.mjs verify git-status
+
       - name: Verify frontend workspace
         run: node tools/ci/run-onp-spec.mjs verify frontend-workspace
 
@@ -104,6 +107,9 @@ jobs:
 
       - name: Verify W0 contract closure
         run: node tools/ci/run-onp-spec.mjs verify w0-contract-closure
+
+      - name: Run aggregate native coverage diagnostic
+        run: node tools/run-all-tests.mjs
 
       - name: Verify Tauri desktop
         run: node tools/ci/run-onp-spec.mjs verify tauri-desktop
