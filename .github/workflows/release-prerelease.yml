@@ -217,7 +217,9 @@ jobs:
 
       - name: Build Windows NSIS installer
         shell: pwsh
-        run: npm --prefix frontend exec -- tauri build --ci --config ../apps/desktop/src-tauri/tauri.conf.json --bundles nsis
+        run: |
+          $config = Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/src-tauri/tauri.conf.json'
+          npm --prefix frontend exec -- tauri build --ci --config $config --bundles nsis
 
       - name: Rename installer deterministically
         shell: pwsh
