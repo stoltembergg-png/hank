@@ -190,8 +190,8 @@ fn metadata_lists_expected_crates() {
 
     let mut expected = vec![
         "agent-core",
-        "agent-runtime",
         "agent-protocol",
+        "agent-runtime",
         "provider-core",
         "secrets-core",
         "auth-core",
@@ -202,6 +202,7 @@ fn metadata_lists_expected_crates() {
         "provider-adapter-openrouter",
         "provider-adapter-ollama",
         "test-support",
+        "tool-core",
         "xtask",
     ];
     expected.sort();

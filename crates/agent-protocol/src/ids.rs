@@ -229,6 +229,8 @@ typed_id!(TaskId, "task");
 typed_id!(ArtifactId, "art");
 typed_id!(EventId, "evt");
 
+typed_id!(OperationKey, "op");
+
 /// Garante que tipos de ID distintos não são intercambiáveis.
 ///
 /// A identidade é transportada no tipo: misturar `ProjectId` e `AgentId`
