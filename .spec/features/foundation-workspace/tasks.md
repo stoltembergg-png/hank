@@ -357,3 +357,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: frontend/src/chat/ChatPage.tsx, frontend/src/chat/ChatPage.css, frontend/tests/chat-page.test.tsx, docs/chat-ui.md, .spec/features/foundation-workspace/tasks.md
 - Notas: injected ChatTransport, scoped typed command, bounded accessible message list, ordered assistant deltas, cancel/error/retry states and stale/foreign event isolation; no direct storage/provider/Tauri implementation
+
+## T-385 — Adicionar safe Markdown renderer [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: frontend/src/chat/markdown/SafeMarkdown.tsx, frontend/src/chat/markdown/SafeMarkdown.css, frontend/src/chat/ChatPage.tsx, frontend/tests/safe-markdown.test.tsx, docs/safe-markdown.md, .spec/features/foundation-workspace/tasks.md
+- Notas: bounded deterministic Markdown subset, escaped raw HTML, http/https-only external links, plain fallback for unsafe schemes, no arbitrary HTML/JS and ChatPage integration; fenced code blocks remain PR-093 scope
