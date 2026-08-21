@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import {
   assertPostMergeChecks,
@@ -101,6 +105,20 @@ test('AC-628: generates immutable manifest and changelog with test instructions 
   assert.match(notes, /Prerelease/);
   assert.match(notes, /PR-200/);
   assert.match(notes, /cargo test/);
+});
+
+test('AC-628: CLI emits parseable JSON manifest with one trailing newline @spec:AC-628', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'hank-release-'));
+  const input = join(directory, 'input.json');
+  const payload = { tag: tag(), version: `0.1.0-dev.${sha}`, sha, tree, card: 'PR-200', classification: ['functional'], relatedPullRequests: [200], artifacts: ['hank.tar.gz'], changelog: 'changes', testInstructions: 'test' };
+  writeFileSync(input, JSON.stringify(payload));
+  try {
+    const output = execFileSync(process.execPath, ['tools/release-prerelease.mjs', 'manifest', '--input', input], { encoding: 'utf8' });
+    assert.deepEqual(JSON.parse(output), { schemaVersion: 1, ...payload, prerelease: true, stable: false, provenance: { source: 'main', exactCommit: sha, tagImmutable: true } });
+    assert.equal(output.endsWith('\n'), true);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test('AC-631: rollback is explicit, bounded, and does not silently delete anything @spec:AC-631', () => {
