@@ -1,0 +1,27 @@
+{
+  "feature": "http-tool",
+  "timestamp": "2026-08-21T17:09:18.692Z",
+  "gitRev": "fcf85e5",
+  "command": "cargo test -p tool-core --test http_contract",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-651": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-652": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-653": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}
