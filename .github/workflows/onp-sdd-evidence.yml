@@ -69,6 +69,9 @@ jobs:
       - name: Verify foundation workspace
         run: node tools/ci/run-onp-spec.mjs verify foundation-workspace
 
+      - name: Verify tools core
+        run: node tools/ci/run-onp-spec.mjs verify tools-core
+
       - name: Verify frontend workspace
         run: node tools/ci/run-onp-spec.mjs verify frontend-workspace
 
