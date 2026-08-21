@@ -24,6 +24,7 @@ pub mod project_update_service;
 pub mod provider;
 pub mod provider_service;
 pub mod python;
+pub mod retry;
 pub mod sandbox;
 pub mod scheduler;
 pub mod session_repo;

@@ -332,3 +332,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/cancellation.rs, crates/agent-runtime/tests/cancellation_contract.rs, docs/cancellation-boundary.md, .spec/features/foundation-workspace/tasks.md
 - Notas: bounded token registry, idempotent cancel/unregister, synchronized Execution/Message terminal cancellation, completion race semantics, concurrency safety and no process/provider-specific kill
+
+## T-380 — Adicionar retry policy [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/retry.rs, crates/agent-runtime/tests/retry_contract.rs, docs/retry-policy.md, .spec/features/foundation-workspace/tasks.md
+- Notas: pure transient-error matrix, bounded deterministic backoff/jitter contract, max attempts/token/cancellation budget, attempt identity and no retry for auth/invalid/cancel/tool/destructive operations
