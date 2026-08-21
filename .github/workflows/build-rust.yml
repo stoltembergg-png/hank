@@ -91,3 +91,40 @@ jobs:
         env:
           ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
         run: echo "rust_artifact_digest=$ARTIFACT_DIGEST" >> "$GITHUB_STEP_SUMMARY"
+
+  build-rust-windows:
+    name: Build Rust Windows
+    runs-on: windows-2022
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.97.1
+
+      - name: Cache Cargo dependencies and target
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run Rust tests on Windows
+        run: cargo test --workspace --locked
+
+      - name: Run Rust Clippy on Windows
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings

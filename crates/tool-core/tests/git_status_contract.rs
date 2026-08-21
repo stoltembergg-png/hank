@@ -6,13 +6,12 @@ use std::sync::{Arc, atomic::AtomicBool};
 use tempfile::tempdir;
 use tool_core::{GitStatusError, GitStatusTool, PermissionDecision};
 
-fn git() -> std::path::PathBuf {
-    "/usr/bin/git".into()
-}
+mod support;
+use support::git_program;
 
 fn repo() -> (tempfile::TempDir, ProjectId) {
     let dir = tempdir().unwrap();
-    Command::new(git())
+    Command::new(git_program())
         .args(["init", "-q"])
         .current_dir(dir.path())
         .status()
@@ -25,7 +24,7 @@ fn repo() -> (tempfile::TempDir, ProjectId) {
 fn reports_branch_and_bounded_dirty_entries_without_mutation() {
     let (dir, project) = repo();
     fs::write(dir.path().join("note.txt"), "data").unwrap();
-    let tool = GitStatusTool::new(project, dir.path().to_path_buf(), git(), 10).unwrap();
+    let tool = GitStatusTool::new(project, dir.path().to_path_buf(), git_program(), 10).unwrap();
     let result = tool
         .status(
             project,
@@ -47,10 +46,10 @@ fn reports_branch_and_bounded_dirty_entries_without_mutation() {
 fn rejects_project_permission_invalid_repo_and_limit() {
     let (dir, project) = repo();
     assert!(matches!(
-        GitStatusTool::new(project, dir.path().to_path_buf(), git(), 0),
+        GitStatusTool::new(project, dir.path().to_path_buf(), git_program(), 0),
         Err(GitStatusError::InvalidLimit)
     ));
-    let tool = GitStatusTool::new(project, dir.path().to_path_buf(), git(), 10).unwrap();
+    let tool = GitStatusTool::new(project, dir.path().to_path_buf(), git_program(), 10).unwrap();
     assert!(matches!(
         tool.status(
             ProjectId::new(),

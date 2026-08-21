@@ -6,9 +6,8 @@ use std::sync::{Arc, atomic::AtomicBool};
 use tempfile::tempdir;
 use tool_core::{GitDiffError, GitDiffMode, GitDiffRequest, GitDiffTool, PermissionDecision};
 
-fn git() -> std::path::PathBuf {
-    "/usr/bin/git".into()
-}
+mod support;
+use support::git_program;
 
 fn repo() -> (tempfile::TempDir, ProjectId) {
     let dir = tempdir().unwrap();
@@ -18,7 +17,7 @@ fn repo() -> (tempfile::TempDir, ProjectId) {
         vec!["config", "user.name", "Test"],
     ] {
         assert!(
-            Command::new(git())
+            Command::new(git_program())
                 .args(args)
                 .current_dir(dir.path())
                 .status()
@@ -28,7 +27,7 @@ fn repo() -> (tempfile::TempDir, ProjectId) {
     }
     fs::write(dir.path().join("note.txt"), "old\n").unwrap();
     assert!(
-        Command::new(git())
+        Command::new(git_program())
             .args(["add", "note.txt"])
             .current_dir(dir.path())
             .status()
@@ -36,7 +35,7 @@ fn repo() -> (tempfile::TempDir, ProjectId) {
             .success()
     );
     assert!(
-        Command::new(git())
+        Command::new(git_program())
             .args(["commit", "-qm", "initial"])
             .current_dir(dir.path())
             .status()
@@ -62,7 +61,7 @@ fn request(project: ProjectId, mode: GitDiffMode, max_bytes: usize) -> GitDiffRe
 fn returns_unstaged_diff_and_does_not_mutate_repo() {
     let (dir, project) = repo();
     fs::write(dir.path().join("note.txt"), "new\n").unwrap();
-    let tool = GitDiffTool::new(project, dir.path().to_path_buf(), git()).unwrap();
+    let tool = GitDiffTool::new(project, dir.path().to_path_buf(), git_program()).unwrap();
     let result = tool
         .diff(
             request(project, GitDiffMode::Unstaged, 4096),
@@ -81,7 +80,7 @@ fn returns_unstaged_diff_and_does_not_mutate_repo() {
 fn supports_staged_and_path_modes_with_explicit_truncation_redaction() {
     let (dir, project) = repo();
     fs::write(dir.path().join("note.txt"), "api_token=secret-value\n").unwrap();
-    let tool = GitDiffTool::new(project, dir.path().to_path_buf(), git()).unwrap();
+    let tool = GitDiffTool::new(project, dir.path().to_path_buf(), git_program()).unwrap();
     let mut path_request = request(project, GitDiffMode::Path, 16);
     path_request.path = Some("note.txt".into());
     let result = tool
@@ -89,7 +88,7 @@ fn supports_staged_and_path_modes_with_explicit_truncation_redaction() {
         .unwrap();
     assert!(result.truncated || result.diff.contains("[redacted]"));
     assert!(
-        Command::new(git())
+        Command::new(git_program())
             .args(["add", "note.txt"])
             .current_dir(dir.path())
             .status()
@@ -109,7 +108,7 @@ fn supports_staged_and_path_modes_with_explicit_truncation_redaction() {
 // @spec:AC-658
 fn rejects_wrong_project_permission_path_and_limit() {
     let (dir, project) = repo();
-    let tool = GitDiffTool::new(project, dir.path().to_path_buf(), git()).unwrap();
+    let tool = GitDiffTool::new(project, dir.path().to_path_buf(), git_program()).unwrap();
     assert!(matches!(
         tool.diff(
             request(ProjectId::new(), GitDiffMode::Unstaged, 10),

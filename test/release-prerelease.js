@@ -61,6 +61,11 @@ test('AC-626: fails closed on missing or failed post-merge checks @spec:AC-626',
   assert.throws(() => assertPostMergeChecks({ checks: [{ name: 'Build Rust', status: 'queued', conclusion: null }], required: ['Build Rust'] }), /not successful/);
 });
 
+test('AC-626: publication requires the Windows Rust check @spec:AC-626', () => {
+  const workflow = readFileSync('.github/workflows/release-prerelease.yml', 'utf8');
+  assert.match(workflow, /REQUIRED_POST_MERGE_CHECKS:.*Build Rust Windows/);
+});
+
 test('AC-627: rerun is idempotent only for the exact existing release @spec:AC-627', () => {
   assert.deepEqual(decideIdempotentRelease({ tagExists: false, releaseExists: false }), { action: 'create' });
   assert.deepEqual(decideIdempotentRelease({ tagExists: true, releaseExists: true, existingTarget: sha, expectedSha: sha, existingManifestDigest: 'x', expectedManifestDigest: 'x' }), { action: 'noop', reason: 'matching release already exists' });
