@@ -352,3 +352,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-protocol/src/lib.rs, crates/agent-protocol/src/chat_stream.rs, crates/agent-protocol/tests/chat_stream_contract.rs, apps/desktop/src-tauri/Cargo.toml, apps/desktop/src-tauri/Cargo.lock, apps/desktop/src-tauri/src/main.rs, apps/desktop/src-tauri/src/streaming.rs, frontend/src/contracts/chat-stream.ts, frontend/tests/chat-stream-contract.test.ts, docs/tauri-streaming.md, .spec/features/foundation-workspace/tasks.md
 - Notas: authorized WebviewWindow event sink, typed stream identity/generation/sequence, atomic validation and queueing, bounded backpressure with terminal preservation, sink retry retention and frontend consumer contract; no generic invoke/provider/storage/UI implementation
+
+## T-384 — Adicionar single-agent chat UI [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: frontend/src/chat/ChatPage.tsx, frontend/src/chat/ChatPage.css, frontend/tests/chat-page.test.tsx, docs/chat-ui.md, .spec/features/foundation-workspace/tasks.md
+- Notas: injected ChatTransport, scoped typed command, bounded accessible message list, ordered assistant deltas, cancel/error/retry states and stale/foreign event isolation; no direct storage/provider/Tauri implementation
