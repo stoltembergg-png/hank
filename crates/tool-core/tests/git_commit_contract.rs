@@ -7,7 +7,7 @@ use tempfile::tempdir;
 use tool_core::{GitCommitError, GitCommitRequest, GitCommitTool, PermissionDecision};
 
 fn git() -> std::path::PathBuf {
-    "/usr/bin/git".into()
+    which::which("git").unwrap()
 }
 
 fn repo() -> (tempfile::TempDir, ProjectId) {
