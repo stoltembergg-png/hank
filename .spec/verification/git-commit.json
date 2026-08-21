@@ -1,0 +1,27 @@
+{
+  "feature": "git-commit",
+  "timestamp": "2026-08-21T21:18:29.457Z",
+  "gitRev": "2192208",
+  "command": "cargo test -p tool-core --test git_commit_contract --locked --offline",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-659": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-660": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-661": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}
