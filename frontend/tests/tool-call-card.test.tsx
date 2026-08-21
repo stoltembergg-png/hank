@@ -15,6 +15,7 @@ const baseCall: ToolCallViewModel = {
 };
 
 describe('ToolCallCard', () => {
+  // @spec:AC-662
   it.each([
     ['pending', 'Pendente'],
     ['allowed', 'Autorizada'],
@@ -34,6 +35,7 @@ describe('ToolCallCard', () => {
     expect(screen.getByText('Trace trace-1')).toBeInTheDocument();
   });
 
+  // @spec:AC-663
   it('renders arguments and results as bounded text with secrets redacted', () => {
     render(
       <ToolCallCard
@@ -55,6 +57,7 @@ describe('ToolCallCard', () => {
     expect(screen.getAllByText(/Conteúdo truncado/)).toHaveLength(1);
   });
 
+  // @spec:AC-664
   it('exposes approval context without executing a tool locally', () => {
     const onApprove = vi.fn();
     render(<ToolCallCard call={{ ...baseCall, state: 'ask' }} onApprove={onApprove} />);
@@ -64,6 +67,7 @@ describe('ToolCallCard', () => {
     expect(screen.getByText('A aprovação será processada pela Application API.')).toBeInTheDocument();
   });
 
+  // @spec:AC-664
   it('does not offer an approval action for denied calls', () => {
     render(<ToolCallCard call={{ ...baseCall, state: 'denied' }} onApprove={vi.fn()} />);
 

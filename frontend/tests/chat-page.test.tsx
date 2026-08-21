@@ -52,6 +52,7 @@ function event(
 }
 
 describe('ChatPage', () => {
+  // @spec:AC-662 @spec:AC-664
   it('renders tool calls as scoped read-only cards without executing them', () => {
     const transport = makeTransport();
     const toolCall: ToolCallViewModel = {
