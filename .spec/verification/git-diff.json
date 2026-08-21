@@ -1,0 +1,27 @@
+{
+  "feature": "git-diff",
+  "timestamp": "2026-08-21T17:54:58.637Z",
+  "gitRev": "fdfaccb",
+  "command": "cargo test -p tool-core --test git_diff_contract",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-656": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-657": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-658": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}
