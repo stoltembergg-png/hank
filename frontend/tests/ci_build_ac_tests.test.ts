@@ -78,6 +78,14 @@ describe('CI Build workflow AC tests', () => {
     expect(frontend).toContain('node-version: 20.19.1');
   });
 
+  it('Windows packaging rejects absolute frontend asset URLs', () => {
+    const release = workflow('release-prerelease.yml');
+    expect(release).toContain('Verify frontend asset paths');
+    expect(release).toContain('frontend/dist/index.html');
+    expect(release).toContain('Packaged frontend must reference assets with relative paths');
+    expect(release).toContain('Packaged frontend contains an absolute asset path');
+  });
+
   // @spec:AC-405
   it('AC-405: fixture rejeita artifact sem digest', () => {
     const script = join(REPOSITORY_ROOT, 'tools', 'ci', 'require-artifact-digest.sh');

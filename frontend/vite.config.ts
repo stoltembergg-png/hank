@@ -16,6 +16,7 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
   },
+  base: './',
   server: {
     port: 1420,
     strictPort: true,
