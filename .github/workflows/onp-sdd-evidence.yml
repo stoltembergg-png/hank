@@ -99,6 +99,9 @@ jobs:
       - name: Verify Git status
         run: node tools/ci/run-onp-spec.mjs verify git-status
 
+      - name: Verify Git diff
+        run: node tools/ci/run-onp-spec.mjs verify git-diff
+
       - name: Verify frontend workspace
         run: node tools/ci/run-onp-spec.mjs verify frontend-workspace
 
