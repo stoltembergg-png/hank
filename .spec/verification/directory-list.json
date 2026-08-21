@@ -1,0 +1,27 @@
+{
+  "feature": "directory-list",
+  "timestamp": "2026-08-21T15:29:21.773Z",
+  "gitRev": "56b7e98",
+  "command": "cargo test -p tool-core --test directory_list_contract",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-643": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-644": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-645": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}
