@@ -78,8 +78,7 @@ describe('CI Build workflow AC tests', () => {
     expect(frontend).toContain('node-version: 20.19.1');
   });
 
-  // @spec:AC-406
-  it('AC-406: Windows packaging rejects absolute frontend asset URLs', () => {
+  it('Windows packaging rejects absolute frontend asset URLs', () => {
     const release = workflow('release-prerelease.yml');
     expect(release).toContain('Verify frontend asset paths');
     expect(release).toContain('frontend/dist/index.html');
