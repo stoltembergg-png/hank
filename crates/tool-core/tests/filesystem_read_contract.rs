@@ -1,8 +1,10 @@
 use agent_core::ids::ProjectId;
 use agent_protocol::ids::TraceId;
 use std::fs;
+use std::thread;
+use std::time::Duration;
 use tempfile::tempdir;
-use tool_core::{FilesystemReadError, FilesystemReadTool};
+use tool_core::{FilesystemReadError, FilesystemReadTool, ToolExecutionWindow};
 
 fn project() -> ProjectId {
     ProjectId::new()
@@ -126,5 +128,26 @@ fn read_never_executes_or_mutates_filesystem() {
     assert_eq!(
         fs::metadata(root.path().join("data.txt")).unwrap().len(),
         before
+    );
+}
+
+#[test]
+// @spec:AC-665 @spec:AC-668
+fn read_with_window_fails_closed_before_filesystem_access() {
+    let root = tempdir().unwrap();
+    fs::write(root.path().join("note.txt"), "hello").unwrap();
+    let tool = FilesystemReadTool::new(project(), vec![root.path().to_path_buf()], 32).unwrap();
+    let window = ToolExecutionWindow::new(Duration::from_millis(1)).unwrap();
+    thread::sleep(Duration::from_millis(10));
+
+    assert_eq!(
+        tool.read_with_window(
+            tool.project_id(),
+            "note.txt",
+            allowed(),
+            TraceId::new(),
+            &window,
+        ),
+        Err(FilesystemReadError::Timeout)
     );
 }
