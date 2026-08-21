@@ -28,6 +28,7 @@ pub mod scheduler;
 pub mod session_repo;
 pub mod skill_runtime;
 pub mod sqlite;
+pub mod streaming;
 pub mod tool;
 pub mod workflow_runtime;
 

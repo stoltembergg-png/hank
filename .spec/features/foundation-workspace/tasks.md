@@ -322,3 +322,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/execution/mod.rs, crates/agent-runtime/tests/execution_contract.rs, docs/execution-state-machine.md, .spec/features/foundation-workspace/tasks.md
 - Notas: Preparing/Running/Streaming/Completed/Failed/Cancelled states, exactly-one terminal transition, provider application coordinator, generation/invocation fences, bounded budgets/concurrency, cancellation and snapshot recovery
+
+## T-378 — Adicionar provider streaming [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/streaming.rs, crates/agent-runtime/tests/streaming_contract.rs, docs/provider-streaming.md, .spec/features/foundation-workspace/tasks.md
+- Notas: normalized stream consumer over ProviderApplicationService, sequence/generation fencing, delta/message updates, terminal mapping, cancellation, backpressure-ready bounded events and redacted failures
