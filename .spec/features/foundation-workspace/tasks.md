@@ -342,3 +342,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/session_service.rs, crates/agent-runtime/tests/session_service_contract.rs, docs/session-service.md, .spec/features/foundation-workspace/tasks.md
 - Notas: project/agent/session lifecycle authorization, user/assistant persistence, injected provider application invoker, Execution orchestration, success/failure/cancel terminal results, bounded concurrency and no UI/adapter direct access
+
+## T-382 — Adicionar typed chat command [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-protocol/src/lib.rs, crates/agent-protocol/src/chat_command.rs, crates/agent-protocol/tests/chat_command_contract.rs, crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/chat_command.rs, docs/chat-command.md, .spec/features/foundation-workspace/tasks.md
+- Notas: versioned bounded command envelope, typed caller/project/agent/session identity, generation/cancellation, dedupe/stale registry and thin injected runtime dispatcher without Tauri generic invoke or provider/storage access
