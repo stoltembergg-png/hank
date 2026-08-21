@@ -1,0 +1,37 @@
+{
+  "feature": "filesystem-read",
+  "timestamp": "2026-08-21T14:58:44.733Z",
+  "gitRev": "08f3f56",
+  "command": "cargo test -p tool-core --test filesystem_read_contract",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-635": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-636": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-637": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-638": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-639": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}
