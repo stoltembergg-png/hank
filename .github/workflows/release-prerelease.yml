@@ -219,6 +219,17 @@ jobs:
         shell: pwsh
         run: npm --prefix frontend run build
 
+      - name: Verify frontend asset paths
+        shell: pwsh
+        run: |
+          $index = Get-Content -Raw frontend/dist/index.html
+          if ($index -notmatch 'src="\./assets/' -or $index -notmatch 'href="\./assets/') {
+            throw 'Packaged frontend must reference assets with relative paths'
+          }
+          if ($index -match '(src|href)="/assets/') {
+            throw 'Packaged frontend contains an absolute asset path'
+          }
+
       - name: Build Windows NSIS installer
         shell: pwsh
         run: |
