@@ -62,10 +62,24 @@ jobs:
             echo "tag=$tag"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Reject an existing tag
+      - name: Check tag and release idempotency
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ steps.identity.outputs.tag }}
+          SHA: ${{ steps.identity.outputs.sha }}
         run: |
           set -euo pipefail
-          test -z "$(git ls-remote --tags origin 'refs/tags/${{ steps.identity.outputs.tag }}')"
+          tag_ref=$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')
+          if test -z "$tag_ref"; then
+            echo 'tag absent; create path authorized'
+            exit 0
+          fi
+          release=$(gh api "repos/$REPOSITORY/releases/tags/$TAG" 2>/dev/null || true)
+          test -n "$release" || { echo 'tag exists without release; refusing reuse'; exit 1; }
+          target=$(printf '%s' "$release" | jq -r .target_commitish)
+          test "$target" = "$SHA" || { echo 'existing release targets a different commit; refusing reuse'; exit 1; }
+          echo 'matching tag and release found; rerun will be idempotent'
 
       - name: Verify merged PR provenance
         id: provenance
