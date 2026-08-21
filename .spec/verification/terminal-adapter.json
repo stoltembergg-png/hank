@@ -1,0 +1,22 @@
+{
+  "feature": "terminal-adapter",
+  "timestamp": "2026-08-21T16:55:10.471Z",
+  "gitRev": "e9aeb35",
+  "command": "cargo test -p tool-core --test terminal_contract",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-649": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-650": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}
