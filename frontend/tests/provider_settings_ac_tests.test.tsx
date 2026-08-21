@@ -61,6 +61,7 @@ describe('ProviderSettingsPage', () => {
   });
 
   it('starts OAuth through typed service intent and shows pending state', async () => {
+    (api.getOAuthStatus as ReturnType<typeof vi.fn>).mockResolvedValue({ flow_id: 'flow_1', state: 'pending' });
     render(<ProviderSettingsPage projectId="project_1" apiClient={api} onBack={vi.fn()} />);
     await waitFor(() => expect(screen.getByText('OpenAI principal')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Conectar OpenAI principal' }));
@@ -69,7 +70,7 @@ describe('ProviderSettingsPage', () => {
       provider_id: 'openai',
       account_id: 'account_1',
     }));
-    expect(screen.getByText(/OAuth pendente/i)).toBeInTheDocument();
+    expect(await screen.findByText(/OAuth pendente/i)).toBeInTheDocument();
   });
 
   it('shows successful OAuth callback status without rendering callback data', async () => {
