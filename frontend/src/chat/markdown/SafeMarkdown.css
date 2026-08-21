@@ -1,0 +1,38 @@
+.safe-markdown {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+
+.safe-markdown :first-child {
+  margin-top: 0;
+}
+
+.safe-markdown :last-child {
+  margin-bottom: 0;
+}
+
+.safe-markdown h1,
+.safe-markdown h2,
+.safe-markdown h3,
+.safe-markdown h4 {
+  line-height: 1.25;
+}
+
+.safe-markdown ul,
+.safe-markdown ol {
+  padding-left: 1.5rem;
+}
+
+.safe-markdown code {
+  padding: 0.08rem 0.3rem;
+  color: #334155;
+  background: #e2e8f0;
+  border-radius: 0.25rem;
+  font-size: 0.92em;
+}
+
+.safe-markdown a {
+  color: #1d4ed8;
+  text-decoration: underline;
+}

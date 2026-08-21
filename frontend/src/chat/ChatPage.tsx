@@ -3,6 +3,7 @@ import {
   ChatStreamConsumer,
   type ChatStreamSubscription,
 } from '@/contracts/chat-stream';
+import { SafeMarkdown } from './markdown/SafeMarkdown';
 import './ChatPage.css';
 
 export type ChatSessionScope = Omit<ChatStreamSubscription, 'stream_id' | 'command_id'>;
@@ -166,7 +167,9 @@ export function ChatPage({
         {messages.map((message) => (
           <li key={message.id} className={`chat-message chat-message-${message.role}`}>
             <span className="chat-message-role">{message.role === 'user' ? 'Você' : 'Agente'}</span>
-            <p>{message.text || (message.role === 'assistant' && busy ? '…' : '')}</p>
+            <div className="chat-message-content">
+              <SafeMarkdown source={message.text || (message.role === 'assistant' && busy ? '…' : '')} />
+            </div>
           </li>
         ))}
       </ol>
