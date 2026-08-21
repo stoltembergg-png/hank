@@ -347,3 +347,8 @@
 - Refs: US-301, AC-301, AC-303, AC-304
 - Arquivos: crates/agent-protocol/src/lib.rs, crates/agent-protocol/src/chat_command.rs, crates/agent-protocol/tests/chat_command_contract.rs, crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/chat_command.rs, docs/chat-command.md, .spec/features/foundation-workspace/tasks.md
 - Notas: versioned bounded command envelope, typed caller/project/agent/session identity, generation/cancellation, dedupe/stale registry and thin injected runtime dispatcher without Tauri generic invoke or provider/storage access
+
+## T-383 — Adicionar Tauri streaming event bridge [concluida]
+- Refs: US-301, AC-301, AC-303, AC-304
+- Arquivos: crates/agent-protocol/src/lib.rs, crates/agent-protocol/src/chat_stream.rs, crates/agent-protocol/tests/chat_stream_contract.rs, apps/desktop/src-tauri/Cargo.toml, apps/desktop/src-tauri/Cargo.lock, apps/desktop/src-tauri/src/main.rs, apps/desktop/src-tauri/src/streaming.rs, frontend/src/contracts/chat-stream.ts, frontend/tests/chat-stream-contract.test.ts, docs/tauri-streaming.md, .spec/features/foundation-workspace/tasks.md
+- Notas: authorized WebviewWindow event sink, typed stream identity/generation/sequence, atomic validation and queueing, bounded backpressure with terminal preservation, sink retry retention and frontend consumer contract; no generic invoke/provider/storage/UI implementation
