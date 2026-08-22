@@ -1,0 +1,42 @@
+{
+  "feature": "worker-protocol",
+  "timestamp": "2026-08-22T04:23:12.284Z",
+  "gitRev": "46b3d96",
+  "command": "node tools/run-all-tests.mjs",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-677": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-678": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-679": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-680": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-681": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-682": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}
