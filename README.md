@@ -139,7 +139,7 @@ O projeto conta com suítes automatizadas cobrindo testes unitários, testes de 
 node tools/run-all-tests.mjs
 
 # Executar apenas testes do workspace Rust:
-cargo test --workspace
+cargo test --workspace --locked
 
 # Executar testes unitários do frontend:
 cd frontend && npm run test
