@@ -69,6 +69,16 @@ jobs:
       - name: Warm up full suite with visible output
         run: node tools/run-all-tests.mjs
 
+      - name: Diagnose worker process stability under repetition
+        run: |
+          for i in $(seq 1 50); do
+            echo "=== worker process run $i ==="
+            cargo test -p agent-protocol --test worker_process_contract --locked || {
+              echo "DIAGNOSTIC FAILED ON RUN $i";
+              exit 1;
+            }
+          done
+
       - name: Verify foundation workspace
         run: node tools/ci/run-onp-spec.mjs verify foundation-workspace
 
