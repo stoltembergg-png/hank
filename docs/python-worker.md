@@ -19,6 +19,23 @@ version 1) carregado em `params`/`result`.
 
 ## Lifecycle
 
+O processo é supervisionado pelo runtime Rust em
+[`python-worker-lifecycle.md`](python-worker-lifecycle.md). A policy do
+supervisor é separada do protocolo interno do worker:
+
+- **Spawn/readiness**: `Stopped → Starting`; o runtime cria o processo com
+  argv bounded e ambiente limpo, e só marca `Ready` depois do handshake/health.
+- **Request**: `Ready → Busy`; uma única operation key recebe deadline e
+  reserva de budget vinculada a project/session/task/trace.
+- **Completion**: `Busy → Ready`; a reserva é liberada e a operação fica
+  deduplicada.
+- **Timeout/cancel/crash**: o processo é coletado com kill/wait, a reserva é
+  liberada e o estado terminal é observável; não há retry implícito.
+- **Restart**: permitido somente pela policy bounded de max-restarts/backoff;
+  operation keys nunca são reutilizadas.
+
+Dentro do worker Python, o protocolo continua com o seguinte ciclo:
+
 - **Handshake**: a primeira mensagem deve ser `handshake` válido (versão
   vigente, `worker_id` bounded, 1..=32 capabilities) → resposta
   `handshake_accepted`. Mensagem antes do handshake, versão inválida ou

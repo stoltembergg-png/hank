@@ -24,6 +24,15 @@ test('all workflows declare fail-closed execution controls', () => {
   }
 });
 
+test('ONP evidence checks out the pull request head, not a synthetic merge commit', () => {
+  const text = workflowText('onp-sdd-evidence.yml');
+  assert.match(
+    text,
+    /ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\|\|\s*github\.sha\s*\}\}/,
+    'ONP evidence must bind to the PR head SHA',
+  );
+});
+
 test('all external actions are pinned and checkout does not persist credentials', () => {
   for (const name of workflowFiles) {
     const text = workflowText(name);
