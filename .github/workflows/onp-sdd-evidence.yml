@@ -117,6 +117,9 @@ jobs:
       - name: Verify confirmation policies
         run: node tools/ci/run-onp-spec.mjs verify confirmation-policies
 
+      - name: Verify worker protocol
+        run: node tools/ci/run-onp-spec.mjs verify worker-protocol
+
       - name: Verify CI build
         run: node tools/ci/run-onp-spec.mjs verify ci-build
 

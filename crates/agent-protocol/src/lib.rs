@@ -14,6 +14,7 @@ pub mod events;
 pub mod ids;
 pub mod policy;
 pub mod version;
+pub mod worker;
 
 pub use capability::*;
 pub use envelope::*;
