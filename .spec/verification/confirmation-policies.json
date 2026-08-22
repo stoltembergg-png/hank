@@ -1,7 +1,7 @@
 {
   "feature": "confirmation-policies",
-  "timestamp": "2026-08-22T01:20:43.723Z",
-  "gitRev": "c2f268e",
+  "timestamp": "2026-08-22T03:52:30.574Z",
+  "gitRev": "46b3d96",
   "command": "node tools/run-all-tests.mjs",
   "reporter": "exitcode",
   "exitCode": 0,
@@ -33,6 +33,16 @@
       "method": "exitcode"
     },
     "AC-674": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-675": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-676": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
