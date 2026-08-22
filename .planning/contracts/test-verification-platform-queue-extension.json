@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hank://contracts/test-verification-platform-queue-extension.json",
+  "schema_version": 1,
+  "frozen_queues": [
+    {"path": ".planning/queue/queue-001-095.md", "sha256": "31a533f20198944dfa84e8cd4aa6a20dce5073b1691bd5e3989cf54031e38182"},
+    {"path": ".planning/queue/queue-096-172.md", "sha256": "6563b943a5d288f189e9e02825f1498e227eb941f59e838724fb6a69b43a16bd"},
+    {"path": ".planning/queue/queue-173-270.md", "sha256": "f60f0dfb2b24ad2af4698c8f8c133a99812aa1519497a07bf341468228c82900"},
+    {"path": ".planning/queue/queue-271-345.md", "sha256": "44bea93314891331572e447486b1b564835afe62fe96b3b7e4e4edaad993e040"}
+  ],
+  "extension_queue": {"path": ".planning/queue/queue-346-376.md", "first_id": "PR-346", "last_id": "PR-376", "entry_dependency": "PR-345"}
+}
