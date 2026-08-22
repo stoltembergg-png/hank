@@ -6,7 +6,7 @@
 ## T-653 — Implementar componentes ToolCall states [concluida]
 
 - Refs: US-615, AC-662, AC-663, AC-664
-- Arquivos: `frontend/src/components/ToolCall/`
+- Arquivos: `frontend/src/components/ToolCall/ToolCall.tsx`, `frontend/src/components/ToolCall/types.ts`, `frontend/src/components/ToolCall/index.ts`, `frontend/src/components/ToolCall/ToolCall.css`
 - Notas: estados visuais, argumentos redigidos, approval affordance, React text escaping, output bounded/truncation marker.
 
 ## T-654 — Integrar ToolCall no ChatPage [concluida]

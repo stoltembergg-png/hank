@@ -1,7 +1,7 @@
 # Spec: Tool-call rendering
 
 > feature: tool-call-rendering
-> status: planejada
+> status: implementada
 
 ## Contexto
 
