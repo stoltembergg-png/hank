@@ -12,6 +12,7 @@ pub mod chat_stream;
 pub mod envelope;
 pub mod events;
 pub mod ids;
+pub mod json_rpc;
 pub mod policy;
 pub mod version;
 pub mod worker;

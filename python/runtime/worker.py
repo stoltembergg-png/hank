@@ -1,10 +1,10 @@
 """Minimal Python worker implementing the Hank worker protocol.
 
-The worker is an optional sidecar: it speaks the versioned contract defined
-in ``crates/agent-protocol/src/worker.rs`` over newline-delimited JSON on
-stdin/stdout. It installs no dependencies, reads no process env,
-touches no filesystem paths and executes no code from messages — a request
-is always answered with ``not_supported`` in this minimal stage.
+The worker is an optional sidecar speaking JSON-RPC 2.0 with
+``Content-Length`` framing (see ``transport.py``) over stdin/stdout. It
+installs no dependencies, reads no process env, touches no filesystem and
+executes no code from messages — a tool request is always answered with
+``not_supported`` in this minimal stage.
 
 States mirror the Rust ``WorkerSession``:
 ``awaiting_handshake -> handshaking -> ready -> shutdown``.
@@ -12,12 +12,20 @@ States mirror the Rust ``WorkerSession``:
 
 from __future__ import annotations
 
-import json
 import sys
+from typing import BinaryIO
+
+from . import transport
+from .transport import (
+    DUPLICATE_ID,
+    INVALID_REQUEST,
+    METHOD_NOT_FOUND,
+    FrameRejected,
+    SeenIds,
+)
 
 SCHEMA_VERSION = 1
 PROTOCOL_VERSION = 1
-MAX_LINE_BYTES = 131_072
 MAX_WORKER_ID_CHARS = 128
 MAX_CAPABILITIES = 32
 MAX_DETAIL_CHARS = 256
@@ -26,21 +34,23 @@ EXIT_OK = 0
 EXIT_HANDSHAKE_REJECTED = 1
 EXIT_FORBIDDEN_ARGUMENT = 2
 
-
-def message(kind: str, **fields: object) -> dict[str, object]:
-    return {"kind": kind, "schema_version": SCHEMA_VERSION, **fields}
+WORKER_IDENTITY = "hank-worker-minimal"
 
 
-def error_reply(code: str, detail: str) -> dict[str, object]:
-    trimmed = detail[:MAX_DETAIL_CHARS]
-    return message("error", code=code, detail=trimmed)
+class HandshakeRejected(Exception):
+    """Handshake phase violation; the process must exit fail-closed."""
 
 
-def dump(value: dict) -> str:
-    return json.dumps(value, separators=(",", ":"))
+class ProtocolReject(Exception):
+    """Bounded protocol violation answered with a JSON-RPC error."""
+
+    def __init__(self, code: int, detail: str) -> None:
+        super().__init__(detail)
+        self.code = code
+        self.detail = detail[:MAX_DETAIL_CHARS]
 
 
-def is_valid_worker_id(value: object) -> bool:
+def _is_valid_worker_id(value: object) -> bool:
     return (
         isinstance(value, str)
         and 0 < len(value) <= MAX_WORKER_ID_CHARS
@@ -48,121 +58,140 @@ def is_valid_worker_id(value: object) -> bool:
     )
 
 
-def validate_handshake(payload: dict[str, object]) -> str | None:
-    if payload.get("schema_version") != SCHEMA_VERSION:
-        return "unsupported_version"
-    if payload.get("protocol_version") != PROTOCOL_VERSION:
-        return "unsupported_version"
-    if not is_valid_worker_id(payload.get("worker_id")):
-        return "invalid_message"
-    capabilities = payload.get("capabilities")
+def handle_handshake(params: dict) -> dict:
+    """Validates handshake params and returns the accepted result payload."""
+    if params.get("schema_version") != SCHEMA_VERSION:
+        raise ProtocolReject(transport.PARSE_ERROR, "schema version is not supported")
+    if params.get("protocol_version") != PROTOCOL_VERSION:
+        raise ProtocolReject(transport.PARSE_ERROR, "protocol version is not supported")
+    if not _is_valid_worker_id(params.get("worker_id")):
+        raise ProtocolReject(INVALID_REQUEST, "worker identity is invalid")
+    capabilities = params.get("capabilities")
     if not isinstance(capabilities, list) or not 0 < len(capabilities) <= MAX_CAPABILITIES:
-        return "invalid_message"
-    return None
+        raise ProtocolReject(INVALID_REQUEST, "handshake capabilities are invalid")
+    return {"kind": "handshake_accepted", "schema_version": SCHEMA_VERSION, "worker_id": params["worker_id"], "protocol_version": PROTOCOL_VERSION}
 
 
-def handle_handshake(payload: dict[str, object]) -> tuple[dict[str, object], bool]:
-    rejection = validate_handshake(payload)
-    if rejection is not None:
-        return error_reply(rejection, "handshake rejected by worker protocol"), False
-    accepted = message(
-        "handshake_accepted",
-        worker_id=payload["worker_id"],
-        protocol_version=PROTOCOL_VERSION,
-    )
-    return accepted, True
+def handle_request(params: dict) -> dict:
+    """Answers a tool request without executing or echoing its payload."""
+    request_id = params.get("request_id")
+    context = params.get("context")
+    if not isinstance(request_id, str) or not request_id.startswith("req-"):
+        raise ProtocolReject(INVALID_REQUEST, "request id is not part of the protocol")
+    if not isinstance(context, dict):
+        raise ProtocolReject(INVALID_REQUEST, "request context is not part of the protocol")
+    return {
+        "kind": "response",
+        "schema_version": SCHEMA_VERSION,
+        "request_id": request_id,
+        "context": context,
+        "result": "not_supported",
+        "value": None,
+        "error": {
+            "code": "invalid_message",
+            "detail": "worker has no registered capabilities for execution",
+        },
+    }
 
 
-def handle_ready(payload: dict[str, object]) -> tuple[dict[str, object], bool]:
-    """Dispatch a message accepted after the handshake phase.
-
-    Returns the reply (or ``None`` for silent control messages) and whether
-    the worker keeps running.
-    """
-    kind = payload.get("kind")
-    if kind == "request":
-        request_id = payload.get("request_id")
-        context = payload.get("context")
-        if not isinstance(request_id, str) or not request_id.startswith("req-"):
-            return error_reply("invalid_message", "request id is not part of the protocol"), True
-        if not isinstance(context, dict):
-            return error_reply("invalid_message", "request context is not part of the protocol"), True
-        # The minimal worker executes nothing: every request is answered
-        # fail-closed without echoing the payload.
-        response = message(
-            "response",
-            request_id=request_id,
-            context=context,
-            result="not_supported",
-            value=None,
-            error={
-                "code": "invalid_message",
-                "detail": "worker has no registered capabilities for execution",
-            },
-        )
-        return response, True
-    if kind == "cancel":
+def handle_ready(method: str, params: dict) -> tuple[dict | None, bool]:
+    """Dispatches a post-handshake method; returns (result, keep_running)."""
+    if method == "handshake":
+        raise ProtocolReject(INVALID_REQUEST, "handshake already completed")
+    if method == "request":
+        return handle_request(params), True
+    if method == "cancel":
         return None, True
-    if kind == "health":
-        report = message(
-            "health_report",
-            worker_id=WORKER_IDENTITY,
-            status="healthy",
-        )
-        return report, True
-    if kind == "error":
+    if method == "health":
+        return {"kind": "health_report", "schema_version": SCHEMA_VERSION, "worker_id": WORKER_IDENTITY, "status": "healthy"}, True
+    if method == "error":
         return None, True
-    if kind == "shutdown":
-        return message("shutdown_ack"), False
-    if kind == "handshake":
-        return error_reply("invalid_state", "handshake already completed"), True
-    return error_reply("invalid_message", "message kind is not part of the protocol"), True
+    if method == "shutdown":
+        return {"kind": "shutdown_ack", "schema_version": SCHEMA_VERSION}, False
+    raise ProtocolReject(METHOD_NOT_FOUND, "message kind is not part of the protocol")
 
 
-WORKER_IDENTITY = "hank-worker-minimal"
-
-
-def run_loop(stream_in, stream_out) -> int:
+def run_transport_loop(stream_in: BinaryIO, stream_out: BinaryIO) -> int:
+    seen = SeenIds()
     handshaked = False
-    for raw_line in stream_in:
-        if len(raw_line) > MAX_LINE_BYTES:
-            stream_out.write(dump(error_reply("invalid_message", "line exceeds the bounded size")) + "\n")
-            stream_out.flush()
-            continue
+    while True:
         try:
-            payload = json.loads(raw_line)
-        except ValueError:
-            payload = None
-        if not isinstance(payload, dict):
-            stream_out.write(dump(error_reply("invalid_message", "line is not a JSON object")) + "\n")
-            stream_out.flush()
+            message = transport.read_frame(stream_in)
+        except FrameRejected:
+            # Bounded framing violation: the channel stays usable and no
+            # payload content is echoed.
+            print("transport frame rejected", file=sys.stderr)
             continue
-        if payload.get("schema_version") != SCHEMA_VERSION:
-            stream_out.write(dump(error_reply("unsupported_version", "schema version is not supported")) + "\n")
-            stream_out.flush()
-            if not handshaked:
-                return EXIT_HANDSHAKE_REJECTED
-            continue
-        if not handshaked:
-            if payload.get("kind") != "handshake":
-                stream_out.write(dump(error_reply("invalid_state", "message arrived before handshake")) + "\n")
-                stream_out.flush()
-                return EXIT_HANDSHAKE_REJECTED
-            reply, accepted = handle_handshake(payload)
-            stream_out.write(dump(reply) + "\n")
-            stream_out.flush()
-            if not accepted:
-                return EXIT_HANDSHAKE_REJECTED
-            handshaked = True
-            continue
-        reply, keep_running = handle_ready(payload)
-        if reply is not None:
-            stream_out.write(dump(reply) + "\n")
-            stream_out.flush()
-        if not keep_running:
+        if message is None:
             return EXIT_OK
-    # stdin closed without shutdown: the channel ended cleanly.
-    return EXIT_OK
+
+        if transport.is_request(message):
+            request_id = message["id"]
+            code = transport.structural_error(message)
+            if code is not None:
+                transport.write_frame(
+                    stream_out,
+                    transport.error_message(request_id, code, "message rejected by transport"),
+                )
+                continue
+            if not seen.register(request_id):
+                transport.write_frame(
+                    stream_out,
+                    transport.error_message(request_id, DUPLICATE_ID, "request id was already used"),
+                )
+                continue
+            method = message["method"]
+            params = message.get("params", {})
+            if not isinstance(params, dict):
+                transport.write_frame(
+                    stream_out,
+                    transport.error_message(request_id, INVALID_REQUEST, "params must be an object"),
+                )
+                continue
+            try:
+                if not handshaked:
+                    if method != "handshake":
+                        raise HandshakeRejected("message arrived before handshake")
+                    try:
+                        reply = handle_handshake(params)
+                    except ProtocolReject as rejection:
+                        transport.write_frame(
+                            stream_out,
+                            transport.error_message(request_id, rejection.code, rejection.detail),
+                        )
+                        raise HandshakeRejected("handshake rejected by protocol") from None
+                    handshaked = True
+                else:
+                    reply, keep_running = handle_ready(method, params)
+                    if reply is not None:
+                        transport.write_frame(stream_out, transport.result_message(request_id, reply))
+                    if not keep_running:
+                        return EXIT_OK
+                    continue
+            except ProtocolReject as rejection:
+                transport.write_frame(
+                    stream_out,
+                    transport.error_message(request_id, rejection.code, rejection.detail),
+                )
+                continue
+            transport.write_frame(stream_out, transport.result_message(request_id, reply))
+            continue
+
+        if transport.is_notification(message):
+            method = message.get("method")
+            code = transport.structural_error(message)
+            if code is not None or method not in transport.KNOWN_METHODS:
+                # Notifications have no reply target; bounded reject only.
+                continue
+            if not handshaked:
+                raise HandshakeRejected("message arrived before handshake")
+            _, keep_running = handle_ready(method, message.get("params", {}))
+            if not keep_running:
+                return EXIT_OK
+            continue
+
+        # Responses and anything else are ignored bounded control traffic.
+        continue
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -171,7 +200,11 @@ def main(argv: list[str] | None = None) -> int:
     if arguments:
         print("worker accepts no arguments", file=sys.stderr)
         return EXIT_FORBIDDEN_ARGUMENT
-    return run_loop(sys.stdin, sys.stdout)
+    try:
+        return run_transport_loop(sys.stdin.buffer, sys.stdout.buffer)
+    except HandshakeRejected as rejection:
+        print(rejection, file=sys.stderr)
+        return EXIT_HANDSHAKE_REJECTED
 
 
 if __name__ == "__main__":
