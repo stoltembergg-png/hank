@@ -5,6 +5,7 @@
 # Tauri / Node
 node_modules/
 dist/
+.pnpm-store/
 src-tauri/target/
 /apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/

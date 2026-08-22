@@ -1,0 +1,49 @@
+.confirmation-card {
+  border: 1px solid #d4a017;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 8px 0;
+  background: #fffbeef2;
+}
+
+.confirmation-card__title {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.confirmation-card__tool {
+  margin: 0 0 2px;
+  font-weight: 600;
+}
+
+.confirmation-card__args,
+.confirmation-card__meta {
+  margin: 0 0 2px;
+  font-size: 0.875rem;
+  color: #4a4a4a;
+}
+
+.confirmation-card__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.confirmation-card__approve,
+.confirmation-card__revoke {
+  border-radius: 6px;
+  border: 1px solid #9a9a9a;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.confirmation-card__approve {
+  background: #1f6f43;
+  border-color: #1f6f43;
+  color: #ffffff;
+}
+
+.confirmation-card__revoke {
+  background: #ffffff;
+  color: #8a2b2b;
+}

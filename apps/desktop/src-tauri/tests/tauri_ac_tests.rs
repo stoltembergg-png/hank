@@ -75,20 +75,54 @@ mod tauri_tests {
     }
 
     #[test]
-    fn ac_104_bridge_sem_comandos_produto() {
+    fn ac_104_bridge_limitada_ao_ciclo_de_confirmacao() {
         // @spec:AC-104
         let source = fs::read_to_string(source_path()).expect("main.rs não encontrado");
 
-        for forbidden in [
-            "invoke_handler",
-            "generate_handler",
-            "chat",
-            "agent",
-            "tools",
-        ] {
+        assert!(
+            source.contains(".invoke_handler(confirmations::command_handler())"),
+            "bridge deve registrar apenas o handler de confirmação"
+        );
+
+        for forbidden in ["chat", "agent", "tools"] {
             assert!(
                 !source.contains(forbidden),
                 "handler de produto encontrado: {forbidden}"
+            );
+        }
+
+        let bridge = fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/confirmations.rs"),
+        )
+        .expect("confirmations.rs não encontrado");
+
+        let handler_block = bridge
+            .split("generate_handler!")
+            .nth(1)
+            .expect("generate_handler ausente na ponte");
+        let registered = handler_block.split(']').next().unwrap_or_default();
+
+        for command in [
+            "submit_confirmation_request",
+            "approve_confirmation_request",
+            "revoke_confirmation_request",
+        ] {
+            assert!(
+                registered.contains(command),
+                "comando do ciclo de confirmação ausente: {command}"
+            );
+        }
+
+        assert_eq!(
+            registered.split(',').count(),
+            3,
+            "a ponte deve registrar exatamente os comandos do ciclo de confirmação"
+        );
+
+        for forbidden in ["chat_stream", "send_command", "list_projects", "run_tool"] {
+            assert!(
+                !bridge.contains(forbidden),
+                "comando de produto fora do ciclo de confirmação: {forbidden}"
             );
         }
     }

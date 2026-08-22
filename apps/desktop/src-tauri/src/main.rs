@@ -1,3 +1,4 @@
+pub mod confirmations;
 pub mod streaming;
 
 use tauri::{Manager, WindowEvent};
@@ -11,6 +12,8 @@ fn main() {
         .init();
 
     let result = tauri::Builder::default()
+        .manage(confirmations::bridge_state())
+        .invoke_handler(confirmations::command_handler())
         .setup(|app| {
             if app.get_webview_window("main").is_none() {
                 return Err(Box::new(std::io::Error::new(
