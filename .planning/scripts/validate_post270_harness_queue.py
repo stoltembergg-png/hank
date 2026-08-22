@@ -1,70 +1,101 @@
 #!/usr/bin/env python3
-"""Planning validator for the isolated post-270 Harness queue."""
+"""Integrity and dependency validator for the isolated post-270 Harness queue."""
+from __future__ import annotations
+
+import hashlib
+import json
 from pathlib import Path
 import re
 import sys
 
-QUEUE = Path('.planning/queue/queue-271-345.md')
-REQUIRED = [
-    'ID', 'Categoria', 'Milestone', 'Título', 'Objetivo', 'Problema resolvido',
-    'Escopo', 'Não-escopo', 'Arquivos/crates prováveis', 'Contratos afetados',
-    'Dependências anteriores', 'Requisitos funcionais', 'NFRs',
-    'Critérios de aceite verificáveis', 'Testes unitários', 'Testes de integração',
-    'Testes de contrato', 'Testes negativos', 'E2E obrigatório quando aplicável',
-    'Performance quando aplicável', 'Verificações de segurança', 'Observabilidade',
-    'Evidência', 'Documentação', 'Rollback', 'Definition of Done',
-    'Condição para desbloquear a próxima PR',
-]
+CONTRACT = Path('.planning/contracts/post-270-queue-extension-contract.json')
+
+
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def card_blocks(text: str) -> list[tuple[str, str]]:
+    headings = list(re.finditer(r'^### (PR-\d{3}) — .+$', text, re.M))
+    return [
+        (
+            heading.group(1),
+            text[heading.start(): headings[i + 1].start() if i + 1 < len(headings) else len(text)],
+        )
+        for i, heading in enumerate(headings)
+    ]
 
 
 def main() -> int:
-    text = QUEUE.read_text()
-    headings = list(re.finditer(r'^### (PR-\d{3}) — .+$', text, re.M))
-    cards = {}
-    errors = []
-    for i, heading in enumerate(headings):
-        card_id = heading.group(1)
-        block = text[heading.start(): headings[i + 1].start() if i + 1 < len(headings) else len(text)]
-        if card_id in cards:
-            errors.append(f'duplicate {card_id}')
-        cards[card_id] = block
-        for field in REQUIRED:
+    contract = json.loads(CONTRACT.read_text())
+    errors: list[str] = []
+
+    for legacy in contract['legacy_queue']:
+        path = Path(legacy['path'])
+        if not path.is_file():
+            errors.append(f"legacy queue missing: {path}")
+        elif sha256(path) != legacy['sha256']:
+            errors.append(f"legacy queue changed: {path}")
+
+    extension = contract['extension_queue']
+    queue = Path(extension['path'])
+    if not queue.is_file():
+        errors.append(f"extension queue missing: {queue}")
+        blocks: list[tuple[str, str]] = []
+    else:
+        blocks = card_blocks(queue.read_text())
+
+    ids = [card_id for card_id, _ in blocks]
+    first = int(extension['first_id'].split('-')[1])
+    last = int(extension['last_id'].split('-')[1])
+    expected = [f'PR-{n:03d}' for n in range(first, last + 1)]
+    if ids != expected:
+        errors.append(f"extension IDs are not exactly {expected[0]}..{expected[-1]} in source order")
+    if len(ids) != len(set(ids)):
+        errors.append('duplicate extension card ID')
+
+    deps: dict[str, list[str]] = {}
+    allowed_ids = {*ids, extension['entry_dependency']}
+    for card_id, block in blocks:
+        for field in contract['required_fields']:
             if f'**{field}:**' not in block:
                 errors.append(f'{card_id}: missing {field}')
-    expected = [f'PR-{n:03d}' for n in range(271, 346)]
-    if list(cards) != expected:
-        errors.append('ids are not exactly PR-271..PR-345 in source order')
-    deps = {}
-    allowed = {'PR-270', *cards}
-    for card_id, block in cards.items():
         line = next((line for line in block.splitlines() if '**Dependências anteriores:**' in line), '')
-        found = re.findall(r'PR-\d{3}', line)
-        deps[card_id] = found
-        for dep in found:
-            if dep not in allowed:
-                errors.append(f'{card_id}: unknown dependency {dep}')
-    visiting, visited = set(), set()
+        deps[card_id] = re.findall(r'PR-\d{3}', line)
+        for dependency in deps[card_id]:
+            if dependency not in allowed_ids:
+                errors.append(f'{card_id}: unknown dependency {dependency}')
+
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
     def visit(card_id: str) -> bool:
         if card_id in visiting:
             return True
         if card_id in visited:
             return False
         visiting.add(card_id)
-        for dep in deps[card_id]:
-            if dep in cards and visit(dep):
+        for dependency in deps.get(card_id, []):
+            if dependency in deps and visit(dependency):
                 return True
         visiting.remove(card_id)
         visited.add(card_id)
         return False
-    if any(visit(card) for card in cards):
-        errors.append('dependency cycle detected')
+
+    if any(visit(card_id) for card_id in ids):
+        errors.append('combined extension dependency cycle detected')
+
     if errors:
         print('POST-270 QUEUE BLOCKED')
         print('\n'.join(f'- {error}' for error in errors))
         return 1
     print('POST-270 QUEUE PASS')
-    print(f'cards={len(cards)} ids=PR-271..PR-345 dependencies={sum(map(len, deps.values()))} cycles=0')
+    print(
+        f'legacy=PR-001..PR-270 immutable; extension={ids[0]}..{ids[-1]} '
+        f'cards={len(ids)} dependencies={sum(map(len, deps.values()))} cycles=0'
+    )
     return 0
+
 
 if __name__ == '__main__':
     raise SystemExit(main())

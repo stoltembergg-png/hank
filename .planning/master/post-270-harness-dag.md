@@ -51,4 +51,4 @@ PR-270 (formal merge + exact-SHA baseline PASS)
 
 ## Execution condition
 
-The validator in `.planning/scripts/validate_post270_harness_queue.py` is the extension planning gate. It requires exact sequential IDs PR-271..PR-345, all canonical fields, dependencies only on PR-270 or extension cards, and a cycle-free graph. It is intentionally separate from the historical 270-card validator to preserve prior artifacts unchanged.
+The validator in `.planning/scripts/validate_post270_harness_queue.py` is the extension planning gate. It reads `.planning/contracts/post-270-queue-extension-contract.json`, verifies SHA-256 integrity of all three historical queue files, then requires exact sequential IDs PR-271..PR-345, all canonical fields, dependencies only on PR-270 or extension cards, and a cycle-free extension graph. It is intentionally separate from the historical 270-card validator while proving the frozen legacy queue was not modified.
