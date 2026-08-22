@@ -115,3 +115,20 @@
 - Refs: US-626, AC-715, AC-716, AC-717, AC-718
 - Arquivos: docs/python-environment.md, .spec/verification/python-worker.json
 - Notas: lifecycle do manifesto, lock, source policy, rollback e não instalação global.
+## T-695 — Implementar captura e redação bounded [concluida]
+
+- Refs: US-627, AC-719, AC-720, AC-721, AC-722, AC-723
+- Arquivos: crates/agent-runtime/src/python_logs.rs, crates/agent-runtime/src/lib.rs
+- Notas: registros com nível/fonte/sequência/correlação; redactor determinístico (secretos mascarados com encadeamento Bearer, ANSI/controle removidos, traversal neutralizado, truncagem bounded); buffer com capacidade, budget de bytes, drop de mais antigos com contador, rotação drena e registro acima do budget não é retido; isolamento por projeto na leitura.
+
+## T-696 — Logger estruturado no worker Python [concluida]
+
+- Refs: US-627, AC-724
+- Arquivos: python/runtime/logging.py, python/runtime/worker.py
+- Notas: single-line JSON em stderr com sanitize espelhado (redação/controle/truncagem); worker rota suas mensagens de stderr pelo logger; stdout segue exclusivo do transporte.
+
+## T-697 — Cobrir contrato e registrar evidência [concluida]
+
+- Refs: US-627, AC-719, AC-720, AC-721, AC-722, AC-723, AC-724
+- Arquivos: crates/agent-runtime/tests/python_logs_contract.rs, .spec/verification/python-worker.json
+- Notas: correlação, redação (inclusive cadeia Authorization: Bearer), volume/rotação/budget fail-closed, malformadas definidas, isolamento por projeto e end-to-end com worker real (stderr estruturado bounded sem eco de payload).
