@@ -5,7 +5,7 @@
 - **Historical queue:** PR-001..PR-270 remains authoritative and untouched.
 - **Extension queue:** [`queue-271-345.md`](../queue/queue-271-345.md), 75 sequential cards.
 - **Execution status:** `PLANNED / BLOCKED` until formal PR-270 merge and baseline evidence.
-- **Validator:** `python3 .planning/scripts/validate_post270_harness_queue.py`.
+- **Validator:** `python3 .planning/scripts/validate_post270_harness_queue.py` against `.planning/contracts/post-270-queue-extension-contract.json`; it proves the three legacy queue files still match their frozen SHA-256 digests.
 
 ## Milestone map
 
