@@ -15,6 +15,7 @@ def framed(*messages):
 
 
 class PythonWorkerSdkTests(unittest.TestCase):
+    # @spec:AC-699 @spec:AC-703
     def test_handshake_and_request_require_bounded_context(self):
         responses = framed(
             transport.result_message(1, {"kind": "handshake_accepted", "schema_version": 1}),
@@ -48,6 +49,7 @@ class PythonWorkerSdkTests(unittest.TestCase):
         self.assertIn(b'"method":"handshake"', output.getvalue())
         self.assertIn(b'"method":"request"', output.getvalue())
 
+    # @spec:AC-700
     def test_invalid_context_and_oversized_payload_fail_before_write(self):
         client = PythonWorkerClient(io.BytesIO(), io.BytesIO(), "worker-1", ["chat"])
         with self.assertRaises(SdkError):
@@ -65,6 +67,7 @@ class PythonWorkerSdkTests(unittest.TestCase):
                 {"message": "x" * 70_000},
             )
 
+    # @spec:AC-701
     def test_cancel_is_notification_and_shutdown_is_correlated(self):
         responses = framed(
             transport.result_message(1, {"kind": "handshake_accepted", "schema_version": 1}),
@@ -86,6 +89,7 @@ class PythonWorkerSdkTests(unittest.TestCase):
         self.assertNotIn("id", messages[1])
         self.assertEqual(messages[2]["method"], "shutdown")
 
+    # @spec:AC-702
     def test_protocol_error_is_redacted(self):
         output = io.BytesIO()
         client = PythonWorkerClient(output, framed(transport.error_message(1, -32600, "bad")), "worker-1", ["chat"])
