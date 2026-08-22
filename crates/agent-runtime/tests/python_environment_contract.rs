@@ -20,6 +20,7 @@ fn manifest(project: ProjectId, version: &str) -> PythonEnvironmentManifest {
     .unwrap()
 }
 
+// @spec:AC-715 @spec:AC-716 @spec:AC-718
 #[test]
 fn manifest_is_sorted_project_scoped_and_rolls_back() {
     let dir = tempdir().unwrap();
@@ -44,6 +45,7 @@ fn manifest_is_sorted_project_scoped_and_rolls_back() {
     );
 }
 
+// @spec:AC-715 @spec:AC-717
 #[test]
 fn invalid_package_source_and_duplicate_fail_closed() {
     let project = ProjectId::new();
