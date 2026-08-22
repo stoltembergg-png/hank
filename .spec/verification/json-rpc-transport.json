@@ -1,33 +1,38 @@
 {
-  "feature": "python-worker",
-  "timestamp": "2026-08-22T15:57:08.430Z",
+  "feature": "json-rpc-transport",
+  "timestamp": "2026-08-22T15:56:43.809Z",
   "gitRev": "bcf2a8d",
   "command": "node tools/run-all-tests.mjs",
   "reporter": "exitcode",
   "exitCode": 0,
   "testsParsed": 0,
   "results": {
-    "AC-683": {
+    "AC-688": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-684": {
+    "AC-689": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-685": {
+    "AC-690": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-686": {
+    "AC-691": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-687": {
+    "AC-692": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-693": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"

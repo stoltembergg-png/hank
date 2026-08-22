@@ -126,6 +126,9 @@ jobs:
       - name: Verify python worker
         run: node tools/ci/run-onp-spec.mjs verify python-worker
 
+      - name: Verify json-rpc transport
+        run: node tools/ci/run-onp-spec.mjs verify json-rpc-transport
+
       - name: Verify CI build
         run: node tools/ci/run-onp-spec.mjs verify ci-build
 

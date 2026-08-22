@@ -9,13 +9,13 @@ opera sem qualquer runtime Python (D-006, AI-016).
 ## Entrypoint e framing
 
 ```
-python worker.py            # dentro de python/runtime
-python -m runtime           # dentro de python/
+python -m runtime           # dentro de python/ (forma usada pelos testes)
 ```
 
-Framing: NDJSON (uma mensagem JSON compacta por linha) em stdin/stdout. O
+Framing: JSON-RPC 2.0 com frames `Content-Length` sobre stdin/stdout
+(desde PR-114; ver [json-rpc-transport](json-rpc-transport.md)). O
 contrato de mensagens é o `WorkerMessage` do `agent-protocol` (schema
-version 1). O transporte formal (JSON-RPC) chega no PR-114.
+version 1) carregado em `params`/`result`.
 
 ## Lifecycle
 
