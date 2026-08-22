@@ -15,6 +15,7 @@ from __future__ import annotations
 import sys
 from typing import BinaryIO
 
+from . import logging as worker_logging
 from . import transport
 from .transport import (
     DUPLICATE_ID,
@@ -120,7 +121,7 @@ def run_transport_loop(stream_in: BinaryIO, stream_out: BinaryIO) -> int:
         except FrameRejected:
             # Bounded framing violation: the channel stays usable and no
             # payload content is echoed.
-            print("transport frame rejected", file=sys.stderr)
+            worker_logging.log("warn", "transport frame rejected")
             continue
         if message is None:
             return EXIT_OK
@@ -198,12 +199,12 @@ def main(argv: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if argv is None else argv
     # Argument allowlist: the minimal worker accepts none.
     if arguments:
-        print("worker accepts no arguments", file=sys.stderr)
+        worker_logging.log("error", "worker accepts no arguments")
         return EXIT_FORBIDDEN_ARGUMENT
     try:
         return run_transport_loop(sys.stdin.buffer, sys.stdout.buffer)
     except HandshakeRejected as rejection:
-        print(rejection, file=sys.stderr)
+        worker_logging.log("error", f"handshake rejected: {rejection}")
         return EXIT_HANDSHAKE_REJECTED
 
 
