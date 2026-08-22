@@ -227,6 +227,38 @@ e lifecycle — sem subprocesso ad hoc.
 - **Então** nenhuma dependência de runtime Python é exigida e o crash do
   canal é reportado como SandboxError com o processo reaped
 
+### US-626 — Gerenciar ambientes Python project-scoped
+
+Como Agent Runtime, quero registrar ambientes Python reproduzíveis por projeto,
+para que dependências tenham lock, source policy e rollback sem mutar o host.
+
+#### AC-715 — Manifesto validado e determinístico
+
+- **Dado** projeto, ambiente, versão Python, sources e packages com hashes
+- **Quando** o manifesto é criado
+- **Então** nomes, versões, hashes, sources e duplicatas são validados e a
+  ordem dos packages é determinística
+
+#### AC-716 — Lock e persistência são project-scoped
+
+- **Dado** um manifesto válido
+- **Quando** o ambiente é preparado
+- **Então** lock e manifesto são gravados somente no diretório do projeto,
+  com escrita atômica e sem instalação global
+
+#### AC-717 — Concorrência e falha não corrompem o manifesto
+
+- **Dado** lock existente, escrita temporária ou storage inválido
+- **Quando** outra preparação ou gravação ocorre
+- **Então** a operação falha fechada sem sobrescrever estado válido
+
+#### AC-718 — Rollback restaura somente estado validado
+
+- **Dado** uma versão anterior válida e uma atualização preparada
+- **Quando** rollback é solicitado
+- **Então** a versão anterior é restaurada, sem executar pacotes ou acessar
+  outro projeto
+
 ## Fora de escopo
 
 - Execução de código Python real no worker (tools registadas no lado
