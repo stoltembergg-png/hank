@@ -43,11 +43,11 @@ Como desenvolvedor do core, quero um shell Tauri 2 que abra/fecha janela de form
 - **Quando** tento carregar uma URL externa não declarada no `tauri.conf.json`
 - **Então** o carregamento falha (CSP/origin policy bloqueia)
 
-#### AC-104 — Bridge Tauri→Application API preparada (sem comandos de produto)
+#### AC-104 — Bridge Tauri→Application API preparada (handlers limitados ao ciclo de confirmação)
 
 - **Dado** o `tauri.conf.json` e código Rust do Tauri
 - **Quando** inspeciono `invoke` handlers registrados
-- **Então** não há handlers de produto (chat, agent, tools); apenas infraestrutura de lifecycle/ready
+- **Então** os handlers limitam-se ao ciclo de confirmação (submit/approve/revoke de approval requests, artefatos bounded); não há handlers de chat, agent ou tools
 
 #### AC-105 — Logs estruturados de boot/ready/close sem payloads sensíveis
 
