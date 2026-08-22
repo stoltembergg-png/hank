@@ -67,6 +67,12 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      - name: Verify desktop frontend asset references
+        working-directory: .
+        run: |
+          node --test test/desktop-frontend-assets.test.mjs test/desktop-dev-launcher.test.mjs
+          node tools/verify-desktop-frontend-assets.mjs frontend/dist
+
       - name: Upload frontend build artifact
         id: upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

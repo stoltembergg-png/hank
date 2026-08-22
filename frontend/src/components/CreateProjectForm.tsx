@@ -88,7 +88,12 @@ export const CreateProjectForm: React.FC<CreateProjectFormProps> = ({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="create-project-form" noValidate>
+      <form
+        onSubmit={handleSubmit}
+        className="create-project-form"
+        noValidate
+        aria-label="Criar novo projeto"
+      >
         <div className="form-group">
           <label htmlFor="project-name-input">
             Nome do Projeto <span className="required-star">*</span>
