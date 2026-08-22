@@ -44,7 +44,20 @@
 - Arquivos: crates/agent-runtime/tests/confirmation_application_contract.rs, .spec/verification/confirmation-policies.json
 - Notas: testes cobrem redaction, actor binding, revogação e replay.
 
-## Próximo incremento
+## T-665 — Expor comandos tipados na ponte Tauri [concluida]
 
-- Conectar o serviço à ponte Tauri/UI com comandos/eventos tipados e
-  confirmação acessível, preservando os mesmos bindings e sem payload bruto.
+- Refs: US-618, AC-675
+- Arquivos: apps/desktop/src-tauri/src/confirmations.rs, apps/desktop/src-tauri/src/main.rs, apps/desktop/src-tauri/Cargo.toml, .spec/features/tauri-desktop/spec.md, apps/desktop/src-tauri/tests/tauri_ac_tests.rs
+- Notas: state gerenciado delega ao ConfirmationApplicationService; comandos submit/approve/revoke transportam somente artefato bounded; evento `request_submitted` emitido no contrato vigente com sequência monotônica; AC-104 atualizado para handlers limitados ao ciclo de confirmação.
+
+## T-666 — Publicar contrato e cliente tipado no frontend [concluida]
+
+- Refs: US-618, AC-675
+- Arquivos: frontend/src/contracts/confirmation.ts, frontend/src/api/confirmations.ts
+- Notas: guard `isConfirmationEvent` aceita somente schema vigente e request com chaves exatas do artefato bounded (rejeita payload bruto); cliente invoker injetado chama `submit/approve/revoke_confirmation_request`.
+
+## T-667 — Renderizar card de confirmação acessível [concluida]
+
+- Refs: US-618, AC-676
+- Arquivos: frontend/src/chat/confirmation/ConfirmationCard.tsx, frontend/src/chat/confirmation/ConfirmationCard.css, frontend/tests/confirmation-bridge.test.tsx, .spec/verification/confirmation-policies.json
+- Notas: card expõe metadados bounded com ações acessíveis de aprovar/revogar vinculando actor e momento apresentados; sem schema hash ou payload bruto.

@@ -61,10 +61,35 @@ ou expor payload sensível.
   actor apresentado e mantém as mesmas regras fail-closed do ledger, sem
   expor schema ou argumentos brutos
 
+### US-618 — Revisar e decidir aprovação pela ponte Tauri/UI
+
+Como Operador, quero revisar e decidir um approval request pela UI, para que
+a aprovação humana aconteça sem expor payload bruto e com as mesmas garantias
+do ledger.
+
+#### AC-675 — Ponte tipada transporta somente artefato bounded
+
+- **Dado** um approval request submetido pela ponte Tauri
+- **Quando** a UI invoca os comandos tipados de submit/approve/revoke e
+  consome eventos de confirmação
+- **Então** comandos e eventos carregam somente o artefato serializável
+  bounded e inputs vinculados (request, input com request_id/actor/now_ms),
+  nunca schema ou argumentos brutos, e eventos aceitos pertencem somente ao
+  schema vigente do contrato de confirmação
+
+#### AC-676 — Confirmação acessível com ações auditáveis
+
+- **Dado** um approval request pendente renderizado pela UI
+- **Quando** o operador revisa o card de confirmação
+- **Então** o card expõe somente metadados bounded (tool, versão, hash dos
+  argumentos, policy, actor, expiração) com ações acessíveis de aprovar e
+  revogar que vinculam o actor e o momento apresentados, sem renderizar
+  schema hash ou qualquer payload bruto
+
 ## Fora de escopo
 
-- UI visual/Tauri bridge, autenticação completa do actor e integração no loop
-  de execução de cada handler.
+- Autenticação completa do actor e integração no loop de execução de cada
+  handler.
 - Persistência entre processos, notificações push, pagamentos e escolha de
   políticas por projeto/agente.
 
