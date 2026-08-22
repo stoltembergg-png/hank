@@ -53,7 +53,7 @@
 ## T-684 — Cobrir SDK com contratos determinísticos [em-andamento]
 
 - Refs: US-623, AC-699, AC-700, AC-701, AC-702, AC-703
-- Arquivos: python/tests/test_sdk.py, tools/run-all-tests.mjs
+- Arquivos: python/tests/test_sdk.py, test/python-sdk-contract.spec.test.js, tools/run-all-tests.mjs
 - Notas: streams framed in-memory, validação de contexto/IDs/payload, cancel/shutdown, erros redigidos e comando oficial do agregador.
 
 ## T-685 — Documentar SDK e registrar verificação [pendente]

@@ -23,6 +23,11 @@ const commands = [
     args: ['--test', 'test/onp-bootstrap-paths.js'],
   },
   {
+    label: 'Python SDK acceptance trace tests',
+    command: process.execPath,
+    args: ['--test', 'test/python-sdk-contract.spec.test.js'],
+  },
+  {
     label: 'Python SDK tests',
     command: process.platform === 'win32' ? 'python.exe' : 'python3',
     args: ['-m', 'unittest', 'discover', '-s', 'python/tests', '-p', 'test_*.py'],
