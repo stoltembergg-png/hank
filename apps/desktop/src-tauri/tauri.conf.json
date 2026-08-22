@@ -4,8 +4,15 @@
   "version": "0.1.0",
   "identifier": "com.hank.desktop",
   "build": {
-    "beforeDevCommand": "npm --prefix ../../../frontend run dev",
-    "beforeBuildCommand": "npm --prefix ../../../frontend run build",
+    "beforeDevCommand": {
+      "script": "npm run dev",
+      "cwd": "../../../frontend",
+      "wait": false
+    },
+    "beforeBuildCommand": {
+      "script": "npm run build",
+      "cwd": "../../../frontend"
+    },
     "devUrl": "http://localhost:1420",
     "frontendDist": "../../../frontend/dist"
   },
