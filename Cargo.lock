@@ -34,6 +34,7 @@ dependencies = [
  "agent-core",
  "agent-protocol",
  "anyhow",
+ "async-trait",
  "chrono",
  "futures-util",
  "provider-core",

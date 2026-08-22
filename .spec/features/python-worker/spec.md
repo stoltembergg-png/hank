@@ -174,11 +174,64 @@ que um worker não se torne invocável sem schema, lifecycle e evaluator.
 - **Quando** o registry lista ou resolve por projeto
 - **Então** nenhuma declaração atravessa o escopo de outro projeto
 
+### US-625 — Executar tool Python registrada com controle ponta a ponta
+
+Como Agent Runtime, quero executar uma tool Python registrada por meio do
+worker, para que toda execução passe por registry, evaluator, budget, trace
+e lifecycle — sem subprocesso ad hoc.
+
+#### AC-709 — Caminho único executa tool autorizada
+
+- **Dado** uma tool Python registrada, ativa, com capability declarada e
+  policy Allow com budget disponível
+- **Quando** a invocação atravessa o executor
+- **Então** exatamente um dispatch é enviado ao worker via protocolo, a
+  resposta correlata devolve o payload bounded e o lifecycle retorna a
+  Ready com budget liberado
+
+#### AC-710 — Negações fail-closed antes do dispatch
+
+- **Dado** tool não registrada, projeto divergente, capability ausente,
+  aprovação faltante ou limite excedido
+- **Quando** a invocação é avaliada
+- **Então** cada caso nega com outcome tipado (NotFound,
+  CapabilityMismatch, PermissionDenied, Failed) sem enviar frames ao
+  worker e sem alterar o estado do lifecycle
+
+#### AC-711 — Timeout e cancelamento fecham a operação
+
+- **Dado** um dispatch em curso
+- **Quando** a janela de execução expira ou o worker reporta cancelamento
+- **Então** o outcome é Timeout/Cancelled, o request é encerrado no
+  lifecycle com budget liberado e o worker não fica órfão
+
+#### AC-712 — Retry não duplica efeito
+
+- **Dado** um operation key já consumido
+- **Quando** a mesma chave é reapresentada
+- **Então** a segunda invocação nega sem novo dispatch ao worker
+
+#### AC-713 — Resultado é dado não confiável bounded
+
+- **Dado** respostas do worker com payload hostil, request/contexto
+  divergentes ou saída acima do limite
+- **Quando** o executor processa a resposta
+- **Então** o payload atravessa como dado sem interpretação, identidade
+  divergente nega sem ecoar conteúdo e saídas acima do bound do schema
+  falham fechadas
+
+#### AC-714 — Core roda sem Python
+
+- **Dado** o executor e seus testes de contrato
+- **Quando** todo o pipeline executa contra um fixture worker em memória
+- **Então** nenhuma dependência de runtime Python é exigida e o crash do
+  canal é reportado como SandboxError com o processo reaped
+
 ## Fora de escopo
 
-- Adapter dedicado do runtime ao transporte, tools Python e
-  execução de código de mensagens.
-- Instalação de dependências, telemetria e empacotamento distribuído.
+- Execução de código Python real no worker (tools registadas no lado
+  Python continuam respondendo `not_supported`).
+- Instalação de dependências (PR-119), telemetria e empacotamento distribuído.
 
 ## Suposições
 
@@ -193,3 +246,4 @@ que um worker não se torne invocável sem schema, lifecycle e evaluator.
 |---|---|---|---|
 | Q-619 | O worker precisa de identity persistente entre processos? | respondida | Não neste incremento: `worker_id` é atribuído pelo runtime no handshake; identidade persistente exige persistência própria em incremento futuro. |
 | Q-620 | Exit codes devem ser contratuais? | respondida | Sim, os três atuais (0 ok, 1 protocolo, 2 argumentos) são contratuais e cobertos por teste; novos códigos exigem atualização desta spec. |
+| Q-623 | Invocação sem session pode despachar? | respondida | Sim: o executor sintetiza um SessionId efêmero para o WorkerContext; projeto, task e trace continuam vinculando a identidade real. |
