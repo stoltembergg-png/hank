@@ -28,9 +28,11 @@ The browser E2E introduced by PR #167 is existing baseline evidence. It does not
 | Single/multi-agent/recovery E2E | MISSING until Harness capabilities exist | Harness queue plans them; no runtime evidence yet | deterministic MockProvider/virtual tools/clock then E2Es after PR-345 |
 | Fuzz/property/mutation | MISSING | no cargo-fuzz/proptest/mutation dependency detected | targeted pilots after risk/benefit audit, nightly only when costly |
 | Performance/load/soak/chaos | MISSING | no benchmark/load/chaos harness | measurement baseline, nightly controlled suites, fault injection |
-| CI hardening/static/security | EXISTS/PARTIAL | CodeQL, audit, workflow integrity, pinned actions, `persist-credentials: false`, ONP | formal check registry, security negative corpus, required-context reconciliation |
+| CI hardening/static/security | EXISTS/PARTIAL | CodeQL, frontend `npm audit`, workflow integrity, pinned actions, `persist-credentials: false` | GitHub secret scanning is disabled; no Rust SCA (`cargo audit`/OSV/license/SBOM) gate; PR-353 must add explicit source secret scanning and dependency/SBOM policy |
+| ONP SDD evidence | WEAK | PR-only ONP workflow exists | clean-room audit currently reports 76 errors/92 warnings, including stale proof/open assumptions/questions; PR-346 must inventory this as `NO_PROOF`, and PR-374 must not make ONP required on `main` until coherent evidence exists |
+| Required checks/ruleset | PARTIAL | strict branch protection exists and workflows publish actual contexts | required contexts are misaligned: Frontend E2E/Windows Rust are not protected, while legacy/PR-only contexts can be required; PR-374 must reconcile actual SHA-visible contexts before any ruleset change |
 | Cross-platform build/package | PARTIAL | Rust Windows build, Tauri Linux build, Windows prerelease installer | native behavior and installation matrix; macOS still NO_PROOF |
-| Install/upgrade/rollback/release E2E | PARTIAL/WEAK | prerelease manifest/checksum/Windows package; no clean install/upgrade/rollback proof | clean-room installation, upgrade/rollback and release rehearsal gates |
+| Install/upgrade/rollback/release E2E | PARTIAL/WEAK | prerelease manifest/checksum/Windows package | Windows EXE is not checksum-bound in `SHA256SUMS` or the manifest; PR-370 must fix artifact binding/read-back before installation proof, then add clean-room installation, upgrade, rollback and rehearsal gates |
 | External integrations | NOT_APPLICABLE without protected credentials | no Telegram/GitHub/provider sandbox E2E proof | protected optional suites producing NO_PROOF when unavailable |
 
 ## Test architecture
