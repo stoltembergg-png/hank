@@ -114,6 +114,9 @@ jobs:
       - name: Verify tool timeout handling
         run: node tools/ci/run-onp-spec.mjs verify timeout-handling
 
+      - name: Verify confirmation policies
+        run: node tools/ci/run-onp-spec.mjs verify confirmation-policies
+
       - name: Verify CI build
         run: node tools/ci/run-onp-spec.mjs verify ci-build
 

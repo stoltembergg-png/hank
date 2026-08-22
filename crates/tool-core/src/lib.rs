@@ -1,5 +1,6 @@
 //! Tool core contract: trait, context, request/response, registry, and errors.
 
+pub mod confirmation;
 pub mod context;
 pub mod directory_list;
 pub mod error;
@@ -19,6 +20,7 @@ pub mod terminal;
 pub mod timeout;
 pub mod trait_def;
 
+pub use confirmation::*;
 pub use context::*;
 pub use directory_list::*;
 pub use error::*;
