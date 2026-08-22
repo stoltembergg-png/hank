@@ -6,8 +6,9 @@
 ## Contexto
 
 PR-113 cria o processo sidecar mínimo que implementa o worker protocol
-definido em PR-112 (`crates/agent-protocol/src/worker.rs`). O worker fala
-NDJSON no stdin/stdout, usa apenas a biblioteca padrão do Python e mantém o
+definido em PR-112 (`crates/agent-protocol/src/worker.rs`). Desde PR-114 o
+worker fala JSON-RPC 2.0 com framing `Content-Length` (ver spec
+json-rpc-transport), usa apenas a biblioteca padrão do Python e mantém o
 Python opcional: o core continua compilando, testando e operando sem
 qualquer runtime Python (D-006, AI-016).
 
@@ -59,8 +60,8 @@ dependências, executar código de mensagens ou acoplar o core ao Python.
 
 ## Fora de escopo
 
-- Transporte JSON-RPC e adapter dedicado (PR-114), SDK (PR-116), tools
-  Python e execução de código de mensagens.
+- Adapter dedicado do runtime ao transporte, SDK (PR-116), tools Python e
+  execução de código de mensagens.
 - Instalação de dependências, telemetria, lifecycle de restart e
   empacotamento distribuído.
 
