@@ -79,3 +79,21 @@
 - Refs: US-624, AC-704, AC-705, AC-706, AC-707, AC-708
 - Arquivos: docs/python-tool-registration.md, .spec/verification/python-worker.json
 - Notas: trust boundary, evaluator gate, lifecycle, rollback e evidence por SHA.
+
+## T-689 — Implementar executor com caminho único [concluida]
+
+- Refs: US-625, AC-709, AC-710, AC-711, AC-712, AC-713
+- Arquivos: crates/agent-runtime/src/python_executor.rs, crates/agent-runtime/src/lib.rs, crates/agent-runtime/Cargo.toml
+- Notas: pipeline registry→evaluator→lifecycle→JSON-RPC sobre `WorkerTransport`; input/output bounded pelo schema com teto do executor; dedupe de operation key; janela com timeout/cancel; TerminalResult mapeado deterministicamente para ToolOutcome; crash do canal → SandboxError com reaping.
+
+## T-690 — Cobrir contrato com fixture worker sem Python [concluida]
+
+- Refs: US-625, AC-709, AC-710, AC-711, AC-712, AC-713, AC-714
+- Arquivos: crates/agent-runtime/tests/python_executor_contract.rs
+- Notas: fixture worker em memória roteia o transporte; matrix de negação, timeout/cancel, dedupe sem re-dispatch, payload hostil como dado, identidade divergente e crash com reaping.
+
+## T-691 — Documentar fluxo de execução e registrar evidência [concluida]
+
+- Refs: US-625, AC-709, AC-710, AC-711, AC-712, AC-713, AC-714
+- Arquivos: docs/python-executor.md, .spec/verification/python-worker.json
+- Notas: fluxo ponta a ponta, trust boundary, limits, negações, rollback/troubleshooting; evidência regenerada por verify.

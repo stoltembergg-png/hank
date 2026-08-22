@@ -26,6 +26,7 @@ pub mod project_update_service;
 pub mod provider;
 pub mod provider_service;
 pub mod python;
+pub mod python_executor;
 pub mod python_lifecycle;
 pub mod retry;
 pub mod sandbox;

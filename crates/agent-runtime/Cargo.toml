@@ -14,6 +14,7 @@ tool-core = { path = "../tool-core" }
 provider-core = { path = "../provider-core" }
 futures-util = { workspace = true }
 tokio = { workspace = true }
+async-trait = "0.1"
 sqlx = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
