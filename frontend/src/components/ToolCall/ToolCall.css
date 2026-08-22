@@ -1,0 +1,85 @@
+.tool-call,
+.tool-call-compact {
+  --tool-call-color: #6b7280;
+  border: 1px solid color-mix(in srgb, var(--tool-call-color) 35%, var(--border-color, #d1d5db));
+  border-left: 4px solid var(--tool-call-color);
+  border-radius: 8px;
+  background: var(--surface-color, #fff);
+  color: var(--text-color, #111827);
+  margin: 0.5rem 0;
+  overflow: hidden;
+}
+
+.tool-call-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.8rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.tool-call-summary::-webkit-details-marker { display: none; }
+.tool-call-summary::before { content: '▸'; color: var(--tool-call-color); }
+.tool-call[open] > .tool-call-summary::before { content: '▾'; }
+
+.tool-call-header,
+.tool-call-approval,
+.tool-call-budget-grid,
+.tool-call-timing-grid {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tool-call-header { flex: 1; }
+.tool-call-badge,
+.tool-call-state-badge {
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+.tool-call-state-badge { opacity: 0.9; }
+.tool-call-trace { color: #6b7280; font: 0.75rem ui-monospace, monospace; }
+
+.tool-call-body { padding: 0 0.8rem 0.8rem 1.75rem; }
+.tool-call-section { border-top: 1px solid #e5e7eb; padding-top: 0.65rem; margin-top: 0.65rem; }
+.tool-call-section h4 { margin: 0 0 0.35rem; font-size: 0.82rem; }
+.tool-call-toggle,
+.tool-call-btn {
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  background: #f8fafc;
+  padding: 0.3rem 0.55rem;
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+.tool-call-btn-approve { border-color: #16a34a; color: #166534; }
+.tool-call-btn-deny { border-color: #dc2626; color: #991b1b; }
+.tool-call-btn:disabled { cursor: not-allowed; opacity: 0.55; }
+.tool-call-pre {
+  max-height: 18rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #111827;
+  color: #e5e7eb;
+  border-radius: 5px;
+  padding: 0.65rem;
+  margin: 0.5rem 0 0;
+  font: 0.75rem/1.45 ui-monospace, SFMono-Regular, monospace;
+}
+.tool-call-error { color: #991b1b; background: #fef2f2; padding: 0.5rem; border-radius: 4px; overflow-wrap: anywhere; }
+.tool-call-compact { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.35rem 0.55rem; }
+.tool-call-compact .tool-call-badge { font-size: 0.72rem; }
+.tool-call-compact .tool-call-state-badge { background: transparent; color: var(--tool-call-color); padding: 0; }
+.tool-call-budget-grid,
+.tool-call-timing-grid { color: #4b5563; font-size: 0.78rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-call, .tool-call-compact { transition: none; }
+}

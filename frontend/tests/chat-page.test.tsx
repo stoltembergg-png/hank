@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest';
 import { ChatPage, type ChatTransport } from '@/chat/ChatPage';
 import type { ChatStreamEvent, ChatStreamSubscription } from '@/contracts/chat-stream';
+import type { ToolCallData } from '@/components/ToolCall';
 
 const session: Omit<ChatStreamSubscription, 'stream_id' | 'command_id'> = {
   caller: { caller_id: 'caller-1', class: 'desktop' },
@@ -132,5 +133,28 @@ describe('ChatPage', () => {
     expect(screen.getByRole('button', { name: 'Enviar mensagem' })).toBeDisabled();
     fireEvent.change(screen.getByRole('textbox', { name: 'Mensagem' }), { target: { value: '   ' } });
     expect(transport.sendMock).not.toHaveBeenCalled();
+  });
+
+  it('renders only tool calls scoped to the active project and agent @spec:AC-665', () => {
+    const transport = makeTransport();
+    const toolCall: ToolCallData = {
+      id: 'call-visible',
+      name: 'filesystem_read',
+      arguments: { path: 'notes.txt' },
+      state: 'succeeded',
+      projectId: session.project_id,
+      agentId: session.agent_id,
+      toolVersion: '1.0.0',
+    };
+    const foreignCall = { ...toolCall, id: 'call-foreign', name: 'foreign_tool', projectId: 'other-project' };
+    render(
+      <ChatPage
+        session={session}
+        transport={transport}
+        toolCalls={[toolCall, foreignCall]}
+      />,
+    );
+    expect(screen.getByText('filesystem_read')).toBeInTheDocument();
+    expect(screen.queryByText('foreign_tool')).not.toBeInTheDocument();
   });
 });
