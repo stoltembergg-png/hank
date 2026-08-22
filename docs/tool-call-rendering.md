@@ -17,3 +17,7 @@ A UI renderiza tool calls como conteúdo não confiável, consumindo dados já p
 ## Boundary
 
 O frontend não executa ferramentas, não acessa SQLite e não avalia autorização. Os callbacks de approval são passados pela aplicação; a UI apenas emite a intenção associada ao `approvalId`. Dados são recebidos via props/eventos e não são tratados como instruções confiáveis.
+
+## Estados terminais
+
+`failed`, `cancelled` e `timeout` permanecem visíveis para auditoria e não oferecem ação de execução. Um resultado truncado mantém a indicação de truncamento; a UI não tenta reconstruir ou buscar o conteúdo omitido.
