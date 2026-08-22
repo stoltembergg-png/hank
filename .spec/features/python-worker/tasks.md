@@ -61,3 +61,21 @@
 - Refs: US-623, AC-699, AC-700, AC-701, AC-702, AC-703
 - Arquivos: docs/python-sdk.md, .spec/verification/python-worker.json
 - Notas: API, trust boundary, versionamento, limites, rollback e evidence por SHA.
+
+## T-686 — Implementar registration adapter Python declarativo [em-andamento]
+
+- Refs: US-624, AC-704, AC-705, AC-706, AC-707, AC-708
+- Arquivos: crates/tool-core/src/python_registration.rs, crates/tool-core/src/lib.rs
+- Notas: valida schema Python, worker/project/trace, origem project-scoped e cria handler que sempre nega execução até evaluator futuro.
+
+## T-687 — Cobrir registro, isolamento e rollback [em-andamento]
+
+- Refs: US-624, AC-704, AC-705, AC-706, AC-707, AC-708
+- Arquivos: crates/tool-core/tests/python_registration_contract.rs
+- Notas: registro válido, environment/identity/origin inválidos, duplicata, project isolation e resolução sem execução.
+
+## T-688 — Documentar registration e registrar verificação [pendente]
+
+- Refs: US-624, AC-704, AC-705, AC-706, AC-707, AC-708
+- Arquivos: docs/python-tool-registration.md, .spec/verification/python-worker.json
+- Notas: trust boundary, evaluator gate, lifecycle, rollback e evidence por SHA.

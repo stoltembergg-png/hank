@@ -139,6 +139,41 @@ para que requests tenham contexto, versão e limites sem criar runtime autônomo
 - **Então** não registra tool, não executa subprocesso e não transforma capability
   em autorização
 
+### US-624 — Registrar tool Python declarativa
+
+Como Tool Registry, quero aceitar metadata Python project-scoped validada, para
+que um worker não se torne invocável sem schema, lifecycle e evaluator.
+
+#### AC-704 — Registro válido é project-scoped
+
+- **Dado** schema Python válido, worker identity, project e trace válidos
+- **Quando** a declaração é registrada
+- **Então** aparece no registry com environment Python e escopo do projeto, sem executar código
+
+#### AC-705 — Metadata inválida falha fechada
+
+- **Dado** schema, environment, worker identity, capability ou project inválidos
+- **Quando** a declaração é registrada
+- **Então** o registry rejeita sem mutar estado
+
+#### AC-706 — Duplicata e rollback são determinísticos
+
+- **Dado** uma declaração já registrada
+- **Quando** a mesma identidade é registrada, removida ou restaurada
+- **Então** duplicata é rejeitada e rollback restaura somente metadata validada
+
+#### AC-707 — Registro nunca concede capability ou executa código
+
+- **Dado** descrição ou metadata não confiável
+- **Quando** a tool é registrada ou resolvida
+- **Então** nenhum handler é executado e a capability não altera a decisão do evaluator
+
+#### AC-708 — Isolamento de projeto é preservado
+
+- **Dado** declarações de projetos diferentes
+- **Quando** o registry lista ou resolve por projeto
+- **Então** nenhuma declaração atravessa o escopo de outro projeto
+
 ## Fora de escopo
 
 - Adapter dedicado do runtime ao transporte, tools Python e

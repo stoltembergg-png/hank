@@ -27,6 +27,7 @@ fn declaration(project_id: ProjectId) -> PythonToolRegistration {
     )
 }
 
+// @spec:AC-704
 #[test]
 fn valid_python_declaration_registers_project_scoped_metadata_only() {
     let project = ProjectId::new();
@@ -43,6 +44,7 @@ fn valid_python_declaration_registers_project_scoped_metadata_only() {
     assert_eq!(descriptor.lifecycle, ToolLifecycle::Active);
 }
 
+// @spec:AC-705 @spec:AC-706
 #[test]
 fn invalid_scope_environment_and_duplicate_are_rejected() {
     let project = ProjectId::new();
@@ -62,6 +64,7 @@ fn invalid_scope_environment_and_duplicate_are_rejected() {
     ));
 }
 
+// @spec:AC-705 @spec:AC-708
 #[test]
 fn project_origin_cannot_register_for_another_project() {
     let project = ProjectId::new();
@@ -73,6 +76,7 @@ fn project_origin_cannot_register_for_another_project() {
     ));
 }
 
+// @spec:AC-707
 #[test]
 fn registration_does_not_execute_or_grant_capability() {
     let project = ProjectId::new();
