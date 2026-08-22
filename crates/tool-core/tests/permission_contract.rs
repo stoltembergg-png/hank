@@ -1,5 +1,8 @@
 use agent_core::ids::ProjectId;
+use agent_protocol::ids::TraceId;
+use serde_json::json;
 use tool_core::{
+    ApprovalRequest, ConfirmationAttempt, ConfirmationLedger, ConfirmationPolicy,
     PermissionDecision, PermissionError, PermissionEvaluator, PermissionRequest, PolicyDecision,
     ToolEffect,
 };
@@ -147,4 +150,97 @@ fn concurrent_evaluation_is_thread_safe_and_clear_is_project_scoped() {
         evaluator.evaluate(&ask_once),
         PermissionDecision::NeedsConfirmation { .. }
     ));
+}
+
+#[test]
+// @spec:AC-673
+fn evaluator_releases_sensitive_effect_only_with_matching_ledger_approval() {
+    let evaluator = PermissionEvaluator::new();
+    let mut permission = request(PolicyDecision::AskEveryTime, ToolEffect::Write);
+    permission.confirmation_approved = false;
+    let approval = approval_request(ConfirmationPolicy::AskEveryTime, &permission);
+    let ledger = ConfirmationLedger::new();
+    ledger.register(approval.clone()).unwrap();
+
+    assert!(matches!(
+        evaluator.evaluate_with_confirmation(&permission, None),
+        PermissionDecision::NeedsConfirmation { .. }
+    ));
+
+    let grant = ledger
+        .approve(approval.request_id, "user:gabriel", 1_100)
+        .unwrap();
+    let attempt = ConfirmationAttempt {
+        ledger: &ledger,
+        request: &approval,
+        grant: Some(&grant),
+        actor_id: "user:gabriel",
+        now_ms: 1_101,
+    };
+    assert_eq!(
+        evaluator.evaluate_with_confirmation(&permission, Some(attempt)),
+        PermissionDecision::Allowed {
+            reason: "ledger-confirmation"
+        }
+    );
+}
+
+#[test]
+// @spec:AC-673
+fn evaluator_denies_mismatched_or_invalid_confirmation_instead_of_bypassing_policy() {
+    let evaluator = PermissionEvaluator::new();
+    let permission = request(PolicyDecision::AskEveryTime, ToolEffect::Write);
+    let approval = approval_request(ConfirmationPolicy::AskEveryTime, &permission);
+    let ledger = ConfirmationLedger::new();
+    ledger.register(approval.clone()).unwrap();
+    let grant = ledger
+        .approve(approval.request_id, "user:gabriel", 1_100)
+        .unwrap();
+
+    let mut changed = approval.clone();
+    changed.effect = ToolEffect::Execute;
+    let attempt = ConfirmationAttempt {
+        ledger: &ledger,
+        request: &changed,
+        grant: Some(&grant),
+        actor_id: "user:gabriel",
+        now_ms: 1_101,
+    };
+    assert_eq!(
+        evaluator.evaluate_with_confirmation(&permission, Some(attempt)),
+        PermissionDecision::Denied {
+            reason: PermissionError::ConfirmationInvalid
+        }
+    );
+
+    let attempt = ConfirmationAttempt {
+        ledger: &ledger,
+        request: &approval,
+        grant: None,
+        actor_id: "user:gabriel",
+        now_ms: 1_101,
+    };
+    assert!(matches!(
+        evaluator.evaluate_with_confirmation(&permission, Some(attempt)),
+        PermissionDecision::NeedsConfirmation { .. }
+    ));
+}
+
+fn approval_request(policy: ConfirmationPolicy, request: &PermissionRequest) -> ApprovalRequest {
+    ApprovalRequest::new(
+        request.project_id.expect("fixture project"),
+        None,
+        request.tool_name.clone(),
+        request.tool_version.clone(),
+        &json!({"type": "object"}),
+        &json!({"path": "notes.txt"}),
+        request.effect,
+        None,
+        TraceId::new(),
+        "agent-runtime",
+        policy,
+        1_000,
+        2_000,
+    )
+    .expect("valid approval fixture")
 }

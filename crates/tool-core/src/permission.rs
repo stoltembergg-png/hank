@@ -1,5 +1,6 @@
 //! Deterministic, fail-closed permission evaluation for tool calls.
 
+use crate::confirmation::{ApprovalGrant, ApprovalRequest, ConfirmationLedger, ConfirmationPolicy};
 use crate::context::PolicyDecision;
 use agent_core::ids::ProjectId;
 use serde::{Deserialize, Serialize};
@@ -91,6 +92,17 @@ pub enum PermissionError {
     ConfirmationRequired,
     #[error("approval cache is full")]
     ApprovalCacheFull,
+    #[error("confirmation artifact is invalid")]
+    ConfirmationInvalid,
+}
+
+/// Approval artifact presented by the Application API to the permission gate.
+pub struct ConfirmationAttempt<'a> {
+    pub ledger: &'a ConfirmationLedger,
+    pub request: &'a ApprovalRequest,
+    pub grant: Option<&'a ApprovalGrant>,
+    pub actor_id: &'a str,
+    pub now_ms: u64,
 }
 
 #[derive(Debug, Default)]
@@ -104,6 +116,24 @@ impl PermissionEvaluator {
     }
 
     pub fn evaluate(&self, request: &PermissionRequest) -> PermissionDecision {
+        self.evaluate_internal(request, None)
+    }
+
+    /// Evaluates a request with a bounded approval artifact from the
+    /// Application API.
+    pub fn evaluate_with_confirmation(
+        &self,
+        request: &PermissionRequest,
+        attempt: Option<ConfirmationAttempt<'_>>,
+    ) -> PermissionDecision {
+        self.evaluate_internal(request, attempt)
+    }
+
+    fn evaluate_internal(
+        &self,
+        request: &PermissionRequest,
+        attempt: Option<ConfirmationAttempt<'_>>,
+    ) -> PermissionDecision {
         if let Err(error) = request.validate() {
             return PermissionDecision::Denied { reason: error };
         }
@@ -129,6 +159,9 @@ impl PermissionEvaluator {
                 reason: "explicit-policy-allow",
             },
             PolicyDecision::AskEveryTime => {
+                if let Some(attempt) = attempt {
+                    return evaluate_confirmation(request, attempt, scope);
+                }
                 if request.confirmation_approved {
                     PermissionDecision::Allowed {
                         reason: "explicit-confirmation",
@@ -138,6 +171,9 @@ impl PermissionEvaluator {
                 }
             }
             PolicyDecision::AskOnce => {
+                if let Some(attempt) = attempt {
+                    return evaluate_confirmation(request, attempt, scope);
+                }
                 let cached = self
                     .approvals
                     .read()
@@ -189,5 +225,56 @@ fn approval_scope(request: &PermissionRequest) -> String {
         request.tool_name,
         request.tool_version,
         request.capability
+    )
+}
+
+fn evaluate_confirmation(
+    request: &PermissionRequest,
+    attempt: ConfirmationAttempt<'_>,
+    scope: String,
+) -> PermissionDecision {
+    if !confirmation_matches_permission(request, attempt.request) {
+        return PermissionDecision::Denied {
+            reason: PermissionError::ConfirmationInvalid,
+        };
+    }
+    let Some(grant) = attempt.grant else {
+        return PermissionDecision::NeedsConfirmation { scope };
+    };
+    match attempt
+        .ledger
+        .authorize(attempt.request, grant, attempt.actor_id, attempt.now_ms)
+    {
+        Ok(()) => PermissionDecision::Allowed {
+            reason: "ledger-confirmation",
+        },
+        Err(_) => PermissionDecision::Denied {
+            reason: PermissionError::ConfirmationInvalid,
+        },
+    }
+}
+
+fn confirmation_matches_permission(
+    permission: &PermissionRequest,
+    approval: &ApprovalRequest,
+) -> bool {
+    let Some(project_id) = permission.project_id else {
+        return false;
+    };
+    project_id == approval.project_id
+        && permission.tool_name == approval.tool_name
+        && permission.tool_version == approval.tool_version
+        && permission.effect == approval.effect
+        && policy_matches(permission.policy, approval.policy)
+}
+
+fn policy_matches(permission: PolicyDecision, approval: ConfirmationPolicy) -> bool {
+    matches!(
+        (permission, approval),
+        (PolicyDecision::AskOnce, ConfirmationPolicy::AskOnce)
+            | (
+                PolicyDecision::AskEveryTime,
+                ConfirmationPolicy::AskEveryTime
+            )
     )
 }
