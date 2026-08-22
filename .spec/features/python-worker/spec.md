@@ -259,11 +259,62 @@ para que dependências tenham lock, source policy e rollback sem mutar o host.
 - **Então** a versão anterior é restaurada, sem executar pacotes ou acessar
   outro projeto
 
+### US-627 — Operar o worker com logs estruturados seguros
+
+Como Operador, quero logs estruturados do worker vinculados à identidade e
+redigidos antes de persistir, para que o sidecar seja operável sem vazar
+segredos nem tratar log como comando.
+
+#### AC-719 — Captura correlacionada de startup/request/error
+
+- **Dado** linhas de stdout/stderr e eventos de lifecycle do worker
+- **Quando** capturadas com correlação worker/project/session/task/trace
+- **Então** cada registro retém nível (inferido deterministicamente),
+  fonte, sequência monotônica e a identidade vinculada
+
+#### AC-720 — Redação antes da retenção
+
+- **Dado** linhas com secretos (token/password/api_key/Authorization:
+  Bearer), caracteres de controle/ANSI, path traversal ou tamanho acima do
+  limite
+- **Quando** redigidas
+- **Então** valores secretos são mascarados, controle/ANSI removidos,
+  traversal neutralizado, mensagens truncadas bounded e a redação é contada
+
+#### AC-721 — Volume, rotação e budget de bytes
+
+- **Dado** captura com capacidade e budget de bytes configurados
+- **Quando** o volume excede os limites
+- **Então** os mais antigos são descartados com contador, `rotate` drena o
+  buffer com estado definido e registro maior que o budget não é retido
+
+#### AC-722 — Linhas malformadas têm comportamento definido
+
+- **Dado** linhas vazias, somente espaços, bytes não-UTF8 ou stderr sem
+  nível explícito
+- **Quando** capturadas
+- **Então** vazias são ignoradas, decode lossy mantém registro
+  single-line e stderr sem nível padrão é Warn
+
+#### AC-723 — Isolamento de logs por projeto
+
+- **Dado** registros de projetos distintos no mesmo buffer
+- **Quando** consultados por projeto
+- **Então** nenhum projeto lê registros de outro
+
+#### AC-724 — Worker real emite stderr estruturado bounded
+
+- **Dado** o worker Python real via processo com frame malformado
+- **Quando** o transporte rejeita o frame
+- **Então** o stderr emite JSON single-line com nível e mensagem redigida
+  bounded, sem ecoar o payload, e o processo encerra limpo no EOF
+
 ## Fora de escopo
 
 - Execução de código Python real no worker (tools registadas no lado
   Python continuam respondendo `not_supported`).
-- Instalação de dependências (PR-119), telemetria e empacotamento distribuído.
+- Central logging remoto, persistência integral de payloads, UI completa e
+  mudança de policy via log.
 
 ## Suposições
 
@@ -278,4 +329,5 @@ para que dependências tenham lock, source policy e rollback sem mutar o host.
 |---|---|---|---|
 | Q-619 | O worker precisa de identity persistente entre processos? | respondida | Não neste incremento: `worker_id` é atribuído pelo runtime no handshake; identidade persistente exige persistência própria em incremento futuro. |
 | Q-620 | Exit codes devem ser contratuais? | respondida | Sim, os três atuais (0 ok, 1 protocolo, 2 argumentos) são contratuais e cobertos por teste; novos códigos exigem atualização desta spec. |
+| Q-624 | Logs precisam de persistência em disco neste incremento? | respondida | Não: a retenção é o buffer bounded em memória com rotação explícita; persistência/retention em disco exige contrato próprio com política de arquivos. |
 | Q-623 | Invocação sem session pode despachar? | respondida | Sim: o executor sintetiza um SessionId efêmero para o WorkerContext; projeto, task e trace continuam vinculando a identidade real. |

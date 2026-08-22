@@ -29,6 +29,7 @@ pub mod python;
 pub mod python_environment;
 pub mod python_executor;
 pub mod python_lifecycle;
+pub mod python_logs;
 pub mod retry;
 pub mod sandbox;
 pub mod scheduler;
