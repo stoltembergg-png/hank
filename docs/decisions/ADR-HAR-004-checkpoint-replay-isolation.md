@@ -1,10 +1,45 @@
-# ADR-HAR-004 — Checkpoint, replay and experimental isolation
+---
+id: ADR-HAR-004
+status: proposed
+owner: architecture-owner
+date: 2026-08-22
+---
 
-- **Status:** proposed; activates only after PR-270 baseline PASS.
-- **Decision:** checkpoints persist run goal/state, completed and remaining work, changed-file digests, tool idempotency/effect state, tests, blockers, decisions, memory/evidence references, model/provider attempt, budgets and trace.
-- **Recovery:** restart validates checkpoint schema, project scope, policy revision and effect reconciliation before continuing. Completed effects are never blindly repeated.
-- **Replay/shadow/experiment:** default to read-only or isolated worktree/sandbox. External writes require a new explicit approval/fingerprint; replay never inherits authority from the original run.
-- **Consequences:** benchmark/replay comparisons are reproducible and do not claim real-world effects from mock-only execution.
-- **Rejected:** serializing raw secrets/prompts, resuming from free-form model text, replaying destructive tool calls, or mutable checkpoint histories.
-- **Proof required:** torn/corrupt checkpoint, crash-before/after effect, model swap, replay write denial, experiment cleanup and SHA/policy mismatch tests.
-- **Rollback:** stop scheduling/resume, preserve immutable checkpoint/evidence, and use versioned compatibility readers.
+# ADR-HAR-004 — Checkpoint, replay and experiment isolation
+
+## Context
+
+Interrupted runs need recovery, but blind resume/replay can duplicate external effects or restore untrusted free-form state.
+
+## Decision
+
+Immutable checkpoints hold bounded run state, effect/idempotency state, tests, blockers, decisions, references, model/provider attempt, budgets and trace. Recovery reconciles effects first. Replay, shadow and experiments default to read-only or isolated worktree/sandbox authority.
+
+## Alternatives
+
+- Resume from model conversation text: rejected because it is not deterministic state.
+- Replay original tool calls with inherited approvals: rejected because it can repeat destructive effects.
+
+## Consequences
+
+### Positive
+
+- Recovery and comparison have durable reproducible lineage.
+
+### Negative
+
+- Checkpoint migrations, effect reconciliation and sandbox availability require explicit gates.
+
+## Risks and threat boundary
+
+No raw secrets/prompts are checkpoint fields. Replay/shadow never inherit write approval or credential authority; unavailable sandbox is BLOCKED.
+
+## Evidence
+
+- sha: `N/A for proposed`
+- tree: `N/A for proposed`
+- policy: `post-270-entry-gate`
+
+## Rollback and supersession
+
+Stop resume/replay scheduling, retain immutable checkpoint/evidence records, and use versioned compatibility readers for rollback.

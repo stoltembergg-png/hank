@@ -1,10 +1,45 @@
+---
+id: ADR-HAR-002
+status: proposed
+owner: architecture-owner
+date: 2026-08-22
+---
+
 # ADR-HAR-002 — Context authority, conflict and budget
 
-- **Status:** proposed; activates only after PR-270 baseline PASS.
-- **Decision:** Context Compiler selects bounded, provenance-bearing sources in fixed authority order: Security → Architecture/ADR → Project → Workflow → Task → Relevant Code → Decision/Failure/Project Memory → Skills → Conversation.
-- **Conflict rule:** lower-authority conflicting content never replaces higher-authority content. The compiler emits a bounded conflict/omission record with source IDs, authority values and redacted digest.
-- **Budget rule:** ContextBudget reserves output capacity and assigns bounded buckets by task class. It does not fill the entire model window or infer missing authority.
-- **Consequences:** context selection is explainable through a manifest and Context Debugger projection; provider/model token accounting remains an adapter concern.
-- **Rejected:** concatenating all sources, prompt-text authority, implicit memory priority, or silently dropping conflict metadata.
-- **Proof required:** authority conflict, injection, freshness, duplicate, budget-overflow and task-class allocation tests.
-- **Rollback:** use the prior compiler policy revision; retain manifests/evidence without reusing stale context.
+## Context
+
+Context sources have different authority and freshness. Concatenating all available text lets low-trust conversation, skill, memory or tool output displace approved policy.
+
+## Decision
+
+Context Compiler uses the fixed order Security → Architecture/ADR → Project → Workflow → Task → Relevant Code → Decision/Failure/Project Memory → Skills → Conversation. Lower-authority conflicts are retained as bounded conflict records. ContextBudget reserves output and assigns task-class buckets without filling the whole window.
+
+## Alternatives
+
+- Flat prompt concatenation: rejected because authority is implicit.
+- Memory-first context: rejected because memory provenance is weaker than approved ADR/security sources.
+
+## Consequences
+
+### Positive
+
+- Context selection becomes reproducible and debuggable through manifests.
+
+### Negative
+
+- Every source needs provenance, freshness and token-cost metadata.
+
+## Risks and threat boundary
+
+User/provider/tool/skill/memory text is untrusted. It cannot create authority, override Security, or suppress conflict metadata.
+
+## Evidence
+
+- sha: `N/A for proposed`
+- tree: `N/A for proposed`
+- policy: `post-270-entry-gate`
+
+## Rollback and supersession
+
+Pin the prior authority/budget policy revision and retain manifests as evidence; do not reuse stale context after rollback.
