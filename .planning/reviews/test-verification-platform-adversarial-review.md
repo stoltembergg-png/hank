@@ -8,8 +8,9 @@
 4. **No real external mutation in PR CI:** protected Telegram/GitHub/provider suites use dedicated fixtures and least privilege; unavailable credentials are `NO_PROOF`.
 5. **No security by CodeQL alone:** threat corpus, permission/path/injection/secret/evidence negative tests remain first-class gates.
 6. **No slow everything-on-every-PR:** deterministic FAST/CORE checks run on PRs; expensive fuzz/load/soak/chaos/full OS/external suites run nightly or release according to explicit policy.
-7. **No release by artifact existence:** clean install, artifact identity and upgrade/rollback evidence are mandatory before strong release claims.
-8. **No flaky deletion:** quarantine is explicit, time-bounded, owned and never silently allows critical security/recovery tests to pass.
+7. **No retry-masked PASS:** a failed first attempt, cancellation, skip or artifact-missing E2E is `FLAKY`, `CANCELLED` or `NO_PROOF`; a later retry may collect diagnostics but cannot establish clean release/security evidence until root cause is fixed.
+8. **No release by artifact existence:** clean install, artifact identity and upgrade/rollback evidence are mandatory before strong release claims.
+9. **No flaky deletion:** quarantine is explicit, time-bounded, owned and never silently allows critical security/recovery tests to pass.
 
 ## Risks and planning mitigations
 
