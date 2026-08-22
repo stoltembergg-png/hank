@@ -84,4 +84,4 @@ exista sem acoplar o core a processo, SDK ou transporte.
 
 | ID | Pergunta | Status | Resposta |
 |---|---|---|---|
-| Q-618 | O handshake precisa negociar múltiplas versões no futuro? | aberta | Na v1 o contrato aceita somente a versão vigente; negociação de range entra com o transporte (PR-114) se necessário. |
+| Q-618 | O handshake precisa negociar múltiplas versões no futuro? | respondida | Não na v1: o contrato aceita somente a versão vigente (`UnsupportedVersion` caso contrário). Negociação de range, se exigida pelo transporte (PR-114), entrará como nova pergunta com evidência própria. |
