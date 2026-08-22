@@ -25,7 +25,7 @@ const commands = [
   {
     label: 'Rust workspace tests',
     command: cargoCmd,
-    args: ['test', '--workspace'],
+    args: ['test', '--workspace', '--locked'],
   },
 ];
 

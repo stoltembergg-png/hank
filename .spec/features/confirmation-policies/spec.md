@@ -45,14 +45,19 @@ ou expor payload sensível.
 - **Quando** o grant é apresentado
 - **Então** a validação falha fechadamente sem executar o efeito
 
+#### AC-673 — Permission gate consome o artefato
+
+- **Dado** um efeito sensível avaliado pelo `PermissionEvaluator`
+- **Quando** a fronteira fornece um request/grant do ledger
+- **Então** somente o artefato compatível libera a decisão; ausência de grant
+  mantém `ask` e incompatibilidade/expiração/replay resulta em negação
+
 ## Fora de escopo
 
 - Ponte UI/Application API, autenticação completa do actor e integração no loop
   de execução de cada handler.
 - Persistência entre processos, notificações push, pagamentos e escolha de
   políticas por projeto/agente.
-- Alterar o evaluator existente; a integração consumirá este contrato em
-  incremento posterior.
 
 ## Suposições
 
