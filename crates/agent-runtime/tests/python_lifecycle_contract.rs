@@ -24,6 +24,7 @@ fn identity(project_id: &str) -> WorkerIdentity {
     }
 }
 
+// @spec:AC-694 @spec:AC-697
 #[tokio::test]
 async fn spawn_ready_request_stop_cleans_process() {
     let mut lifecycle = PythonLifecycle::new(config(), identity("project-a")).unwrap();
@@ -47,6 +48,7 @@ async fn spawn_ready_request_stop_cleans_process() {
     )));
 }
 
+// @spec:AC-696
 #[tokio::test]
 async fn duplicate_operation_key_is_rejected_and_does_not_restart() {
     let mut lifecycle = PythonLifecycle::new(config(), identity("project-a")).unwrap();
@@ -60,6 +62,7 @@ async fn duplicate_operation_key_is_rejected_and_does_not_restart() {
     lifecycle.stop().await.unwrap();
 }
 
+// @spec:AC-695
 #[tokio::test]
 async fn timeout_and_cancel_release_budget_and_cleanup() {
     let mut lifecycle = PythonLifecycle::new(config(), identity("project-a")).unwrap();
@@ -78,6 +81,7 @@ async fn timeout_and_cancel_release_budget_and_cleanup() {
     lifecycle.stop().await.unwrap();
 }
 
+// @spec:AC-696
 #[tokio::test]
 async fn restart_is_bounded_and_identity_is_preserved() {
     let mut lifecycle = PythonLifecycle::new(config(), identity("project-a")).unwrap();
@@ -102,6 +106,7 @@ async fn restart_is_bounded_and_identity_is_preserved() {
     ));
 }
 
+// @spec:AC-698
 #[tokio::test]
 async fn worker_command_failure_is_fail_closed() {
     let mut invalid = config();
