@@ -5,10 +5,11 @@
 
 ## Contexto
 
-PR-111 inicia o ciclo de aprovação humana para efeitos sensíveis de tools. Este
-incremento fecha o contrato neutro do `tool-core`: o request é bounded, o
-artefato carrega apenas hashes de schema/argumentos e o ledger autoriza somente
-o contexto apresentado, com expiração, revogação e replay controlados.
+PR-111 inicia o ciclo de aprovação humana para efeitos sensíveis de tools. O
+contrato neutro do `tool-core` é exposto pela primeira fronteira de aplicação:
+o request é bounded, o artefato carrega apenas hashes de schema/argumentos e o
+ledger autoriza somente o contexto apresentado, com expiração, revogação e
+replay controlados.
 
 ## Histórias
 
@@ -52,9 +53,17 @@ ou expor payload sensível.
 - **Então** somente o artefato compatível libera a decisão; ausência de grant
   mantém `ask` e incompatibilidade/expiração/replay resulta em negação
 
+#### AC-674 — Application API transporta artefatos sem payload bruto
+
+- **Dado** um request de confirmação submetido pela fronteira de aplicação
+- **Quando** a API registra, aprova, revoga ou autoriza o request
+- **Então** ela transporta somente o artefato serializável bounded, exige o
+  actor apresentado e mantém as mesmas regras fail-closed do ledger, sem
+  expor schema ou argumentos brutos
+
 ## Fora de escopo
 
-- Ponte UI/Application API, autenticação completa do actor e integração no loop
+- UI visual/Tauri bridge, autenticação completa do actor e integração no loop
   de execução de cada handler.
 - Persistência entre processos, notificações push, pagamentos e escolha de
   políticas por projeto/agente.
