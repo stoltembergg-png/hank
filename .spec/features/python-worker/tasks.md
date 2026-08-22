@@ -42,4 +42,22 @@
 
 - Refs: US-622, AC-694, AC-695, AC-696, AC-697, AC-698
 - Arquivos: .spec/verification/python-worker.json
-- Notas: gerar somente após o comando oficial concluir no ambiente CI com Tauri; evidência deve conter SHA/tree, comando, resultado dos testes e ausência de `NO_PROOF` obrigatório.
+- Notas: prova CI no head exato registra exitCode 0 e AC-694..AC-698 PASS; o workflow verifica a feature e exige digest do artifact.
+
+## T-683 — Implementar SDK Python protocol-only [em-andamento]
+
+- Refs: US-623, AC-699, AC-700, AC-701, AC-702, AC-703
+- Arquivos: python/sdk/__init__.py, python/sdk/client.py, python/sdk/errors.py
+- Notas: wrapper JSON-RPC com handshake, request/response, health, cancel notification e shutdown; sem subprocesso, tool registry ou persistência.
+
+## T-684 — Cobrir SDK com contratos determinísticos [em-andamento]
+
+- Refs: US-623, AC-699, AC-700, AC-701, AC-702, AC-703
+- Arquivos: python/tests/test_sdk.py, tools/run-all-tests.mjs
+- Notas: streams framed in-memory, validação de contexto/IDs/payload, cancel/shutdown, erros redigidos e comando oficial do agregador.
+
+## T-685 — Documentar SDK e registrar verificação [pendente]
+
+- Refs: US-623, AC-699, AC-700, AC-701, AC-702, AC-703
+- Arquivos: docs/python-sdk.md, .spec/verification/python-worker.json
+- Notas: API, trust boundary, versionamento, limites, rollback e evidence por SHA.

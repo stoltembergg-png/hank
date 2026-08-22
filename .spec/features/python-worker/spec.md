@@ -99,9 +99,49 @@ restart não criem processos órfãos nem repitam operações.
 - **Então** a operação falha sem spawn inseguro, sem propagação de ambiente e
   sem expor segredos em eventos ou erros
 
+### US-623 — Expor SDK Python limitado ao protocol
+
+Como integrador Python, quero um SDK pequeno para falar o worker protocol,
+para que requests tenham contexto, versão e limites sem criar runtime autônomo.
+
+#### AC-699 — SDK faz handshake e request/response correlato
+
+- **Dado** streams framed e identidade/capability válidas
+- **Quando** o cliente executa handshake e request
+- **Então** as mensagens JSON-RPC são versionadas, correlatas e o contexto
+  project/session/task/trace é preservado
+
+#### AC-700 — Contexto, IDs e payloads inválidos falham antes do write
+
+- **Dado** identidade vazia, request id inválido, capability inválida ou payload
+  acima do limite
+- **Quando** o SDK prepara a chamada
+- **Então** retorna erro bounded sem escrever uma chamada insegura no stream
+
+#### AC-701 — Cancelamento e shutdown respeitam o protocolo
+
+- **Dado** sessão handshaked
+- **Quando** o cliente cancela ou encerra
+- **Então** cancel é notification sem resposta esperada e shutdown exige ack
+  correlato antes de fechar o cliente
+
+#### AC-702 — Erros do worker são tipados e redigidos
+
+- **Dado** resposta JSON-RPC de erro, EOF ou resultado inválido
+- **Quando** o SDK decodifica a resposta
+- **Então** produz `SdkError` bounded sem payload bruto, segredo ou instrução
+  executável
+
+#### AC-703 — SDK não concede execução
+
+- **Dado** capability, contexto ou texto de modelo/skill no request
+- **Quando** o cliente serializa a mensagem
+- **Então** não registra tool, não executa subprocesso e não transforma capability
+  em autorização
+
 ## Fora de escopo
 
-- Adapter dedicado do runtime ao transporte, SDK (PR-116), tools Python e
+- Adapter dedicado do runtime ao transporte, tools Python e
   execução de código de mensagens.
 - Instalação de dependências, telemetria e empacotamento distribuído.
 
