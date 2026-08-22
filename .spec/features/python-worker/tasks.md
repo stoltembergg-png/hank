@@ -19,3 +19,27 @@
 - Refs: US-620, AC-683, AC-684, AC-685, AC-686, AC-687
 - Arquivos: .github/workflows/onp-sdd-evidence.yml, docs/python-worker.md
 - Notas: passo `Verify python worker` no workflow de evidência; documentação de entrypoint, framing, lifecycle, exit codes, isolamento e rollback do sidecar.
+
+## T-679 — Implementar supervisor Rust bounded [concluida]
+
+- Refs: US-622, AC-694, AC-695, AC-696, AC-697, AC-698
+- Arquivos: crates/agent-runtime/src/python_lifecycle.rs, crates/agent-runtime/src/lib.rs
+- Notas: máquina de estados, spawn/cleanup real, identidade project/session/task/trace, operation keys, budget reservation/release, restart cap/backoff, ambiente limpo e eventos redigidos.
+
+## T-680 — Cobrir lifecycle com testes reais e negativos [concluida]
+
+- Refs: US-622, AC-694, AC-695, AC-696, AC-697, AC-698
+- Arquivos: crates/agent-runtime/tests/python_lifecycle_contract.rs
+- Notas: processo real, readiness, stop, crash, timeout, cancelamento, restart bounded, dedupe, falha de comando, budget e isolamento de projeto.
+
+## T-681 — Documentar policy do lifecycle [concluida]
+
+- Refs: US-622, AC-694, AC-695, AC-696, AC-697, AC-698
+- Arquivos: docs/python-worker-lifecycle.md, docs/python-worker.md
+- Notas: state machine, cleanup, policy de restart, identidade, limites e rollback documentados; o passo existente `Verify python worker` no workflow cobre os ACs da feature.
+
+## T-682 — Registrar verificação SDD do lifecycle [em-andamento]
+
+- Refs: US-622, AC-694, AC-695, AC-696, AC-697, AC-698
+- Arquivos: .spec/verification/python-worker.json
+- Notas: gerar somente após o comando oficial concluir no ambiente CI com Tauri; evidência deve conter SHA/tree, comando, resultado dos testes e ausência de `NO_PROOF` obrigatório.

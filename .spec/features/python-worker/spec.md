@@ -58,12 +58,52 @@ dependências, executar código de mensagens ou acoplar o core ao Python.
   env/processo/arquivo/exec e a sessão do contrato funciona em processo
   Rust sem qualquer Python
 
+### US-622 — Supervisionar o processo Python opcional
+
+Como Agent Runtime, quero supervisionar o processo Python com identidade,
+limites e cleanup determinísticos, para que crash, timeout, cancelamento e
+restart não criem processos órfãos nem repitam operações.
+
+#### AC-694 — Lifecycle feliz é explícito e observável
+
+- **Dado** uma configuração válida e uma identidade project/session/task/trace
+- **Quando** o runtime faz spawn, recebe readiness, inicia e conclui uma operação
+- **Então** as transições `Stopped → Starting → Ready → Busy → Ready → Stopped`
+  são válidas e cada uma produz evento sem conteúdo sensível
+
+#### AC-695 — Crash, timeout e cancelamento encerram o processo
+
+- **Dado** um worker iniciado
+- **Quando** ocorre crash, timeout ou cancelamento
+- **Então** o processo é coletado, o estado terminal é explícito, o budget ativo é
+  liberado e nenhum processo órfão permanece
+
+#### AC-696 — Restart é bounded e não repete operação
+
+- **Dado** um worker em `Crashed` e uma policy com limite de restart
+- **Quando** o runtime reinicia ou recebe a mesma operation key
+- **Então** restart respeita o limite/backoff e a operation key duplicada é
+  rejeitada sem executar novamente
+
+#### AC-697 — Identidade e isolamento são obrigatórios
+
+- **Dado** workers de dois projetos
+- **Quando** uma operação é associada a um worker
+- **Então** a identidade completa permanece vinculada ao worker e um worker de
+  outro project não pode ser reutilizado implicitamente
+
+#### AC-698 — Configuração do processo é fail-closed
+
+- **Dado** comando, argumentos ou identidade inválidos
+- **Quando** o runtime tenta iniciar o worker
+- **Então** a operação falha sem spawn inseguro, sem propagação de ambiente e
+  sem expor segredos em eventos ou erros
+
 ## Fora de escopo
 
 - Adapter dedicado do runtime ao transporte, SDK (PR-116), tools Python e
   execução de código de mensagens.
-- Instalação de dependências, telemetria, lifecycle de restart e
-  empacotamento distribuído.
+- Instalação de dependências, telemetria e empacotamento distribuído.
 
 ## Suposições
 
