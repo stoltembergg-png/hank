@@ -1,6 +1,7 @@
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::{Mutex, OnceLock};
 
 use agent_protocol::ids::{ProjectId, RequestId, SessionId, TraceId};
 use agent_protocol::worker::{WorkerContext, WorkerSession, WORKER_PROTOCOL_SCHEMA_VERSION};
@@ -8,16 +9,27 @@ use serde_json::{json, Value};
 
 const HANDSHAKE: &str = r#"{"kind":"handshake","schema_version":1,"protocol_version":1,"worker_id":"runtime-sidecar","capabilities":[{"resource":"tool","action":"execute"}]}"#;
 
+/// Serializes worker spawns across test threads: the sidecar lifecycle is
+/// deterministic and process startup stays bounded on loaded runners.
+fn spawn_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 /// Worker harness: spawns the Python sidecar and frames NDJSON lines.
 struct WorkerHarness {
     child: Child,
     stdin: Option<ChildStdin>,
     stdout: BufReader<ChildStdout>,
     transcript: String,
+    _guard: std::sync::MutexGuard<'static, ()>,
 }
 
 impl WorkerHarness {
     fn spawn(extra_env: &[(&str, &str)], args: &[&str]) -> Option<Self> {
+        let guard = spawn_lock();
         let python = find_python()?;
         let mut command = Command::new(python);
         command
@@ -26,7 +38,9 @@ impl WorkerHarness {
             .current_dir(runtime_dir())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+            // Inherited so a worker crash surfaces its traceback in test logs
+            // instead of dying in an unread pipe.
+            .stderr(Stdio::inherit());
         for (key, value) in extra_env {
             command.env(key, value);
         }
@@ -38,6 +52,7 @@ impl WorkerHarness {
             stdin: Some(stdin),
             stdout: BufReader::new(stdout),
             transcript: String::new(),
+            _guard: guard,
         })
     }
 
@@ -171,6 +186,8 @@ fn invalid_handshake_and_premature_messages_exit_fail_closed() {
         Some(1),
         "pre-handshake violation must exit 1"
     );
+    // Release the spawn lock before the second harness acquires it.
+    drop(worker);
 
     let Some(mut worker) = WorkerHarness::spawn(&[], &[]) else {
         return;

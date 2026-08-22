@@ -66,6 +66,9 @@ jobs:
         working-directory: frontend
         run: npm ci --no-fund
 
+      - name: Warm up full suite with visible output
+        run: node tools/run-all-tests.mjs
+
       - name: Verify foundation workspace
         run: node tools/ci/run-onp-spec.mjs verify foundation-workspace
 
