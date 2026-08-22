@@ -32,7 +32,19 @@
 - Arquivos: crates/tool-core/tests/permission_contract.rs, .spec/verification/confirmation-policies.json
 - Notas: testes cobrem aprovação válida, request alterado, grant ausente e negação fail-closed.
 
+## T-663 — Expor confirmation service na Application API [concluida]
+
+- Refs: US-617, AC-674
+- Arquivos: crates/agent-runtime/Cargo.toml, crates/agent-runtime/src/confirmation_application.rs, crates/agent-runtime/src/lib.rs, docs/confirmation-application.md
+- Notas: facade tipada para submit/approve/revoke/authorize; transporta somente ApprovalRequest/ApprovalGrant e delega as invariantes ao ConfirmationLedger.
+
+## T-664 — Cobrir contrato da Application API [concluida]
+
+- Refs: US-617, AC-674
+- Arquivos: crates/agent-runtime/tests/confirmation_application_contract.rs, .spec/verification/confirmation-policies.json
+- Notas: testes cobrem redaction, actor binding, revogação e replay.
+
 ## Próximo incremento
 
-- Conectar o ledger à fronteira Application API/UI, preservando os mesmos
-  bindings e emitindo eventos auditáveis sem payload bruto.
+- Conectar o serviço à ponte Tauri/UI com comandos/eventos tipados e
+  confirmação acessível, preservando os mesmos bindings e sem payload bruto.

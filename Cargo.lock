@@ -44,7 +44,9 @@ dependencies = [
  "test-support",
  "thiserror",
  "tokio",
+ "tool-core",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
