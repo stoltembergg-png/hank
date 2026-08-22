@@ -21,3 +21,10 @@ O frontend não executa ferramentas, não acessa SQLite e não avalia autorizaç
 ## Estados terminais
 
 `failed`, `cancelled` e `timeout` permanecem visíveis para auditoria e não oferecem ação de execução. Um resultado truncado mantém a indicação de truncamento; a UI não tenta reconstruir ou buscar o conteúdo omitido.
+
+## Rastreabilidade
+
+- AC-662: estados distintos no componente `ToolCall`.
+- AC-663: redaction e approval affordance condicionado a `ask`.
+- AC-664: output/erros como texto React, sem interpretação de HTML.
+- AC-665: filtro de `project_id`/`agent_id` no `ChatPage`, sem execução local.
