@@ -3,6 +3,7 @@
 use crate::ids::{AgentId, MemoryId, ProjectId, SessionId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 /// Tipo de memória
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -44,7 +45,32 @@ pub struct Memory {
     pub updated_at: DateTime<Utc>,
     pub accessed_at: Option<DateTime<Utc>>,
     pub access_count: u64,
+    #[serde(default = "default_memory_version")]
+    pub version: u64,
 }
+
+fn default_memory_version() -> u64 {
+    1
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum MemoryError {
+    #[error("memory content is required")]
+    ContentRequired,
+    #[error("memory content exceeds the bounded limit")]
+    ContentTooLarge,
+    #[error("memory summary exceeds the bounded limit")]
+    SummaryTooLarge,
+    #[error("memory confidence is invalid")]
+    InvalidConfidence,
+    #[error("memory importance is invalid")]
+    InvalidImportance,
+    #[error("memory transition is invalid")]
+    InvalidTransition,
+}
+
+const MAX_MEMORY_CONTENT_BYTES: usize = 16 * 1024;
+const MAX_MEMORY_SUMMARY_BYTES: usize = 4 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryProvenance {
@@ -90,14 +116,67 @@ impl Memory {
             updated_at: now,
             accessed_at: None,
             access_count: 0,
+            version: 1,
         }
     }
 
-    pub fn approve(&mut self, importance: f32, summary: Option<String>) {
+    pub fn validate(&self) -> Result<(), MemoryError> {
+        if self.content.trim().is_empty() {
+            return Err(MemoryError::ContentRequired);
+        }
+        if self.content.len() > MAX_MEMORY_CONTENT_BYTES {
+            return Err(MemoryError::ContentTooLarge);
+        }
+        if self
+            .summary
+            .as_ref()
+            .is_some_and(|summary| summary.len() > MAX_MEMORY_SUMMARY_BYTES)
+        {
+            return Err(MemoryError::SummaryTooLarge);
+        }
+        if !self.provenance.confidence.is_finite()
+            || !(0.0..=1.0).contains(&self.provenance.confidence)
+        {
+            return Err(MemoryError::InvalidConfidence);
+        }
+        if !self.importance.is_finite() || !(0.0..=1.0).contains(&self.importance) {
+            return Err(MemoryError::InvalidImportance);
+        }
+        Ok(())
+    }
+
+    fn bump_version(&mut self) {
+        self.version = self.version.saturating_add(1);
+        self.updated_at = Utc::now();
+    }
+
+    pub fn approve(&mut self, importance: f32, summary: Option<String>) -> Result<(), MemoryError> {
+        if self.status == MemoryStatus::Archived || !importance.is_finite() {
+            return Err(MemoryError::InvalidTransition);
+        }
         self.status = MemoryStatus::Approved;
         self.importance = importance.clamp(0.0, 1.0);
         self.summary = summary;
-        self.updated_at = Utc::now();
+        self.bump_version();
+        self.validate()
+    }
+
+    pub fn archive(&mut self) -> Result<(), MemoryError> {
+        if self.status == MemoryStatus::Archived {
+            return Err(MemoryError::InvalidTransition);
+        }
+        self.status = MemoryStatus::Archived;
+        self.bump_version();
+        Ok(())
+    }
+
+    pub fn restore(&mut self) -> Result<(), MemoryError> {
+        if self.status != MemoryStatus::Archived {
+            return Err(MemoryError::InvalidTransition);
+        }
+        self.status = MemoryStatus::Approved;
+        self.bump_version();
+        Ok(())
     }
 
     pub fn reject(&mut self) {
