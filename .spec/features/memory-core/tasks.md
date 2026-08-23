@@ -37,3 +37,21 @@
 - Refs: US-630, AC-735, AC-736
 - Arquivos: docs/memory-repository.md, .spec/verification/memory-core.json
 - Notas: transação, scope obrigatório, rollback, version conflict e não uso para retrieval.
+
+## T-707 — Implementar taxonomia de memória versionada [em-andamento]
+
+- Refs: US-631, AC-737, AC-738, AC-739, AC-740
+- Arquivos: crates/agent-core/src/taxonomy.rs, crates/agent-core/src/lib.rs
+- Notas: oito tipos wire-stable, hints explícitos, validação de provenance e rejeição de instrução privilegiada/secret-like.
+
+## T-708 — Cobrir taxonomia e compatibilidade [em-andamento]
+
+- Refs: US-631, AC-737, AC-738, AC-739, AC-740
+- Arquivos: crates/agent-core/tests/memory_taxonomy_contract.rs
+- Notas: enum/serialization, tipo desconhecido, injection claims, secrets, provenance e versão.
+
+## T-709 — Documentar taxonomy e registrar verificação [pendente]
+
+- Refs: US-631, AC-737, AC-738, AC-739, AC-740
+- Arquivos: docs/memory-taxonomy.md, .spec/verification/memory-core.json
+- Notas: semântica, retention/importance hints, trust boundary e evolução de versão.

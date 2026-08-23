@@ -60,6 +60,39 @@ projeto, para que archive, dedupe e optimistic version não cruzem boundaries.
 - **Quando** create/ archive ocorre novamente
 - **Então** a operação falha sem duplicar ou alterar a versão persistida
 
+### US-631 — Classificar memória com taxonomia estável
+
+Como Memory Domain, quero tipos fechados e versionados para memória, para que
+extractors futuros não inventem categorias nem tratem conteúdo como instrução.
+
+#### AC-737 — Oito tipos têm wire format e hints explícitos
+
+- **Dado** um dos tipos fact, preference, decision, lesson, project_context,
+  technical_context, failure ou successful_pattern
+- **Quando** o tipo é parseado e seus hints consultados
+- **Então** a classificação é determinística, serializável e fornece retention
+  e importance defaults explícitos
+
+#### AC-738 — Tipo desconhecido e claim privilegiado negam
+
+- **Dado** tipo não reconhecido ou conteúdo que tenta se declarar system/
+  developer/instrução privilegiada ou contém secret-like material
+- **Quando** a taxonomia valida
+- **Então** retorna erro tipado sem alterar provenance ou autorização
+
+#### AC-739 — Provenance permanece separado da classificação
+
+- **Dado** classificação válida com source UserInput, AgentOutput ou Inferred
+- **Quando** o conteúdo é validado
+- **Então** provenance não é promovida a instrução confiável nem substituída
+  pelo tipo
+
+#### AC-740 — Versionamento é backward-compatible
+
+- **Dado** wire value válido da versão atual
+- **Quando** é serializado e parseado novamente
+- **Então** preserva o tipo e expõe a versão de taxonomia sem depender de storage
+
 ## Fora de escopo
 
 - Repository e migrações;
