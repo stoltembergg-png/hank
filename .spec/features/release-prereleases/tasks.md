@@ -22,12 +22,12 @@
 
 ## T-628 — Versionar milestones e contrato de promoção [concluida]
 
-- Refs: US-604, AC-632
+- Refs: US-604, AC-773
 - Arquivos: release-milestones.json, tools/release-prerelease.mjs, test/release-prerelease.js, manifestos de versão
 - Notas: mapa de versões alvo, conversão determinística de manifesto, proveniência da prerelease preservada e rejeição de combinações divergentes.
 
 ## T-629 — Publicar milestone estável por workflow manual [concluida]
 
-- Refs: US-604, AC-633
+- Refs: US-604, AC-774
 - Arquivos: .github/workflows/release-prerelease.yml, .github/workflows/release-milestone.yml, docs/prerelease-releases.md
 - Notas: prerelease passa a usar a versão ativa do mapa; promoção separa validação read-only de publicação write-only, sem gatilho automático e com idempotência fail-closed.
