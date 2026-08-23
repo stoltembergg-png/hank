@@ -199,3 +199,27 @@
 - Refs: US-639, AC-769, AC-770, AC-771, AC-772
 - Arquivos: frontend/tests/memory_panel_contract.test.tsx, docs/memory-ui.md, .spec/verification/memory-core.json
 - Notas: bridge request, foreign-project filtering, escaping, secret redaction, bounded preview, status/provenance, filters, accessibility e E2E aplicável.
+
+## T-734 — Implementar serviço explícito de mutations project/version-scoped [em-andamento]
+
+- Refs: US-640, AC-773, AC-774, AC-775, AC-776
+- Arquivos: crates/agent-runtime/src/memory_service.rs, crates/agent-runtime/src/memory_repo.rs, crates/agent-runtime/src/lib.rs
+- Notas: contexto actor/project/trace/capability/policy/operation, update/approve/reject/archive/restore, optimistic version e repository update parametrizado.
+
+## T-735 — Cobrir mutations, lifecycle e rejeições fail-closed [em-andamento]
+
+- Refs: US-640, AC-773, AC-774, AC-775, AC-776
+- Arquivos: crates/agent-runtime/tests/memory_edit_service_contract.rs
+- Notas: contexto válido, lifecycle reversível, foreign scope, capability/policy, oversized/stale version e duplicate operation sem replay.
+
+## T-736 — Expor mutation por Application/Tauri e UI com confirmação [pendente]
+
+- Refs: US-640, AC-773, AC-774, AC-775, AC-776
+- Arquivos: apps/desktop/src-tauri/src/memory.rs, apps/desktop/src-tauri/src/main.rs, frontend/src/api/memory.ts, frontend/src/components/MemoryPanel.tsx
+- Notas: command boundary somente após actor/confirmation/trace, sem SQLite no frontend, confirmação explícita, audit metadata e rollback/version conflict visíveis.
+
+## T-737 — Documentar edição, aprovação e rollback e registrar verificação [pendente]
+
+- Refs: US-640, AC-773, AC-774, AC-775, AC-776
+- Arquivos: docs/memory-editing.md, .spec/verification/memory-core.json
+- Notas: workflow editorial, policy/capability, optimistic version, replay prevention, audit e privacy.
