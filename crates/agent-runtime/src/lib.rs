@@ -17,6 +17,7 @@ pub mod event_bus;
 pub mod execution;
 pub mod memory;
 pub mod memory_repo;
+pub mod memory_service;
 pub mod message_repo;
 pub mod migrations;
 pub mod project_archive_service;
