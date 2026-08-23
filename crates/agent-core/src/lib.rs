@@ -13,6 +13,7 @@ pub mod autonomy;
 pub mod budget;
 pub mod config;
 pub mod dedupe;
+pub mod embedding;
 pub mod error;
 pub mod importance;
 pub mod keyword;
@@ -36,6 +37,7 @@ pub use agent_protocol::{
 pub use autonomy::*;
 pub use budget::*;
 pub use dedupe::*;
+pub use embedding::*;
 pub use error::DomainError;
 pub use error::DomainResult;
 pub use importance::*;
