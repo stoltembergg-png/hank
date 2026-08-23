@@ -91,3 +91,21 @@
 - Refs: US-633, AC-745, AC-746, AC-747, AC-748
 - Arquivos: docs/memory-importance.md, .spec/verification/memory-core.json
 - Notas: fórmula, factors, thresholds, rollback e papel não autoritativo do modelo.
+
+## T-716 — Implementar dedupe scoped e determinístico [em-andamento]
+
+- Refs: US-634, AC-749, AC-750, AC-751, AC-752
+- Arquivos: crates/agent-core/src/dedupe.rs, crates/agent-core/src/lib.rs
+- Notas: normalização bounded, duplicate/conflict/new por projeto/agente/tipo/chave, sem similaridade vetorial.
+
+## T-717 — Cobrir dedupe, conflito e rollback [em-andamento]
+
+- Refs: US-634, AC-749, AC-750, AC-751, AC-752
+- Arquivos: crates/agent-core/tests/memory_dedupe_contract.rs
+- Notas: exact match, cross-project isolation, conflict reviewable, retry idempotente e rollback.
+
+## T-718 — Documentar dedupe e registrar verificação [pendente]
+
+- Refs: US-634, AC-749, AC-750, AC-751, AC-752
+- Arquivos: docs/memory-dedupe.md, .spec/verification/memory-core.json
+- Notas: equivalência, conflito, provenance, limites e rollback.
