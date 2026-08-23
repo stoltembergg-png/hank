@@ -31,6 +31,7 @@ export interface MemorySummary {
   provenance: MemoryProvenance;
   confidence: number;
   trace_id?: string | null;
+  version?: number;
   created_at: string;
   updated_at: string;
 }

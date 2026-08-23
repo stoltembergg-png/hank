@@ -165,7 +165,9 @@ pub fn command_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 
     tauri::generate_handler![
         submit_confirmation_request,
         approve_confirmation_request,
-        revoke_confirmation_request
+        revoke_confirmation_request,
+        crate::memory::list_memories,
+        crate::memory::mutate_memory
     ]
 }
 
