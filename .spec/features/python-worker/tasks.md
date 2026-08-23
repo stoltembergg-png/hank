@@ -44,23 +44,23 @@
 - Arquivos: .spec/verification/python-worker.json
 - Notas: prova CI no head exato registra exitCode 0 e AC-694..AC-698 PASS; o workflow verifica a feature e exige digest do artifact.
 
-## T-683 — Implementar SDK Python protocol-only [em-andamento]
+## T-683 — Implementar SDK Python protocol-only [concluida]
 
 - Refs: US-623, AC-699, AC-700, AC-701, AC-702, AC-703
 - Arquivos: python/sdk/__init__.py, python/sdk/client.py, python/sdk/errors.py
-- Notas: wrapper JSON-RPC com handshake, request/response, health, cancel notification e shutdown; sem subprocesso, tool registry ou persistência.
+- Notas: wrapper JSON-RPC com handshake, request/response, health, cancel notification e shutdown; sem subprocesso, tool registry ou persistência. Validado pelo contrato Python e pela evidência ONP de AC-699..AC-703.
 
-## T-684 — Cobrir SDK com contratos determinísticos [em-andamento]
+## T-684 — Cobrir SDK com contratos determinísticos [concluida]
 
 - Refs: US-623, AC-699, AC-700, AC-701, AC-702, AC-703
 - Arquivos: python/tests/test_sdk.py, test/python-sdk-contract.spec.test.js, tools/run-all-tests.mjs
-- Notas: streams framed in-memory, validação de contexto/IDs/payload, cancel/shutdown, erros redigidos e comando oficial do agregador.
+- Notas: streams framed in-memory, validação de contexto/IDs/payload, cancel/shutdown, erros redigidos e comando oficial do agregador; suíte direcionada e agregador passam sem dependência externa.
 
-## T-685 — Documentar SDK e registrar verificação [pendente]
+## T-685 — Documentar SDK e registrar verificação [concluida]
 
 - Refs: US-623, AC-699, AC-700, AC-701, AC-702, AC-703
 - Arquivos: docs/python-sdk.md, .spec/verification/python-worker.json
-- Notas: API, trust boundary, versionamento, limites, rollback e evidence por SHA.
+- Notas: API, trust boundary, versionamento, limites, rollback e evidence por SHA documentados em `docs/python-sdk.md`; `python-worker.json` registra PASS para AC-699..AC-703 no head integrado `46cbd62`.
 
 ## T-686 — Implementar registration adapter Python declarativo [em-andamento]
 
