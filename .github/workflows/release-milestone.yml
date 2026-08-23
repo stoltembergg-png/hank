@@ -153,7 +153,7 @@ jobs:
               echo 'release exists without stable tag; refusing reuse'
               exit 1
             fi
-            if [[ "$existing_release" =~ "status"[[:space:]]*:[[:space:]]*404 ]]; then
+            if printf '%s\n' "$existing_release" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"?404"?([[:space:]]|,|})'; then
               :
             else
               echo 'could not prove stable release is absent; refusing creation'
