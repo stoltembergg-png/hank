@@ -116,23 +116,23 @@
 - Arquivos: docs/python-environment.md, .spec/verification/python-worker.json
 - Notas: `docs/python-environment.md` documenta lifecycle do manifesto, lock, source policy, rollback e não instalação global; `python-worker.json` registra PASS para AC-715..AC-718 no head integrado `46cbd62`.
 
-## T-698 — Implementar matriz Python sobre evaluator comum [em-andamento]
+## T-698 — Implementar matriz Python sobre evaluator comum [concluida]
 
 - Refs: US-628, AC-727, AC-728, AC-729, AC-730
 - Arquivos: crates/tool-core/src/python_permissions.rs, crates/tool-core/src/lib.rs
-- Notas: capabilities FS/network/process/package, project scope, approval, budget e revoke; sem segundo evaluator.
+- Notas: implementado e integrado no PR #178 (`fe05d9a`); cobre capabilities FS/network/process/package, project scope, approval, budget e revoke sobre o evaluator comum, sem segundo evaluator.
 
-## T-699 — Cobrir policy Python com security matrix [em-andamento]
+## T-699 — Cobrir policy Python com security matrix [concluida]
 
 - Refs: US-628, AC-727, AC-728, AC-729, AC-730
 - Arquivos: crates/tool-core/tests/python_permissions_contract.rs
-- Notas: allow/deny default, capability ausente, approval ausente, cross-project, revoke e budget.
+- Notas: `python_permissions_contract.rs` cobre allow/deny default, capability ausente, approval ausente, cross-project, revoke e budget; contrato direcionado passou 2/2 no estado atual.
 
-## T-700 — Documentar permissões e registrar verificação [pendente]
+## T-700 — Documentar permissões e registrar verificação [concluida]
 
 - Refs: US-628, AC-727, AC-728, AC-729, AC-730
 - Arquivos: docs/python-permissions.md, .spec/verification/python-worker.json
-- Notas: capability matrix, threat boundary, evaluator comum, revocation, rollback e evidence por SHA.
+- Notas: `docs/python-permissions.md` documenta capability matrix, threat boundary, evaluator comum, revocation, rollback e evidence por SHA; `python-worker.json` registra PASS para AC-727..AC-730 no head integrado `46cbd62`.
 
 ## T-695 — Implementar captura e redação bounded [concluida]
 
