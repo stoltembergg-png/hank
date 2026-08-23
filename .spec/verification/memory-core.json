@@ -1,7 +1,7 @@
 {
   "feature": "memory-core",
-  "timestamp": "2026-08-23T17:47:37.730Z",
-  "gitRev": "3887abf",
+  "timestamp": "2026-08-23T22:07:05.000Z",
+  "gitRev": "2331bd5",
   "command": "node tools/run-all-tests.mjs",
   "reporter": "exitcode",
   "exitCode": 0,

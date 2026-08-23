@@ -218,8 +218,8 @@
 - Arquivos: apps/desktop/src-tauri/src/memory.rs, apps/desktop/src-tauri/src/main.rs, frontend/src/api/memory.ts, frontend/src/components/MemoryPanel.tsx
 - Notas: command boundary somente após actor/confirmation/trace, sem SQLite no frontend, confirmação explícita, audit metadata e rollback/version conflict visíveis. Bridge Tauri e controles UI validados por 7 testes frontend, 9 unitários desktop e 6 contratos Tauri.
 
-## T-737 — Documentar edição, aprovação e rollback e registrar verificação [pendente]
+## T-737 — Documentar edição, aprovação e rollback e registrar verificação [concluida]
 
 - Refs: US-640, AC-773, AC-774, AC-775, AC-776
 - Arquivos: docs/memory-editing.md, .spec/verification/memory-core.json
-- Notas: workflow editorial, policy/capability, optimistic version, replay prevention, audit e privacy.
+- Notas: workflow editorial, policy/capability, optimistic version, replay prevention, audit e privacy documentados em `docs/memory-editing.md`; `onp-spec verify memory-core` registra PASS para AC-773..AC-776 após a integração do bridge Tauri/UI (PR #210, SHA `2331bd5`).
