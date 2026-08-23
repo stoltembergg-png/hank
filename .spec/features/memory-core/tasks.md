@@ -110,23 +110,23 @@
 - Arquivos: docs/memory-dedupe.md, .spec/verification/memory-core.json
 - Notas: equivalência, conflito, provenance, limites e rollback; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-749..AC-752.
 
-## T-719 — Implementar keyword retrieval bounded [em-andamento]
+## T-719 — Implementar keyword retrieval bounded [concluida]
 
 - Refs: US-635, AC-753, AC-754, AC-755, AC-756
 - Arquivos: crates/agent-core/src/keyword.rs, crates/agent-core/src/lib.rs
-- Notas: tokens seguros, filtros project/agent/status, ranking deterministic, result/byte bounds e trace obrigatório.
+- Notas: tokens seguros, filtros project/agent/status, ranking deterministic, result/byte bounds e trace obrigatório; contrato Rust passou com 4/4 testes.
 
-## T-720 — Cobrir retrieval e isolamento [em-andamento]
+## T-720 — Cobrir retrieval e isolamento [concluida]
 
 - Refs: US-635, AC-753, AC-754, AC-755, AC-756
 - Arquivos: crates/agent-core/tests/memory_keyword_contract.rs
-- Notas: scope/status, terms oversized, duplicate identity, byte budget, trace e ranking.
+- Notas: scope/status, terms oversized, duplicate identity, byte budget, trace e ranking; contrato Rust passou com 4/4 testes.
 
-## T-721 — Documentar keyword retrieval e verificar [pendente]
+## T-721 — Documentar keyword retrieval e verificar [concluida]
 
 - Refs: US-635, AC-753, AC-754, AC-755, AC-756
 - Arquivos: docs/memory-keyword-retrieval.md, .spec/verification/memory-core.json
-- Notas: query contract, ranking, bounds, trust/provenance e rollback.
+- Notas: query contract, ranking, bounds, trust/provenance e rollback; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-753..AC-756.
 
 ## T-722 — Implementar interface provider-agnostic de embeddings [em-andamento]
 
