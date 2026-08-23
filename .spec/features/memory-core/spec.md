@@ -186,6 +186,35 @@ persistência, para reduzir redundância sem mesclar conteúdo divergente.
 - **Quando** dedupe é avaliado
 - **Então** rejeita input inválido ou retorna `New`, sem cruzar escopo
 
+### US-635 — Recuperar memória por keywords com policy
+
+Como Context Builder, quero buscar memórias por termos com filtros e limites,
+para que retrieval seja explicável, project-scoped e independente de vectors.
+
+#### AC-753 — Query retorna somente escopo e status permitidos
+
+- **Dado** records approved de projetos/agentes diferentes
+- **Quando** keyword query é executada
+- **Então** retorna somente o projeto/agente solicitado em ranking determinístico
+
+#### AC-754 — Archived e query oversized são bloqueados
+
+- **Dado** memória archived ou termos acima do limite
+- **Quando** retrieval é executado
+- **Então** archived não aparece e input oversized falha sem scan
+
+#### AC-755 — Duplicatas e budget de bytes são bounded
+
+- **Dado** IDs duplicados ou budget de bytes pequeno
+- **Quando** records são indexados/consultados
+- **Então** duplicata é rejeitada e resultados excedentes são truncados sem payload parcial
+
+#### AC-756 — Identity/trace ausentes falham fechadas
+
+- **Dado** query sem project identity ou trace
+- **Quando** retrieval é executado
+- **Então** retorna erro tipado sem consulta
+
 ## Fora de escopo
 
 - Repository e migrações;
