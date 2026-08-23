@@ -149,8 +149,14 @@ jobs:
             cmp "$RUNNER_TEMP/stable/release-manifest.json" "$RUNNER_TEMP/existing/release-manifest.json"
             echo 'matching stable release already exists; idempotent no-op'
           else
-            existing_release=$(gh api "repos/$REPOSITORY/releases/tags/$stable_tag" 2>/dev/null || true)
-            test -z "$existing_release" || { echo 'release exists without stable tag; refusing reuse'; exit 1; }
+            if existing_release=$(gh api "repos/$REPOSITORY/releases/tags/$stable_tag" 2>&1); then
+              echo 'release exists without stable tag; refusing reuse'
+              exit 1
+            fi
+            case "$existing_release" in
+              *'"status":404'*) ;;
+              *) echo 'could not prove stable release is absent; refusing creation'; exit 1 ;;
+            esac
             gh release create "$stable_tag" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe" \
