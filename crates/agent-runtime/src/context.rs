@@ -237,6 +237,7 @@ impl ContextBuilder {
 }
 
 pub mod basic;
+pub mod memory_selector;
 
 fn contains_forbidden_marker(value: &str) -> bool {
     let normalized = value.to_ascii_lowercase();

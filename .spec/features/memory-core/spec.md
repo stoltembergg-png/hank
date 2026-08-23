@@ -273,11 +273,43 @@ embeddings sem misturar tenants nem substituir repository/taxonomy.
 - **Quando** rebuild falha
 - **Então** o índice anterior permanece consultável sem perda
 
+### US-638 — Selecionar memória confiável dentro do contexto
+
+Como Context Builder, quero selecionar apenas memória aprovada, autorizada e
+project/agent-scoped dentro de um orçamento bounded, para que retrieval não
+vaze escopo nem permita que conteúdo não confiável override a hierarquia de
+instruções.
+
+#### AC-765 — Filtros de scope, status e policy ocorrem antes do ranking
+
+- **Dado** candidates de projetos/agentes diferentes, archived ou negados por policy/capability
+- **Quando** o selector recebe project, agent, trace e request autorizado
+- **Então** somente candidates approved e scoped passam ao ranking determinístico
+
+#### AC-766 — Budget, dedupe e ordering são bounded
+
+- **Dado** candidates duplicados com scores diferentes e budget de tokens limitado
+- **Quando** a seleção é executada
+- **Então** mantém o melhor candidate por chave, respeita o budget e retorna ordering explicável
+
+#### AC-767 — Conteúdo de memória permanece untrusted e injection não entra no contexto
+
+- **Dado** memória com prompt injection, secret-like marker ou instrução privilegiada
+- **Quando** a seleção é executada
+- **Então** omite o conteúdo, não o transforma em instrução e o caminho sem memória permanece seguro
+
+#### AC-768 — Identity, cancellation e invalid input falham fechadas
+
+- **Dado** trace ausente, candidate inválido, budget inválido ou request cancelado
+- **Quando** o selector é executado
+- **Então** retorna erro tipado sem seleção parcial, escrita ou efeito externo
+
 ## Fora de escopo
 
 - Repository e migrações;
 - extraction automática;
-- retrieval, embeddings e ranking;
+- Provider remoto e seleção de provider;
+- retrieval bruto fora do selector;
 - UI;
 - escrita automática pelo modelo;
 - execução de instruções contidas no conteúdo.
