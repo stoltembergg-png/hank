@@ -16,6 +16,7 @@ pub mod context;
 pub mod event_bus;
 pub mod execution;
 pub mod memory;
+pub mod memory_repo;
 pub mod message_repo;
 pub mod migrations;
 pub mod project_archive_service;
@@ -44,6 +45,7 @@ pub mod workflow_runtime;
 
 pub use agent_core::*;
 pub use agent_service::*;
+pub use memory_repo::*;
 pub use migrations::*;
 pub use project_archive_service::*;
 pub use project_query_service::*;

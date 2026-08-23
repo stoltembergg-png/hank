@@ -19,3 +19,21 @@
 - Refs: US-629, AC-731, AC-732, AC-733, AC-734
 - Arquivos: docs/memory-core.md, .spec/verification/memory-core.json
 - Notas: conteúdo não confiável, provenance, approval, isolamento, lifecycle e ausência de repository/retrieval.
+
+## T-704 — Implementar repository SQLite project-scoped [em-andamento]
+
+- Refs: US-630, AC-735, AC-736
+- Arquivos: crates/agent-runtime/src/memory_repo.rs, crates/agent-runtime/src/lib.rs, migrations/0006_memory_storage.sql
+- Notas: create/get/list active/archive com queries parametrizadas, foreign key project e optimistic version.
+
+## T-705 — Cobrir migration, isolamento e conflito de versão [em-andamento]
+
+- Refs: US-630, AC-735, AC-736
+- Arquivos: crates/agent-runtime/tests/memory_repository_contract.rs
+- Notas: CRUD scoped, archived invisível na lista ativa, duplicata e conflito sem mutação.
+
+## T-706 — Documentar repository e registrar verificação [pendente]
+
+- Refs: US-630, AC-735, AC-736
+- Arquivos: docs/memory-repository.md, .spec/verification/memory-core.json
+- Notas: transação, scope obrigatório, rollback, version conflict e não uso para retrieval.
