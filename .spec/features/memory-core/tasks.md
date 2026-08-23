@@ -109,3 +109,21 @@
 - Refs: US-634, AC-749, AC-750, AC-751, AC-752
 - Arquivos: docs/memory-dedupe.md, .spec/verification/memory-core.json
 - Notas: equivalência, conflito, provenance, limites e rollback.
+
+## T-719 — Implementar keyword retrieval bounded [em-andamento]
+
+- Refs: US-635, AC-753, AC-754, AC-755, AC-756
+- Arquivos: crates/agent-core/src/keyword.rs, crates/agent-core/src/lib.rs
+- Notas: tokens seguros, filtros project/agent/status, ranking deterministic, result/byte bounds e trace obrigatório.
+
+## T-720 — Cobrir retrieval e isolamento [em-andamento]
+
+- Refs: US-635, AC-753, AC-754, AC-755, AC-756
+- Arquivos: crates/agent-core/tests/memory_keyword_contract.rs
+- Notas: scope/status, terms oversized, duplicate identity, byte budget, trace e ranking.
+
+## T-721 — Documentar keyword retrieval e verificar [pendente]
+
+- Refs: US-635, AC-753, AC-754, AC-755, AC-756
+- Arquivos: docs/memory-keyword-retrieval.md, .spec/verification/memory-core.json
+- Notas: query contract, ranking, bounds, trust/provenance e rollback.
