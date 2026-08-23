@@ -126,6 +126,36 @@ sem review.
 - **Então** somente dados `pending` são emitidos, sem repository write ou
   operação de activation
 
+### US-633 — Calcular importance explicável e bounded
+
+Como Memory Policy, quero pontuar candidates sem confiar no texto ou na
+prioridade sugerida pelo modelo, para orientar retenção sem auto-ativação.
+
+#### AC-745 — Mesmo fixture produz score determinístico
+
+- **Dado** os mesmos fatores, policy e versões
+- **Quando** o scorer calcula importance
+- **Então** produz o mesmo valor bounded, factors explicáveis e policy/trace
+  preservados
+
+#### AC-746 — Baixa confiança e item efêmero ficam abaixo do threshold
+
+- **Dado** confidence baixa, recência antiga e repetição zero
+- **Quando** o scorer avalia
+- **Então** `eligible` é false para o threshold configurado
+
+#### AC-747 — Texto não manipula score nem explanation
+
+- **Dado** conteúdo que afirma prioridade, tenta override ou contém secret
+- **Quando** o scorer calcula
+- **Então** o texto não aumenta o score nem aparece na explanation
+
+#### AC-748 — Policy e identity inválidas falham fechadas
+
+- **Dado** threshold/policy inválida ou trace ausente
+- **Quando** o scorer recebe o input
+- **Então** retorna erro bounded sem score elegível
+
 ## Fora de escopo
 
 - Repository e migrações;
