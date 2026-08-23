@@ -42,6 +42,24 @@ persistentes sem validação ou aprovação.
 - **Quando** approval é solicitada sem restore
 - **Então** a transição nega sem alterar a versão ou o estado
 
+### US-630 — Persistir memória com isolamento project-scoped
+
+Como Agent Runtime, quero persistir memória com queries sempre vinculadas ao
+projeto, para que archive, dedupe e optimistic version não cruzem boundaries.
+
+#### AC-735 — CRUD e active list exigem project scope
+
+- **Dado** memória válida e projeto autorizado
+- **Quando** create, get ou list active são executados
+- **Então** a transação usa project scope obrigatório e memórias archived não
+  aparecem na lista ativa
+
+#### AC-736 — Duplicata e conflito de versão falham sem mutação
+
+- **Dado** memória já persistida ou versão esperada divergente
+- **Quando** create/ archive ocorre novamente
+- **Então** a operação falha sem duplicar ou alterar a versão persistida
+
 ## Fora de escopo
 
 - Repository e migrações;
