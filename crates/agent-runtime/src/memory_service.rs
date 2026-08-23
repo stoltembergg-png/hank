@@ -3,6 +3,8 @@
 use crate::memory_repo::SqliteMemoryRepository;
 use agent_core::DomainError;
 use agent_core::{Memory, MemoryId, ProjectId};
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone)]
 pub struct MemoryMutationContext {
@@ -30,11 +32,15 @@ pub enum MemoryEdit {
 #[derive(Clone)]
 pub struct MemoryMutationService {
     repository: SqliteMemoryRepository,
+    consumed_operations: Arc<Mutex<HashSet<String>>>,
 }
 
 impl MemoryMutationService {
     pub fn new(repository: SqliteMemoryRepository) -> Self {
-        Self { repository }
+        Self {
+            repository,
+            consumed_operations: Arc::new(Mutex::new(HashSet::new())),
+        }
     }
 
     pub async fn execute(
@@ -45,6 +51,19 @@ impl MemoryMutationService {
         edit: MemoryEdit,
     ) -> Result<Memory, DomainError> {
         validate_context(&context)?;
+        let operation_key = format!("{}:{}", context.project_id, context.operation_id);
+        if self
+            .consumed_operations
+            .lock()
+            .map_err(|_| {
+                DomainError::InvariantViolation("memory operation ledger poisoned".into())
+            })?
+            .contains(&operation_key)
+        {
+            return Err(DomainError::Duplicate(
+                "memory mutation operation already consumed".into(),
+            ));
+        }
         let mut memory = self
             .repository
             .get(&context.project_id, &memory_id)
@@ -85,6 +104,12 @@ impl MemoryMutationService {
             .validate()
             .map_err(|error| DomainError::Validation(error.to_string()))?;
         self.repository.update(&memory, expected_version).await?;
+        self.consumed_operations
+            .lock()
+            .map_err(|_| {
+                DomainError::InvariantViolation("memory operation ledger poisoned".into())
+            })?
+            .insert(operation_key);
         self.repository
             .get(&context.project_id, &memory_id)
             .await?

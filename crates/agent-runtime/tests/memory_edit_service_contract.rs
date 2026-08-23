@@ -175,9 +175,12 @@ async fn reject_is_explicit_and_duplicate_operation_is_not_replayed() {
         .unwrap();
     assert_eq!(first.status, agent_core::MemoryStatus::Rejected);
     let duplicate = service
-        .execute(context(project), id, 1, MemoryEdit::Reject)
+        .execute(context(project), id, 2, MemoryEdit::Reject)
         .await;
-    assert!(duplicate.is_err());
+    assert!(matches!(
+        duplicate,
+        Err(agent_core::DomainError::Duplicate(_))
+    ));
     assert_eq!(
         repo.get(&project, &id).await.unwrap().unwrap().status,
         agent_core::MemoryStatus::Rejected
