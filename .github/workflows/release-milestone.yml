@@ -153,10 +153,12 @@ jobs:
               echo 'release exists without stable tag; refusing reuse'
               exit 1
             fi
-            case "$existing_release" in
-              *'"status":404'*) ;;
-              *) echo 'could not prove stable release is absent; refusing creation'; exit 1 ;;
-            esac
+            if [[ "$existing_release" =~ "status"[[:space:]]*:[[:space:]]*404 ]]; then
+              :
+            else
+              echo 'could not prove stable release is absent; refusing creation'
+              exit 1
+            fi
             gh release create "$stable_tag" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe" \

@@ -178,6 +178,6 @@ test('AC-778: milestone release workflow is explicit and sources the version map
   assert.match(workflow, /if test -z "\$published_ref"/);
   assert.match(workflow, /if test -z "\$tag_ref"/);
   assert.match(workflow, /could not prove stable release is absent/);
-  assert.match(workflow, /status.*404/);
+  assert.match(workflow, /\[\[ "\$existing_release" =~ "status"\[\[:space:\]\]\*:\[\[:space:\]\]\*404 \]\]/);
   assert.doesNotMatch(workflow, /push:/);
 });
