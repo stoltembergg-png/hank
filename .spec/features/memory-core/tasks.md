@@ -56,23 +56,23 @@
 - Arquivos: docs/memory-taxonomy.md, .spec/verification/memory-core.json
 - Notas: semântica, retention/importance hints, trust boundary e evolução de versão; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-737..AC-740.
 
-## T-710 — Implementar extractor de candidates data-only [em-andamento]
+## T-710 — Implementar extractor de candidates data-only [concluida]
 
 - Refs: US-632, AC-741, AC-742, AC-743, AC-744
 - Arquivos: crates/agent-core/src/memory_candidate.rs, crates/agent-core/src/lib.rs
-- Notas: valida project/session/source/taxonomy/confidence, produz Pending e não depende de repository.
+- Notas: valida project/session/source/taxonomy/confidence, produz Pending e não depende de repository; contrato Rust passou com 4/4 testes.
 
-## T-711 — Cobrir extractor e rejeições de segurança [em-andamento]
+## T-711 — Cobrir extractor e rejeições de segurança [concluida]
 
 - Refs: US-632, AC-741, AC-742, AC-743, AC-744
 - Arquivos: crates/agent-core/tests/memory_candidate_contract.rs
-- Notas: identidade/provenance, bounds, injection, secret-like content e ausência de auto-activation.
+- Notas: identidade/provenance, bounds, injection, secret-like content e ausência de auto-activation; contrato Rust passou com 4/4 testes.
 
-## T-712 — Documentar pipeline candidate e verificar [pendente]
+## T-712 — Documentar pipeline candidate e verificar [concluida]
 
 - Refs: US-632, AC-741, AC-742, AC-743, AC-744
 - Arquivos: docs/memory-candidates.md, .spec/verification/memory-core.json
-- Notas: conversation→candidate, trust model, review required e rollback.
+- Notas: conversation→candidate, trust model, review required e rollback; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-741..AC-744.
 
 ## T-713 — Implementar scorer de importance versionado [em-andamento]
 
