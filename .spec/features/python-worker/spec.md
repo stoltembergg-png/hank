@@ -264,25 +264,25 @@ para que dependências tenham lock, source policy e rollback sem mutar o host.
 Como Security Boundary, quero uma matriz Python específica sobre o evaluator
 comum, para impedir escalada de FS, rede, processo ou package.
 
-#### AC-723 — Capabilities declaradas exigem aprovação e budget
+#### AC-727 — Capabilities declaradas exigem aprovação e budget
 
 - **Dado** capability Python declarada, approval válida e budget disponível
 - **Quando** a policy avalia o request
 - **Então** permite apenas a capability explicitamente declarada
 
-#### AC-724 — Capability ausente ou approval ausente nega
+#### AC-728 — Capability ausente ou approval ausente nega
 
 - **Dado** capability não declarada ou sem approval
 - **Quando** o request é avaliado
 - **Então** a decisão é deny e nenhuma execução ocorre
 
-#### AC-725 — Project scope e revoke são obrigatórios
+#### AC-729 — Project scope e revoke são obrigatórios
 
 - **Dado** request cross-project ou policy revogada
 - **Quando** a policy avalia o request
 - **Então** nega com razão tipada e bounded
 
-#### AC-726 — Package/process/network também são deny-default
+#### AC-730 — Package/process/network também são deny-default
 
 - **Dado** request Python para package install, processo ou rede
 - **Quando** não houver declaration, approval e budget válidos

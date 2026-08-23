@@ -16,7 +16,7 @@ fn request(project: ProjectId, capability: PythonCapability) -> PythonPermission
     }
 }
 
-// @spec:AC-719 @spec:AC-720
+// @spec:AC-727 @spec:AC-728
 #[test]
 fn python_capability_matrix_allows_only_declared_approved_budgeted_access() {
     let project = ProjectId::new();
@@ -38,7 +38,7 @@ fn python_capability_matrix_allows_only_declared_approved_budgeted_access() {
     );
 }
 
-// @spec:AC-721 @spec:AC-722
+// @spec:AC-729 @spec:AC-730
 #[test]
 fn python_policy_rejects_cross_project_revoke_and_budget_exhaustion() {
     let project = ProjectId::new();

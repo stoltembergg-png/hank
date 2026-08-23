@@ -118,19 +118,19 @@
 
 ## T-698 — Implementar matriz Python sobre evaluator comum [em-andamento]
 
-- Refs: US-628, AC-723, AC-724, AC-725, AC-726
+- Refs: US-628, AC-727, AC-728, AC-729, AC-730
 - Arquivos: crates/tool-core/src/python_permissions.rs, crates/tool-core/src/lib.rs
 - Notas: capabilities FS/network/process/package, project scope, approval, budget e revoke; sem segundo evaluator.
 
 ## T-699 — Cobrir policy Python com security matrix [em-andamento]
 
-- Refs: US-628, AC-723, AC-724, AC-725, AC-726
+- Refs: US-628, AC-727, AC-728, AC-729, AC-730
 - Arquivos: crates/tool-core/tests/python_permissions_contract.rs
 - Notas: allow/deny default, capability ausente, approval ausente, cross-project, revoke e budget.
 
 ## T-700 — Documentar permissões e registrar verificação [pendente]
 
-- Refs: US-628, AC-723, AC-724, AC-725, AC-726
+- Refs: US-628, AC-727, AC-728, AC-729, AC-730
 - Arquivos: docs/python-permissions.md, .spec/verification/python-worker.json
 - Notas: capability matrix, threat boundary, evaluator comum, revocation, rollback e evidence por SHA.
 
