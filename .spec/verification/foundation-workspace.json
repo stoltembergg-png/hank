@@ -2,7 +2,7 @@
   "feature": "foundation-workspace",
   "timestamp": "2026-08-20T00:24:26.056Z",
   "gitRev": "5904c7a",
-  "command": "node tools/run-all-tests.mjs",
+  "command": "cargo test -p test-support --lib --locked",
   "reporter": "exitcode",
   "exitCode": 0,
   "testsParsed": 0,
