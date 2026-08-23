@@ -1,0 +1,242 @@
+{
+  "feature": "memory-core",
+  "timestamp": "2026-08-23T17:47:37.730Z",
+  "gitRev": "3887abf",
+  "command": "node tools/run-all-tests.mjs",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-731": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-732": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-733": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-734": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-735": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-736": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-737": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-738": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-739": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-740": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-741": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-742": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-743": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-744": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-745": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-746": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-747": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-748": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-749": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-750": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-751": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-752": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-753": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-754": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-755": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-756": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-757": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-758": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-759": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-760": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-761": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-762": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-763": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-764": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-765": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-766": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-767": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-768": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-769": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-770": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-771": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-772": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-773": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-774": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-775": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-776": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}
