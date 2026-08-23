@@ -182,23 +182,23 @@
 - Arquivos: docs/memory-selector.md, .spec/verification/memory-core.json
 - Notas: filtros antes do ranking, trust/provenance, ordering, budgets, omission reasons, failure behavior e ausência de write/activation; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-765..AC-768.
 
-## T-731 — Implementar contrato e bridge project-scoped de memória [em-andamento]
+## T-731 — Implementar contrato e bridge project-scoped de memória [concluida]
 
 - Refs: US-639, AC-769, AC-772
 - Arquivos: frontend/src/types/memory.ts, frontend/src/api/memory.ts
-- Notas: request exige project_id, bridge Tauri é opcional, fallback browser é vazio e não existe acesso direto a SQLite/localStorage.
+- Notas: request exige project_id, bridge Tauri é opcional, fallback browser é vazio e não existe acesso direto a SQLite/localStorage; contrato frontend validado com 4/4 testes.
 
-## T-732 — Implementar painel read-only de memória no detalhe do projeto [em-andamento]
+## T-732 — Implementar painel read-only de memória no detalhe do projeto [concluida]
 
 - Refs: US-639, AC-769, AC-770, AC-771, AC-772
 - Arquivos: frontend/src/components/MemoryPanel.tsx, frontend/src/components/MemoryPanel.css, frontend/src/components/ProjectDetailView.tsx
-- Notas: cards project-scoped, lifecycle/provenance/scores/trace, filtros status/type, redaction/truncation, loading/error/empty e nenhuma edição/activation.
+- Notas: cards project-scoped, lifecycle/provenance/scores/trace, filtros status/type, redaction/truncation, loading/error/empty e nenhuma edição/activation; contrato frontend validado com 4/4 testes.
 
-## T-733 — Cobrir UI de memória e registrar verificação [pendente]
+## T-733 — Cobrir UI de memória e registrar verificação [concluida]
 
 - Refs: US-639, AC-769, AC-770, AC-771, AC-772
 - Arquivos: frontend/tests/memory_panel_contract.test.tsx, docs/memory-ui.md, .spec/verification/memory-core.json
-- Notas: bridge request, foreign-project filtering, escaping, secret redaction, bounded preview, status/provenance, filters, accessibility e E2E aplicável.
+- Notas: bridge request, foreign-project filtering, escaping, secret redaction, bounded preview, status/provenance, filters, accessibility e E2E aplicável; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-769..AC-772.
 
 ## T-734 — Implementar serviço explícito de mutations project/version-scoped [em-andamento]
 
