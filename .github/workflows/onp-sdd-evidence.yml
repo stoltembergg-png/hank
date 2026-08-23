@@ -137,6 +137,9 @@ jobs:
       - name: Verify python worker
         run: node tools/ci/run-onp-spec.mjs verify python-worker
 
+      - name: Verify memory core
+        run: node tools/ci/run-onp-spec.mjs verify memory-core
+
       - name: Verify json-rpc transport
         run: node tools/ci/run-onp-spec.mjs verify json-rpc-transport
 
