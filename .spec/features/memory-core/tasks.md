@@ -164,23 +164,23 @@
 - Arquivos: docs/memory-vector-retrieval.md, .spec/verification/memory-core.json
 - Notas: lifecycle, privacy, rollback, limits e independência de provider remoto; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-761..AC-764.
 
-## T-728 — Implementar selector de memória policy-first e bounded [em-andamento]
+## T-728 — Implementar selector de memória policy-first e bounded [concluida]
 
 - Refs: US-638, AC-765, AC-766, AC-767, AC-768
 - Arquivos: crates/agent-runtime/src/context/memory_selector.rs, crates/agent-runtime/src/context.rs
-- Notas: selector read-only recebe candidates carregados, filtra project/agent/status/policy/capability antes do ranking, mantém memória untrusted, aplica budget/dedupe e não acessa SQLite/UI/provider.
+- Notas: selector read-only recebe candidates carregados, filtra project/agent/status/policy/capability antes do ranking, mantém memória untrusted, aplica budget/dedupe e não acessa SQLite/UI/provider; implementação existente validada pelo contrato Rust com 4/4 testes.
 
-## T-729 — Cobrir seleção, isolamento, budget e rejeições [em-andamento]
+## T-729 — Cobrir seleção, isolamento, budget e rejeições [concluida]
 
 - Refs: US-638, AC-765, AC-766, AC-767, AC-768
 - Arquivos: crates/agent-runtime/tests/memory_selector_contract.rs
-- Notas: project/agent scope, archived/policy denial, deterministic ranking, duplicate key, token budget, injection/secret-like content, empty path, trace e cancellation.
+- Notas: project/agent scope, archived/policy denial, deterministic ranking, duplicate key, token budget, injection/secret-like content, empty path, trace e cancellation; contrato Rust passou com 4/4 testes.
 
-## T-730 — Documentar selector e registrar verificação [pendente]
+## T-730 — Documentar selector e registrar verificação [concluida]
 
 - Refs: US-638, AC-765, AC-766, AC-767, AC-768
 - Arquivos: docs/memory-selector.md, .spec/verification/memory-core.json
-- Notas: filtros antes do ranking, trust/provenance, ordering, budgets, omission reasons, failure behavior e ausência de write/activation.
+- Notas: filtros antes do ranking, trust/provenance, ordering, budgets, omission reasons, failure behavior e ausência de write/activation; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-765..AC-768.
 
 ## T-731 — Implementar contrato e bridge project-scoped de memória [em-andamento]
 
