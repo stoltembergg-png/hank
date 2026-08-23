@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ProjectApiClient, defaultProjectApi } from '../api/projects';
 import { ProjectSummary, ProjectStatus } from '../types/project';
+import { MemoryPanel } from './MemoryPanel';
 import './ProjectDetailView.css';
 
 export interface ProjectDetailViewProps {
@@ -321,6 +322,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           )}
         </div>
       )}
+
+      <MemoryPanel projectId={project.id} />
 
       {showArchiveConfirm && (
         <div

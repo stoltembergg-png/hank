@@ -1,0 +1,88 @@
+.memory-panel {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 0.75rem;
+  background: var(--panel-background, #fff);
+}
+
+.memory-panel-header,
+.memory-card-header,
+.memory-panel-filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.memory-panel-header h3 {
+  margin: 0;
+}
+
+.memory-panel-scope {
+  margin: 0.25rem 0 0;
+  color: #4b5563;
+  font-size: 0.875rem;
+}
+
+.memory-panel-filters {
+  justify-content: flex-start;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+
+.memory-panel-filters label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.memory-panel select,
+.memory-panel button {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.memory-list {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.memory-card {
+  padding: 0.8rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+}
+
+.memory-status {
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: #e5e7eb;
+  font-size: 0.75rem;
+}
+
+.memory-status.approved { background: #dcfce7; color: #166534; }
+.memory-status.candidate { background: #fef3c7; color: #92400e; }
+.memory-status.archived,
+.memory-status.rejected { background: #fee2e2; color: #991b1b; }
+
+.memory-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 8rem;
+  overflow: hidden;
+}
+
+.memory-metadata {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.memory-metadata dt { color: #4b5563; }
+.memory-metadata dd { margin: 0; overflow-wrap: anywhere; }

@@ -304,13 +304,43 @@ instruções.
 - **Quando** o selector é executado
 - **Então** retorna erro tipado sem seleção parcial, escrita ou efeito externo
 
+### US-639 — Inspecionar memória project-scoped na interface
+
+Como operador do projeto, quero revisar memórias recuperadas por projeto e
+lifecycle antes de qualquer edição, para identificar provenance incorreta,
+injection ou conteúdo arquivado sem acessar storage diretamente.
+
+#### AC-769 — A UI consulta e renderiza somente o projeto selecionado
+
+- **Dado** project identity selecionada e resposta contendo records de projetos diferentes
+- **Quando** a tela de memória carrega ou troca de projeto
+- **Então** o request carrega `project_id` e nenhum record foreign-project é renderizado
+
+#### AC-770 — Lifecycle, provenance, scores e trace são visíveis
+
+- **Dado** candidates approved, candidate e archived
+- **Quando** os cards são renderizados
+- **Então** status distingue candidate de active e exibe type, provenance, confidence, importance e trace
+
+#### AC-771 — Conteúdo é seguro, bounded e não persistido no browser
+
+- **Dado** conteúdo com HTML, injection, secret-like marker ou tamanho grande
+- **Quando** a UI exibe a prévia
+- **Então** React escapa, valores secret-like são redacted, a prévia é truncada e não usa localStorage/SQLite
+
+#### AC-772 — Filtros, loading, erro e acessibilidade são explícitos
+
+- **Dado** filtros de status/tipo, carregamento, resposta vazia ou falha da API
+- **Quando** o usuário interage com a tela
+- **Então** estados são anunciados, filtros são bounded e a interface permanece navegável por controles sem editar memória
+
 ## Fora de escopo
 
 - Repository e migrações;
 - extraction automática;
 - Provider remoto e seleção de provider;
 - retrieval bruto fora do selector;
-- UI;
+- edição e escrita de memória pela UI;
 - escrita automática pelo modelo;
 - execução de instruções contidas no conteúdo.
 

@@ -181,3 +181,21 @@
 - Refs: US-638, AC-765, AC-766, AC-767, AC-768
 - Arquivos: docs/memory-selector.md, .spec/verification/memory-core.json
 - Notas: filtros antes do ranking, trust/provenance, ordering, budgets, omission reasons, failure behavior e ausência de write/activation.
+
+## T-731 — Implementar contrato e bridge project-scoped de memória [em-andamento]
+
+- Refs: US-639, AC-769, AC-772
+- Arquivos: frontend/src/types/memory.ts, frontend/src/api/memory.ts
+- Notas: request exige project_id, bridge Tauri é opcional, fallback browser é vazio e não existe acesso direto a SQLite/localStorage.
+
+## T-732 — Implementar painel read-only de memória no detalhe do projeto [em-andamento]
+
+- Refs: US-639, AC-769, AC-770, AC-771, AC-772
+- Arquivos: frontend/src/components/MemoryPanel.tsx, frontend/src/components/MemoryPanel.css, frontend/src/components/ProjectDetailView.tsx
+- Notas: cards project-scoped, lifecycle/provenance/scores/trace, filtros status/type, redaction/truncation, loading/error/empty e nenhuma edição/activation.
+
+## T-733 — Cobrir UI de memória e registrar verificação [pendente]
+
+- Refs: US-639, AC-769, AC-770, AC-771, AC-772
+- Arquivos: frontend/tests/memory_panel_contract.test.tsx, docs/memory-ui.md, .spec/verification/memory-core.json
+- Notas: bridge request, foreign-project filtering, escaping, secret redaction, bounded preview, status/provenance, filters, accessibility e E2E aplicável.
