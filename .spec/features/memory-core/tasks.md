@@ -74,23 +74,23 @@
 - Arquivos: docs/memory-candidates.md, .spec/verification/memory-core.json
 - Notas: conversation→candidate, trust model, review required e rollback; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-741..AC-744.
 
-## T-713 — Implementar scorer de importance versionado [em-andamento]
+## T-713 — Implementar scorer de importance versionado [concluida]
 
 - Refs: US-633, AC-745, AC-746, AC-747, AC-748
 - Arquivos: crates/agent-core/src/importance.rs, crates/agent-core/src/lib.rs
-- Notas: score determinístico por confidence/recency/repetition/type/source, threshold bounded, policy/trace e content excluído.
+- Notas: score determinístico por confidence/recency/repetition/type/source, threshold bounded, policy/trace e content excluído; contrato Rust passou com 4/4 testes.
 
-## T-714 — Cobrir scoring e manipulação de conteúdo [em-andamento]
+## T-714 — Cobrir scoring e manipulação de conteúdo [concluida]
 
 - Refs: US-633, AC-745, AC-746, AC-747, AC-748
 - Arquivos: crates/agent-core/tests/memory_importance_contract.rs
-- Notas: determinismo, threshold, injection/secret, policy inválida e identity.
+- Notas: determinismo, threshold, injection/secret, policy inválida e identity; contrato Rust passou com 4/4 testes.
 
-## T-715 — Documentar importance e registrar verificação [pendente]
+## T-715 — Documentar importance e registrar verificação [concluida]
 
 - Refs: US-633, AC-745, AC-746, AC-747, AC-748
 - Arquivos: docs/memory-importance.md, .spec/verification/memory-core.json
-- Notas: fórmula, factors, thresholds, rollback e papel não autoritativo do modelo.
+- Notas: fórmula, factors, thresholds, rollback e papel não autoritativo do modelo; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-745..AC-748.
 
 ## T-716 — Implementar dedupe scoped e determinístico [em-andamento]
 
