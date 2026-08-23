@@ -120,7 +120,7 @@ jobs:
             sed -n '/^## Changelog/,$p' "$RUNNER_TEMP/prerelease/RELEASE_NOTES.md"
           } > "$RUNNER_TEMP/stable/RELEASE_NOTES.md"
           printf '%s\n' "Download the Windows installer or archive. Verify manifest.sha256 and SHA256SUMS, confirm exact commit ${{ needs.verify.outputs.sha }}, then run the documented checks." > "$RUNNER_TEMP/stable/TEST_INSTRUCTIONS.md"
-          (cd "$RUNNER_TEMP/stable" && sha256sum * > SHA256SUMS && sha256sum release-manifest.json > manifest.sha256)
+          (cd "$RUNNER_TEMP/stable" && sha256sum -- * > SHA256SUMS && sha256sum release-manifest.json > manifest.sha256)
 
       - name: Publish or verify idempotent stable release
         env:
