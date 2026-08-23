@@ -1,0 +1,180 @@
+name: Publish stable milestone release
+
+on:
+  workflow_dispatch:
+    inputs:
+      prerelease_tag:
+        description: Validated prerelease tag to promote (for example v0.3.0-dev.<sha>)
+        required: true
+        type: string
+      stable_version:
+        description: Stable SemVer configured for the milestone
+        required: true
+        type: string
+      milestone:
+        description: Milestone identifier from release-milestones.json
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-milestone-${{ inputs.stable_version }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify validated prerelease
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.identity.outputs.sha }}
+    steps:
+      - name: Checkout prerelease commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ inputs.prerelease_tag }}
+
+      - name: Verify milestone mapping and release identity
+        id: identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PRERELEASE_TAG: ${{ inputs.prerelease_tag }}
+          STABLE_VERSION: ${{ inputs.stable_version }}
+          MILESTONE: ${{ inputs.milestone }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$PRERELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-dev\.[0-9a-f]{40}$ ]]
+          [[ "$MILESTONE" =~ ^M[0-9]+(-M[0-9]+)?$ ]]
+          stableVersion=$(node tools/release-prerelease.mjs milestone-version --milestone "$MILESTONE")
+          test "$stableVersion" = "$STABLE_VERSION"
+          sha=$(git rev-parse HEAD)
+          release=$(gh api "repos/$REPOSITORY/releases/tags/$PRERELEASE_TAG")
+          test "$(printf '%s' "$release" | jq -r .prerelease)" = true
+          test "$(printf '%s' "$release" | jq -r .target_commitish)" = "$sha"
+          published_ref=$(git ls-remote --tags origin "refs/tags/$PRERELEASE_TAG^{}" | awk '{print $1}')
+          test "$published_ref" = "$sha"
+          mkdir -p "$RUNNER_TEMP/prerelease"
+          gh release download "$PRERELEASE_TAG" --pattern release-manifest.json --pattern manifest.sha256 --dir "$RUNNER_TEMP/prerelease"
+          (cd "$RUNNER_TEMP/prerelease" && sha256sum -c manifest.sha256)
+          node tools/release-prerelease.mjs promote-manifest \
+            --input "$RUNNER_TEMP/prerelease/release-manifest.json" \
+            --version "$STABLE_VERSION" \
+            --milestone "$MILESTONE" \
+            --output "$RUNNER_TEMP/prerelease/stable-manifest.json"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  promote:
+    name: Publish stable milestone release
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout prerelease commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ inputs.prerelease_tag }}
+
+      - name: Prepare stable assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE_TAG: ${{ inputs.prerelease_tag }}
+          STABLE_VERSION: ${{ inputs.stable_version }}
+          MILESTONE: ${{ inputs.milestone }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/prerelease" "$RUNNER_TEMP/stable"
+          gh release download "$PRERELEASE_TAG" \
+            --pattern "hank-${PRERELEASE_TAG}.tar.gz" \
+            --pattern "hank-${PRERELEASE_TAG}-setup.exe" \
+            --pattern RELEASE_NOTES.md \
+            --pattern release-manifest.json \
+            --dir "$RUNNER_TEMP/prerelease"
+          stable_tag="v$STABLE_VERSION"
+          mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}.tar.gz" "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz"
+          mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}-setup.exe" "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe"
+          node tools/release-prerelease.mjs promote-manifest \
+            --input "$RUNNER_TEMP/prerelease/release-manifest.json" \
+            --version "$STABLE_VERSION" \
+            --milestone "$MILESTONE" \
+            --output "$RUNNER_TEMP/stable/release-manifest.json"
+          {
+            echo "# $stable_tag"
+            echo
+            echo "**Stable milestone release — $MILESTONE.**"
+            echo
+            echo "- Promoted from validated prerelease: \`$PRERELEASE_TAG\`"
+            echo "- Exact main commit: \`${{ needs.verify.outputs.sha }}\`"
+            echo
+            sed -n '/^## Changelog/,$p' "$RUNNER_TEMP/prerelease/RELEASE_NOTES.md"
+          } > "$RUNNER_TEMP/stable/RELEASE_NOTES.md"
+          printf '%s\n' "Download the Windows installer or archive. Verify manifest.sha256 and SHA256SUMS, confirm exact commit ${{ needs.verify.outputs.sha }}, then run the documented checks." > "$RUNNER_TEMP/stable/TEST_INSTRUCTIONS.md"
+          (cd "$RUNNER_TEMP/stable" && sha256sum * > SHA256SUMS && sha256sum release-manifest.json > manifest.sha256)
+
+      - name: Publish or verify idempotent stable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          STABLE_VERSION: ${{ inputs.stable_version }}
+          MILESTONE: ${{ inputs.milestone }}
+          SHA: ${{ needs.verify.outputs.sha }}
+        run: |
+          set -euo pipefail
+          stable_tag="v$STABLE_VERSION"
+          tag_ref=$(git ls-remote --tags origin "refs/tags/$stable_tag^{}" | awk '{print $1}')
+          if test -n "$tag_ref"; then
+            test "$tag_ref" = "$SHA"
+            release=$(gh api "repos/$REPOSITORY/releases/tags/$stable_tag")
+            test "$(printf '%s' "$release" | jq -r .prerelease)" = false
+            test "$(printf '%s' "$release" | jq -r .target_commitish)" = "$SHA"
+            mkdir -p "$RUNNER_TEMP/existing"
+            gh release download "$stable_tag" --pattern release-manifest.json --dir "$RUNNER_TEMP/existing"
+            cmp "$RUNNER_TEMP/stable/release-manifest.json" "$RUNNER_TEMP/existing/release-manifest.json"
+            echo 'matching stable release already exists; idempotent no-op'
+          else
+            existing_release=$(gh api "repos/$REPOSITORY/releases/tags/$stable_tag" 2>/dev/null || true)
+            test -z "$existing_release" || { echo 'release exists without stable tag; refusing reuse'; exit 1; }
+            gh release create "$stable_tag" \
+              "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz" \
+              "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe" \
+              "$RUNNER_TEMP/stable/RELEASE_NOTES.md" \
+              "$RUNNER_TEMP/stable/TEST_INSTRUCTIONS.md" \
+              "$RUNNER_TEMP/stable/SHA256SUMS" \
+              "$RUNNER_TEMP/stable/release-manifest.json" \
+              "$RUNNER_TEMP/stable/manifest.sha256" \
+              --target "$SHA" --title "Hank $stable_tag — $MILESTONE" --notes-file "$RUNNER_TEMP/stable/RELEASE_NOTES.md"
+          fi
+
+      - name: Verify stable publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          STABLE_VERSION: ${{ inputs.stable_version }}
+          SHA: ${{ needs.verify.outputs.sha }}
+        run: |
+          set -euo pipefail
+          stable_tag="v$STABLE_VERSION"
+          published_ref=$(git ls-remote --tags origin "refs/tags/$stable_tag^{}" | awk '{print $1}')
+          test "$published_ref" = "$SHA"
+          release=$(gh api "repos/$REPOSITORY/releases/tags/$stable_tag")
+          test "$(printf '%s' "$release" | jq -r .prerelease)" = false
+          test "$(printf '%s' "$release" | jq -r .target_commitish)" = "$SHA"
+          {
+            echo "### Published stable milestone release"
+            echo "- Tag: $stable_tag"
+            echo "- Milestone: ${{ inputs.milestone }}"
+            echo "- Exact main commit: $SHA"
+            echo "- Prerelease: false"
+            echo "- Tag overwrite: prohibited"
+          } >> "$GITHUB_STEP_SUMMARY"

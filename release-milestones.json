@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "active": {
+    "milestone": "M5-M6",
+    "version": "0.3.0",
+    "title": "Agent Tools + Python Runtime"
+  },
+  "milestones": [
+    { "id": "M0-M2", "version": "0.1.0", "title": "Engineering Foundation + Core + Agent Domain" },
+    { "id": "M3-M4", "version": "0.2.0", "title": "Provider System + Single-Agent Chat" },
+    { "id": "M5-M6", "version": "0.3.0", "title": "Agent Tools + Python Runtime" },
+    { "id": "M7-M8", "version": "0.4.0", "title": "Memory + Skills" },
+    { "id": "M9", "version": "0.5.0", "title": "Multi-Agent" },
+    { "id": "M10-M11", "version": "0.6.0", "title": "Workflows + Scheduler" },
+    { "id": "M12", "version": "0.7.0", "title": "Development Agents" },
+    { "id": "M13", "version": "0.8.0", "title": "Controlled Self-Evolution" },
+    { "id": "M14-M15", "version": "0.9.0", "title": "Plugins + MCP + Remote Runtime" },
+    { "id": "M16", "version": "1.0.0", "title": "Production Hardening" }
+  ],
+  "promotion": {
+    "mode": "manual",
+    "source": "validated-prerelease",
+    "stableTag": "v<version>"
+  }
+}

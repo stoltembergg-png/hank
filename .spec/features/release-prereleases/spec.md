@@ -65,9 +65,27 @@ Como mantenedor, quero classificar alterações e restringir permissões, para e
 - **Quando** alguém solicita rollback
 - **Então** o plano identifica tag, release e SHA exatos, exige aprovação explícita e nunca apaga silenciosamente estado remoto
 
+### US-604 — Promoção explícita de milestone
+
+Como mantenedor, quero promover uma prerelease já validada para o milestone correspondente, para que a versão estável avance de acordo com o roadmap sem seleção automática ou reutilização de artefatos incorretos.
+
+#### AC-632 — Manifesto estável com proveniência preservada
+
+- **Dado** um manifesto de prerelease com tag, commit e árvore completos
+- **Quando** a promoção recebe a versão estável e o identificador do milestone
+- **Então** converte somente a combinação exata `v<versão>-dev.<SHA>` em `v<versão>`, marca `stable: true`, preserva o SHA e registra a tag de origem
+- **E** rejeita versão divergente, manifesto já estável, identidade incompleta ou milestone inválido
+
+#### AC-633 — Workflow manual de promoção fail-closed
+
+- **Dado** uma prerelease publicada e aprovada pelos checks pós-merge
+- **Quando** um operador dispara `release-milestone.yml` com tag, versão e milestone
+- **Então** o workflow valida o mapeamento versionado, o release prerelease, o commit exato, os hashes e publica uma única release estável com `contents: write`
+- **E** não possui gatilho `push`, não sobrescreve tag e é idempotente somente quando release, commit e manifesto coincidem
+
 ## Fora de escopo
 
-- Release estável automática ou criação de milestone de produto.
+- Seleção automática de milestone, bump automático de versão ou promoção estável sem ação explícita do operador.
 - Assinatura criptográfica, notarização e distribuição por lojas.
 - Publicação automática de documentação, CI ou dependências sem política habilitada.
 
@@ -82,4 +100,4 @@ Como mantenedor, quero classificar alterações e restringir permissões, para e
 
 | ID | Pergunta | Status | Resposta |
 |---|---|---|---|
-| Q-604 | Qual marco de produto autoriza release estável? | respondida | Nenhum marco automático nesta feature; stable permanece explicitamente fora do workflow. |
+| Q-604 | Qual marco de produto autoriza release estável? | respondida | O mapa versionado em `release-milestones.json` associa M0–M2 a v0.1.0, M3–M4 a v0.2.0 e M5–M6 a v0.3.0; a promoção exige `workflow_dispatch` explícito com a combinação correspondente. |

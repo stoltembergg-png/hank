@@ -13,7 +13,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BASE_VERSION: 0.1.0
   REQUIRED_POST_MERGE_CHECKS: Build Frontend,Build Rust,Build Rust Windows,Build Tauri Desktop,w0-contract-gate,CodeQL (rust),CodeQL (javascript-typescript)
 
 jobs:
@@ -45,6 +44,12 @@ jobs:
           test "$GITHUB_REF" = refs/heads/main
           test "$(git branch --show-current)" != "HEAD" || git show-ref --verify --quiet refs/remotes/origin/main
           test "$(git merge-base HEAD origin/main)" = "$GITHUB_SHA"
+
+      - name: Load active milestone version
+        run: |
+          set -euo pipefail
+          version=$(node --input-type=module -e "import fs from 'node:fs'; const config = JSON.parse(fs.readFileSync('release-milestones.json', 'utf8')); if (config.schemaVersion !== 1 || !config.active?.version) process.exit(1); process.stdout.write(config.active.version)")
+          echo "BASE_VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Verify version manifests
         run: node tools/release-prerelease.mjs verify-version
