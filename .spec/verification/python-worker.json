@@ -186,6 +186,26 @@
       "status": "pass",
       "testName": null,
       "method": "exitcode"
+    },
+    "AC-727": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-728": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-729": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-730": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
     }
   },
   "principles": {}
