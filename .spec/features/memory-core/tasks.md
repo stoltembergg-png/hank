@@ -128,23 +128,23 @@
 - Arquivos: docs/memory-keyword-retrieval.md, .spec/verification/memory-core.json
 - Notas: query contract, ranking, bounds, trust/provenance e rollback; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-753..AC-756.
 
-## T-722 — Implementar interface provider-agnostic de embeddings [em-andamento]
+## T-722 — Implementar interface provider-agnostic de embeddings [concluida]
 
 - Refs: US-636, AC-757, AC-758, AC-759, AC-760
 - Arquivos: crates/agent-core/src/embedding.rs, crates/agent-core/src/lib.rs
-- Notas: request/response dimensioned, model/version/trace, batch/reference/budget/cancel bounds e mock offline determinístico.
+- Notas: request/response dimensioned, model/version/trace, batch/reference/budget/cancel bounds e mock offline determinístico; implementação existente validada pelo contrato Rust com 4/4 testes.
 
-## T-723 — Cobrir contrato e mock de embeddings [em-andamento]
+## T-723 — Cobrir contrato e mock de embeddings [concluida]
 
 - Refs: US-636, AC-757, AC-758, AC-759, AC-760
 - Arquivos: crates/agent-core/tests/memory_embedding_contract.rs
-- Notas: dimensão, identity, invalid model/dimension/batch, budget, cancellation e references sem raw content.
+- Notas: dimensão, identity, invalid model/dimension/batch, budget, cancellation e references sem raw content; contrato Rust passou com 4/4 testes.
 
-## T-724 — Documentar embeddings e registrar verificação [pendente]
+## T-724 — Documentar embeddings e registrar verificação [concluida]
 
 - Refs: US-636, AC-757, AC-758, AC-759, AC-760
 - Arquivos: docs/memory-embeddings.md, .spec/verification/memory-core.json
-- Notas: interface, cost policy, privacy, mock e ausência de backend/provider concreto.
+- Notas: interface, cost policy, privacy, mock e ausência de backend/provider concreto; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-757..AC-760.
 
 ## T-725 — Implementar backend vetorial local e opcional [em-andamento]
 
