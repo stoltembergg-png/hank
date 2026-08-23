@@ -60,6 +60,9 @@ jobs:
           test "$(printf '%s' "$release" | jq -r .prerelease)" = true
           test "$(printf '%s' "$release" | jq -r .target_commitish)" = "$sha"
           published_ref=$(git ls-remote --tags origin "refs/tags/$PRERELEASE_TAG^{}" | awk '{print $1}')
+          if test -z "$published_ref"; then
+            published_ref=$(git ls-remote --tags origin "refs/tags/$PRERELEASE_TAG" | awk '{print $1}')
+          fi
           test "$published_ref" = "$sha"
           mkdir -p "$RUNNER_TEMP/prerelease"
           gh release download "$PRERELEASE_TAG" --pattern release-manifest.json --pattern manifest.sha256 --dir "$RUNNER_TEMP/prerelease"
@@ -133,6 +136,9 @@ jobs:
           set -euo pipefail
           stable_tag="v$STABLE_VERSION"
           tag_ref=$(git ls-remote --tags origin "refs/tags/$stable_tag^{}" | awk '{print $1}')
+          if test -z "$tag_ref"; then
+            tag_ref=$(git ls-remote --tags origin "refs/tags/$stable_tag" | awk '{print $1}')
+          fi
           if test -n "$tag_ref"; then
             test "$tag_ref" = "$SHA"
             release=$(gh api "repos/$REPOSITORY/releases/tags/$stable_tag")
@@ -166,6 +172,9 @@ jobs:
           set -euo pipefail
           stable_tag="v$STABLE_VERSION"
           published_ref=$(git ls-remote --tags origin "refs/tags/$stable_tag^{}" | awk '{print $1}')
+          if test -z "$published_ref"; then
+            published_ref=$(git ls-remote --tags origin "refs/tags/$stable_tag" | awk '{print $1}')
+          fi
           test "$published_ref" = "$SHA"
           release=$(gh api "repos/$REPOSITORY/releases/tags/$stable_tag")
           test "$(printf '%s' "$release" | jq -r .prerelease)" = false

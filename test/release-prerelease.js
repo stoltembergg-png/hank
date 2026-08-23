@@ -175,5 +175,7 @@ test('AC-778: milestone release workflow is explicit and sources the version map
   assert.match(workflow, /contents: write/);
   assert.match(workflow, /stableVersion/);
   assert.match(workflow, /promote-manifest/);
+  assert.match(workflow, /if test -z "\$published_ref"/);
+  assert.match(workflow, /if test -z "\$tag_ref"/);
   assert.doesNotMatch(workflow, /push:/);
 });
