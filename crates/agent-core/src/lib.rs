@@ -17,6 +17,7 @@ pub mod memory;
 pub mod project;
 pub mod session;
 pub mod skill;
+pub mod taxonomy;
 pub mod tool_permissions;
 pub mod workflow;
 
@@ -36,4 +37,5 @@ pub use memory::*;
 pub use project::*;
 pub use session::*;
 pub use skill::*;
+pub use taxonomy::*;
 pub use workflow::*;
