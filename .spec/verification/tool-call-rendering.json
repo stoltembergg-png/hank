@@ -2,7 +2,7 @@
   "feature": "tool-call-rendering",
   "timestamp": "2026-08-21T22:39:49.482Z",
   "gitRev": "98a4f98",
-  "command": "pnpm --dir frontend run test",
+  "command": "npm --prefix frontend test -- --run",
   "reporter": "exitcode",
   "exitCode": 0,
   "testsParsed": 0,
