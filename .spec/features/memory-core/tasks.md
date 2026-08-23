@@ -127,3 +127,21 @@
 - Refs: US-635, AC-753, AC-754, AC-755, AC-756
 - Arquivos: docs/memory-keyword-retrieval.md, .spec/verification/memory-core.json
 - Notas: query contract, ranking, bounds, trust/provenance e rollback.
+
+## T-722 — Implementar interface provider-agnostic de embeddings [em-andamento]
+
+- Refs: US-636, AC-757, AC-758, AC-759, AC-760
+- Arquivos: crates/agent-core/src/embedding.rs, crates/agent-core/src/lib.rs
+- Notas: request/response dimensioned, model/version/trace, batch/reference/budget/cancel bounds e mock offline determinístico.
+
+## T-723 — Cobrir contrato e mock de embeddings [em-andamento]
+
+- Refs: US-636, AC-757, AC-758, AC-759, AC-760
+- Arquivos: crates/agent-core/tests/memory_embedding_contract.rs
+- Notas: dimensão, identity, invalid model/dimension/batch, budget, cancellation e references sem raw content.
+
+## T-724 — Documentar embeddings e registrar verificação [pendente]
+
+- Refs: US-636, AC-757, AC-758, AC-759, AC-760
+- Arquivos: docs/memory-embeddings.md, .spec/verification/memory-core.json
+- Notas: interface, cost policy, privacy, mock e ausência de backend/provider concreto.

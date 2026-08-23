@@ -215,6 +215,35 @@ para que retrieval seja explicável, project-scoped e independente de vectors.
 - **Quando** retrieval é executado
 - **Então** retorna erro tipado sem consulta
 
+### US-636 — Expor interface provider-agnostic de embeddings
+
+Como Memory Domain, quero um contrato de embeddings com mock determinístico,
+para que vector backends futuros não acoplem provider, custo ou segredo ao core.
+
+#### AC-757 — Mock retorna dimensão e identidade explícitas
+
+- **Dado** request válido com model/version/dimensions e references
+- **Quando** o mock gera embeddings
+- **Então** retorna vetor na dimensão pedida e preserva model/version/trace
+
+#### AC-758 — Model, dimensão, batch, projeto e budget são validados
+
+- **Dado** request com identity/model/dimension/batch/budget inválidos
+- **Quando** o provider é chamado
+- **Então** falha fechado sem vetor parcial
+
+#### AC-759 — Cancelamento encerra o trace sem resultado
+
+- **Dado** request cancelado
+- **Quando** embedding é solicitado
+- **Então** retorna cancelamento tipado sem produzir vetor
+
+#### AC-760 — References e batch são bounded sem texto bruto
+
+- **Dado** references ou batch acima do limite
+- **Quando** embedding é solicitado
+- **Então** rejeita sem transportar ou persistir conteúdo bruto
+
 ## Fora de escopo
 
 - Repository e migrações;
