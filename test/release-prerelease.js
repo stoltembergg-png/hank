@@ -132,7 +132,7 @@ test('AC-631: rollback is explicit, bounded, and does not silently delete anythi
   assert.throws(() => buildRollbackPlan({ tag: 'v0.1.0', releaseId: 42, sha }), /valid immutable/);
 });
 
-test('AC-773: milestone promotion converts only the matching prerelease manifest', () => {
+test('AC-777: milestone promotion converts only the matching prerelease manifest', () => {
   const prerelease = buildManifest({
     tag: `v0.3.0-dev.${sha}`,
     version: `0.3.0-dev.${sha}`,
@@ -163,7 +163,7 @@ test('AC-773: milestone promotion converts only the matching prerelease manifest
   assert.throws(() => buildMilestoneReleaseManifest({ manifest: { ...prerelease, stable: true }, stableVersion: '0.3.0', milestone: 'M5-M6' }), /not a prerelease/);
 });
 
-test('AC-774: milestone release workflow is explicit and sources the version map', () => {
+test('AC-778: milestone release workflow is explicit and sources the version map', () => {
   const milestones = JSON.parse(readFileSync('release-milestones.json', 'utf8'));
   assert.equal(milestones.active.milestone, 'M5-M6');
   assert.equal(milestones.active.version, '0.3.0');

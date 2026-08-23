@@ -69,14 +69,14 @@ Como mantenedor, quero classificar alterações e restringir permissões, para e
 
 Como mantenedor, quero promover uma prerelease já validada para o milestone correspondente, para que a versão estável avance de acordo com o roadmap sem seleção automática ou reutilização de artefatos incorretos.
 
-#### AC-773 — Manifesto estável com proveniência preservada
+#### AC-777 — Manifesto estável com proveniência preservada
 
 - **Dado** um manifesto de prerelease com tag, commit e árvore completos
 - **Quando** a promoção recebe a versão estável e o identificador do milestone
 - **Então** converte somente a combinação exata `v<versão>-dev.<SHA>` em `v<versão>`, marca `stable: true`, preserva o SHA e registra a tag de origem
 - **E** rejeita versão divergente, manifesto já estável, identidade incompleta ou milestone inválido
 
-#### AC-774 — Workflow manual de promoção fail-closed
+#### AC-778 — Workflow manual de promoção fail-closed
 
 - **Dado** uma prerelease publicada e aprovada pelos checks pós-merge
 - **Quando** um operador dispara `release-milestone.yml` com tag, versão e milestone
