@@ -73,3 +73,21 @@
 - Refs: US-632, AC-741, AC-742, AC-743, AC-744
 - Arquivos: docs/memory-candidates.md, .spec/verification/memory-core.json
 - Notas: conversation→candidate, trust model, review required e rollback.
+
+## T-713 — Implementar scorer de importance versionado [em-andamento]
+
+- Refs: US-633, AC-745, AC-746, AC-747, AC-748
+- Arquivos: crates/agent-core/src/importance.rs, crates/agent-core/src/lib.rs
+- Notas: score determinístico por confidence/recency/repetition/type/source, threshold bounded, policy/trace e content excluído.
+
+## T-714 — Cobrir scoring e manipulação de conteúdo [em-andamento]
+
+- Refs: US-633, AC-745, AC-746, AC-747, AC-748
+- Arquivos: crates/agent-core/tests/memory_importance_contract.rs
+- Notas: determinismo, threshold, injection/secret, policy inválida e identity.
+
+## T-715 — Documentar importance e registrar verificação [pendente]
+
+- Refs: US-633, AC-745, AC-746, AC-747, AC-748
+- Arquivos: docs/memory-importance.md, .spec/verification/memory-core.json
+- Notas: fórmula, factors, thresholds, rollback e papel não autoritativo do modelo.
