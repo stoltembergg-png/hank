@@ -200,17 +200,17 @@
 - Arquivos: frontend/tests/memory_panel_contract.test.tsx, docs/memory-ui.md, .spec/verification/memory-core.json
 - Notas: bridge request, foreign-project filtering, escaping, secret redaction, bounded preview, status/provenance, filters, accessibility e E2E aplicável; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-769..AC-772.
 
-## T-734 — Implementar serviço explícito de mutations project/version-scoped [em-andamento]
+## T-734 — Implementar serviço explícito de mutations project/version-scoped [concluida]
 
 - Refs: US-640, AC-773, AC-774, AC-775, AC-776
 - Arquivos: crates/agent-runtime/src/memory_service.rs, crates/agent-runtime/src/memory_repo.rs, crates/agent-runtime/src/lib.rs
-- Notas: contexto actor/project/trace/capability/policy/operation, update/approve/reject/archive/restore, optimistic version e repository update parametrizado.
+- Notas: contexto actor/project/trace/capability/policy/operation, update/approve/reject/archive/restore, optimistic version e repository update parametrizado. Implementação existente validada pelo contrato Rust com 4/4 testes.
 
-## T-735 — Cobrir mutations, lifecycle e rejeições fail-closed [em-andamento]
+## T-735 — Cobrir mutations, lifecycle e rejeições fail-closed [concluida]
 
 - Refs: US-640, AC-773, AC-774, AC-775, AC-776
 - Arquivos: crates/agent-runtime/tests/memory_edit_service_contract.rs
-- Notas: contexto válido, lifecycle reversível, foreign scope, capability/policy, oversized/stale version e duplicate operation sem replay.
+- Notas: contexto válido, lifecycle reversível, foreign scope, capability/policy, oversized/stale version e duplicate operation sem replay. Contrato Rust passou com 4/4 testes.
 
 ## T-736 — Expor mutation por Application/Tauri e UI com confirmação [pendente]
 
