@@ -130,6 +130,51 @@ export function buildManifest({ tag, version, sha, tree, card, classification, r
   };
 }
 
+export function milestoneVersion({ config, milestone }) {
+  if (!config || config.schemaVersion !== 1 || !Array.isArray(config.milestones)) {
+    throw new Error('milestone configuration is invalid');
+  }
+  const entry = config.milestones.find((candidate) => candidate.id === milestone);
+  if (!entry) throw new Error(`milestone is not configured: ${milestone}`);
+  return normalizeVersion(entry.version);
+}
+
+export function buildMilestoneReleaseManifest({ manifest, stableVersion, milestone }) {
+  const version = normalizeVersion(stableVersion);
+  if (!manifest || manifest.prerelease !== true || manifest.stable === true) {
+    throw new Error('manifest is not a prerelease');
+  }
+  if (manifest.version !== `${version}-dev.${manifest.sha}`) {
+    throw new Error('prerelease manifest version does not match stable version');
+  }
+  if (manifest.tag !== `v${manifest.version}`) throw new Error('prerelease manifest tag/version mismatch');
+  if (!HEX_SHA.test(manifest.sha ?? '') || !HEX_SHA.test(manifest.tree ?? '')) {
+    throw new Error('release identity requires full commit and tree SHA');
+  }
+  if (!Array.isArray(manifest.artifacts) || manifest.artifacts.length === 0) {
+    throw new Error('stable promotion requires downloadable artifacts');
+  }
+  if (!/^M\d+(?:-M\d+)?$/.test(milestone ?? '')) throw new Error('invalid milestone identifier');
+  const prereleaseTag = manifest.tag;
+  const stableTag = `v${version}`;
+  return {
+    ...manifest,
+    tag: stableTag,
+    version,
+    prerelease: false,
+    stable: true,
+    milestone,
+    artifacts: manifest.artifacts.map((artifact) => artifact.replaceAll(prereleaseTag, stableTag)),
+    provenance: {
+      ...manifest.provenance,
+      source: 'main',
+      exactCommit: manifest.sha,
+      tagImmutable: true,
+      promotedFromTag: prereleaseTag,
+    },
+  };
+}
+
 function git(args) { return execFileSync('git', args, { encoding: 'utf8' }).trim(); }
 function arg(name) { const i = process.argv.indexOf(name); return i >= 0 ? process.argv[i + 1] : null; }
 
@@ -169,13 +214,30 @@ function main() {
     else process.stdout.write(output);
     return;
   }
+  if (command === 'promote-manifest') {
+    const input = JSON.parse(readFileSync(arg('--input'), 'utf8'));
+    const output = JSON.stringify(buildMilestoneReleaseManifest({
+      manifest: input,
+      stableVersion: arg('--version'),
+      milestone: arg('--milestone'),
+    }), null, 2) + '\n';
+    const destination = arg('--output');
+    if (destination) writeFileSync(destination, output);
+    else process.stdout.write(output);
+    return;
+  }
+  if (command === 'milestone-version') {
+    const config = JSON.parse(readFileSync(arg('--config') ?? 'release-milestones.json', 'utf8'));
+    process.stdout.write(`${milestoneVersion({ config, milestone: arg('--milestone') })}\n`);
+    return;
+  }
   if (command === 'changelog') {
     const sha = git(['rev-parse', 'HEAD']);
     const subjects = git(['log', '-20', '--format=%s']).split('\n').filter(Boolean);
     process.stdout.write(renderReleaseNotes({ tag: arg('--tag'), sha, card: arg('--card'), classification: classifyCommits(subjects), changelog: subjects.map((s) => `- ${s}`).join('\n'), testInstructions: 'Download the release artifact, verify the manifest SHA, and run the documented checks.', relatedPullRequests: (arg('--prs') ?? '').split(',').filter(Boolean) }));
     return;
   }
-  throw new Error('usage: tag|verify-version|checks|changelog');
+  throw new Error('usage: tag|verify-version|checks|classify|manifest|promote-manifest|milestone-version|changelog');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

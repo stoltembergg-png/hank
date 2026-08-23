@@ -11,6 +11,7 @@ import {
   assertTagAvailable,
   buildManifest,
   buildPrereleaseTag,
+  buildMilestoneReleaseManifest,
   buildRollbackPlan,
   classifyCommits,
   decideIdempotentRelease,
@@ -129,4 +130,50 @@ test('AC-628: CLI emits parseable JSON manifest with one trailing newline @spec:
 test('AC-631: rollback is explicit, bounded, and does not silently delete anything @spec:AC-631', () => {
   assert.deepEqual(buildRollbackPlan({ tag: tag(), releaseId: 42, sha }), { tag: tag(), releaseId: '42', sha, action: 'delete-release-and-tag', destructive: true, requiresExplicitApproval: true });
   assert.throws(() => buildRollbackPlan({ tag: 'v0.1.0', releaseId: 42, sha }), /valid immutable/);
+});
+
+test('AC-777: milestone promotion converts only the matching prerelease manifest @spec:AC-777', () => {
+  const prerelease = buildManifest({
+    tag: `v0.3.0-dev.${sha}`,
+    version: `0.3.0-dev.${sha}`,
+    sha,
+    tree,
+    card: 'PR-200',
+    classification: ['functional'],
+    relatedPullRequests: [200],
+    artifacts: [`hank-v0.3.0-dev.${sha}.tar.gz`],
+    changelog: 'changes',
+    testInstructions: 'test',
+  });
+  const stable = buildMilestoneReleaseManifest({
+    manifest: prerelease,
+    stableVersion: '0.3.0',
+    milestone: 'M5-M6',
+  });
+
+  assert.equal(stable.tag, 'v0.3.0');
+  assert.equal(stable.version, '0.3.0');
+  assert.equal(stable.prerelease, false);
+  assert.equal(stable.stable, true);
+  assert.equal(stable.milestone, 'M5-M6');
+  assert.deepEqual(stable.artifacts, ['hank-v0.3.0.tar.gz']);
+  assert.equal(stable.provenance.promotedFromTag, prerelease.tag);
+  assert.equal(stable.provenance.exactCommit, sha);
+  assert.throws(() => buildMilestoneReleaseManifest({ manifest: prerelease, stableVersion: '0.2.0', milestone: 'M3-M4' }), /does not match/);
+  assert.throws(() => buildMilestoneReleaseManifest({ manifest: { ...prerelease, stable: true }, stableVersion: '0.3.0', milestone: 'M5-M6' }), /not a prerelease/);
+});
+
+test('AC-778: milestone release workflow is explicit and sources the version map @spec:AC-778', () => {
+  const milestones = JSON.parse(readFileSync('release-milestones.json', 'utf8'));
+  assert.equal(milestones.active.milestone, 'M5-M6');
+  assert.equal(milestones.active.version, '0.3.0');
+  assert.equal(milestones.milestones.find((entry) => entry.id === 'M3-M4').version, '0.2.0');
+
+  const workflow = readFileSync('.github/workflows/release-milestone.yml', 'utf8');
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /prerelease_tag:/);
+  assert.match(workflow, /contents: write/);
+  assert.match(workflow, /stableVersion/);
+  assert.match(workflow, /promote-manifest/);
+  assert.doesNotMatch(workflow, /push:/);
 });
