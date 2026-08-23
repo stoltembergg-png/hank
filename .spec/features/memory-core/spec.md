@@ -244,6 +244,35 @@ para que vector backends futuros não acoplem provider, custo ou segredo ao core
 - **Quando** embedding é solicitado
 - **Então** rejeita sem transportar ou persistir conteúdo bruto
 
+### US-637 — Indexar embeddings com backend vetorial opcional
+
+Como Memory Retrieval, quero um índice vetorial local e scoped, para consultar
+embeddings sem misturar tenants nem substituir repository/taxonomy.
+
+#### AC-761 — Query é scoped, ranked e dimension-checked
+
+- **Dado** records ativos do mesmo projeto/model/version
+- **Quando** nearest-neighbor query é executada
+- **Então** retorna ranking determinístico e rejeita dimensão divergente
+
+#### AC-762 — Upsert é idempotente e archive remove do índice ativo
+
+- **Dado** mesma identidade ou record archived
+- **Quando** upsert/archive ocorre
+- **Então** upsert substitui deterministicamente e archived não é consultado
+
+#### AC-763 — k e bytes são bounded
+
+- **Dado** k inválido ou budget de bytes pequeno
+- **Quando** query ocorre
+- **Então** falha ou retorna somente records inteiros dentro do budget
+
+#### AC-764 — Rebuild falho preserva índice anterior
+
+- **Dado** rebuild com dimensão/model incompatível
+- **Quando** rebuild falha
+- **Então** o índice anterior permanece consultável sem perda
+
 ## Fora de escopo
 
 - Repository e migrações;
