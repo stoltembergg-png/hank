@@ -156,6 +156,36 @@ prioridade sugerida pelo modelo, para orientar retenção sem auto-ativação.
 - **Quando** o scorer recebe o input
 - **Então** retorna erro bounded sem score elegível
 
+### US-634 — Deduplicar candidates sem perda de provenance
+
+Como Memory Pipeline, quero detectar duplicates exactos e conflitos antes da
+persistência, para reduzir redundância sem mesclar conteúdo divergente.
+
+#### AC-749 — Duplicate exacto é determinístico e scoped
+
+- **Dado** mesmo projeto/agente/tipo/chave e conteúdo normalizado equivalente
+- **Quando** o índice decide
+- **Então** retorna duplicate com ID existente; outro projeto retorna `New`
+
+#### AC-750 — Conflito permanece revisável
+
+- **Dado** mesma chave scoped com conteúdo divergente
+- **Quando** o índice decide
+- **Então** retorna conflict sem sobrescrever conteúdo ou provenance
+
+#### AC-751 — Retry é idempotente e rollback restaura o índice
+
+- **Dado** entry já committed ou rollback solicitado
+- **Quando** a operação é repetida
+- **Então** duplicate identity falha sem duplicar e rollback remove somente a
+  entry indicada
+
+#### AC-752 — Input é bounded e cross-scope nunca casa
+
+- **Dado** conteúdo acima do limite ou mesmo texto em outro projeto
+- **Quando** dedupe é avaliado
+- **Então** rejeita input inválido ou retorna `New`, sem cruzar escopo
+
 ## Fora de escopo
 
 - Repository e migrações;
