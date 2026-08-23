@@ -62,23 +62,23 @@
 - Arquivos: docs/python-sdk.md, .spec/verification/python-worker.json
 - Notas: API, trust boundary, versionamento, limites, rollback e evidence por SHA documentados em `docs/python-sdk.md`; `python-worker.json` registra PASS para AC-699..AC-703 no head integrado `46cbd62`.
 
-## T-686 — Implementar registration adapter Python declarativo [em-andamento]
+## T-686 — Implementar registration adapter Python declarativo [concluida]
 
 - Refs: US-624, AC-704, AC-705, AC-706, AC-707, AC-708
 - Arquivos: crates/tool-core/src/python_registration.rs, crates/tool-core/src/lib.rs
-- Notas: valida schema Python, worker/project/trace, origem project-scoped e cria handler que sempre nega execução até evaluator futuro.
+- Notas: implementado e integrado no PR #174 (`7ef342b`); valida schema Python, worker/project/trace e origem project-scoped, criando handler declarativo que sempre nega execução até evaluator futuro.
 
-## T-687 — Cobrir registro, isolamento e rollback [em-andamento]
+## T-687 — Cobrir registro, isolamento e rollback [concluida]
 
 - Refs: US-624, AC-704, AC-705, AC-706, AC-707, AC-708
 - Arquivos: crates/tool-core/tests/python_registration_contract.rs
-- Notas: registro válido, environment/identity/origin inválidos, duplicata, project isolation e resolução sem execução.
+- Notas: `python_registration_contract.rs` cobre registro válido, environment/identity/origin inválidos, duplicata, isolamento de projeto e resolução sem execução; AC-704..AC-708 têm PASS no agregado em `46cbd62` e o contrato direcionado passou 4/4 no `2361709`.
 
-## T-688 — Documentar registration e registrar verificação [pendente]
+## T-688 — Documentar registration e registrar verificação [concluida]
 
 - Refs: US-624, AC-704, AC-705, AC-706, AC-707, AC-708
 - Arquivos: docs/python-tool-registration.md, .spec/verification/python-worker.json
-- Notas: trust boundary, evaluator gate, lifecycle, rollback e evidence por SHA.
+- Notas: `docs/python-tool-registration.md` e `python-worker.json` foram entregues no PR #174 (`7ef342b`); trust boundary, evaluator gate, lifecycle, rollback e evidence por SHA estão registrados, com AC-704..AC-708 PASS no head integrado `46cbd62`.
 
 ## T-689 — Implementar executor com caminho único [concluida]
 
