@@ -38,23 +38,23 @@
 - Arquivos: docs/memory-repository.md, .spec/verification/memory-core.json
 - Notas: transação, scope obrigatório, rollback, version conflict e não uso para retrieval; artifact ONP `memory-core.json` registra PASS para AC-735..AC-736.
 
-## T-707 — Implementar taxonomia de memória versionada [em-andamento]
+## T-707 — Implementar taxonomia de memória versionada [concluida]
 
 - Refs: US-631, AC-737, AC-738, AC-739, AC-740
 - Arquivos: crates/agent-core/src/taxonomy.rs, crates/agent-core/src/lib.rs
-- Notas: oito tipos wire-stable, hints explícitos, validação de provenance e rejeição de instrução privilegiada/secret-like.
+- Notas: oito tipos wire-stable, hints explícitos, validação de provenance e rejeição de instrução privilegiada/secret-like; contrato Rust passou com 4/4 testes.
 
-## T-708 — Cobrir taxonomia e compatibilidade [em-andamento]
+## T-708 — Cobrir taxonomia e compatibilidade [concluida]
 
 - Refs: US-631, AC-737, AC-738, AC-739, AC-740
 - Arquivos: crates/agent-core/tests/memory_taxonomy_contract.rs
-- Notas: enum/serialization, tipo desconhecido, injection claims, secrets, provenance e versão.
+- Notas: enum/serialization, tipo desconhecido, injection claims, secrets, provenance e versão; contrato Rust passou com 4/4 testes.
 
-## T-709 — Documentar taxonomy e registrar verificação [pendente]
+## T-709 — Documentar taxonomy e registrar verificação [concluida]
 
 - Refs: US-631, AC-737, AC-738, AC-739, AC-740
 - Arquivos: docs/memory-taxonomy.md, .spec/verification/memory-core.json
-- Notas: semântica, retention/importance hints, trust boundary e evolução de versão.
+- Notas: semântica, retention/importance hints, trust boundary e evolução de versão; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-737..AC-740.
 
 ## T-710 — Implementar extractor de candidates data-only [em-andamento]
 
