@@ -4,8 +4,8 @@
 //! identity, optimistic version and explicit confirmation before delegating to
 //! `MemoryMutationService`. SQLite remains behind the application service.
 
-use agent_core::{DomainError, Memory, MemoryId, MemoryStatus, MemoryType, ProjectId};
 use agent_core::error::DomainErrorCode;
+use agent_core::{DomainError, Memory, MemoryId, MemoryStatus, MemoryType, ProjectId};
 use agent_runtime::{
     memory_repo::SqliteMemoryRepository,
     memory_service::{MemoryEdit, MemoryMutationContext, MemoryMutationService},
@@ -26,7 +26,10 @@ pub struct MemoryBridgeState {
 impl MemoryBridgeState {
     pub fn new(repository: SqliteMemoryRepository) -> Self {
         let service = MemoryMutationService::new(repository.clone());
-        Self { repository, service }
+        Self {
+            repository,
+            service,
+        }
     }
 }
 
@@ -164,7 +167,9 @@ impl std::fmt::Display for MemoryBridgeError {
         match self {
             Self::InvalidInput => write!(formatter, "invalid memory mutation input"),
             Self::ConfirmationRequired => write!(formatter, "{MEMORY_CONFIRMATION_PHRASE}"),
-            Self::MutationRejected { code } => write!(formatter, "memory mutation rejected: {code:?}"),
+            Self::MutationRejected { code } => {
+                write!(formatter, "memory mutation rejected: {code:?}")
+            }
         }
     }
 }

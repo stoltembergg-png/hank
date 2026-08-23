@@ -125,10 +125,9 @@ mod tauri_tests {
     #[test]
     fn ac_106_memory_mutation_bridge_requires_scoped_confirmation_context() {
         // @spec:AC-773 @spec:AC-774 @spec:AC-775 @spec:AC-776
-        let bridge = fs::read_to_string(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/memory.rs"),
-        )
-        .expect("memory.rs não encontrado");
+        let bridge =
+            fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/memory.rs"))
+                .expect("memory.rs não encontrado");
 
         for required in [
             "MemoryMutationContext",
@@ -140,11 +139,17 @@ mod tauri_tests {
             "confirmed",
             "mutate_memory",
         ] {
-            assert!(bridge.contains(required), "boundary metadata ausente: {required}");
+            assert!(
+                bridge.contains(required),
+                "boundary metadata ausente: {required}"
+            );
         }
         assert!(bridge.contains("memory.write"));
         assert!(bridge.contains("confirm memory mutation"));
-        assert!(!bridge.contains("sqlx::query"), "SQLite não deve cruzar a ponte diretamente");
+        assert!(
+            !bridge.contains("sqlx::query"),
+            "SQLite não deve cruzar a ponte diretamente"
+        );
     }
 
     #[test]
