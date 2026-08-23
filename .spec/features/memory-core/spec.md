@@ -93,6 +93,39 @@ extractors futuros não inventem categorias nem tratem conteúdo como instruçã
 - **Quando** é serializado e parseado novamente
 - **Então** preserva o tipo e expõe a versão de taxonomia sem depender de storage
 
+### US-632 — Extrair candidatos sem auto-ativação
+
+Como Memory Pipeline, quero transformar uma sugestão de conversação em candidate
+pending com provenance, para que conteúdo não confiável nunca vire memória ativa
+sem review.
+
+#### AC-741 — Candidate válido preserva identidade e provenance
+
+- **Dado** project/session identity, source message, tipo, conteúdo e confiança
+  válidos
+- **Quando** o extractor processa a sugestão
+- **Então** emite candidate `pending` com IDs, source e confidence bounded
+
+#### AC-742 — Identidade, provenance e limites ausentes negam
+
+- **Dado** projeto ausente, source message ausente ou confidence/content inválido
+- **Quando** o extractor processa a sugestão
+- **Então** retorna erro tipado sem emitir candidate parcial
+
+#### AC-743 — Injection e secret-like content não são candidatos confiáveis
+
+- **Dado** conteúdo que tenta override de policy, claim system/developer ou
+  contém secret-like material
+- **Quando** o extractor valida a sugestão
+- **Então** rejeita como untrusted data e não altera provenance
+
+#### AC-744 — Extractor não grava nem ativa memória
+
+- **Dado** candidate válido
+- **Quando** o extractor retorna o resultado
+- **Então** somente dados `pending` são emitidos, sem repository write ou
+  operação de activation
+
 ## Fora de escopo
 
 - Repository e migrações;
