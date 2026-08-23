@@ -55,3 +55,21 @@
 - Refs: US-631, AC-737, AC-738, AC-739, AC-740
 - Arquivos: docs/memory-taxonomy.md, .spec/verification/memory-core.json
 - Notas: semântica, retention/importance hints, trust boundary e evolução de versão.
+
+## T-710 — Implementar extractor de candidates data-only [em-andamento]
+
+- Refs: US-632, AC-741, AC-742, AC-743, AC-744
+- Arquivos: crates/agent-core/src/memory_candidate.rs, crates/agent-core/src/lib.rs
+- Notas: valida project/session/source/taxonomy/confidence, produz Pending e não depende de repository.
+
+## T-711 — Cobrir extractor e rejeições de segurança [em-andamento]
+
+- Refs: US-632, AC-741, AC-742, AC-743, AC-744
+- Arquivos: crates/agent-core/tests/memory_candidate_contract.rs
+- Notas: identidade/provenance, bounds, injection, secret-like content e ausência de auto-activation.
+
+## T-712 — Documentar pipeline candidate e verificar [pendente]
+
+- Refs: US-632, AC-741, AC-742, AC-743, AC-744
+- Arquivos: docs/memory-candidates.md, .spec/verification/memory-core.json
+- Notas: conversation→candidate, trust model, review required e rollback.
