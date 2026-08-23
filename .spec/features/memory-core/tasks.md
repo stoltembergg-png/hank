@@ -145,3 +145,21 @@
 - Refs: US-636, AC-757, AC-758, AC-759, AC-760
 - Arquivos: docs/memory-embeddings.md, .spec/verification/memory-core.json
 - Notas: interface, cost policy, privacy, mock e ausência de backend/provider concreto.
+
+## T-725 — Implementar backend vetorial local e opcional [em-andamento]
+
+- Refs: US-637, AC-761, AC-762, AC-763, AC-764
+- Arquivos: crates/agent-core/src/vector.rs, crates/agent-core/src/lib.rs
+- Notas: upsert idempotente, cosine ranking, project/agent/model scope, archive, k/bytes bounds e rebuild atomic rollback.
+
+## T-726 — Cobrir vector index e rollback [em-andamento]
+
+- Refs: US-637, AC-761, AC-762, AC-763, AC-764
+- Arquivos: crates/agent-core/tests/memory_vector_contract.rs
+- Notas: isolation, dimension/model, upsert/archive, limits e rebuild failure.
+
+## T-727 — Documentar vector backend e registrar verificação [pendente]
+
+- Refs: US-637, AC-761, AC-762, AC-763, AC-764
+- Arquivos: docs/memory-vector-retrieval.md, .spec/verification/memory-core.json
+- Notas: lifecycle, privacy, rollback, limits e independência de provider remoto.
