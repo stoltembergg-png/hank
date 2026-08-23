@@ -98,23 +98,23 @@
 - Arquivos: docs/python-executor.md, .spec/verification/python-worker.json
 - Notas: fluxo ponta a ponta, trust boundary, limits, negações, rollback/troubleshooting; evidência regenerada por verify.
 
-## T-692 — Implementar manifesto e lock de ambiente [em-andamento]
+## T-692 — Implementar manifesto e lock de ambiente [concluida]
 
 - Refs: US-626, AC-715, AC-716, AC-717, AC-718
 - Arquivos: crates/agent-runtime/src/python_environment.rs, crates/agent-runtime/src/lib.rs
-- Notas: manifesto versionado, packages hash-pinned, source allowlist, project-local lock, escrita atômica e rollback; sem instalação global.
+- Notas: implementado e integrado no commit `31cb9f8`; manifesto versionado, packages hash-pinned, source allowlist, project-local lock, escrita atômica e rollback, sem instalação global.
 
-## T-693 — Cobrir ambiente com contratos determinísticos [em-andamento]
+## T-693 — Cobrir ambiente com contratos determinísticos [concluida]
 
 - Refs: US-626, AC-715, AC-716, AC-717, AC-718
 - Arquivos: crates/agent-runtime/tests/python_environment_contract.rs
-- Notas: ordenação, hashes, duplicatas, traversal/source inválido, lock, persistência, rollback e isolamento project-scoped.
+- Notas: `python_environment_contract.rs` cobre ordenação, hashes, duplicatas, traversal/source inválido, lock, persistência, rollback e isolamento project-scoped; contrato direcionado passou 2/2 no estado atual.
 
-## T-694 — Documentar policy de ambiente e verificar SDD [pendente]
+## T-694 — Documentar policy de ambiente e verificar SDD [concluida]
 
 - Refs: US-626, AC-715, AC-716, AC-717, AC-718
 - Arquivos: docs/python-environment.md, .spec/verification/python-worker.json
-- Notas: lifecycle do manifesto, lock, source policy, rollback e não instalação global.
+- Notas: `docs/python-environment.md` documenta lifecycle do manifesto, lock, source policy, rollback e não instalação global; `python-worker.json` registra PASS para AC-715..AC-718 no head integrado `46cbd62`.
 
 ## T-698 — Implementar matriz Python sobre evaluator comum [em-andamento]
 
