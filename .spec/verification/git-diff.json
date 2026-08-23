@@ -2,7 +2,7 @@
   "feature": "git-diff",
   "timestamp": "2026-08-21T17:54:58.637Z",
   "gitRev": "fdfaccb",
-  "command": "cargo test -p tool-core --test git_diff_contract",
+  "command": "cargo test -p tool-core --test git_diff_contract --locked",
   "reporter": "exitcode",
   "exitCode": 0,
   "testsParsed": 0,
