@@ -115,6 +115,25 @@
 - Refs: US-626, AC-715, AC-716, AC-717, AC-718
 - Arquivos: docs/python-environment.md, .spec/verification/python-worker.json
 - Notas: lifecycle do manifesto, lock, source policy, rollback e não instalação global.
+
+## T-698 — Implementar matriz Python sobre evaluator comum [em-andamento]
+
+- Refs: US-628, AC-727, AC-728, AC-729, AC-730
+- Arquivos: crates/tool-core/src/python_permissions.rs, crates/tool-core/src/lib.rs
+- Notas: capabilities FS/network/process/package, project scope, approval, budget e revoke; sem segundo evaluator.
+
+## T-699 — Cobrir policy Python com security matrix [em-andamento]
+
+- Refs: US-628, AC-727, AC-728, AC-729, AC-730
+- Arquivos: crates/tool-core/tests/python_permissions_contract.rs
+- Notas: allow/deny default, capability ausente, approval ausente, cross-project, revoke e budget.
+
+## T-700 — Documentar permissões e registrar verificação [pendente]
+
+- Refs: US-628, AC-727, AC-728, AC-729, AC-730
+- Arquivos: docs/python-permissions.md, .spec/verification/python-worker.json
+- Notas: capability matrix, threat boundary, evaluator comum, revocation, rollback e evidence por SHA.
+
 ## T-695 — Implementar captura e redação bounded [concluida]
 
 - Refs: US-627, AC-719, AC-720, AC-721, AC-722, AC-723
