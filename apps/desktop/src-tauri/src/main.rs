@@ -1,6 +1,11 @@
 pub mod confirmations;
+pub mod memory;
 pub mod streaming;
 
+use agent_runtime::{
+    migrations::run_migrations,
+    sqlite::{SqliteStorage, SqliteStorageConfig},
+};
 use tauri::{Manager, WindowEvent};
 
 fn main() {
@@ -15,6 +20,22 @@ fn main() {
         .manage(confirmations::bridge_state())
         .invoke_handler(confirmations::command_handler())
         .setup(|app| {
+            let data_dir = app
+                .path()
+                .app_data_dir()
+                .map_err(|error| std::io::Error::other(error.to_string()))?;
+            let database_path = data_dir.join("hank.db");
+            let storage = tauri::async_runtime::block_on(async move {
+                let storage = SqliteStorage::connect(SqliteStorageConfig::for_file(database_path))
+                    .await
+                    .map_err(|error| std::io::Error::other(error.to_string()))?;
+                run_migrations(storage.pool())
+                    .await
+                    .map_err(|error| std::io::Error::other(error.to_string()))?;
+                Ok::<_, std::io::Error>(storage)
+            })?;
+            app.manage(memory::bridge_state(&storage));
+
             if app.get_webview_window("main").is_none() {
                 return Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::NotFound,

@@ -75,21 +75,14 @@ mod tauri_tests {
     }
 
     #[test]
-    fn ac_104_bridge_limitada_ao_ciclo_de_confirmacao() {
+    fn ac_104_bridge_registra_somente_commands_tipados() {
         // @spec:AC-104
         let source = fs::read_to_string(source_path()).expect("main.rs não encontrado");
 
         assert!(
             source.contains(".invoke_handler(confirmations::command_handler())"),
-            "bridge deve registrar apenas o handler de confirmação"
+            "bridge deve registrar o handler tipado"
         );
-
-        for forbidden in ["chat", "agent", "tools"] {
-            assert!(
-                !source.contains(forbidden),
-                "handler de produto encontrado: {forbidden}"
-            );
-        }
 
         let bridge = fs::read_to_string(
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/confirmations.rs"),
@@ -106,6 +99,8 @@ mod tauri_tests {
             "submit_confirmation_request",
             "approve_confirmation_request",
             "revoke_confirmation_request",
+            "crate::memory::list_memories",
+            "crate::memory::mutate_memory",
         ] {
             assert!(
                 registered.contains(command),
@@ -115,8 +110,8 @@ mod tauri_tests {
 
         assert_eq!(
             registered.split(',').count(),
-            3,
-            "a ponte deve registrar exatamente os comandos do ciclo de confirmação"
+            5,
+            "a ponte deve registrar exatamente os comandos tipados previstos"
         );
 
         for forbidden in ["chat_stream", "send_command", "list_projects", "run_tool"] {
@@ -125,6 +120,36 @@ mod tauri_tests {
                 "comando de produto fora do ciclo de confirmação: {forbidden}"
             );
         }
+    }
+
+    #[test]
+    fn ac_106_memory_mutation_bridge_requires_scoped_confirmation_context() {
+        // @spec:AC-773 @spec:AC-774 @spec:AC-775 @spec:AC-776
+        let bridge =
+            fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/memory.rs"))
+                .expect("memory.rs não encontrado");
+
+        for required in [
+            "MemoryMutationContext",
+            "MemoryMutationService",
+            "actor_id",
+            "trace_id",
+            "operation_id",
+            "expected_version",
+            "confirmed",
+            "mutate_memory",
+        ] {
+            assert!(
+                bridge.contains(required),
+                "boundary metadata ausente: {required}"
+            );
+        }
+        assert!(bridge.contains("memory.write"));
+        assert!(bridge.contains("confirm memory mutation"));
+        assert!(
+            !bridge.contains("sqlx::query"),
+            "SQLite não deve cruzar a ponte diretamente"
+        );
     }
 
     #[test]

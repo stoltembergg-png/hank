@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { DesktopMemoryApiClient, MemoryApiClient } from '../src/api/memory';
 import { MemoryPanel } from '../src/components/MemoryPanel';
@@ -52,6 +52,47 @@ describe('Memory UI contract PR-132', () => {
     }
   });
 
+  it('sends only the typed, confirmed mutation envelope through the desktop bridge', async () => {
+    const client = new DesktopMemoryApiClient();
+    let command = '';
+    let args: unknown;
+    const previousWindow = globalThis.window;
+    (globalThis as unknown as { window: unknown }).window = {
+      __TAURI_INTERNALS__: {
+        invoke: async (name: string, input?: Record<string, unknown>): Promise<unknown> => {
+          command = name;
+          args = input;
+          return memory;
+        },
+      },
+    };
+    try {
+      await client.mutate({
+        project_id: 'project-a',
+        memory_id: 'mem_1',
+        actor_id: 'operator-1',
+        trace_id: 'trace-1',
+        operation_id: 'operation-1',
+        capability: 'memory.write',
+        expected_version: 1,
+        confirmed: true,
+        edit: { kind: 'approve' },
+      });
+      expect(command).toBe('mutate_memory');
+      expect(args).toEqual({
+        input: expect.objectContaining({
+          project_id: 'project-a',
+          memory_id: 'mem_1',
+          capability: 'memory.write',
+          confirmed: true,
+          edit: { kind: 'approve' },
+        }),
+      });
+    } finally {
+      (globalThis as unknown as { window: unknown }).window = previousWindow;
+    }
+  });
+
   // @spec:AC-770 @spec:AC-771
   it('renders lifecycle, provenance, trace and bounded escaped content without storage access', async () => {
     const apiClient: MemoryApiClient = { list: async () => ({ project_id: 'project-a', memories: [memory] }) };
@@ -86,5 +127,50 @@ describe('Memory UI contract PR-132', () => {
     await waitFor(() => expect(screen.getByText('Não ativo (candidate)')).toBeTruthy());
     expect(screen.getByLabelText('Filtrar por status')).toBeTruthy();
     expect(screen.getAllByText('preference')).toHaveLength(2);
+  });
+
+  it('requires explicit confirmation before dispatching an approved memory mutation', async () => {
+    const candidate = { ...memory, status: 'candidate' as const };
+    const mutate = vi.fn().mockResolvedValue(candidate);
+    const apiClient = {
+      list: async () => ({ project_id: 'project-a', memories: [candidate] }),
+      mutate,
+    } as unknown as MemoryApiClient;
+    const confirmation = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    render(<MemoryPanel projectId="project-a" actorId="operator-1" apiClient={apiClient} />);
+    await screen.findByText('Não ativo (candidate)');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Aprovar' }));
+    expect(confirmation).toHaveBeenCalledWith(expect.stringContaining('aprovação'));
+    expect(mutate).not.toHaveBeenCalled();
+
+    confirmation.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Aprovar' }));
+    await waitFor(() => expect(mutate).toHaveBeenCalledWith(expect.objectContaining({
+      project_id: 'project-a',
+      memory_id: 'mem_1',
+      actor_id: 'operator-1',
+      confirmed: true,
+      edit: { kind: 'approve' },
+    })));
+    confirmation.mockRestore();
+  });
+
+  it('keeps the card state and exposes a visible version conflict after a failed mutation', async () => {
+    const mutate = vi.fn().mockRejectedValue(new Error('Concurrency conflict'));
+    const apiClient = {
+      list: async () => ({ project_id: 'project-a', memories: [memory] }),
+      mutate,
+    } as unknown as MemoryApiClient;
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<MemoryPanel projectId="project-a" actorId="operator-1" apiClient={apiClient} />);
+    await screen.findByText('approved');
+    fireEvent.click(screen.getByRole('button', { name: 'Arquivar' }));
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/conflito de versão/i));
+    expect(screen.getByText('approved')).toBeTruthy();
+    vi.restoreAllMocks();
   });
 });

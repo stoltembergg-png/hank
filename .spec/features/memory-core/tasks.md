@@ -212,11 +212,11 @@
 - Arquivos: crates/agent-runtime/tests/memory_edit_service_contract.rs
 - Notas: contexto válido, lifecycle reversível, foreign scope, capability/policy, oversized/stale version e duplicate operation sem replay. Contrato Rust passou com 4/4 testes.
 
-## T-736 — Expor mutation por Application/Tauri e UI com confirmação [pendente]
+## T-736 — Expor mutation por Application/Tauri e UI com confirmação [concluida]
 
 - Refs: US-640, AC-773, AC-774, AC-775, AC-776
 - Arquivos: apps/desktop/src-tauri/src/memory.rs, apps/desktop/src-tauri/src/main.rs, frontend/src/api/memory.ts, frontend/src/components/MemoryPanel.tsx
-- Notas: command boundary somente após actor/confirmation/trace, sem SQLite no frontend, confirmação explícita, audit metadata e rollback/version conflict visíveis.
+- Notas: command boundary somente após actor/confirmation/trace, sem SQLite no frontend, confirmação explícita, audit metadata e rollback/version conflict visíveis. Bridge Tauri e controles UI validados por 7 testes frontend, 9 unitários desktop e 6 contratos Tauri.
 
 ## T-737 — Documentar edição, aprovação e rollback e registrar verificação [pendente]
 

@@ -86,3 +86,39 @@
 
 .memory-metadata dt { color: #4b5563; }
 .memory-metadata dd { margin: 0; overflow-wrap: anywhere; }
+
+.memory-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.85rem;
+}
+
+.memory-edit-form {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+}
+
+.memory-edit-form label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.memory-edit-form textarea,
+.memory-edit-form input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.45rem;
+}
+
+.memory-edit-form textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.memory-mutation-error {
+  color: #991b1b;
+  font-weight: 600;
+}
