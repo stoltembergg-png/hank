@@ -334,6 +334,36 @@ injection ou conteúdo arquivado sem acessar storage diretamente.
 - **Quando** o usuário interage com a tela
 - **Então** estados são anunciados, filtros são bounded e a interface permanece navegável por controles sem editar memória
 
+### US-640 — Editar memória explicitamente e reversivelmente
+
+Como operador autorizado, quero editar, aprovar, rejeitar, arquivar e restaurar
+memória com actor/project/trace/capability e optimistic version, para corrigir
+candidates sem permitir escrita implícita, cross-project ou perda de histórico.
+
+#### AC-773 — Mutation válida exige contexto explícito e version
+
+- **Dado** actor, project, trace, capability `memory.write`, policy permitida e expected version válidos
+- **Quando** update ou approval é executado
+- **Então** aplica somente ao memory/project solicitado e incrementa a versão
+
+#### AC-774 — Lifecycle mutation é explícita e reversível
+
+- **Dado** memória candidate/approved/archived e operação autorizada
+- **Quando** approve, reject, archive ou restore é executado
+- **Então** transita pelo lifecycle válido sem alterar hierarquia de instruções
+
+#### AC-775 — Scope, policy, capability, bounds e stale version falham sem mutação
+
+- **Dado** actor/project divergente, policy negada, capability errada, conteúdo oversized ou version stale
+- **Quando** a mutation é solicitada
+- **Então** retorna erro tipado e preserva conteúdo, status e version persistidos
+
+#### AC-776 — Operações não são replayadas silenciosamente
+
+- **Dado** operation identity repetida ou rollback/lifecycle inválido
+- **Quando** a mesma mutation é reenviada
+- **Então** não duplica transição nem altera novamente o registro sem uma nova versão/contexto
+
 ## Fora de escopo
 
 - Repository e migrações;

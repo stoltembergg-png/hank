@@ -83,6 +83,36 @@ impl SqliteMemoryRepository {
         rows.into_iter().map(decode_memory).collect()
     }
 
+    pub async fn update(&self, memory: &Memory, expected_version: u64) -> Result<(), DomainError> {
+        memory
+            .validate()
+            .map_err(|error| DomainError::Validation(error.to_string()))?;
+        let result = sqlx::query(
+            "UPDATE memories SET status = ?, content = ?, summary = ?, importance = ?, tags = ?, provenance = ?, updated_at = ?, version = ? WHERE project_id = ? AND id = ? AND version = ?",
+        )
+        .bind(serde_json::to_string(&memory.status)?)
+        .bind(&memory.content)
+        .bind(&memory.summary)
+        .bind(memory.importance as f64)
+        .bind(serde_json::to_string(&memory.tags)?)
+        .bind(serde_json::to_string(&memory.provenance)?)
+        .bind(memory.updated_at.to_rfc3339())
+        .bind(memory.version as i64)
+        .bind(memory.project_id.to_string())
+        .bind(memory.id.to_string())
+        .bind(expected_version as i64)
+        .execute(&self.pool)
+        .await
+        .map_err(|error| DomainError::InvariantViolation(format!("memory update failed: {error}")))?;
+        if result.rows_affected() == 0 {
+            return Err(DomainError::ConcurrencyConflict {
+                expected: expected_version.to_string(),
+                actual: "unknown".into(),
+            });
+        }
+        Ok(())
+    }
+
     pub async fn archive(
         &self,
         project_id: &ProjectId,
