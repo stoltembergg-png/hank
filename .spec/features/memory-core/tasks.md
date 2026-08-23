@@ -92,23 +92,23 @@
 - Arquivos: docs/memory-importance.md, .spec/verification/memory-core.json
 - Notas: fórmula, factors, thresholds, rollback e papel não autoritativo do modelo; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-745..AC-748.
 
-## T-716 — Implementar dedupe scoped e determinístico [em-andamento]
+## T-716 — Implementar dedupe scoped e determinístico [concluida]
 
 - Refs: US-634, AC-749, AC-750, AC-751, AC-752
 - Arquivos: crates/agent-core/src/dedupe.rs, crates/agent-core/src/lib.rs
-- Notas: normalização bounded, duplicate/conflict/new por projeto/agente/tipo/chave, sem similaridade vetorial.
+- Notas: normalização bounded, duplicate/conflict/new por projeto/agente/tipo/chave, sem similaridade vetorial; contrato Rust passou com 4/4 testes.
 
-## T-717 — Cobrir dedupe, conflito e rollback [em-andamento]
+## T-717 — Cobrir dedupe, conflito e rollback [concluida]
 
 - Refs: US-634, AC-749, AC-750, AC-751, AC-752
 - Arquivos: crates/agent-core/tests/memory_dedupe_contract.rs
-- Notas: exact match, cross-project isolation, conflict reviewable, retry idempotente e rollback.
+- Notas: exact match, cross-project isolation, conflict reviewable, retry idempotente e rollback; contrato Rust passou com 4/4 testes.
 
-## T-718 — Documentar dedupe e registrar verificação [pendente]
+## T-718 — Documentar dedupe e registrar verificação [concluida]
 
 - Refs: US-634, AC-749, AC-750, AC-751, AC-752
 - Arquivos: docs/memory-dedupe.md, .spec/verification/memory-core.json
-- Notas: equivalência, conflito, provenance, limites e rollback.
+- Notas: equivalência, conflito, provenance, limites e rollback; documentação existente e artifact ONP `memory-core.json` registram PASS para AC-749..AC-752.
 
 ## T-719 — Implementar keyword retrieval bounded [em-andamento]
 
