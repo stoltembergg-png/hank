@@ -12,7 +12,7 @@ Tauri e do `ProjectSkillService`.
 
 ## Histórias
 
-### US-641 — Consultar e governar Skills no projeto correto
+### US-642 — Consultar e governar Skills no projeto correto
 
 Como operador de um projeto, quero consultar Skills de projeto e fontes globais
 com seu estado, versão, binding, política, orçamento e proveniência, para que eu
