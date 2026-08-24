@@ -5,6 +5,7 @@
 //! state, or executes an artifact.
 
 use crate::event_bus::EventBus;
+use crate::skill_validation::{SkillValidationReport, SkillValidationService};
 use agent_core::{
     DomainError, ParsedSkill, ProjectId, Skill, SkillCompatibility, SkillError, SkillId,
     SkillScope, SkillStatus,
@@ -475,6 +476,7 @@ impl SqliteSkillRepository {
         skill_id: &SkillId,
         version: &str,
         expected_revision: u64,
+        validation: &SkillValidationReport,
     ) -> Result<SkillRecord, DomainError> {
         let namespace = namespace(scope, project_id)?;
         let Some(current) = self.get_current_by_namespace(&namespace, skill_id).await? else {
@@ -487,6 +489,24 @@ impl SqliteSkillRepository {
             return Err(DomainError::NotFound(
                 "skill version is not the current head".into(),
             ));
+        }
+        let Some(validation_project_id) = project_id else {
+            return Err(DomainError::PermissionDenied {
+                capability: "skill.activate".into(),
+                reason: "global skill promotion requires project-scoped validation evidence".into(),
+            });
+        };
+        if !SkillValidationService::report_is_approved(
+            &current.parsed,
+            *validation_project_id,
+            *skill_id,
+            version,
+            validation,
+        ) {
+            return Err(DomainError::PermissionDenied {
+                capability: "skill.activate".into(),
+                reason: "skill validation evidence is missing, stale, or failed".into(),
+            });
         }
         if current.compatibility == SkillCompatibility::Incompatible {
             return Err(DomainError::PermissionDenied {
@@ -610,6 +630,7 @@ impl SqliteSkillRepository {
         skill_id: &SkillId,
         target_version: &str,
         expected_revision: u64,
+        validation: &SkillValidationReport,
     ) -> Result<SkillRecord, DomainError> {
         let namespace = namespace(scope, project_id)?;
         let Some(current) = self.get_current_by_namespace(&namespace, skill_id).await? else {
@@ -635,6 +656,24 @@ impl SqliteSkillRepository {
                 "skill rollback version not found".into(),
             ));
         };
+        let Some(validation_project_id) = project_id else {
+            return Err(DomainError::PermissionDenied {
+                capability: "skill.activate".into(),
+                reason: "global skill rollback requires project-scoped validation evidence".into(),
+            });
+        };
+        if !SkillValidationService::report_is_approved(
+            &target.parsed,
+            *validation_project_id,
+            *skill_id,
+            target_version,
+            validation,
+        ) {
+            return Err(DomainError::PermissionDenied {
+                capability: "skill.activate".into(),
+                reason: "skill rollback validation evidence is missing, stale, or failed".into(),
+            });
+        }
         if target.compatibility == SkillCompatibility::Incompatible {
             return Err(DomainError::PermissionDenied {
                 capability: "skill.activate".into(),

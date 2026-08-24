@@ -45,6 +45,7 @@ pub mod skill_loader;
 pub mod skill_repo;
 pub mod skill_runtime;
 pub mod skill_testing;
+pub mod skill_validation;
 pub mod sqlite;
 pub mod streaming;
 pub mod tool;
