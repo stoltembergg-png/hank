@@ -1,8 +1,8 @@
 {
   "feature": "skill-test-framework",
-  "timestamp": "2026-08-24T13:15:00.496Z",
-  "gitRev": "4f94c6f",
-  "command": "node tools/run-all-tests.mjs",
+  "timestamp": "2026-08-24T16:50:52.298Z",
+  "gitRev": "f9db075",
+  "command": "node tools/run-feature-tests.mjs skill-test-framework",
   "reporter": "exitcode",
   "exitCode": 0,
   "testsParsed": 0,
