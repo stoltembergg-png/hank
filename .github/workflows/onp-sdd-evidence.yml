@@ -142,6 +142,9 @@ jobs:
       - name: Verify skill evaluation
         run: node tools/ci/run-onp-spec.mjs verify skill-evaluation
 
+      - name: Verify skill candidate
+        run: node tools/ci/run-onp-spec.mjs verify skill-candidate
+
       - name: Verify tool-call rendering
         run: node tools/ci/run-onp-spec.mjs verify tool-call-rendering
 
