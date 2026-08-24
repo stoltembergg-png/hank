@@ -30,7 +30,7 @@ async function readPage() {
     throw new Error(`DevTools returned HTTP ${response.status}`);
   }
   const targets = await response.json();
-  return targets.find((target) => target.type === 'page') ?? null;
+  return targets.find((target) => target.type === 'page' && target.title === 'Hank Desktop') ?? null;
 }
 
 const executable = await readFile(executablePath);
@@ -44,7 +44,7 @@ let page = null;
 while (Date.now() < deadline) {
   try {
     page = await readPage();
-    if (page?.title) break;
+    if (page) break;
   } catch {
     // WebView2 may expose the DevTools endpoint only after the native host.
   }
