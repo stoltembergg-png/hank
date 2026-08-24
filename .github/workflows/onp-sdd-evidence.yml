@@ -16,6 +16,8 @@ jobs:
     name: ONP SDD verify and audit
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    env:
+      HANK_SKIP_TAURI: '1'
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -152,10 +154,12 @@ jobs:
       - name: Verify W0 contract closure
         run: node tools/ci/run-onp-spec.mjs verify w0-contract-closure
 
-      - name: Run aggregate native coverage diagnostic
+      - name: Run aggregate non-native coverage diagnostic
         run: node tools/run-all-tests.mjs
 
       - name: Verify Tauri desktop
+        env:
+          HANK_SKIP_TAURI: ''
         run: node tools/ci/run-onp-spec.mjs verify tauri-desktop
 
       - name: Audit SDD
