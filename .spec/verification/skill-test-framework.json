@@ -1,0 +1,27 @@
+{
+  "feature": "skill-test-framework",
+  "timestamp": "2026-08-24T13:15:00.496Z",
+  "gitRev": "4f94c6f",
+  "command": "node tools/run-all-tests.mjs",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-791": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-792": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-793": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}
