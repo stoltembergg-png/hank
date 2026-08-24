@@ -40,6 +40,7 @@ pub mod sandbox;
 pub mod scheduler;
 pub mod session_repo;
 pub mod session_service;
+pub mod skill_autonomous_test;
 pub mod skill_candidate;
 pub mod skill_creation;
 pub mod skill_editor;
