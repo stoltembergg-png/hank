@@ -44,6 +44,7 @@ dependencies = [
  "chrono",
  "futures-util",
  "provider-core",
+ "semver",
  "serde",
  "serde_json",
  "sqlx",
