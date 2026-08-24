@@ -102,6 +102,7 @@ describe('CI Build workflow AC tests', () => {
 
   it('Windows desktop smoke test uses the WebView page title after the native window exists', () => {
     const smoke = readFileSync(join(REPOSITORY_ROOT, 'tools', 'windows-desktop-e2e.mjs'), 'utf8');
+    expect(smoke).toContain("target.type === 'page' && target.title === 'Hank Desktop'");
     expect(smoke).toContain("page.title !== 'Hank Desktop'");
     expect(smoke).toContain("page.url.startsWith('http://tauri.localhost/')");
   });
