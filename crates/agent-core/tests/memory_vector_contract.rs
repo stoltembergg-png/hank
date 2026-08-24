@@ -47,6 +47,7 @@ fn vector_query_is_scoped_ranked_and_dimension_checked() {
 }
 
 // @spec:AC-762
+// @spec:AC-779
 #[test]
 fn upsert_is_idempotent_and_archive_delete_remove_active_index() {
     let project = ProjectId::new();
