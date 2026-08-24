@@ -47,7 +47,12 @@ if (existsSync('frontend/package.json')) {
   });
 }
 
-if (!process.env.HANK_SKIP_TAURI && existsSync('apps/desktop/src-tauri/Cargo.toml')) {
+const tauriOnly = process.env.HANK_ONLY_TAURI === '1';
+if (tauriOnly) {
+  commands.splice(0, commands.length);
+}
+
+if ((tauriOnly || !process.env.HANK_SKIP_TAURI) && existsSync('apps/desktop/src-tauri/Cargo.toml')) {
   commands.push({
     label: 'Tauri acceptance tests',
     command: cargoCmd,
