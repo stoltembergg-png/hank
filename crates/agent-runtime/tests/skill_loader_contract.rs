@@ -1,7 +1,12 @@
 use agent_core::{
-    Action, AgentId, Capability, CapabilitySet, ProjectId, Resource, Skill, SkillDependency,
-    SkillFile, SkillFileInput, SkillFileRole, SkillId, SkillManifest, SkillParseRequest,
-    SkillParser, SkillScope, SkillStatus, TraceId,
+    Action, AgentId, BudgetLimits, Capability, CapabilitySet, ProjectId, Resource, Skill,
+    SkillDependency, SkillFile, SkillFileInput, SkillFileRole, SkillId, SkillManifest,
+    SkillParseRequest, SkillParser, SkillScope, SkillStatus, TraceId,
+};
+use agent_runtime::skill_testing::{DeterministicSkillTestRunner, SkillFixture, SkillTestStep};
+use agent_runtime::skill_validation::{
+    SkillDependencyNode, SkillValidationPolicy, SkillValidationReport, SkillValidationRequest,
+    SkillValidationService, SkillValidationStatus,
 };
 use agent_runtime::{
     migrations::run_migrations, sqlite::SqliteStorage, SkillGlobalImport, SkillLoadBudget,
@@ -54,6 +59,12 @@ fn request(project_id: ProjectId, skill_id: SkillId, scope: SkillScope) -> Skill
 
 fn project_manifest(name: &str, version: &str) -> SkillManifest {
     let mut manifest = SkillManifest::new(name, version, SkillScope::Project);
+    manifest.files.push(SkillFile {
+        path: "tests/basic.json".into(),
+        role: SkillFileRole::Test,
+        digest: "b".repeat(64),
+    });
+    manifest.tests.push("tests/basic.json".into());
     manifest.policy.requires_approval = false;
     manifest
 }
@@ -64,10 +75,48 @@ fn global_manifest(name: &str, version: &str) -> SkillManifest {
     manifest
 }
 
+fn validation_report(
+    parsed: &agent_core::ParsedSkill,
+    project_id: ProjectId,
+) -> SkillValidationReport {
+    let fixture = SkillFixture::new(
+        project_id,
+        parsed.manifest.id,
+        parsed.manifest.version.clone(),
+        parsed.manifest.trace.trace_id,
+        vec![SkillTestStep::AssertLabel {
+            label: "loader".into(),
+        }],
+        4,
+    )
+    .unwrap();
+    let test_report = DeterministicSkillTestRunner::run(&fixture).unwrap();
+    let capability = capability(project_id);
+    let request = SkillValidationRequest {
+        project_id,
+        skill_id: parsed.manifest.id,
+        version: parsed.manifest.version.clone(),
+        actor_id: "test-operator".into(),
+        capability: capability.clone(),
+        policy: SkillValidationPolicy {
+            allowed_capabilities: CapabilitySet::new().insert(capability),
+        },
+        budget: BudgetLimits::default(),
+        trace_id: parsed.manifest.trace.trace_id,
+        dependency_graph: vec![SkillDependencyNode {
+            skill_id: parsed.manifest.id,
+            dependencies: Vec::new(),
+        }],
+    };
+    let validation = SkillValidationService::validate(parsed, &request, Some(&test_report));
+    assert_eq!(validation.status, SkillValidationStatus::Passed);
+    validation
+}
+
 fn parsed_skill(
     manifest: SkillManifest,
     project_id: Option<ProjectId>,
-    files: Vec<SkillFileInput>,
+    mut files: Vec<SkillFileInput>,
     links: &str,
 ) -> (Skill, agent_core::ParsedSkill) {
     let document = format!(
@@ -75,6 +124,16 @@ fn parsed_skill(
         serde_json::to_string(&manifest).unwrap(),
         links
     );
+    if manifest
+        .tests
+        .iter()
+        .any(|path| !files.iter().any(|file| &file.path == path))
+    {
+        files.push(SkillFileInput {
+            path: "tests/basic.json".into(),
+            content: "{\"case\":\"safe\"}".into(),
+        });
+    }
     let parsed = SkillParser::default()
         .parse(SkillParseRequest {
             document,
@@ -128,7 +187,7 @@ async fn active_project_skill_loads_bounded_data_without_executing_scripts() {
 
     assert_eq!(loaded.skill.manifest.version, "1.0.0");
     assert_eq!(loaded.instructions.len(), 1);
-    assert_eq!(loaded.artifacts.len(), 2);
+    assert_eq!(loaded.artifacts.len(), 3);
     assert!(loaded
         .artifacts
         .iter()
@@ -257,6 +316,7 @@ async fn cache_key_changes_after_update_and_rollback() {
         &first.manifest.id,
         "1.1.0",
         updated.revision,
+        &validation_report(&updated.parsed, project),
     )
     .await
     .unwrap();
@@ -274,6 +334,20 @@ async fn cache_key_changes_after_update_and_rollback() {
         &first.manifest.id,
         "1.0.0",
         3,
+        &validation_report(
+            &repo
+                .get_version(
+                    SkillScope::Project,
+                    Some(&project),
+                    &first.manifest.id,
+                    "1.0.0",
+                )
+                .await
+                .unwrap()
+                .unwrap()
+                .parsed,
+            project,
+        ),
     )
     .await
     .unwrap();

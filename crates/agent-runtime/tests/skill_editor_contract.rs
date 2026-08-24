@@ -1,6 +1,12 @@
 use agent_core::{
-    Action, BudgetLimits, Capability, CapabilitySet, ProjectId, Resource, Skill, SkillManifest,
-    SkillParseRequest, SkillParser, SkillScope, SkillStatus, TraceId,
+    Action, BudgetLimits, Capability, CapabilitySet, ProjectId, Resource, Skill, SkillFile,
+    SkillFileInput, SkillFileRole, SkillManifest, SkillParseRequest, SkillParser, SkillScope,
+    SkillStatus, TraceId,
+};
+use agent_runtime::skill_testing::{DeterministicSkillTestRunner, SkillFixture, SkillTestStep};
+use agent_runtime::skill_validation::{
+    SkillDependencyNode, SkillValidationPolicy, SkillValidationReport, SkillValidationRequest,
+    SkillValidationService, SkillValidationStatus,
 };
 use agent_runtime::{
     migrations::run_migrations,
@@ -24,6 +30,12 @@ async fn repository() -> (SkillDraftService, SqliteSkillRepository, ProjectId) {
 
 fn active_skill(project: ProjectId) -> (Skill, agent_core::ParsedSkill) {
     let mut manifest = SkillManifest::new("editor", "1.0.0", SkillScope::Project);
+    manifest.files.push(SkillFile {
+        path: "tests/basic.json".into(),
+        role: SkillFileRole::Test,
+        digest: "b".repeat(64),
+    });
+    manifest.tests.push("tests/basic.json".into());
     manifest.policy.requires_approval = false;
     manifest.digest = "a".repeat(64);
     let document = format!(
@@ -33,11 +45,53 @@ fn active_skill(project: ProjectId) -> (Skill, agent_core::ParsedSkill) {
     let parsed = SkillParser::default()
         .parse(SkillParseRequest {
             document,
-            files: Vec::new(),
+            files: vec![SkillFileInput {
+                path: "tests/basic.json".into(),
+                content: "{\"case\":\"safe\"}".into(),
+            }],
             project_id: Some(project),
         })
         .unwrap();
     (Skill::new(parsed.manifest.clone(), Some(project)), parsed)
+}
+
+fn validation_report(
+    parsed: &agent_core::ParsedSkill,
+    project_id: ProjectId,
+) -> SkillValidationReport {
+    let fixture = SkillFixture::new(
+        project_id,
+        parsed.manifest.id,
+        parsed.manifest.version.clone(),
+        parsed.manifest.trace.trace_id,
+        vec![SkillTestStep::AssertLabel {
+            label: "editor".into(),
+        }],
+        4,
+    )
+    .unwrap();
+    let test_report = DeterministicSkillTestRunner::run(&fixture).unwrap();
+    let capability =
+        Capability::new(Resource::Skill, Action::Read).with_scope(project_id.to_string());
+    let request = SkillValidationRequest {
+        project_id,
+        skill_id: parsed.manifest.id,
+        version: parsed.manifest.version.clone(),
+        actor_id: "test-operator".into(),
+        capability: capability.clone(),
+        policy: SkillValidationPolicy {
+            allowed_capabilities: CapabilitySet::new().insert(capability),
+        },
+        budget: BudgetLimits::default(),
+        trace_id: parsed.manifest.trace.trace_id,
+        dependency_graph: vec![SkillDependencyNode {
+            skill_id: parsed.manifest.id,
+            dependencies: Vec::new(),
+        }],
+    };
+    let validation = SkillValidationService::validate(parsed, &request, Some(&test_report));
+    assert_eq!(validation.status, SkillValidationStatus::Passed);
+    validation
 }
 
 fn save_request(
@@ -63,7 +117,10 @@ fn save_request(
         expected_revision,
         base_version: "1.0.0".into(),
         document,
-        files: Vec::new(),
+        files: vec![SkillFileInput {
+            path: "tests/basic.json".into(),
+            content: "{\"case\":\"safe\"}".into(),
+        }],
     }
 }
 
@@ -90,6 +147,7 @@ async fn saving_draft_parses_and_keeps_active_head_unchanged() {
             &active.manifest.id,
             "1.0.0",
             1,
+            &validation_report(&parsed, project),
         )
         .await
         .unwrap();
@@ -125,6 +183,7 @@ async fn invalid_or_quarantined_draft_is_rejected_before_persistence() {
             &active.manifest.id,
             "1.0.0",
             1,
+            &validation_report(&parsed, project),
         )
         .await
         .unwrap();
@@ -166,6 +225,7 @@ async fn duplicate_draft_is_idempotent_and_discard_is_explicit() {
             &active.manifest.id,
             "1.0.0",
             1,
+            &validation_report(&parsed, project),
         )
         .await
         .unwrap();
