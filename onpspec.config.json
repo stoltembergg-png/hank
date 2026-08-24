@@ -1,5 +1,8 @@
 {
   "testCommand": "node tools/run-all-tests.mjs",
+  "testCommands": {
+    "*": "node tools/run-feature-tests.mjs {feature}"
+  },
   "reporter": "exitcode",
   "testGlobs": [
     "test/**/*.js",

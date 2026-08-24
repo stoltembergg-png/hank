@@ -111,7 +111,13 @@ export function runVerify(project, featureName) {
   if (!feature.spec) {
     throw new Error(`feature "${featureName}" não tem spec.md`);
   }
-  if (!config.testCommand) {
+  const configuredCommand =
+    config.testCommands?.[featureName] || config.testCommands?.['*'];
+  const testCommand = (configuredCommand || config.testCommand)?.replace(
+    '{feature}',
+    featureName
+  );
+  if (!testCommand) {
     throw new Error(
       'defina "testCommand" em onpspec.config.json (ex.: "node --test" ou "npx vitest run --reporter=json --outputFile=.spec/verification/raw.json")'
     );
@@ -124,7 +130,7 @@ export function runVerify(project, featureName) {
   delete childEnv.NODE_TEST_CONTEXT;
   delete childEnv.NODE_OPTIONS;
 
-  const proc = spawnSync(config.testCommand, {
+  const proc = spawnSync(testCommand, {
     cwd: config.rootDir,
     shell: true,
     encoding: 'utf-8',
@@ -196,7 +202,7 @@ export function runVerify(project, featureName) {
     feature: featureName,
     timestamp: new Date().toISOString(),
     gitRev: gitRev(config.rootDir),
-    command: config.testCommand,
+    command: testCommand,
     reporter: config.reporter,
     exitCode: proc.status,
     testsParsed: tests.length,
