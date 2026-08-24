@@ -235,3 +235,21 @@
 - Refs: US-641, AC-780
 - Arquivos: crates/agent-runtime/tests/memory_isolation_contract.rs, docs/memory-isolation.md, .spec/verification/memory-core.json
 - Notas: repository, selector e mutation service cobertos com dois projetos; vector index coberto por AC-779; bridge Tauri mantém project_id obrigatório e SQLite atrás do estado gerenciado.
+
+## T-740 — Implementar modelo e resolver de policy project/agent-scoped [em-andamento]
+
+- Refs: US-642, AC-781, AC-782, AC-783, AC-784
+- Arquivos: crates/agent-core/src/memory_policy.rs, crates/agent-core/src/memory.rs, crates/agent-core/src/lib.rs
+- Notas: política versionada, bounded, deny-default, identidade project/agent, precedência system/security/project/agent e budgets de tipo/token/custo; contratos Rust passam com 4/4 testes.
+
+## T-741 — Persistir policy e aplicar em todos os caminhos de memória [pendente]
+
+- Refs: US-642, AC-781, AC-782, AC-783, AC-784
+- Arquivos: migrations/*memory_policy*, crates/agent-runtime/src/memory_policy_repo.rs, memory_service.rs, context/memory_selector.rs
+- Notas: nenhum read/write/learn pode ignorar policy; atualização deve ser optimistic/versioned, auditável e rollback-safe.
+
+## T-742 — Documentar precedência, autonomia, approval e rollback [pendente]
+
+- Refs: US-642, AC-781, AC-782, AC-783, AC-784
+- Arquivos: docs/memory-policy.md, .spec/verification/memory-core.json
+- Notas: documentar decisão sem conteúdo raw, capability, actor/project/agent/trace, budgets, retenção e interação com autonomy.

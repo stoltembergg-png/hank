@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Tipo de memória
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MemoryType {
     Working,
@@ -187,29 +187,5 @@ impl Memory {
     pub fn access(&mut self) {
         self.accessed_at = Some(Utc::now());
         self.access_count += 1;
-    }
-}
-
-/// Política de memória por agente
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MemoryPolicy {
-    pub max_working_memories: usize,
-    pub max_short_term_memories: usize,
-    pub max_long_term_memories: usize,
-    pub importance_threshold: f32,
-    pub retention_days: u32,
-    pub auto_archive: bool,
-}
-
-impl Default for MemoryPolicy {
-    fn default() -> Self {
-        Self {
-            max_working_memories: 10,
-            max_short_term_memories: 100,
-            max_long_term_memories: 10000,
-            importance_threshold: 0.3,
-            retention_days: 90,
-            auto_archive: true,
-        }
     }
 }

@@ -9,6 +9,7 @@ export type MemoryMutationEdit =
 
 export interface MemoryMutationInput {
   project_id: string;
+  agent_id?: string;
   memory_id: string;
   actor_id: string;
   trace_id: string;
