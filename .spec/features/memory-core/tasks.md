@@ -223,3 +223,15 @@
 - Refs: US-640, AC-773, AC-774, AC-775, AC-776
 - Arquivos: docs/memory-editing.md, .spec/verification/memory-core.json
 - Notas: workflow editorial, policy/capability, optimistic version, replay prevention, audit e privacy documentados em `docs/memory-editing.md`; `onp-spec verify memory-core` registra PASS para AC-773..AC-776 após a integração do bridge Tauri/UI (PR #210, SHA `2331bd5`).
+
+## T-738 — Tornar mutações de índice explicitamente project-scoped [concluida]
+
+- Refs: US-641, AC-777
+- Arquivos: crates/agent-core/src/vector.rs, crates/agent-core/tests/memory_vector_contract.rs
+- Notas: archive exige `ProjectId` e rejeita tentativa foreign sem desativar o registro correto. Contrato vector passou com 4/4 testes.
+
+## T-739 — Verificar isolamento cross-project em todas as boundaries [concluida]
+
+- Refs: US-641, AC-778
+- Arquivos: crates/agent-runtime/tests/memory_isolation_contract.rs, docs/memory-isolation.md, .spec/verification/memory-core.json
+- Notas: repository, selector e mutation service cobertos com dois projetos; vector index coberto por AC-777; bridge Tauri mantém project_id obrigatório e SQLite atrás do estado gerenciado.

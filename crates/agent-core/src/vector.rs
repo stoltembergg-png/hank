@@ -46,6 +46,8 @@ pub enum VectorError {
     DimensionMismatch,
     #[error("vector model identity does not match")]
     ModelMismatch,
+    #[error("vector record belongs to another project")]
+    ProjectScope,
     #[error("vector query is invalid")]
     InvalidQuery,
     #[error("vector record is not found")]
@@ -122,12 +124,15 @@ impl VectorIndex {
         Ok(results)
     }
 
-    pub fn archive(&mut self, id: &str) -> Result<(), VectorError> {
+    pub fn archive(&mut self, project_id: &ProjectId, id: &str) -> Result<(), VectorError> {
         let record = self
             .records
             .iter_mut()
             .find(|entry| entry.id == id)
             .ok_or(VectorError::NotFound)?;
+        if &record.project_id != project_id {
+            return Err(VectorError::ProjectScope);
+        }
         record.active = false;
         Ok(())
     }
