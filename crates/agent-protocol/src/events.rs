@@ -19,6 +19,7 @@ pub enum EventKind {
     ProviderUsageRecorded,
     RunCompleted,
     RunFailed,
+    SkillBindingChanged,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
