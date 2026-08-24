@@ -127,6 +127,9 @@ jobs:
       - name: Verify skill UI
         run: node tools/ci/run-onp-spec.mjs verify skill-ui
 
+      - name: Verify skill editor
+        run: node tools/ci/run-onp-spec.mjs verify skill-editor
+
       - name: Verify tool-call rendering
         run: node tools/ci/run-onp-spec.mjs verify tool-call-rendering
 

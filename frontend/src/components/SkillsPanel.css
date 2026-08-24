@@ -108,3 +108,34 @@
 .skill-history { margin-top: 0.85rem; font-size: 0.85rem; }
 .skill-history ul { margin-bottom: 0; padding-left: 1.25rem; }
 .skill-card-actions { display: flex; gap: 0.5rem; margin-top: 0.85rem; }
+
+.skill-editor {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.75rem 0 0;
+  padding: 0.85rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.5rem;
+  background: #eff6ff;
+}
+
+.skill-editor h3,
+.skill-editor p { margin: 0; }
+
+.skill-editor label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.skill-editor textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 7rem;
+  padding: 0.5rem;
+  resize: vertical;
+  font: 0.875rem/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.skill-editor-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }

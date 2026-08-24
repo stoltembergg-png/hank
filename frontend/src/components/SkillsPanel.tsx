@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { defaultSkillApi, SkillApiClient } from '../api/skills';
+import { defaultSkillEditorApi, SkillEditorApiClient } from '../api/skillEditor';
 import {
   SkillListOutput,
   SkillScope,
   SkillSummary,
 } from '../types/skill';
+import { SkillEditor } from './SkillEditor';
 import './SkillsPanel.css';
 
 const MAX_DESCRIPTION_CHARS = 320;
@@ -13,12 +15,14 @@ export interface SkillsPanelProps {
   projectId: string;
   actorId?: string;
   apiClient?: SkillApiClient;
+  skillEditorApiClient?: SkillEditorApiClient;
 }
 
 export const SkillsPanel: React.FC<SkillsPanelProps> = ({
   projectId,
   actorId = 'desktop-operator',
   apiClient = defaultSkillApi,
+  skillEditorApiClient = defaultSkillEditorApi,
 }) => {
   const [scope, setScope] = useState<SkillScope>('project');
   const [skills, setSkills] = useState<SkillSummary[]>([]);
@@ -28,6 +32,7 @@ export const SkillsPanel: React.FC<SkillsPanelProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [mutatingSkillId, setMutatingSkillId] = useState<string | null>(null);
+  const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
   const requestSequence = useRef(0);
 
   const fetchSkills = useCallback(async () => {
@@ -68,6 +73,7 @@ export const SkillsPanel: React.FC<SkillsPanelProps> = ({
       setSkills([]);
       setError(null);
       setAvailable(true);
+      setEditingSkillId(null);
       setScope(nextScope);
     }
   };
@@ -147,13 +153,23 @@ export const SkillsPanel: React.FC<SkillsPanelProps> = ({
       {!isLoading && !error && available && visibleSkills.length > 0 && (
         <ul className="skills-list" role="list">
           {visibleSkills.map((skill) => (
-            <SkillCard
-              key={skill.id}
-              skill={skill}
-              projectId={projectId}
-              mutating={mutatingSkillId === skill.id}
-              onRollback={apiClient.rollback ? () => void rollback(skill) : undefined}
-            />
+            <React.Fragment key={skill.id}>
+              <SkillCard
+                skill={skill}
+                projectId={projectId}
+                mutating={mutatingSkillId === skill.id}
+                onRollback={apiClient.rollback ? () => void rollback(skill) : undefined}
+                onEdit={skill.scope === 'project' ? () => setEditingSkillId((current) => current === skill.id ? null : skill.id) : undefined}
+              />
+              {editingSkillId === skill.id && skill.scope === 'project' && (
+                <SkillEditor
+                  projectId={projectId}
+                  skillId={skill.id}
+                  actorId={actorId}
+                  apiClient={skillEditorApiClient}
+                />
+              )}
+            </React.Fragment>
           ))}
         </ul>
       )}
@@ -166,11 +182,13 @@ function SkillCard({
   projectId,
   mutating,
   onRollback,
+  onEdit,
 }: {
   skill: SkillSummary;
   projectId: string;
   mutating: boolean;
   onRollback?: () => void;
+  onEdit?: () => void;
 }) {
   const bindingAvailable = isBindingAvailable(skill, projectId);
   const isGlobalUnavailable = skill.scope === 'global' && !bindingAvailable;
@@ -223,11 +241,18 @@ function SkillCard({
         ) : <p>Nenhuma versão histórica disponível.</p>}
       </details>
 
-      {skill.scope === 'project' && bindingAvailable && skill.binding?.enabled && onRollback && (
+      {(onRollback || onEdit) && (
         <div className="skill-card-actions">
-          <button type="button" onClick={onRollback} disabled={mutating} aria-label={`Rollback ${skill.name}`}>
-            {mutating ? 'Revertendo...' : 'Rollback'}
-          </button>
+          {skill.scope === 'project' && bindingAvailable && skill.binding?.enabled && onRollback && (
+            <button type="button" onClick={onRollback} disabled={mutating} aria-label={`Rollback ${skill.name}`}>
+              {mutating ? 'Revertendo...' : 'Rollback'}
+            </button>
+          )}
+          {skill.scope === 'project' && onEdit && (
+            <button type="button" onClick={onEdit} aria-label={`Editar rascunho ${skill.name}`}>
+              Editar rascunho
+            </button>
+          )}
         </div>
       )}
     </li>

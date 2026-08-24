@@ -1,0 +1,32 @@
+{
+  "feature": "skill-editor",
+  "timestamp": "2026-08-24T09:23:53.011Z",
+  "gitRev": "eaeebaa",
+  "command": "node tools/run-all-tests.mjs",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-787": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-788": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-789": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-790": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}
