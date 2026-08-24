@@ -324,6 +324,147 @@ impl SqliteSkillRepository {
         Ok(record)
     }
 
+    /// Persists a new immutable draft version without moving the active head.
+    /// The editor must never replace an active artifact in place.
+    pub async fn create_draft(
+        &self,
+        skill: &Skill,
+        parsed: &ParsedSkill,
+        expected_revision: u64,
+    ) -> Result<(SkillRecord, bool), DomainError> {
+        if skill.status != SkillStatus::Draft || skill.pinned_version.is_some() {
+            return Err(DomainError::InvalidStateTransition {
+                from: status_to_db(skill.status).into(),
+                to: "draft editor".into(),
+            });
+        }
+        let namespace = namespace(skill.manifest.scope, skill.project_id.as_ref())?;
+        let mut transaction = self
+            .pool
+            .begin()
+            .await
+            .map_err(|error| persistence_error("skill draft transaction", error))?;
+        let Some(head) =
+            head_in_transaction(&mut transaction, &namespace, &skill.manifest.id).await?
+        else {
+            return Err(DomainError::NotFound("skill head not found".into()));
+        };
+        if head.revision != expected_revision {
+            return Err(concurrency_error(expected_revision, head.revision));
+        }
+        if head.current_version == skill.manifest.version {
+            return Err(DomainError::Duplicate(
+                "skill draft version already is the current head".into(),
+            ));
+        }
+
+        let compatibility =
+            SkillCompatibility::from_parent(Some(&head.current_version), &skill.manifest.version)
+                .map_err(|error| DomainError::Validation(error.to_string()))?;
+        let mut persisted = skill.clone();
+        persisted.parent_version = Some(head.current_version.clone());
+        persisted.compatibility = compatibility;
+        validate_input(&persisted, parsed)?;
+        let content_hash = compute_content_hash(&persisted, parsed)?;
+        if let Some(mut existing) = version_by_content_in_transaction(
+            &mut transaction,
+            &namespace,
+            &skill.manifest.id,
+            &content_hash,
+        )
+        .await?
+        {
+            existing.revision = expected_revision;
+            transaction
+                .commit()
+                .await
+                .map_err(|error| persistence_error("skill draft dedupe commit", error))?;
+            return Ok((existing, false));
+        }
+
+        insert_version(
+            &mut transaction,
+            &namespace,
+            &persisted,
+            parsed,
+            persisted.parent_version.as_deref(),
+            compatibility,
+            &content_hash,
+        )
+        .await?;
+        insert_version_state(
+            &mut transaction,
+            &namespace,
+            &persisted,
+            status_to_db(SkillStatus::Draft),
+        )
+        .await?;
+        transaction
+            .commit()
+            .await
+            .map_err(|error| persistence_error("skill draft commit", error))?;
+        let record = SkillRecord {
+            version_id: version_id(&persisted.manifest.id, &persisted.manifest.version),
+            content_hash,
+            parent_version: persisted.parent_version.clone(),
+            compatibility,
+            skill: persisted,
+            parsed: parsed.clone(),
+            revision: expected_revision,
+        };
+        self.publish_version_event("draft", &record, record.skill.project_id);
+        Ok((record, true))
+    }
+
+    /// Archives a draft version without changing the active or current head.
+    pub async fn discard_draft(
+        &self,
+        scope: SkillScope,
+        project_id: Option<&ProjectId>,
+        skill_id: &SkillId,
+        version: &str,
+        expected_revision: u64,
+    ) -> Result<SkillRecord, DomainError> {
+        let namespace = namespace(scope, project_id)?;
+        let Some(head) = fetch_head(&self.pool, &namespace, skill_id).await? else {
+            return Err(DomainError::NotFound("skill head not found".into()));
+        };
+        if head.revision != expected_revision {
+            return Err(concurrency_error(expected_revision, head.revision));
+        }
+        if head.current_version == version {
+            return Err(DomainError::InvalidStateTransition {
+                from: "current skill version".into(),
+                to: "discard draft".into(),
+            });
+        }
+        let Some(target) = self
+            .get_version(scope, project_id, skill_id, version)
+            .await?
+        else {
+            return Err(DomainError::NotFound(
+                "skill draft version not found".into(),
+            ));
+        };
+        if !matches!(
+            target.skill.status,
+            SkillStatus::Draft | SkillStatus::Testing
+        ) {
+            return Err(DomainError::InvalidStateTransition {
+                from: status_to_db(target.skill.status).into(),
+                to: "archived".into(),
+            });
+        }
+        update_version_state(&self.pool, &namespace, skill_id, version, "archived").await?;
+        let mut record = self
+            .get_version(scope, project_id, skill_id, version)
+            .await?
+            .ok_or_else(|| DomainError::NotFound("skill draft disappeared".into()))?;
+        record.revision = expected_revision;
+        self.publish_version_event("discard", &record, project_id.copied());
+        Ok(record)
+    }
+
     /// Promotes the current immutable version through an explicit lifecycle
     /// operation. The method never rewrites the artifact or moves the head to
     /// an unrequested version.

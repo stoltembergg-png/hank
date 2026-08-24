@@ -169,7 +169,11 @@ pub fn command_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 
         crate::memory::list_memories,
         crate::memory::mutate_memory,
         crate::skills::list_skills,
-        crate::skills::rollback_skill
+        crate::skills::rollback_skill,
+        crate::skills::get_skill_editor,
+        crate::skills::validate_skill_draft,
+        crate::skills::save_skill_draft,
+        crate::skills::discard_skill_draft
     ]
 }
 

@@ -65,6 +65,20 @@ test('desktop frontend renders project-scoped Skills and keeps unimported global
       ],
     };
     const globalSkill = { ...projectSkill, id: 'skill_e2e_global', name: 'global-reviewer', project_id: null, scope: 'global', binding: null };
+    const editorDocument = {
+      project_id: projectId,
+      skill_id: projectSkill.id,
+      base_version: projectSkill.version,
+      status: 'active',
+      revision: projectSkill.revision,
+      manifest_json: JSON.stringify({ id: projectSkill.id, version: projectSkill.version, name: projectSkill.name }),
+      markdown: '# Instructions\nKeep the active version unchanged.',
+      files: [],
+      policy: projectSkill.policy,
+      budget: projectSkill.budget,
+      trace_id: projectSkill.trace_id,
+      content_hash: projectSkill.content_hash,
+    };
 
     (window as unknown as { __TAURI_INVOKE__: (command: string, args?: { input?: { scope?: string } }) => Promise<unknown> }).__TAURI_INVOKE__ = async (command, args) => {
       if (command === 'list_projects') return { projects: [project], total: 1, limit: 10, offset: 0 };
@@ -74,6 +88,10 @@ test('desktop frontend renders project-scoped Skills and keeps unimported global
         const skills = scope === 'global' ? [globalSkill] : [projectSkill];
         return { project_id: projectId, scope, skills, total: skills.length, limit: 50, offset: 0, available: true };
       }
+      if (command === 'get_skill_editor') return editorDocument;
+      if (command === 'validate_skill_draft') return { valid: true, quarantined: false, diagnostics: [], errors: [] };
+      if (command === 'save_skill_draft') return { project_id: projectId, skill_id: projectSkill.id, version: '1.3.0', status: 'draft', content_hash: 'd'.repeat(64), changed: true, quarantined: false, revision: projectSkill.revision };
+      if (command === 'discard_skill_draft') return { project_id: projectId, skill_id: projectSkill.id, version: '1.3.0', status: 'archived', content_hash: 'd'.repeat(64), changed: true, quarantined: false, revision: projectSkill.revision };
       throw new Error(`Unexpected command: ${command}`);
     };
   });
@@ -84,6 +102,15 @@ test('desktop frontend renders project-scoped Skills and keeps unimported global
   await expect(page.getByText('Versão ativa').locator('..')).toContainText('1.2.0');
   await expect(page.locator('.skill-description')).toContainText('<img src=x onerror=alert(1)> Safe description');
   await expect(page.locator('.skill-description')).not.toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Editar rascunho reviewer' }).click();
+  await expect(page.getByRole('heading', { name: 'Editor de skill' })).toBeVisible();
+  await page.getByLabel('Instruções Markdown').fill('reviewed draft');
+  await page.getByRole('button', { name: 'Validar rascunho' }).click();
+  await expect(page.getByRole('alert')).toContainText('Rascunho válido');
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Salvar rascunho' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'salvo' })).toBeVisible();
 
   await page.getByRole('tab', { name: 'Globais' }).click();
   await expect(page.getByRole('heading', { name: 'global-reviewer' })).toBeVisible();
