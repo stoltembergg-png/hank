@@ -29,4 +29,4 @@ O manifesto não possui campo para escolher camada de instrução. `SKILL.md` é
 
 O conjunto de estados é `draft → testing → active → deprecated → archived`, com `blocked` como quarentena. Transições são explícitas e `archived` é terminal. Ativação exige pin da versão exata do manifesto; rollback preserva a versão anterior e não executa conteúdo.
 
-Este card não implementa parser de Markdown, repository, loader, importação global, UI, evaluator ou execução de scripts. Essas responsabilidades permanecem nos cards PR-137 em diante.
+O manifesto continua sem executar conteúdo. O parser declarativo de `SKILL.md` está documentado em [`skill-parser.md`](skill-parser.md); repository, loader, importação global, UI, evaluator e execução de scripts permanecem nos cards PR-138 em diante.

@@ -25,7 +25,7 @@
 
 ## T-302 — Criar crate agent-core (domínio puro) [concluida]
 - Refs: US-301, AC-301, AC-303
-- Arquivos: crates/agent-core/Cargo.toml, crates/agent-core/src/lib.rs, crates/agent-core/src/agent.rs, crates/agent-core/src/budget.rs, crates/agent-core/src/error.rs, crates/agent-core/src/memory.rs, crates/agent-core/src/project.rs, crates/agent-core/src/session.rs, crates/agent-core/src/skill.rs, crates/agent-core/src/workflow.rs, docs/project-aggregate.md
+- Arquivos: crates/agent-core/Cargo.toml, crates/agent-core/src/lib.rs, crates/agent-core/src/agent.rs, crates/agent-core/src/budget.rs, crates/agent-core/src/error.rs, crates/agent-core/src/memory.rs, crates/agent-core/src/project.rs, crates/agent-core/src/parser.rs, crates/agent-core/src/session.rs, crates/agent-core/src/skill.rs, crates/agent-core/src/workflow.rs, docs/project-aggregate.md
 - Notas: Sem dependências de tauri, tao, wry, sqlx, tokio, providers concretos; apenas agent-protocol e std
 
 ## T-303 — Criar crate agent-runtime (execution/durable) [concluida]
