@@ -59,7 +59,9 @@ for (const file of tagged) {
     const pkg = cargoPackage(file);
     if (!pkg) continue;
     const target = /\/tests\//.test(file) ? basename(file, '.rs') : null;
-    const args = ['test', '-p', pkg.package];
+    const args = file.startsWith('apps/')
+      ? ['test', '--manifest-path', relative(root, pkg.manifest)]
+      : ['test', '-p', pkg.package];
     if (target) args.push('--test', target);
     args.push('--locked');
     commands.push({ command: 'cargo', args, label: file });
