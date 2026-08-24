@@ -98,6 +98,7 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({
     try {
       const updated = await apiClient.mutate({
         project_id: projectId,
+        agent_id: memory.agent_id ?? undefined,
         memory_id: memory.id,
         actor_id: actorId,
         trace_id: memory.trace_id ?? createBoundedId('memory-trace'),

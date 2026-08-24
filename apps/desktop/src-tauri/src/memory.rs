@@ -5,9 +5,14 @@
 //! `MemoryMutationService`. SQLite remains behind the application service.
 
 use agent_core::error::DomainErrorCode;
-use agent_core::{DomainError, Memory, MemoryId, MemoryStatus, MemoryType, ProjectId};
+use agent_core::{
+    DomainError, Memory, MemoryId, MemoryPolicyAction, MemoryPolicyRequest, MemoryPolicyResolver,
+    MemoryStatus, MemoryType, ProjectId,
+};
+use agent_protocol::AgentId;
 use agent_runtime::{
     memory_repo::SqliteMemoryRepository,
+    memory_policy_repo::SqliteMemoryPolicyRepository,
     memory_service::{MemoryEdit, MemoryMutationContext, MemoryMutationService},
     sqlite::SqliteStorage,
 };
@@ -20,21 +25,25 @@ pub const MEMORY_CONFIRMATION_PHRASE: &str = "confirm memory mutation";
 /// Managed state that keeps the repository and application service behind the bridge.
 pub struct MemoryBridgeState {
     repository: SqliteMemoryRepository,
+    policy_repository: SqliteMemoryPolicyRepository,
     service: MemoryMutationService,
 }
 
 impl MemoryBridgeState {
-    pub fn new(repository: SqliteMemoryRepository) -> Self {
+    pub fn new(repository: SqliteMemoryRepository, policy_repository: SqliteMemoryPolicyRepository) -> Self {
         let service = MemoryMutationService::new(repository.clone());
         Self {
             repository,
+            policy_repository,
             service,
         }
     }
 }
 
 pub fn bridge_state(storage: &SqliteStorage) -> MemoryBridgeState {
-    MemoryBridgeState::new(SqliteMemoryRepository::new(storage.pool().clone()))
+    let repository = SqliteMemoryRepository::new(storage.pool().clone());
+    let policy_repository = SqliteMemoryPolicyRepository::new(storage.pool().clone());
+    MemoryBridgeState::new(repository, policy_repository)
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -100,6 +109,7 @@ impl From<Memory> for MemorySummary {
 #[serde(rename_all = "snake_case")]
 pub struct MemoryMutationInput {
     pub project_id: String,
+    pub agent_id: Option<String>,
     pub memory_id: String,
     pub actor_id: String,
     pub trace_id: String,
@@ -213,7 +223,35 @@ pub async fn mutate_memory(
     validate_mutation_input(&input)?;
 
     let project_id = parse_project_id(&input.project_id)?;
+    let agent_id = parse_agent_id(input.agent_id.as_deref())?;
     let memory_id = parse_memory_id(&input.memory_id)?;
+    let current_memory = state
+        .repository
+        .get(&project_id, &memory_id)
+        .await
+        .map_err(MemoryBridgeError::from)?
+        .ok_or(MemoryBridgeError::InvalidInput)?;
+    let entries = state
+        .policy_repository
+        .resolve_entries(&project_id, &agent_id)
+        .await
+        .map_err(MemoryBridgeError::from)?;
+    let decision = MemoryPolicyResolver::resolve(
+        &MemoryPolicyRequest {
+            project_id,
+            agent_id,
+            action: MemoryPolicyAction::Write,
+            memory_type: current_memory.memory_type,
+            requested_tokens: current_memory.content.len().div_ceil(4) as u32,
+            requested_cost_micros: 0,
+        },
+        &entries,
+    );
+    if !decision.allowed {
+        return Err(MemoryBridgeError::MutationRejected {
+            code: DomainErrorCode::PermissionDenied,
+        });
+    }
     let operation_kind = input.edit.kind();
     tracing::info!(
         event = "memory_mutation",
@@ -255,6 +293,13 @@ fn parse_project_id(value: &str) -> Result<ProjectId, MemoryBridgeError> {
     value.parse().map_err(|_| MemoryBridgeError::InvalidInput)
 }
 
+fn parse_agent_id(value: Option<&str>) -> Result<AgentId, MemoryBridgeError> {
+    value
+        .ok_or(MemoryBridgeError::InvalidInput)?
+        .parse()
+        .map_err(|_| MemoryBridgeError::InvalidInput)
+}
+
 fn parse_memory_id(value: &str) -> Result<MemoryId, MemoryBridgeError> {
     value.parse().map_err(|_| MemoryBridgeError::InvalidInput)
 }
@@ -263,7 +308,7 @@ fn validate_mutation_input(input: &MemoryMutationInput) -> Result<(), MemoryBrid
     if !input.confirmed {
         return Err(MemoryBridgeError::ConfirmationRequired);
     }
-    if input.capability != MEMORY_CAPABILITY {
+    if input.agent_id.is_none() || input.capability != MEMORY_CAPABILITY {
         return Err(MemoryBridgeError::MutationRejected {
             code: DomainErrorCode::PermissionDenied,
         });
