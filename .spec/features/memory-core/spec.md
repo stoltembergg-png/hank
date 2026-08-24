@@ -382,6 +382,36 @@ deputy mesmo quando um identificador de memória coincide entre projetos.
 - **Quando** repository, index, selector, bridge ou rollback é chamado
 - **Então** rejeita antes do efeito e não retorna conteúdo foreign
 
+### US-642 — Aplicar política de memória por projeto e agente
+
+Como sistema de segurança, quero resolver uma política bounded por projeto e
+agente antes de qualquer read/write/learn, para que o modelo não possa elevar
+permissões nem contornar aprovação, budget ou retenção.
+
+#### AC-781 — Política ausente, foreign ou inválida nega por padrão
+
+- **Dado** project/agent identity ausente, foreign ou policy inexistente/inválida
+- **Quando** uma ação de memória é avaliada
+- **Então** retorna decisão deny sem acessar conteúdo nem produzir efeito
+
+#### AC-782 — Precedência system→security→project→agent é fail-closed
+
+- **Dado** policies válidas em camadas diferentes
+- **Quando** uma camada superior nega capability ou limite
+- **Então** uma camada inferior não pode elevar a decisão para allow
+
+#### AC-783 — Tipos, token/cost budgets e capability são bounded
+
+- **Dado** tipo não permitido, tokens/custo acima do limite ou tentativa de model override
+- **Quando** read/write/learn é avaliado
+- **Então** nega com reason/version/layer auditáveis e sem plaintext secreto
+
+#### AC-784 — Policy version e rollback preservam decisão determinística
+
+- **Dado** policy versionada com aprovação e rollback permitido
+- **Quando** é serializada, atualizada ou revertida
+- **Então** mantém identidade project/agent, rejeita campos desconhecidos e não altera a hierarquia de segurança
+
 ## Fora de escopo
 
 - Repository e migrações;
