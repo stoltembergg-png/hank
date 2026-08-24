@@ -11,8 +11,8 @@ use agent_core::{
 };
 use agent_protocol::AgentId;
 use agent_runtime::{
-    memory_repo::SqliteMemoryRepository,
     memory_policy_repo::SqliteMemoryPolicyRepository,
+    memory_repo::SqliteMemoryRepository,
     memory_service::{MemoryEdit, MemoryMutationContext, MemoryMutationService},
     sqlite::SqliteStorage,
 };
@@ -30,7 +30,10 @@ pub struct MemoryBridgeState {
 }
 
 impl MemoryBridgeState {
-    pub fn new(repository: SqliteMemoryRepository, policy_repository: SqliteMemoryPolicyRepository) -> Self {
+    pub fn new(
+        repository: SqliteMemoryRepository,
+        policy_repository: SqliteMemoryPolicyRepository,
+    ) -> Self {
         let service = MemoryMutationService::new(repository.clone());
         Self {
             repository,
