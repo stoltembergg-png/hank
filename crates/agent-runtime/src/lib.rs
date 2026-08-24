@@ -9,6 +9,7 @@
 
 pub mod agent_repo;
 pub mod agent_service;
+pub mod agent_skills;
 pub mod cancellation;
 pub mod chat_command;
 pub mod confirmation_application;
@@ -49,6 +50,7 @@ pub mod workflow_runtime;
 
 pub use agent_core::*;
 pub use agent_service::*;
+pub use agent_skills::*;
 pub use memory_repo::*;
 pub use migrations::*;
 pub use project_archive_service::*;

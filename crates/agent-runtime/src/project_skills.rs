@@ -421,6 +421,17 @@ impl ProjectSkillService {
         agent_id: AgentId,
         skill_id: SkillId,
     ) -> Result<crate::skill_loader::LoadedSkill, DomainError> {
+        self.load_bound_with_budget(project_id, agent_id, skill_id, SkillLoadBudget::default())
+            .await
+    }
+
+    pub async fn load_bound_with_budget(
+        &self,
+        project_id: ProjectId,
+        agent_id: AgentId,
+        skill_id: SkillId,
+        budget: SkillLoadBudget,
+    ) -> Result<crate::skill_loader::LoadedSkill, DomainError> {
         self.bindings.ensure_project_exists(&project_id).await?;
         let binding = self
             .bindings
@@ -453,7 +464,7 @@ impl ProjectSkillService {
                     allow_external_references: false,
                     allowed_capabilities: CapabilitySet::new().insert(capability),
                 },
-                budget: SkillLoadBudget::default(),
+                budget,
                 trace_id,
                 requested_paths: Vec::new(),
             })
