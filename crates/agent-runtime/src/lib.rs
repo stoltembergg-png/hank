@@ -40,6 +40,7 @@ pub mod sandbox;
 pub mod scheduler;
 pub mod session_repo;
 pub mod session_service;
+pub mod skill_creation;
 pub mod skill_editor;
 pub mod skill_loader;
 pub mod skill_repo;
@@ -64,6 +65,11 @@ pub use project_service::*;
 pub use project_skills::*;
 pub use project_update_service::*;
 pub use python_environment::*;
+pub use skill_creation::{
+    SkillCreateTool, SkillCreationPolicy, SkillCreationRequest, SkillCreationResult,
+    SkillCreationService, SKILL_CREATE_CAPABILITY, SKILL_CREATE_TOOL_NAME,
+    SKILL_CREATE_TOOL_VERSION,
+};
 pub use skill_editor::*;
 pub use skill_loader::*;
 pub use skill_repo::*;
