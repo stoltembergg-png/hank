@@ -283,7 +283,7 @@ describe('Skills UI contract PR-144', () => {
       list: async () => ({ project_id: projectId, scope: 'project', skills: [], total: 0, limit: 50, offset: 0, available: false }),
     };
     render(<SkillsPanel projectId={projectId} apiClient={apiClient} />);
-    await screen.findByRole('status');
+    await screen.findByText(/serviço de skills indisponível/i);
     expect(screen.getByText(/serviço de skills indisponível/i)).toBeTruthy();
     expect(document.body.innerHTML).not.toMatch(/sqlite|sqlx|password|secret|token/i);
   });
