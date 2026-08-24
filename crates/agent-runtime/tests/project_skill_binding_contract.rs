@@ -1,6 +1,6 @@
 use agent_core::{
     Action, AgentId, Capability, CapabilitySet, ProjectId, Resource, Skill, SkillId, SkillManifest,
-    SkillParseRequest, SkillParser, SkillScope, SkillStatus, TraceId,
+    SkillParseRequest, SkillParser, SkillScope, SkillSourceKind, SkillStatus, TraceId,
 };
 use agent_protocol::events::{ApplicationEvent, EventKind};
 use agent_runtime::event_bus::EventBus;
@@ -207,6 +207,8 @@ async fn global_binding_requires_explicit_import_and_is_project_isolated() {
     assert!(service.bind(implicit.clone()).await.is_err());
 
     implicit.import_reference = Some("project-import:shared-reviewer".into());
+    implicit.version = Some("1.0.0".into());
+    implicit.approval_id = Some("approval-global-1".into());
     service.bind(implicit).await.unwrap();
     assert!(service
         .load_bound(project, AgentId::new(), skill.manifest.id)
@@ -216,6 +218,59 @@ async fn global_binding_requires_explicit_import_and_is_project_isolated() {
         .load_bound(other_project, AgentId::new(), skill.manifest.id)
         .await
         .is_err());
+}
+
+#[tokio::test]
+async fn global_import_requires_explicit_approval_and_exact_version_pin() {
+    let (skills, bindings, project, _) = repositories().await;
+    let (skill, parsed) = active_skill(global_manifest("pinned-reviewer", "1.0.0"), None);
+    skills.create(&skill, &parsed).await.unwrap();
+    let service = ProjectSkillService::new(skills, bindings);
+
+    let mut missing_approval = request(project, skill.manifest.id, SkillScope::Global);
+    missing_approval.version = Some("1.0.0".into());
+    missing_approval.import_reference = Some("project-import:pinned-reviewer".into());
+    assert!(matches!(
+        service.bind(missing_approval).await,
+        Err(agent_core::DomainError::PermissionDenied { .. })
+    ));
+
+    let mut missing_pin = request(project, skill.manifest.id, SkillScope::Global);
+    missing_pin.import_reference = Some("project-import:pinned-reviewer".into());
+    missing_pin.approval_id = Some("approval-global-1".into());
+    assert!(matches!(
+        service.bind(missing_pin).await,
+        Err(agent_core::DomainError::Validation(_))
+    ));
+
+    let mut wrong_pin = request(project, skill.manifest.id, SkillScope::Global);
+    wrong_pin.version = Some("2.0.0".into());
+    wrong_pin.import_reference = Some("project-import:pinned-reviewer".into());
+    wrong_pin.approval_id = Some("approval-global-1".into());
+    assert!(matches!(
+        service.bind(wrong_pin).await,
+        Err(agent_core::DomainError::NotFound(_))
+    ));
+}
+
+#[tokio::test]
+async fn global_import_rejects_remote_registry_sources() {
+    let (skills, bindings, project, _) = repositories().await;
+    let mut manifest = global_manifest("remote-reviewer", "1.0.0");
+    manifest.source.kind = SkillSourceKind::Git;
+    manifest.source.reference = "https://example.com/skills.git".into();
+    let (skill, parsed) = active_skill(manifest, None);
+    skills.create(&skill, &parsed).await.unwrap();
+    let service = ProjectSkillService::new(skills, bindings);
+    let mut input = request(project, skill.manifest.id, SkillScope::Global);
+    input.version = Some("1.0.0".into());
+    input.import_reference = Some("project-import:remote-reviewer".into());
+    input.approval_id = Some("approval-global-remote".into());
+
+    assert!(matches!(
+        service.bind(input).await,
+        Err(agent_core::DomainError::PermissionDenied { .. })
+    ));
 }
 
 #[tokio::test]
@@ -243,6 +298,8 @@ async fn existing_binding_cannot_change_project_scope_without_unbind() {
         .unwrap();
     let mut global_request = request(project, global_skill.manifest.id, SkillScope::Global);
     global_request.import_reference = Some("project-import:scoped-reviewer".into());
+    global_request.version = Some("1.0.0".into());
+    global_request.approval_id = Some("approval-global-scope".into());
     assert!(matches!(
         service.bind(global_request).await,
         Err(agent_core::DomainError::InvariantViolation(_))
