@@ -42,6 +42,7 @@ pub mod session_repo;
 pub mod session_service;
 pub mod skill_creation;
 pub mod skill_editor;
+pub mod skill_evaluation;
 pub mod skill_loader;
 pub mod skill_repo;
 pub mod skill_runtime;
@@ -71,6 +72,11 @@ pub use skill_creation::{
     SKILL_CREATE_TOOL_VERSION,
 };
 pub use skill_editor::*;
+pub use skill_evaluation::{
+    SkillEvaluationPolicy, SkillEvaluationReason, SkillEvaluationReport, SkillEvaluationRequest,
+    SkillEvaluationService, SkillEvaluationStatus, SKILL_EVALUATE_CAPABILITY,
+    SKILL_EVALUATION_SCHEMA_VERSION,
+};
 pub use skill_loader::*;
 pub use skill_repo::*;
 pub use sqlite::*;
