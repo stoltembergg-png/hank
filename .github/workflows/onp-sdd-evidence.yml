@@ -163,6 +163,7 @@ jobs:
       - name: Verify Tauri desktop
         env:
           HANK_SKIP_TAURI: ''
+          HANK_ONLY_TAURI: '1'
         run: node tools/ci/run-onp-spec.mjs verify tauri-desktop
 
       - name: Audit SDD

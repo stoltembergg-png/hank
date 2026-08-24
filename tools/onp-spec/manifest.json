@@ -12,7 +12,7 @@
     "scripts/lib/src/core/resumo.js": "3c07fec48155415d9cb4c0dccce8515b19040dad20c912b702f919634c050cc0",
     "scripts/lib/src/core/scaffold.js": "44fbb85c92beb47b55633f7d8ca747aaec04f562b264389bc59a209975effc52",
     "scripts/lib/src/core/sinais.js": "d86c8eae5ff43eb00b8f9bc2b77e524f94eabe94871521e8d7690064beeec75a",
-    "scripts/lib/src/core/verify.js": "244698a2aadbb59162765be4a7b3b941d92a80f3c66b2ae946c18a301ec2f7ef",
+    "scripts/lib/src/core/verify.js": "5ecd5d3d92ca9419c34725fb18c1424820d2cecc44830b360829b437d486e935",
     "scripts/lib/src/index.js": "f17e607d4bd821d5e1cad5b7761327277b87a1d5e5af8ebb17a35251789930f8",
     "scripts/lib/src/parsers/annotations.js": "33fc21b68fb04dbeb9eaf5f78448e521426c7ec942cb3452aa1358d118e43af5",
     "scripts/lib/src/parsers/constitution.js": "c2e3cfea1dd89ac24a52a2f2b978cd53be66800b1e22ea2de01937eafd55b65b",
