@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ProjectApiClient, defaultProjectApi } from '../api/projects';
+import { SkillApiClient } from '../api/skills';
 import { ProjectSummary, ProjectStatus } from '../types/project';
 import { MemoryPanel } from './MemoryPanel';
+import { SkillsPanel } from './SkillsPanel';
 import './ProjectDetailView.css';
 
 export interface ProjectDetailViewProps {
   projectId: string;
   initialProject?: ProjectSummary;
   apiClient?: ProjectApiClient;
+  skillApiClient?: SkillApiClient;
   onBack?: () => void;
   onProjectUpdated?: (project: ProjectSummary) => void;
   onProjectArchived?: (project: ProjectSummary) => void;
@@ -17,6 +20,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   projectId,
   initialProject,
   apiClient = defaultProjectApi,
+  skillApiClient,
   onBack,
   onProjectUpdated,
   onProjectArchived,
@@ -324,6 +328,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       )}
 
       <MemoryPanel projectId={project.id} />
+      <SkillsPanel projectId={project.id} apiClient={skillApiClient} />
 
       {showArchiveConfirm && (
         <div

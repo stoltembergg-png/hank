@@ -10,3 +10,83 @@ test('desktop frontend renders the project workspace without a Tauri bridge fail
   await page.getByRole('button', { name: 'Abrir formulário de criação de projeto' }).click();
   await expect(page.getByRole('form', { name: 'Criar novo projeto' })).toBeVisible();
 });
+
+test('desktop frontend renders project-scoped Skills and keeps unimported globals unavailable', async ({ page }) => {
+  await page.addInitScript(() => {
+    const projectId = 'prj_e2e_skill_project';
+    const project = {
+      id: projectId,
+      name: 'Skill E2E Project',
+      description: 'Project-scoped fixture',
+      status: 'active',
+      owner: 'e2e',
+      created_at: '2026-08-24T00:00:00.000Z',
+      updated_at: '2026-08-24T00:00:00.000Z',
+      settings: {
+        retention_days: 30,
+        auto_archive_idle_days: null,
+        telemetry_enabled: false,
+        max_active_agents: 3,
+      },
+    };
+    const projectSkill = {
+      id: 'skill_e2e_reviewer',
+      project_id: projectId,
+      name: 'reviewer',
+      description: '<img src=x onerror=alert(1)> Safe description',
+      scope: 'project',
+      status: 'active',
+      version: '1.2.0',
+      pinned_version: '1.2.0',
+      rollback_version: '1.1.0',
+      parent_version: '1.1.0',
+      compatibility: 'compatible',
+      content_hash: 'a'.repeat(64),
+      source: { kind: 'local', reference_digest: 'b'.repeat(64) },
+      capabilities: [{ resource: 'project', action: 'read', scope: projectId }],
+      policy: { requires_approval: true, allow_runtime_mutation: false, allow_instruction_override: false },
+      budget: { max_tokens: 10000, max_cost_micro_usd: 100000, max_parallel_invocations: 2, max_wall_time_seconds: 60, reset_period: 'never' },
+      trace_id: 'trace_e2e_skill',
+      revision: 3,
+      binding: {
+        project_id: projectId,
+        scope: 'project',
+        current_version: '1.2.0',
+        previous_version: '1.1.0',
+        import_reference: null,
+        enabled: true,
+        approval_id: 'approval_e2e',
+        trace_id: 'trace_e2e_binding',
+        revision: 7,
+      },
+      versions: [
+        { version: '1.1.0', status: 'deprecated', compatibility: 'initial', content_hash: 'c'.repeat(64), parent_version: null, created_at: '2026-08-20T00:00:00.000Z' },
+        { version: '1.2.0', status: 'active', compatibility: 'compatible', content_hash: 'a'.repeat(64), parent_version: '1.1.0', created_at: '2026-08-23T00:00:00.000Z' },
+      ],
+    };
+    const globalSkill = { ...projectSkill, id: 'skill_e2e_global', name: 'global-reviewer', project_id: null, scope: 'global', binding: null };
+
+    (window as unknown as { __TAURI_INVOKE__: (command: string, args?: { input?: { scope?: string } }) => Promise<unknown> }).__TAURI_INVOKE__ = async (command, args) => {
+      if (command === 'list_projects') return { projects: [project], total: 1, limit: 10, offset: 0 };
+      if (command === 'list_memories') return { project_id: projectId, memories: [] };
+      if (command === 'list_skills') {
+        const scope = args?.input?.scope ?? 'project';
+        const skills = scope === 'global' ? [globalSkill] : [projectSkill];
+        return { project_id: projectId, scope, skills, total: skills.length, limit: 50, offset: 0, available: true };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    };
+  });
+
+  await page.goto('/');
+  await page.getByRole('listitem', { name: 'Ver detalhes de Skill E2E Project' }).click();
+  await expect(page.getByRole('heading', { name: 'reviewer' })).toBeVisible();
+  await expect(page.getByText('Versão ativa').locator('..')).toContainText('1.2.0');
+  await expect(page.locator('.skill-description')).toContainText('<img src=x onerror=alert(1)> Safe description');
+  await expect(page.locator('.skill-description')).not.toHaveCount(0);
+
+  await page.getByRole('tab', { name: 'Globais' }).click();
+  await expect(page.getByRole('heading', { name: 'global-reviewer' })).toBeVisible();
+  await expect(page.getByText('Indisponível: importe explicitamente para este projeto.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Rollback global-reviewer' })).toHaveCount(0);
+});
