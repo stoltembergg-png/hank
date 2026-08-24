@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hank.local/schema/skill-manifest-v1.json",
+  "title": "Hank Skill Manifest",
+  "description": "Declarative, untrusted metadata. It never grants capabilities or executes a skill.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "version",
+    "name",
+    "description",
+    "author",
+    "license",
+    "source",
+    "scope",
+    "capabilities",
+    "dependencies",
+    "files",
+    "tests",
+    "policy",
+    "budget",
+    "trace",
+    "created_at",
+    "digest"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "type": "string", "pattern": "^skill-[0-9a-fA-F-]{36}$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$" },
+    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
+    "description": { "type": "string", "maxLength": 2048 },
+    "author": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "license": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "repository": { "type": ["string", "null"], "maxLength": 512 },
+    "source": { "$ref": "#/$defs/source" },
+    "scope": { "enum": ["project", "global"] },
+    "capabilities": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/capability" }
+    },
+    "dependencies": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/dependency" }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/file" }
+    },
+    "tests": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "type": "string", "maxLength": 256 }
+    },
+    "policy": { "$ref": "#/$defs/policy" },
+    "budget": { "$ref": "#/$defs/budget" },
+    "trace": { "$ref": "#/$defs/trace" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "digest": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "reference"],
+      "properties": {
+        "kind": { "enum": ["built_in", "local", "git", "registry", "imported"] },
+        "reference": { "type": "string", "minLength": 1, "maxLength": 512 }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource", "action", "scope"],
+      "properties": {
+        "resource": { "type": "string" },
+        "action": { "type": "string" },
+        "scope": { "type": ["string", "null"], "maxLength": 160 }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skill_id", "version_req", "optional"],
+      "properties": {
+        "skill_id": { "type": "string", "pattern": "^skill-[0-9a-fA-F-]{36}$" },
+        "version_req": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "optional": { "type": "boolean" }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "role", "digest"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "role": { "enum": ["instruction", "script", "template", "reference", "test", "manifest"] },
+        "digest": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requires_approval", "allow_runtime_mutation", "allow_instruction_override"],
+      "properties": {
+        "requires_approval": { "const": true },
+        "allow_runtime_mutation": { "const": false },
+        "allow_instruction_override": { "const": false }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_tokens", "max_cost_micro_usd", "max_parallel_invocations", "max_wall_time_seconds", "reset_period"],
+      "properties": {
+        "max_tokens": { "type": "integer", "minimum": 1, "maximum": 1000000000 },
+        "max_cost_micro_usd": { "type": "integer", "minimum": 1, "maximum": 100000000000 },
+        "max_parallel_invocations": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "max_wall_time_seconds": { "type": "integer", "minimum": 1, "maximum": 604800 },
+        "reset_period": { "enum": ["never", "daily", "weekly", "monthly"] }
+      }
+    },
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "trace_id"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "trace_id": { "type": "string", "pattern": "^trace-[0-9a-fA-F-]{36}$" }
+      }
+    }
+  }
+}
