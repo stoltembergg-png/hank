@@ -73,7 +73,7 @@
 - [x] **Step 2: Run `cargo test -p agent-runtime --test skill_evaluation_contract --locked` and observe RED.**
 - [x] **Step 3: Implement a pure bounded state machine.** Validate identity/policy/budget/trace, compare candidate against the immutable baseline, run only the deterministic fixture harness, classify every non-pass terminal state as non-active, and never call repository promotion/activation APIs.
 - [x] **Step 4: Add deterministic redacted report and idempotency.** Hash candidate/baseline/test/policy/budget inputs, bound test cases/reasons, and return the same report for the same request identity; reject raw content and activation requests.
-- [ ] **Step 5: Add SDD/docs/ONP evidence and run affected plus workspace Quality Gates.** Commit as `feat(skills): add non-activating learning evaluator` and open the isolated PR only after local gates pass.
+- [x] **Step 5: Add SDD/docs/ONP evidence and run affected plus workspace Quality Gates.** Commit as `feat(skills): add non-activating learning evaluator` and open the isolated PR only after local gates pass.
 
 ### Task 3: PR-150 — Provenance-bound skill candidate generation
 
@@ -90,10 +90,10 @@
 - Consumes: bounded observation references, exact project/agent/policy/budget/trace identity, the governed creation parser/validator and the non-activating evaluator handoff.
 - Produces: `SkillCandidateSource`, `SkillCandidateRequest`, `SkillCandidate`, `SkillCandidateStatus::{Draft, Quarantined, Discarded}`, `SkillCandidateGenerationService::generate`, and a redacted evaluator handoff containing hashes only.
 
-- [ ] **Step 1: Write failing candidate tests** for valid proposal, missing provenance/scope/budget/policy, injection/capability escalation, secret/path/script poisoning, duplicate observations, malformed output and evaluator handoff.
-- [ ] **Step 2: Run `cargo test -p agent-runtime --test skill_candidate_contract --locked` and observe RED.**
-- [ ] **Step 3: Implement data-only bounded generation.** Normalize and dedupe observation IDs, preserve source references without raw prompt text, require project scope and exact capability/policy/budget/trace bindings, create only draft proposal metadata, and quarantine any attempt to alter system/security layers or capabilities.
-- [ ] **Step 4: Connect the handoff without activation.** Produce a deterministic candidate digest and evaluator request; do not call repository create/update/promote or runtime execution. Add discard/rollback metadata with idempotent state transitions.
+- [x] **Step 1: Write failing candidate tests** for valid proposal, missing provenance/scope/budget/policy, injection/capability escalation, secret/path/script poisoning, duplicate observations, malformed output and evaluator handoff.
+- [x] **Step 2: Run `cargo test -p agent-runtime --test skill_candidate_contract --locked` and observe RED.**
+- [x] **Step 3: Implement data-only bounded generation.** Normalize and dedupe observation IDs, preserve source references without raw prompt text, require project scope and exact capability/policy/budget/trace bindings, create only draft proposal metadata, and quarantine any attempt to alter system/security layers or capabilities.
+- [x] **Step 4: Connect the handoff without activation.** Produce a deterministic candidate digest and evaluator request; do not call repository create/update/promote or runtime execution. Add discard/rollback metadata with idempotent state transitions.
 - [ ] **Step 5: Add SDD/docs/ONP evidence and run all applicable Quality Gates.** Commit as `feat(skills): add provenance-bound skill candidates`, open the PR, wait for official CI, and integrate only when every required check is green.
 
 ## Verification and Integration Rules

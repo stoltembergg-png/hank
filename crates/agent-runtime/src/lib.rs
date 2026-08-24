@@ -40,6 +40,7 @@ pub mod sandbox;
 pub mod scheduler;
 pub mod session_repo;
 pub mod session_service;
+pub mod skill_candidate;
 pub mod skill_creation;
 pub mod skill_editor;
 pub mod skill_evaluation;
@@ -66,6 +67,11 @@ pub use project_service::*;
 pub use project_skills::*;
 pub use project_update_service::*;
 pub use python_environment::*;
+pub use skill_candidate::{
+    SkillCandidate, SkillCandidateGenerationService, SkillCandidatePolicy, SkillCandidateProposal,
+    SkillCandidateReason, SkillCandidateRequest, SkillCandidateStatus, SkillEvaluationHandoff,
+    SkillObservationRef, SKILL_CANDIDATE_GENERATE_CAPABILITY, SKILL_CANDIDATE_SCHEMA_VERSION,
+};
 pub use skill_creation::{
     SkillCreateTool, SkillCreationPolicy, SkillCreationRequest, SkillCreationResult,
     SkillCreationService, SKILL_CREATE_CAPABILITY, SKILL_CREATE_TOOL_NAME,
