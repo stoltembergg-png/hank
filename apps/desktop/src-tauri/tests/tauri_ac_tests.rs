@@ -173,8 +173,8 @@ mod tauri_tests {
     }
 
     #[test]
-    fn ac_106_release_nao_abre_console_do_windows() {
-        // @spec:AC-106
+    fn ac_101_release_nao_abre_console_do_windows() {
+        // @spec:AC-101
         let source = fs::read_to_string(source_path()).expect("main.rs não encontrado");
 
         assert!(
