@@ -86,6 +86,34 @@ describe('CI Build workflow AC tests', () => {
     expect(release).toContain('Packaged frontend contains an absolute asset path');
   });
 
+  it('Windows packaging launches the installed desktop app smoke test', () => {
+    const release = workflow('release-prerelease.yml');
+    expect(release).toContain('Install Windows package for E2E');
+    expect(release).toContain('tools/windows-desktop-e2e.mjs');
+    expect(release).toContain('node tools/windows-desktop-e2e.mjs');
+    expect(release).toContain('Start-Process');
+  });
+
+  it('Windows packaging resolves frontendDist from the checked out Tauri config', () => {
+    const release = workflow('release-prerelease.yml');
+    expect(release).toContain("$config = Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/src-tauri/tauri.conf.json'");
+    expect(release).not.toContain('$config.build.frontendDist = Join-Path $env:GITHUB_WORKSPACE');
+  });
+
+  it('Windows desktop smoke test uses the WebView page title after the native window exists', () => {
+    const smoke = readFileSync(join(REPOSITORY_ROOT, 'tools', 'windows-desktop-e2e.mjs'), 'utf8');
+    expect(smoke).toContain("page.title !== 'Hank Desktop'");
+    expect(smoke).toContain("page.url.startsWith('http://tauri.localhost/')");
+  });
+
+  it('Windows desktop smoke test isolates the WebView2 profile', () => {
+    const release = workflow('release-prerelease.yml');
+    const smoke = readFileSync(join(REPOSITORY_ROOT, 'tools', 'windows-desktop-e2e.mjs'), 'utf8');
+    expect(release).toContain('WEBVIEW2_USER_DATA_FOLDER');
+    expect(release).toContain('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS');
+    expect(smoke).toContain('contentVerified: true');
+  });
+
   // @spec:AC-405
   it('AC-405: fixture rejeita artifact sem digest', () => {
     const script = join(REPOSITORY_ROOT, 'tools', 'ci', 'require-artifact-digest.sh');

@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 pub mod confirmations;
 pub mod memory;
 pub mod skills;

@@ -238,12 +238,8 @@ jobs:
       - name: Build Windows NSIS installer
         shell: pwsh
         run: |
-          $config = Get-Content (Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/src-tauri/tauri.conf.json') | ConvertFrom-Json
-          $config.build.beforeBuildCommand = ''
-          $config.build.frontendDist = Join-Path $env:GITHUB_WORKSPACE 'frontend/dist'
-          $temporaryConfig = Join-Path $env:RUNNER_TEMP 'tauri.windows.conf.json'
-          $config | ConvertTo-Json -Depth 20 | Set-Content $temporaryConfig
-          npm --prefix frontend exec -- tauri build --ci --config $temporaryConfig --bundles nsis
+          $config = Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/src-tauri/tauri.conf.json'
+          npm --prefix frontend exec -- tauri build --ci --config $config --bundles nsis
 
       - name: Rename installer deterministically
         shell: pwsh
@@ -253,6 +249,43 @@ jobs:
           $installer = Get-ChildItem -Path apps/desktop/src-tauri/target/release/bundle/nsis -Filter *.exe | Select-Object -First 1
           if ($null -eq $installer) { throw 'NSIS installer was not generated' }
           Copy-Item $installer.FullName "apps/desktop/src-tauri/target/release/bundle/nsis/hank-$env:TAG-setup.exe"
+
+      - name: Install Windows package for E2E
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path apps/desktop/src-tauri/target/release/bundle/nsis -Filter *.exe | Select-Object -First 1
+          if ($null -eq $installer) { throw 'NSIS installer was not found for E2E' }
+          $installDir = Join-Path $env:RUNNER_TEMP 'hank-desktop-e2e'
+          $arguments = @('/S', "/D=$installDir")
+          $result = Start-Process -FilePath $installer.FullName -ArgumentList $arguments -Wait -PassThru
+          if ($result.ExitCode -ne 0) { throw "NSIS installation failed with exit code $($result.ExitCode)" }
+          $executable = Join-Path $installDir 'hank-desktop.exe'
+          if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
+            throw "installed desktop executable not found: $executable"
+          }
+          $profile = Join-Path $env:RUNNER_TEMP 'hank-desktop-e2e-profile'
+          $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+          $listener.Start()
+          $port = ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port
+          $listener.Stop()
+          $process = Start-Process -FilePath $executable `
+            -WorkingDirectory (Split-Path -Parent $executable) `
+            -Environment @{
+              WEBVIEW2_USER_DATA_FOLDER = $profile
+              WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=$port"
+            } `
+            -PassThru
+          try {
+            node tools/windows-desktop-e2e.mjs --executable $executable --port $port --pid $process.Id
+            if ($LASTEXITCODE -ne 0) { throw "Windows desktop E2E failed with exit code $LASTEXITCODE" }
+          } finally {
+            try {
+              $process.Refresh()
+              if (-not $process.HasExited) { $process | Stop-Process -Force -ErrorAction SilentlyContinue }
+            } catch { }
+            Remove-Item -LiteralPath $profile -Recurse -Force -ErrorAction SilentlyContinue
+          }
+          exit 0
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

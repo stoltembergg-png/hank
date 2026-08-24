@@ -171,4 +171,15 @@ mod tauri_tests {
             assert!(!source.contains(forbidden));
         }
     }
+
+    #[test]
+    fn ac_106_release_nao_abre_console_do_windows() {
+        // @spec:AC-106
+        let source = fs::read_to_string(source_path()).expect("main.rs não encontrado");
+
+        assert!(
+            source.contains("#![cfg_attr(not(debug_assertions), windows_subsystem = \"windows\")]"),
+            "o binário release deve usar o subsistema GUI do Windows"
+        );
+    }
 }
