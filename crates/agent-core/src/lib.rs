@@ -26,6 +26,7 @@ pub mod skill;
 pub mod taxonomy;
 pub mod tool_permissions;
 pub mod vector;
+pub mod versioning;
 pub mod workflow;
 
 pub use agent::*;
@@ -52,4 +53,5 @@ pub use session::*;
 pub use skill::*;
 pub use taxonomy::*;
 pub use vector::*;
+pub use versioning::*;
 pub use workflow::*;

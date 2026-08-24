@@ -91,6 +91,8 @@ async fn duplicate_content_is_rejected_and_update_preserves_immutable_versions()
 
     let mut next_manifest = project_manifest("reviewer", "2.0.0");
     next_manifest.id = manifest.id;
+    next_manifest.digest = "1".repeat(64);
+    next_manifest.description = "Updated reviewer content".into();
     let (next_skill, next_parsed) = parsed_skill(next_manifest, Some(project));
     let updated = repo.update(&next_skill, &next_parsed, 1).await.unwrap();
     assert_eq!(updated.revision, 2);
@@ -127,11 +129,15 @@ async fn optimistic_revision_rejects_stale_update_without_mutating_head() {
 
     let mut next_manifest = project_manifest("reviewer", "2.0.0");
     next_manifest.id = skill.manifest.id;
+    next_manifest.digest = "1".repeat(64);
+    next_manifest.description = "Updated reviewer content".into();
     let (next_skill, next_parsed) = parsed_skill(next_manifest, Some(project));
     repo.update(&next_skill, &next_parsed, 1).await.unwrap();
 
     let mut stale_manifest = project_manifest("reviewer", "3.0.0");
     stale_manifest.id = skill.manifest.id;
+    stale_manifest.digest = "2".repeat(64);
+    stale_manifest.description = "Stale reviewer content".into();
     let (stale_skill, stale_parsed) = parsed_skill(stale_manifest, Some(project));
     assert!(repo.update(&stale_skill, &stale_parsed, 1).await.is_err());
     assert_eq!(
@@ -165,14 +171,25 @@ async fn archive_and_rollback_change_head_state_but_preserve_history() {
         .create(&first_skill, &first_parsed)
         .await
         .unwrap();
-    let mut second_manifest = project_manifest("rollback", "2.0.0");
+    let mut second_manifest = project_manifest("rollback", "1.1.0");
     second_manifest.id = first_skill.manifest.id;
     second_manifest.policy.requires_approval = false;
+    second_manifest.digest = "1".repeat(64);
+    second_manifest.description = "Updated rollback content".into();
     let (mut second_skill, second_parsed) = parsed_skill(second_manifest, Some(second_project));
     second_skill.transition(SkillStatus::Testing).unwrap();
-    second_skill.activate("2.0.0".into()).unwrap();
-    second_repo
+    let updated = second_repo
         .update(&second_skill, &second_parsed, 1)
+        .await
+        .unwrap();
+    second_repo
+        .promote(
+            SkillScope::Project,
+            Some(&second_project),
+            &first_skill.manifest.id,
+            "1.1.0",
+            updated.revision,
+        )
         .await
         .unwrap();
     let restored = second_repo
@@ -181,7 +198,7 @@ async fn archive_and_rollback_change_head_state_but_preserve_history() {
             Some(&second_project),
             &first_skill.manifest.id,
             "1.0.0",
-            2,
+            3,
         )
         .await
         .unwrap();

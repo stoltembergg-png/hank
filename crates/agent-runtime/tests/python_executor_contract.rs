@@ -206,14 +206,28 @@ fn tool_request(project_id: ProjectId) -> ToolRequest {
 }
 
 fn lifecycle_config() -> PythonLifecycleConfig {
+    let (command, args) = worker_command();
     PythonLifecycleConfig {
-        command: "sh".into(),
-        args: vec!["-c".into(), "sleep 60".into()],
+        command: command.into(),
+        args,
         startup_timeout: Duration::from_secs(2),
         request_timeout: Duration::from_secs(2),
         max_restarts: 1,
         restart_backoff: Duration::ZERO,
     }
+}
+
+#[cfg(windows)]
+fn worker_command() -> (String, Vec<String>) {
+    (
+        "cmd.exe".into(),
+        vec!["/C".into(), "ping -n 61 127.0.0.1 > NUL".into()],
+    )
+}
+
+#[cfg(not(windows))]
+fn worker_command() -> (String, Vec<String>) {
+    ("sh".into(), vec!["-c".into(), "sleep 60".into()])
 }
 
 async fn ready_lifecycle(project_id: ProjectId) -> PythonLifecycle {

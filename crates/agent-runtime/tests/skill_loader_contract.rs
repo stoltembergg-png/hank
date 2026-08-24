@@ -243,16 +243,29 @@ async fn cache_key_changes_after_update_and_rollback() {
         .await
         .unwrap();
 
-    let mut second_manifest = project_manifest("cached", "2.0.0");
+    let mut second_manifest = project_manifest("cached", "1.1.0");
     second_manifest.id = first.manifest.id;
-    let (second, second_parsed) = parsed_skill(second_manifest, Some(project), Vec::new(), "v2");
-    repo.update(&second, &second_parsed, 1).await.unwrap();
+    second_manifest.digest = "2".repeat(64);
+    let (mut second, second_parsed) =
+        parsed_skill(second_manifest, Some(project), Vec::new(), "v2");
+    second.status = SkillStatus::Testing;
+    second.pinned_version = None;
+    let updated = repo.update(&second, &second_parsed, 1).await.unwrap();
+    repo.promote(
+        SkillScope::Project,
+        Some(&project),
+        &first.manifest.id,
+        "1.1.0",
+        updated.revision,
+    )
+    .await
+    .unwrap();
     let second_loaded = loader
         .load(request(project, first.manifest.id, SkillScope::Project))
         .await
         .unwrap();
     assert_eq!(first_loaded.skill.manifest.version, "1.0.0");
-    assert_eq!(second_loaded.skill.manifest.version, "2.0.0");
+    assert_eq!(second_loaded.skill.manifest.version, "1.1.0");
     assert_ne!(first_loaded.cache_key, second_loaded.cache_key);
 
     repo.rollback(
@@ -260,7 +273,7 @@ async fn cache_key_changes_after_update_and_rollback() {
         Some(&project),
         &first.manifest.id,
         "1.0.0",
-        2,
+        3,
     )
     .await
     .unwrap();
@@ -270,6 +283,11 @@ async fn cache_key_changes_after_update_and_rollback() {
         .unwrap();
     assert_eq!(rolled_back.skill.manifest.version, "1.0.0");
     assert_ne!(second_loaded.cache_key, rolled_back.cache_key);
+
+    let mut pinned_request = request(project, first.manifest.id, SkillScope::Project);
+    pinned_request.version = Some("1.1.0".into());
+    let pinned = loader.load(pinned_request).await.unwrap();
+    assert_eq!(pinned.skill.manifest.version, "1.1.0");
 }
 
 #[tokio::test]

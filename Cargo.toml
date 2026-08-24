@@ -46,6 +46,7 @@ tempfile = "3.8"
 getrandom = "0.2"
 syn = "3"
 rand = "0.8"
+sha2 = "0.10"
 
 # [workspace.lints]  # Disabled due to format issues; add back when Rust version supports it
 # rust_2018_idioms = "warn"

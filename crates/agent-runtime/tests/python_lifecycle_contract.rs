@@ -5,14 +5,28 @@ use agent_runtime::python_lifecycle::{
 use std::time::Duration;
 
 fn config() -> PythonLifecycleConfig {
+    let (command, args) = worker_command();
     PythonLifecycleConfig {
-        command: "sh".into(),
-        args: vec!["-c".into(), "sleep 60".into()],
+        command: command.into(),
+        args,
         startup_timeout: Duration::from_secs(1),
         request_timeout: Duration::from_secs(1),
         max_restarts: 2,
         restart_backoff: Duration::ZERO,
     }
+}
+
+#[cfg(windows)]
+fn worker_command() -> (String, Vec<String>) {
+    (
+        "cmd.exe".into(),
+        vec!["/C".into(), "ping -n 61 127.0.0.1 > NUL".into()],
+    )
+}
+
+#[cfg(not(windows))]
+fn worker_command() -> (String, Vec<String>) {
+    ("sh".into(), vec!["-c".into(), "sleep 60".into()])
 }
 
 fn identity(project_id: &str) -> WorkerIdentity {
