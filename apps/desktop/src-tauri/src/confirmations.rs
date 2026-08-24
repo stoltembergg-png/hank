@@ -167,7 +167,9 @@ pub fn command_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 
         approve_confirmation_request,
         revoke_confirmation_request,
         crate::memory::list_memories,
-        crate::memory::mutate_memory
+        crate::memory::mutate_memory,
+        crate::skills::list_skills,
+        crate::skills::rollback_skill
     ]
 }
 

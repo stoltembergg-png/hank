@@ -1,0 +1,22 @@
+{
+  "feature": "skill-ui",
+  "timestamp": "2026-08-24T06:51:19.491Z",
+  "gitRev": "549cee8",
+  "command": "node tools/run-all-tests.mjs",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-785": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-786": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}

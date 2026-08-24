@@ -1,0 +1,110 @@
+.skills-panel {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 0.75rem;
+  background: var(--panel-background, #fff);
+}
+
+.skills-panel-header,
+.skill-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.skills-panel-header h3,
+.skill-card h4 {
+  margin: 0;
+}
+
+.skills-panel-scope,
+.skill-description,
+.skill-scope-badge {
+  margin: 0.25rem 0 0;
+  color: #4b5563;
+  font-size: 0.875rem;
+}
+
+.skills-panel-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.skills-panel-tabs button[aria-selected="true"] {
+  border-bottom: 2px solid #2563eb;
+  font-weight: 700;
+}
+
+.skills-search {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.skills-search input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.25rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.skills-panel button {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.skills-list {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.skill-card {
+  padding: 0.8rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+}
+
+.skill-description {
+  max-width: 70ch;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.skill-status {
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: #e5e7eb;
+  font-size: 0.75rem;
+}
+
+.skill-status.active { background: #dcfce7; color: #166534; }
+.skill-status.testing { background: #fef3c7; color: #92400e; }
+.skill-status.blocked,
+.skill-status.archived { background: #fee2e2; color: #991b1b; }
+
+.skill-unavailable,
+.skills-mutation-error { color: #991b1b; font-weight: 600; }
+
+.skill-metadata {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.25rem 0.75rem;
+  margin: 0.85rem 0 0;
+  font-size: 0.8rem;
+}
+
+.skill-metadata dt { color: #4b5563; }
+.skill-metadata dd { margin: 0; overflow-wrap: anywhere; }
+
+.skill-capabilities { overflow-wrap: anywhere; font-size: 0.8rem; }
+.skill-history { margin-top: 0.85rem; font-size: 0.85rem; }
+.skill-history ul { margin-bottom: 0; padding-left: 1.25rem; }
+.skill-card-actions { display: flex; gap: 0.5rem; margin-top: 0.85rem; }

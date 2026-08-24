@@ -101,6 +101,8 @@ mod tauri_tests {
             "revoke_confirmation_request",
             "crate::memory::list_memories",
             "crate::memory::mutate_memory",
+            "crate::skills::list_skills",
+            "crate::skills::rollback_skill",
         ] {
             assert!(
                 registered.contains(command),
@@ -110,7 +112,7 @@ mod tauri_tests {
 
         assert_eq!(
             registered.split(',').count(),
-            5,
+            7,
             "a ponte deve registrar exatamente os comandos tipados previstos"
         );
 
