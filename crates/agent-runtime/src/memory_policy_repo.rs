@@ -41,6 +41,25 @@ impl SqliteMemoryPolicyRepository {
         .transpose()
     }
 
+    pub async fn resolve_entries(
+        &self,
+        project_id: &ProjectId,
+        agent_id: &AgentId,
+    ) -> Result<Vec<MemoryPolicyEntry>, DomainError> {
+        let mut entries = Vec::new();
+        for layer in [
+            MemoryPolicyLayer::System,
+            MemoryPolicyLayer::Security,
+            MemoryPolicyLayer::Project,
+            MemoryPolicyLayer::Agent,
+        ] {
+            if let Some(entry) = self.latest(project_id, agent_id, layer).await? {
+                entries.push(entry);
+            }
+        }
+        Ok(entries)
+    }
+
     pub async fn save(
         &self,
         entry: &MemoryPolicyEntry,
@@ -215,6 +234,24 @@ mod tests {
             .is_none());
     }
 
+    #[tokio::test]
+    async fn resolve_entries_returns_only_matching_identity_in_security_order() {
+        let (repo, project, agent) = fixture().await;
+        let mut security = entry(project, agent, 1);
+        security.layer = MemoryPolicyLayer::Security;
+        repo.save(&security, None).await.unwrap();
+        let agent_entry = entry(project, agent, 1);
+        repo.save(&agent_entry, None).await.unwrap();
+        let entries = repo.resolve_entries(&project, &agent).await.unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].layer, MemoryPolicyLayer::Security);
+        assert_eq!(entries[1].layer, MemoryPolicyLayer::Agent);
+        assert!(repo
+            .resolve_entries(&ProjectId::new(), &agent)
+            .await
+            .unwrap()
+            .is_empty());
+    }
     #[tokio::test]
     async fn policy_repository_rejects_stale_updates_and_unknown_fields() {
         let (repo, project, agent) = fixture().await;
