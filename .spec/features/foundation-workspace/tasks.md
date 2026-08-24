@@ -25,12 +25,12 @@
 
 ## T-302 — Criar crate agent-core (domínio puro) [concluida]
 - Refs: US-301, AC-301, AC-303
-- Arquivos: crates/agent-core/Cargo.toml, crates/agent-core/src/lib.rs, crates/agent-core/src/agent.rs, crates/agent-core/src/budget.rs, crates/agent-core/src/error.rs, crates/agent-core/src/memory.rs, crates/agent-core/src/project.rs, crates/agent-core/src/parser.rs, crates/agent-core/src/session.rs, crates/agent-core/src/skill.rs, crates/agent-core/src/workflow.rs, docs/project-aggregate.md
+- Arquivos: crates/agent-core/Cargo.toml, crates/agent-core/src/lib.rs, crates/agent-core/src/agent.rs, crates/agent-core/src/budget.rs, crates/agent-core/src/error.rs, crates/agent-core/src/memory.rs, crates/agent-core/src/project.rs, crates/agent-core/src/parser.rs, crates/agent-core/src/session.rs, crates/agent-core/src/skill.rs, crates/agent-core/src/versioning.rs, crates/agent-core/src/workflow.rs, docs/project-aggregate.md
 - Notas: Sem dependências de tauri, tao, wry, sqlx, tokio, providers concretos; apenas agent-protocol e std
 
 ## T-303 — Criar crate agent-runtime (execution/durable) [concluida]
 - Refs: US-301, AC-301, AC-303
-- Arquivos: crates/agent-runtime/Cargo.toml, crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/agent_skills.rs, crates/agent-runtime/src/memory.rs, crates/agent-runtime/src/project_skills.rs, crates/agent-runtime/src/provider.rs, crates/agent-runtime/src/python.rs, crates/agent-runtime/src/sandbox.rs, crates/agent-runtime/src/scheduler.rs, crates/agent-runtime/src/skill_loader.rs, crates/agent-runtime/src/skill_repo.rs, crates/agent-runtime/src/skill_runtime.rs, crates/agent-runtime/src/tool.rs, crates/agent-runtime/src/workflow_runtime.rs, migrations/0008_project_skill_bindings.sql, migrations/0009_agent_skill_bindings.sql, docs/project-skill-bindings.md, docs/agent-skill-bindings.md
+- Arquivos: crates/agent-runtime/Cargo.toml, crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/agent_skills.rs, crates/agent-runtime/src/memory.rs, crates/agent-runtime/src/project_skills.rs, crates/agent-runtime/src/provider.rs, crates/agent-runtime/src/python.rs, crates/agent-runtime/src/sandbox.rs, crates/agent-runtime/src/scheduler.rs, crates/agent-runtime/src/skill_loader.rs, crates/agent-runtime/src/skill_repo.rs, crates/agent-runtime/src/skill_runtime.rs, crates/agent-runtime/src/tool.rs, crates/agent-runtime/src/workflow_runtime.rs, crates/agent-runtime/tests/skill_versioning_contract.rs, migrations/0008_project_skill_bindings.sql, migrations/0009_agent_skill_bindings.sql, migrations/0010_skill_version_provenance.sql, docs/project-skill-bindings.md, docs/agent-skill-bindings.md, docs/skill-versioning.md
 - Notas: Dependência permitida: agent-core, agent-protocol; pode usar tokio, sqlx aqui
 
 ## T-304 — Criar crate agent-protocol (tipos estáveis/serialização) [concluida]

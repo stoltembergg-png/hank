@@ -284,7 +284,12 @@ impl AgentSkillService {
             ));
         }
         let record = self
-            .resolve_record(&request.project_id, &request.skill_id, &project_binding)
+            .resolve_record(
+                &request.project_id,
+                &request.skill_id,
+                &project_binding,
+                None,
+            )
             .await?;
         if record.skill.status != SkillStatus::Active
             || record.skill.manifest.version != request.version
@@ -454,7 +459,12 @@ impl AgentSkillService {
             ));
         }
         let record = self
-            .resolve_record(&project_id, &skill_id, &project_binding)
+            .resolve_record(
+                &project_id,
+                &skill_id,
+                &project_binding,
+                Some(&binding.current_version),
+            )
             .await?;
         if record.skill.status != SkillStatus::Active
             || record.skill.manifest.version != binding.current_version
@@ -521,14 +531,29 @@ impl AgentSkillService {
         project_id: &ProjectId,
         skill_id: &SkillId,
         binding: &ProjectSkillBinding,
+        version: Option<&str>,
     ) -> Result<crate::skill_repo::SkillRecord, DomainError> {
         let record = match binding.scope {
             SkillScope::Project => {
-                self.skills
-                    .get(binding.scope, Some(project_id), skill_id)
-                    .await?
+                if let Some(version) = version {
+                    self.skills
+                        .get_version(binding.scope, Some(project_id), skill_id, version)
+                        .await?
+                } else {
+                    self.skills
+                        .get(binding.scope, Some(project_id), skill_id)
+                        .await?
+                }
             }
-            SkillScope::Global => self.skills.get(binding.scope, None, skill_id).await?,
+            SkillScope::Global => {
+                if let Some(version) = version {
+                    self.skills
+                        .get_version(binding.scope, None, skill_id, version)
+                        .await?
+                } else {
+                    self.skills.get(binding.scope, None, skill_id).await?
+                }
+            }
         };
         record.ok_or_else(|| DomainError::NotFound("project skill source not found".into()))
     }

@@ -200,8 +200,23 @@ impl SkillLoader {
         ancestry: &mut Vec<SkillId>,
         depth: usize,
     ) -> Result<LoadedSkill, SkillLoadError> {
-        let record = match request.scope {
-            SkillScope::Project => self
+        let record = match (request.scope, request.version.as_deref()) {
+            (SkillScope::Project, Some(version)) => self
+                .repository
+                .get_version(
+                    SkillScope::Project,
+                    Some(&request.project_id),
+                    &request.skill_id,
+                    version,
+                )
+                .await
+                .map_err(map_repository_error)?,
+            (SkillScope::Global, Some(version)) => self
+                .repository
+                .get_version(SkillScope::Global, None, &request.skill_id, version)
+                .await
+                .map_err(map_repository_error)?,
+            (SkillScope::Project, None) => self
                 .repository
                 .get(
                     SkillScope::Project,
@@ -210,21 +225,13 @@ impl SkillLoader {
                 )
                 .await
                 .map_err(map_repository_error)?,
-            SkillScope::Global => self
+            (SkillScope::Global, None) => self
                 .repository
                 .get(SkillScope::Global, None, &request.skill_id)
                 .await
                 .map_err(map_repository_error)?,
         }
         .ok_or(SkillLoadError::NotFound)?;
-
-        if request
-            .version
-            .as_deref()
-            .is_some_and(|version| version != record.skill.manifest.version)
-        {
-            return Err(SkillLoadError::VersionUnavailable);
-        }
         validate_record(&record, &request)?;
 
         let key = cache_key(&request, &record);

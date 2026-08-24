@@ -6,6 +6,7 @@
 
 use crate::budget::BudgetLimits;
 use crate::ids::{ProjectId, SkillId, TraceId};
+use crate::versioning::SkillCompatibility;
 use agent_protocol::{Capability, Resource};
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
@@ -373,6 +374,8 @@ pub enum SkillError {
     InvalidTransition { from: SkillStatus, to: SkillStatus },
     #[error("skill version is invalid or does not match the manifest")]
     InvalidVersion,
+    #[error("skill version compatibility metadata is invalid")]
+    InvalidCompatibility,
     #[error("skill scope binding is invalid")]
     InvalidScope,
     #[error(transparent)]
@@ -386,6 +389,10 @@ pub struct Skill {
     pub manifest: SkillManifest,
     pub status: SkillStatus,
     pub project_id: Option<ProjectId>,
+    #[serde(default)]
+    pub parent_version: Option<String>,
+    #[serde(default)]
+    pub compatibility: SkillCompatibility,
     pub pinned_version: Option<String>,
     pub activated_at: Option<chrono::DateTime<chrono::Utc>>,
     pub rollback_version: Option<String>,
@@ -397,6 +404,8 @@ impl Skill {
             manifest,
             status: SkillStatus::Draft,
             project_id,
+            parent_version: None,
+            compatibility: SkillCompatibility::Initial,
             pinned_version: None,
             activated_at: None,
             rollback_version: None,
@@ -413,6 +422,12 @@ impl Skill {
             if Version::parse(version).is_err() {
                 return Err(SkillError::InvalidVersion);
             }
+        }
+        let expected_compatibility =
+            SkillCompatibility::from_parent(self.parent_version.as_deref(), &self.manifest.version)
+                .map_err(|_| SkillError::InvalidCompatibility)?;
+        if expected_compatibility != self.compatibility {
+            return Err(SkillError::InvalidCompatibility);
         }
         if self.status == SkillStatus::Active && self.pinned_version.is_none() {
             return Err(SkillError::InvalidVersion);

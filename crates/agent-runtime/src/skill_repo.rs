@@ -4,10 +4,15 @@
 //! resolves references, imports global Skills implicitly, changes runtime
 //! state, or executes an artifact.
 
+use crate::event_bus::EventBus;
 use agent_core::{
-    DomainError, ParsedSkill, ProjectId, Skill, SkillError, SkillId, SkillScope, SkillStatus,
+    DomainError, ParsedSkill, ProjectId, Skill, SkillCompatibility, SkillError, SkillId,
+    SkillScope, SkillStatus,
 };
+use agent_protocol::events::{ApplicationEvent, EventKind, GlobalApplicationEvent};
+use agent_protocol::ids::EventId;
 use chrono::{DateTime, Utc};
+use sha2::{Digest, Sha256};
 use sqlx::{Pool, Row, Sqlite};
 use std::str::FromStr;
 
@@ -16,16 +21,36 @@ pub struct SkillRecord {
     pub skill: Skill,
     pub parsed: ParsedSkill,
     pub revision: u64,
+    pub version_id: String,
+    pub content_hash: String,
+    pub parent_version: Option<String>,
+    pub compatibility: SkillCompatibility,
 }
 
 #[derive(Clone)]
 pub struct SqliteSkillRepository {
     pool: Pool<Sqlite>,
+    event_bus: Option<EventBus<ApplicationEvent>>,
+    global_event_bus: Option<EventBus<GlobalApplicationEvent>>,
 }
 
 impl SqliteSkillRepository {
     pub fn new(pool: Pool<Sqlite>) -> Self {
-        Self { pool }
+        Self {
+            pool,
+            event_bus: None,
+            global_event_bus: None,
+        }
+    }
+
+    pub fn with_event_bus(mut self, event_bus: EventBus<ApplicationEvent>) -> Self {
+        self.event_bus = Some(event_bus);
+        self
+    }
+
+    pub fn with_global_event_bus(mut self, event_bus: EventBus<GlobalApplicationEvent>) -> Self {
+        self.global_event_bus = Some(event_bus);
+        self
     }
 
     pub async fn create(
@@ -34,6 +59,7 @@ impl SqliteSkillRepository {
         parsed: &ParsedSkill,
     ) -> Result<SkillRecord, DomainError> {
         validate_input(skill, parsed)?;
+        let content_hash = compute_content_hash(skill, parsed)?;
         let namespace = namespace(skill.manifest.scope, skill.project_id.as_ref())?;
         let mut transaction = self
             .pool
@@ -41,7 +67,23 @@ impl SqliteSkillRepository {
             .await
             .map_err(|error| persistence_error("skill create transaction", error))?;
 
-        insert_version(&mut transaction, &namespace, skill, parsed).await?;
+        insert_version(
+            &mut transaction,
+            &namespace,
+            skill,
+            parsed,
+            None,
+            SkillCompatibility::Initial,
+            &content_hash,
+        )
+        .await?;
+        insert_version_state(
+            &mut transaction,
+            &namespace,
+            skill,
+            status_to_db(skill.status),
+        )
+        .await?;
         let head_result = sqlx::query(
             "INSERT INTO skill_heads (namespace, skill_id, project_id, scope, current_version, status, pinned_version, activated_at, rollback_version, revision, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
         )
@@ -70,11 +112,17 @@ impl SqliteSkillRepository {
             .commit()
             .await
             .map_err(|error| persistence_error("skill create commit", error))?;
-        Ok(SkillRecord {
+        let record = SkillRecord {
             skill: skill.clone(),
             parsed: parsed.clone(),
             revision: 1,
-        })
+            version_id: version_id(&skill.manifest.id, &skill.manifest.version),
+            content_hash,
+            parent_version: None,
+            compatibility: SkillCompatibility::Initial,
+        };
+        self.publish_version_event("create", &record, skill.project_id);
+        Ok(record)
     }
 
     pub async fn get(
@@ -96,7 +144,7 @@ impl SqliteSkillRepository {
     ) -> Result<Option<SkillRecord>, DomainError> {
         let namespace = namespace(scope, project_id)?;
         let row = sqlx::query(
-            "SELECT skill_json, parsed_json FROM skill_versions WHERE namespace = ? AND skill_id = ? AND manifest_version = ?",
+            "SELECT sv.skill_json, sv.parsed_json, sv.content_hash, sv.parent_version, sv.compatibility, sv.hash_algorithm, states.status AS release_status FROM skill_versions AS sv LEFT JOIN skill_version_states AS states ON states.namespace = sv.namespace AND states.skill_id = sv.skill_id AND states.manifest_version = sv.manifest_version WHERE sv.namespace = ? AND sv.skill_id = ? AND sv.manifest_version = ?",
         )
         .bind(&namespace)
         .bind(skill_id.to_string())
@@ -144,7 +192,7 @@ impl SqliteSkillRepository {
     ) -> Result<Vec<SkillRecord>, DomainError> {
         let namespace = namespace(scope, project_id)?;
         let rows = sqlx::query(
-            "SELECT skill_json, parsed_json FROM skill_versions WHERE namespace = ? AND skill_id = ? ORDER BY created_at ASC, manifest_version ASC",
+            "SELECT sv.skill_json, sv.parsed_json, sv.content_hash, sv.parent_version, sv.compatibility, sv.hash_algorithm, states.status AS release_status FROM skill_versions AS sv LEFT JOIN skill_version_states AS states ON states.namespace = sv.namespace AND states.skill_id = sv.skill_id AND states.manifest_version = sv.manifest_version WHERE sv.namespace = ? AND sv.skill_id = ? ORDER BY sv.created_at ASC, sv.manifest_version ASC",
         )
         .bind(namespace)
         .bind(skill_id.to_string())
@@ -160,7 +208,6 @@ impl SqliteSkillRepository {
         parsed: &ParsedSkill,
         expected_revision: u64,
     ) -> Result<SkillRecord, DomainError> {
-        validate_input(skill, parsed)?;
         let namespace = namespace(skill.manifest.scope, skill.project_id.as_ref())?;
         let expected = revision_i64(expected_revision)?;
         let mut transaction = self
@@ -175,23 +222,77 @@ impl SqliteSkillRepository {
         if head.revision != expected_revision {
             return Err(concurrency_error(expected_revision, head.revision));
         }
+        if skill.status == SkillStatus::Active {
+            return Err(DomainError::InvalidStateTransition {
+                from: "active".into(),
+                to: "draft/testing; use promote".into(),
+            });
+        }
+        if skill.pinned_version.is_some() {
+            return Err(DomainError::Validation(
+                "skill update cannot set an activation pin".into(),
+            ));
+        }
         if head.current_version == skill.manifest.version {
             return Err(DomainError::Duplicate(
                 "skill manifest version is immutable".into(),
             ));
         }
-        insert_version(&mut transaction, &namespace, skill, parsed).await?;
+        let compatibility =
+            SkillCompatibility::from_parent(Some(&head.current_version), &skill.manifest.version)
+                .map_err(|error| DomainError::Validation(error.to_string()))?;
+        let candidate_hash = compute_content_hash(skill, parsed)?;
+        if skill.status == SkillStatus::Active && compatibility == SkillCompatibility::Incompatible
+        {
+            return Err(DomainError::PermissionDenied {
+                capability: "skill.activate".into(),
+                reason: "incompatible skill version requires an explicit compatibility decision"
+                    .into(),
+            });
+        }
+        if let Some(mut existing) = version_by_content_in_transaction(
+            &mut transaction,
+            &namespace,
+            &skill.manifest.id,
+            &candidate_hash,
+        )
+        .await?
+        {
+            existing.revision = head.revision;
+            return Ok(existing);
+        }
+        let mut persisted = skill.clone();
+        persisted.parent_version = Some(head.current_version.clone());
+        persisted.compatibility = compatibility;
+        validate_input(&persisted, parsed)?;
+        insert_version(
+            &mut transaction,
+            &namespace,
+            &persisted,
+            parsed,
+            persisted.parent_version.as_deref(),
+            compatibility,
+            &candidate_hash,
+        )
+        .await?;
+        insert_version_state(
+            &mut transaction,
+            &namespace,
+            &persisted,
+            status_to_db(persisted.status),
+        )
+        .await?;
         let next_revision = expected_revision
             .checked_add(1)
             .ok_or_else(|| DomainError::Validation("skill revision overflow".into()))?;
         let result = sqlx::query(
             "UPDATE skill_heads SET current_version = ?, status = ?, pinned_version = ?, activated_at = ?, rollback_version = ?, revision = ?, updated_at = ? WHERE namespace = ? AND skill_id = ? AND revision = ?",
         )
-        .bind(&skill.manifest.version)
-        .bind(status_to_db(skill.status))
-        .bind(skill.pinned_version.as_deref())
-        .bind(skill.activated_at.map(|value| value.to_rfc3339()))
-        .bind(skill.rollback_version.as_deref())
+        .bind(&persisted.manifest.version)
+        .bind(status_to_db(persisted.status))
+        .bind(persisted.pinned_version.as_deref())
+        .bind(persisted.activated_at.map(|value| value.to_rfc3339()))
+        .bind(persisted.rollback_version.as_deref())
         .bind(revision_i64(next_revision)?)
         .bind(Utc::now().to_rfc3339())
         .bind(&namespace)
@@ -210,11 +311,101 @@ impl SqliteSkillRepository {
             .commit()
             .await
             .map_err(|error| persistence_error("skill update commit", error))?;
-        Ok(SkillRecord {
-            skill: skill.clone(),
+        let record = SkillRecord {
+            skill: persisted.clone(),
             parsed: parsed.clone(),
             revision: next_revision,
-        })
+            version_id: version_id(&persisted.manifest.id, &persisted.manifest.version),
+            content_hash: candidate_hash,
+            parent_version: persisted.parent_version,
+            compatibility: persisted.compatibility,
+        };
+        self.publish_version_event("update", &record, persisted.project_id);
+        Ok(record)
+    }
+
+    /// Promotes the current immutable version through an explicit lifecycle
+    /// operation. The method never rewrites the artifact or moves the head to
+    /// an unrequested version.
+    pub async fn promote(
+        &self,
+        scope: SkillScope,
+        project_id: Option<&ProjectId>,
+        skill_id: &SkillId,
+        version: &str,
+        expected_revision: u64,
+    ) -> Result<SkillRecord, DomainError> {
+        let namespace = namespace(scope, project_id)?;
+        let Some(current) = self.get_current_by_namespace(&namespace, skill_id).await? else {
+            return Err(DomainError::NotFound("skill head not found".into()));
+        };
+        if current.revision != expected_revision {
+            return Err(concurrency_error(expected_revision, current.revision));
+        }
+        if current.skill.manifest.version != version {
+            return Err(DomainError::NotFound(
+                "skill version is not the current head".into(),
+            ));
+        }
+        if current.compatibility == SkillCompatibility::Incompatible {
+            return Err(DomainError::PermissionDenied {
+                capability: "skill.activate".into(),
+                reason: "incompatible skill version cannot be promoted without an explicit compatibility decision".into(),
+            });
+        }
+        if current.skill.status == SkillStatus::Active {
+            return Ok(current);
+        }
+        if !matches!(
+            current.skill.status,
+            SkillStatus::Draft | SkillStatus::Testing
+        ) {
+            return Err(DomainError::InvalidStateTransition {
+                from: status_to_db(current.skill.status).into(),
+                to: "active".into(),
+            });
+        }
+        let mut promoted = current.skill.clone();
+        if promoted.status == SkillStatus::Draft {
+            promoted
+                .transition(SkillStatus::Testing)
+                .map_err(skill_state_error)?;
+        }
+        promoted
+            .activate(version.to_owned())
+            .map_err(skill_state_error)?;
+        promoted.rollback_version = promoted.parent_version.clone();
+        validate_input(&promoted, &current.parsed)?;
+        let next_revision = next_revision(expected_revision)?;
+        let result = sqlx::query(
+            "UPDATE skill_heads SET status = 'active', pinned_version = ?, activated_at = ?, rollback_version = ?, revision = ?, updated_at = ? WHERE namespace = ? AND skill_id = ? AND revision = ?",
+        )
+        .bind(promoted.pinned_version.as_deref())
+        .bind(promoted.activated_at.map(|value| value.to_rfc3339()))
+        .bind(promoted.parent_version.as_deref())
+        .bind(revision_i64(next_revision)?)
+        .bind(Utc::now().to_rfc3339())
+        .bind(&namespace)
+        .bind(skill_id.to_string())
+        .bind(revision_i64(expected_revision)?)
+        .execute(&self.pool)
+        .await
+        .map_err(|error| persistence_error("skill promote", error))?;
+        if result.rows_affected() == 0 {
+            return Err(concurrency_error(expected_revision, next_revision));
+        }
+        update_version_state(&self.pool, &namespace, skill_id, version, "active").await?;
+        let record = SkillRecord {
+            skill: promoted,
+            parsed: current.parsed,
+            revision: next_revision,
+            version_id: current.version_id,
+            content_hash: current.content_hash,
+            parent_version: current.parent_version,
+            compatibility: current.compatibility,
+        };
+        self.publish_version_event("promote", &record, project_id.copied());
+        Ok(record)
     }
 
     pub async fn archive(
@@ -255,9 +446,20 @@ impl SqliteSkillRepository {
         if result.rows_affected() == 0 {
             return Err(concurrency_error(expected_revision, next_revision));
         }
-        self.get_current_by_namespace(&namespace, skill_id)
+        update_version_state(
+            &self.pool,
+            &namespace,
+            skill_id,
+            &current.skill.manifest.version,
+            "archived",
+        )
+        .await?;
+        let record = self
+            .get_current_by_namespace(&namespace, skill_id)
             .await?
-            .ok_or_else(|| DomainError::NotFound("skill head disappeared".into()))
+            .ok_or_else(|| DomainError::NotFound("skill head disappeared".into()))?;
+        self.publish_version_event("archive", &record, project_id.copied());
+        Ok(record)
     }
 
     pub async fn rollback(
@@ -292,6 +494,12 @@ impl SqliteSkillRepository {
                 "skill rollback version not found".into(),
             ));
         };
+        if target.compatibility == SkillCompatibility::Incompatible {
+            return Err(DomainError::PermissionDenied {
+                capability: "skill.activate".into(),
+                reason: "incompatible skill version cannot be restored by rollback".into(),
+            });
+        }
         let mut restored = target.skill.clone();
         restored.status = SkillStatus::Active;
         restored.pinned_version = Some(target_version.to_owned());
@@ -320,11 +528,18 @@ impl SqliteSkillRepository {
         if result.rows_affected() == 0 {
             return Err(concurrency_error(expected_revision, next_revision));
         }
-        Ok(SkillRecord {
+        update_version_state(&self.pool, &namespace, skill_id, target_version, "active").await?;
+        let record = SkillRecord {
+            version_id: version_id(&restored.manifest.id, &restored.manifest.version),
+            content_hash: target.content_hash,
+            parent_version: restored.parent_version.clone(),
+            compatibility: restored.compatibility,
             skill: restored,
             parsed: target.parsed,
             revision: next_revision,
-        })
+        };
+        self.publish_version_event("rollback", &record, project_id.copied());
+        Ok(record)
     }
 
     async fn get_current_by_namespace(
@@ -336,7 +551,7 @@ impl SqliteSkillRepository {
             return Ok(None);
         };
         let row = sqlx::query(
-            "SELECT skill_json, parsed_json FROM skill_versions WHERE namespace = ? AND skill_id = ? AND manifest_version = ?",
+            "SELECT sv.skill_json, sv.parsed_json, sv.content_hash, sv.parent_version, sv.compatibility, sv.hash_algorithm, states.status AS release_status FROM skill_versions AS sv LEFT JOIN skill_version_states AS states ON states.namespace = sv.namespace AND states.skill_id = sv.skill_id AND states.manifest_version = sv.manifest_version WHERE sv.namespace = ? AND sv.skill_id = ? AND sv.manifest_version = ?",
         )
         .bind(namespace)
         .bind(skill_id.to_string())
@@ -345,6 +560,63 @@ impl SqliteSkillRepository {
         .await
         .map_err(|error| persistence_error("skill current version query", error))?;
         row.map(|row| decode_current(&row, &head)).transpose()
+    }
+
+    fn publish_version_event(
+        &self,
+        action: &str,
+        record: &SkillRecord,
+        project_id: Option<ProjectId>,
+    ) -> Option<EventId> {
+        let event_id = EventId::new();
+        let payload = serde_json::json!({
+            "action": action,
+            "version_id": record.version_id,
+            "version": record.skill.manifest.version,
+            "content_hash": record.content_hash,
+            "parent_version": record.parent_version,
+            "compatibility": record.compatibility,
+            "scope": record.skill.manifest.scope,
+            "source": source_event_metadata(&record.skill.manifest.source),
+            "policy": record.skill.manifest.policy,
+            "budget": record.skill.manifest.budget,
+            "trace": record.skill.manifest.trace,
+            "revision": record.revision,
+        })
+        .to_string();
+        match project_id {
+            Some(project_id) => {
+                let bus = self.event_bus.as_ref()?;
+                let event = ApplicationEvent {
+                    schema_version: 1,
+                    event_id,
+                    event_type: EventKind::SkillVersionChanged,
+                    project_id,
+                    aggregate_id: record.skill.manifest.id.to_string(),
+                    agent_id: None,
+                    session_id: None,
+                    occurred_at: Utc::now(),
+                    sequence: record.revision,
+                    payload,
+                };
+                let _ = bus.publish(event);
+                Some(event_id)
+            }
+            None => {
+                let bus = self.global_event_bus.as_ref()?;
+                let event = GlobalApplicationEvent {
+                    schema_version: 1,
+                    event_id,
+                    event_type: EventKind::SkillVersionChanged,
+                    aggregate_id: record.skill.manifest.id.to_string(),
+                    occurred_at: Utc::now(),
+                    sequence: record.revision,
+                    payload,
+                };
+                let _ = bus.publish(event);
+                Some(event_id)
+            }
+        }
     }
 }
 
@@ -363,9 +635,12 @@ async fn insert_version(
     namespace: &str,
     skill: &Skill,
     parsed: &ParsedSkill,
+    parent_version: Option<&str>,
+    compatibility: SkillCompatibility,
+    content_hash: &str,
 ) -> Result<(), DomainError> {
     let result = sqlx::query(
-        "INSERT INTO skill_versions (namespace, skill_id, project_id, scope, name, manifest_version, content_hash, skill_json, parsed_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO skill_versions (namespace, skill_id, project_id, scope, name, manifest_version, content_hash, skill_json, parsed_json, created_at, parent_version, compatibility, hash_algorithm) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'sha256-v1')",
     )
     .bind(namespace)
     .bind(skill.manifest.id.to_string())
@@ -373,10 +648,12 @@ async fn insert_version(
     .bind(scope_to_db(skill.manifest.scope))
     .bind(&skill.manifest.name)
     .bind(&skill.manifest.version)
-    .bind(&skill.manifest.digest)
+    .bind(content_hash)
     .bind(serde_json::to_string(skill)?)
     .bind(serde_json::to_string(parsed)?)
     .bind(skill.manifest.created_at.to_rfc3339())
+    .bind(parent_version)
+    .bind(compatibility_to_db(compatibility))
     .execute(&mut **transaction)
     .await;
     match result {
@@ -386,6 +663,52 @@ async fn insert_version(
         )),
         Err(error) => Err(persistence_error("skill version insert", error)),
     }
+}
+
+async fn insert_version_state(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    namespace: &str,
+    skill: &Skill,
+    status: &str,
+) -> Result<(), DomainError> {
+    sqlx::query(
+        "INSERT INTO skill_version_states (namespace, skill_id, manifest_version, status, revision, updated_at) VALUES (?, ?, ?, ?, 1, ?)",
+    )
+    .bind(namespace)
+    .bind(skill.manifest.id.to_string())
+    .bind(&skill.manifest.version)
+    .bind(status)
+    .bind(skill.manifest.created_at.to_rfc3339())
+    .execute(&mut **transaction)
+    .await
+    .map_err(|error| persistence_error("skill version state insert", error))?;
+    Ok(())
+}
+
+async fn update_version_state(
+    pool: &Pool<Sqlite>,
+    namespace: &str,
+    skill_id: &SkillId,
+    version: &str,
+    status: &str,
+) -> Result<(), DomainError> {
+    let result = sqlx::query(
+        "UPDATE skill_version_states SET status = ?, revision = revision + 1, updated_at = ? WHERE namespace = ? AND skill_id = ? AND manifest_version = ?",
+    )
+    .bind(status)
+    .bind(Utc::now().to_rfc3339())
+    .bind(namespace)
+    .bind(skill_id.to_string())
+    .bind(version)
+    .execute(pool)
+    .await
+    .map_err(|error| persistence_error("skill version state update", error))?;
+    if result.rows_affected() == 0 {
+        return Err(DomainError::NotFound(
+            "skill version state not found".into(),
+        ));
+    }
+    Ok(())
 }
 
 async fn fetch_head(
@@ -402,6 +725,29 @@ async fn fetch_head(
     .await
     .map_err(|error| persistence_error("skill head query", error))?;
     row.map(decode_head).transpose()
+}
+
+async fn version_by_content_in_transaction(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    namespace: &str,
+    skill_id: &SkillId,
+    content_hash: &str,
+) -> Result<Option<SkillRecord>, DomainError> {
+    let rows = sqlx::query(
+        "SELECT sv.skill_json, sv.parsed_json, sv.content_hash, sv.parent_version, sv.compatibility, sv.hash_algorithm, states.status AS release_status FROM skill_versions AS sv LEFT JOIN skill_version_states AS states ON states.namespace = sv.namespace AND states.skill_id = sv.skill_id AND states.manifest_version = sv.manifest_version WHERE sv.namespace = ? AND sv.skill_id = ? ORDER BY sv.created_at ASC, sv.manifest_version ASC",
+    )
+    .bind(namespace)
+    .bind(skill_id.to_string())
+    .fetch_all(&mut **transaction)
+    .await
+    .map_err(|error| persistence_error("skill content deduplication query", error))?;
+    for row in rows {
+        let record = decode_version(&row, 0)?;
+        if record.content_hash == content_hash {
+            return Ok(Some(record));
+        }
+    }
+    Ok(None)
 }
 
 async fn head_in_transaction(
@@ -445,18 +791,39 @@ fn decode_version(
     row: &sqlx::sqlite::SqliteRow,
     revision: u64,
 ) -> Result<SkillRecord, DomainError> {
-    let skill: Skill = serde_json::from_str(&row_string(row, "skill_json")?)?;
+    let mut skill: Skill = serde_json::from_str(&row_string(row, "skill_json")?)?;
     let parsed: ParsedSkill = serde_json::from_str(&row_string(row, "parsed_json")?)?;
+    let stored_hash = row_string(row, "content_hash")?;
+    let hash_algorithm = row_string(row, "hash_algorithm")?;
+    let content_hash = compute_content_hash(&skill, &parsed)?;
+    let parent_version = row_optional_string(row, "parent_version")?;
+    let compatibility = compatibility_from_db(&row_string(row, "compatibility")?)?;
+    let release_status = row_optional_string(row, "release_status")?;
     if skill.manifest.id != parsed.manifest.id
         || skill.manifest.version != parsed.manifest.version
         || skill.manifest.digest != parsed.manifest.digest
+        || skill.parent_version != parent_version
+        || skill.compatibility != compatibility
+        || (hash_algorithm == "sha256-v1" && stored_hash != content_hash)
+        || (hash_algorithm != "legacy" && hash_algorithm != "sha256-v1")
     {
         return Err(DomainError::Validation(
             "skill version payload mismatch".into(),
         ));
     }
+    if let Some(status) = release_status {
+        skill.status = status_from_db(&status)?;
+        if skill.status == SkillStatus::Active && skill.pinned_version.is_none() {
+            skill.pinned_version = Some(skill.manifest.version.clone());
+            skill.activated_at = Some(skill.manifest.created_at);
+        }
+    }
     skill.validate().map_err(skill_state_error)?;
     Ok(SkillRecord {
+        version_id: version_id(&skill.manifest.id, &skill.manifest.version),
+        content_hash,
+        parent_version,
+        compatibility,
         skill,
         parsed,
         revision,
@@ -547,6 +914,76 @@ fn status_to_db(status: SkillStatus) -> &'static str {
         SkillStatus::Archived => "archived",
         SkillStatus::Blocked => "blocked",
     }
+}
+
+fn compatibility_to_db(value: SkillCompatibility) -> &'static str {
+    match value {
+        SkillCompatibility::Initial => "initial",
+        SkillCompatibility::Compatible => "compatible",
+        SkillCompatibility::Incompatible => "incompatible",
+    }
+}
+
+fn compatibility_from_db(value: &str) -> Result<SkillCompatibility, DomainError> {
+    match value {
+        "initial" => Ok(SkillCompatibility::Initial),
+        "compatible" => Ok(SkillCompatibility::Compatible),
+        "incompatible" => Ok(SkillCompatibility::Incompatible),
+        _ => Err(DomainError::Validation(
+            "invalid skill compatibility".into(),
+        )),
+    }
+}
+
+fn version_id(skill_id: &SkillId, version: &str) -> String {
+    format!("{skill_id}@{version}")
+}
+
+fn compute_content_hash(_skill: &Skill, parsed: &ParsedSkill) -> Result<String, DomainError> {
+    // Version labels, declared digests, creation timestamps and parser trace
+    // data are provenance envelopes rather than content. The remaining
+    // validated manifest policy plus parsed instructions/artifacts form the
+    // stable identity used for safe retry deduplication.
+    let manifest = &parsed.manifest;
+    let canonical = serde_json::json!({
+        "manifest": {
+            "schema_version": manifest.schema_version,
+            "id": manifest.id,
+            "name": manifest.name,
+            "description": manifest.description,
+            "author": manifest.author,
+            "license": manifest.license,
+            "repository": manifest.repository,
+            "source": manifest.source,
+            "scope": manifest.scope,
+            "capabilities": manifest.capabilities,
+            "dependencies": manifest.dependencies,
+            "files": manifest.files,
+            "tests": manifest.tests,
+            "policy": manifest.policy,
+            "budget": manifest.budget,
+        },
+        "instructions": parsed.instructions,
+        "artifacts": parsed.artifacts,
+        "links": parsed.links,
+        "diagnostics": parsed.diagnostics,
+        "quarantined": parsed.quarantined,
+    });
+    let bytes = serde_json::to_vec(&canonical)?;
+    Ok(format!("{:x}", Sha256::digest(bytes)))
+}
+
+fn source_event_metadata(source: &agent_core::SkillSource) -> serde_json::Value {
+    serde_json::json!({
+        "kind": source.kind,
+        "reference_digest": format!("{:x}", Sha256::digest(source.reference.as_bytes())),
+    })
+}
+
+fn next_revision(current: u64) -> Result<u64, DomainError> {
+    current
+        .checked_add(1)
+        .ok_or_else(|| DomainError::Validation("skill revision overflow".into()))
 }
 
 fn status_from_db(value: &str) -> Result<SkillStatus, DomainError> {

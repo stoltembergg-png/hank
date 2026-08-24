@@ -5,11 +5,12 @@ without turning stored content into executable runtime state.
 
 ## Storage model
 
-Migration `0007_skill_storage.sql` creates two tables:
+Migration `0007_skill_storage.sql` creates two tables, and migration
+`0010_skill_version_provenance.sql` adds explicit version-graph metadata:
 
 - `skill_versions` is append-only. It stores the project/global namespace,
-  manifest version, content hash, serialized manifest/entity, and serialized
-  parser result.
+  manifest version, content hash, serialized manifest/entity, serialized
+  parser result, parent version and compatibility classification.
 - `skill_heads` stores the mutable pointer for each Skill identity: current
   version, lifecycle status, pin/rollback metadata, and an optimistic revision.
 
@@ -23,8 +24,15 @@ create an explicit reference before using a global Skill in a project.
 
 ## Repository invariants
 
-- Creating the same identity/version or content hash is rejected.
+- Creating the same identity/version is rejected.
 - Updates append a new immutable version and advance the head revision.
+- An update with an already persisted content hash is idempotently deduplicated
+  and does not move the head or create a second artifact.
+- Each record exposes a deterministic `skill-id@semver` version ID and an
+  immutable parent link. A major-version change is marked incompatible and
+  cannot be activated through the ordinary update path.
+- `promote` is the explicit operation that activates the current draft/testing
+  version and pins the exact version; rollback only changes the mutable head.
 - Updates, archive, and rollback use optimistic revision checks.
 - History remains available through `list_versions` and `get_version`.
 - Quarantined content cannot become active.

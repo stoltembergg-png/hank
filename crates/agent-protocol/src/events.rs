@@ -19,6 +19,7 @@ pub enum EventKind {
     ProviderUsageRecorded,
     RunCompleted,
     RunFailed,
+    SkillVersionChanged,
     SkillBindingChanged,
 }
 
@@ -31,6 +32,19 @@ pub struct ApplicationEvent {
     pub aggregate_id: String,
     pub agent_id: Option<AgentId>,
     pub session_id: Option<SessionId>,
+    pub occurred_at: DateTime<Utc>,
+    pub sequence: u64,
+    pub payload: String,
+}
+
+/// Event envelope for changes to artifacts in the global namespace. Global
+/// changes must not invent a project identity to fit `ApplicationEvent`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GlobalApplicationEvent {
+    pub schema_version: u32,
+    pub event_id: EventId,
+    pub event_type: EventKind,
+    pub aggregate_id: String,
     pub occurred_at: DateTime<Utc>,
     pub sequence: u64,
     pub payload: String,
@@ -49,6 +63,24 @@ pub enum EventValidationError {
 }
 
 impl ApplicationEvent {
+    pub fn validate(&self) -> Result<(), EventValidationError> {
+        if self.schema_version != EVENT_SCHEMA_VERSION {
+            return Err(EventValidationError::UnsupportedVersion);
+        }
+        if self.payload.len() > MAX_EVENT_PAYLOAD_BYTES {
+            return Err(EventValidationError::PayloadTooLarge);
+        }
+        if self.aggregate_id.trim().is_empty() {
+            return Err(EventValidationError::EmptyAggregate);
+        }
+        if self.sequence == 0 {
+            return Err(EventValidationError::InvalidSequence);
+        }
+        Ok(())
+    }
+}
+
+impl GlobalApplicationEvent {
     pub fn validate(&self) -> Result<(), EventValidationError> {
         if self.schema_version != EVENT_SCHEMA_VERSION {
             return Err(EventValidationError::UnsupportedVersion);
