@@ -370,13 +370,13 @@ Como sistema de segurança, quero que cada read/write/index/cache/export de
 memória exija identidade de projeto, para impedir tenant escape e confused
 deputy mesmo quando um identificador de memória coincide entre projetos.
 
-#### AC-777 — Operações destrutivas do índice exigem project identity
+#### AC-779 — Operações destrutivas do índice exigem project identity
 
 - **Dado** registros vetoriais de dois projetos e um identificador válido
 - **Quando** archive ou delete é solicitado com o projeto errado
 - **Então** falha com erro de scope e o registro do projeto correto permanece ativo
 
-#### AC-778 — Isolamento de memória é fail-closed em todas as boundaries
+#### AC-780 — Isolamento de memória é fail-closed em todas as boundaries
 
 - **Dado** project identity ausente, foreign ou inconsistente
 - **Quando** repository, index, selector, bridge ou rollback é chamado

@@ -226,12 +226,12 @@
 
 ## T-738 — Tornar mutações de índice explicitamente project-scoped [concluida]
 
-- Refs: US-641, AC-777
+- Refs: US-641, AC-779
 - Arquivos: crates/agent-core/src/vector.rs, crates/agent-core/tests/memory_vector_contract.rs
 - Notas: archive exige `ProjectId` e rejeita tentativa foreign sem desativar o registro correto. Contrato vector passou com 4/4 testes.
 
 ## T-739 — Verificar isolamento cross-project em todas as boundaries [concluida]
 
-- Refs: US-641, AC-778
+- Refs: US-641, AC-780
 - Arquivos: crates/agent-runtime/tests/memory_isolation_contract.rs, docs/memory-isolation.md, .spec/verification/memory-core.json
-- Notas: repository, selector e mutation service cobertos com dois projetos; vector index coberto por AC-777; bridge Tauri mantém project_id obrigatório e SQLite atrás do estado gerenciado.
+- Notas: repository, selector e mutation service cobertos com dois projetos; vector index coberto por AC-779; bridge Tauri mantém project_id obrigatório e SQLite atrás do estado gerenciado.

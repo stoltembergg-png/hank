@@ -56,7 +56,7 @@ fn mutation_context(project: ProjectId, operation_id: &str) -> MemoryMutationCon
     }
 }
 
-// @spec:AC-778
+// @spec:AC-780
 #[tokio::test]
 async fn repository_never_reads_or_lists_foreign_project_content() {
     let (repository, project_a, project_b, memory_a, memory_b) = fixture().await;
@@ -85,7 +85,7 @@ async fn repository_never_reads_or_lists_foreign_project_content() {
         .is_some());
 }
 
-// @spec:AC-778
+// @spec:AC-780
 #[tokio::test]
 async fn mutation_rejects_foreign_scope_before_effect() {
     let (repository, project_a, project_b, memory_a, memory_b) = fixture().await;
@@ -119,7 +119,7 @@ async fn mutation_rejects_foreign_scope_before_effect() {
     );
 }
 
-// @spec:AC-778
+// @spec:AC-780
 #[test]
 fn selector_omits_foreign_project_content_before_context_creation() {
     let project_a = ProjectId::new();
