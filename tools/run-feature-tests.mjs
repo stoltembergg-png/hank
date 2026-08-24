@@ -54,7 +54,7 @@ for (const file of tagged) {
   if (ext === 'js' || ext === 'mjs' || ext === 'cjs') {
     commands.push({ command: process.execPath, args: ['--test', file], label: file });
   } else if (ext === 'ts' || ext === 'tsx') {
-    commands.push({ command: process.platform === 'win32' ? 'npm.cmd' : 'npm', args: ['--prefix', 'frontend', 'test', '--', '--run', file], label: file });
+    commands.push({ command: process.platform === 'win32' ? 'npm.cmd' : 'npm', args: ['--prefix', 'frontend', 'test', '--', '--run', file.replace(/^frontend\//, '')], label: file });
   } else if (ext === 'rs') {
     const pkg = cargoPackage(file);
     if (!pkg) continue;
