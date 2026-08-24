@@ -12,14 +12,14 @@ Tauri e do `ProjectSkillService`.
 
 ## Histórias
 
-### US-642 — Consultar e governar Skills no projeto correto
+### US-643 — Consultar e governar Skills no projeto correto
 
 Como operador de um projeto, quero consultar Skills de projeto e fontes globais
 com seu estado, versão, binding, política, orçamento e proveniência, para que eu
 possa distinguir o que está disponível sem importar conteúdo ou alterar runtime
 silenciosamente.
 
-#### AC-781 — Listar Skills com escopo e proveniência bounded
+#### AC-785 — Listar Skills com escopo e proveniência bounded
 
 - **Dado** um projeto selecionado e um escopo `project` ou `global`
 - **Quando** a tela consulta a API tipada de Skills
@@ -28,7 +28,7 @@ silenciosamente.
   acessar SQLite no frontend; fontes globais sem import explícito permanecem
   indisponíveis.
 
-#### AC-782 — Governar rollback sem cruzar projeto ou binding
+#### AC-786 — Governar rollback sem cruzar projeto ou binding
 
 - **Dado** um binding ativo e uma revisão otimista
 - **Quando** o operador confirma o rollback pela UI
