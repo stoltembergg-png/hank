@@ -57,6 +57,7 @@ function result(scope: 'project' | 'global', skills: SkillSummary[]): SkillListO
 }
 
 describe('Skills UI contract PR-144', () => {
+  // @spec:AC-781
   it('calls the typed desktop bridge with project and scope and has a safe unavailable fallback', async () => {
     let command = '';
     let args: unknown;
@@ -90,6 +91,7 @@ describe('Skills UI contract PR-144', () => {
     });
   });
 
+  // @spec:AC-782
   it('sends confirmed rollback envelopes only through the desktop API command', async () => {
     let command = '';
     let args: unknown;
@@ -128,6 +130,7 @@ describe('Skills UI contract PR-144', () => {
     }
   });
 
+  // @spec:AC-781
   it('renders lifecycle, pinned version, history, binding policy and provenance as inert text', async () => {
     const apiClient: SkillApiClient = {
       list: async ({ scope }) => result(scope ?? 'project', scope === 'global' ? [globalSkill] : [projectSkill]),
