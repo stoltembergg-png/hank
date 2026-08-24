@@ -1,5 +1,6 @@
 pub mod confirmations;
 pub mod memory;
+pub mod skills;
 pub mod streaming;
 
 use agent_runtime::{
@@ -35,6 +36,7 @@ fn main() {
                 Ok::<_, std::io::Error>(storage)
             })?;
             app.manage(memory::bridge_state(&storage));
+            app.manage(skills::bridge_state(&storage));
 
             if app.get_webview_window("main").is_none() {
                 return Err(Box::new(std::io::Error::new(

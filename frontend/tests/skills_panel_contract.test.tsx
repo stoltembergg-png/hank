@@ -140,11 +140,74 @@ describe('Skills UI contract PR-144', () => {
     expect(screen.getByText('Versão ativa').nextElementSibling).toHaveTextContent('1.2.0');
     expect(screen.getByText('1.1.0')).toBeTruthy();
     expect(screen.getByText('project · local')).toBeTruthy();
-    expect(screen.getByText('Aprovação obrigatória')).toBeTruthy();
+    expect(screen.getByText(/Aprovação obrigatória/)).toBeTruthy();
     expect(screen.getByText(/Capabilities:/).parentElement).toHaveTextContent('project:read');
     expect(screen.getByText('trace_binding_1')).toBeTruthy();
     expect(screen.getByText('<img src=x onerror=alert(1)> Revê mudanças com segurança.')).toBeTruthy();
     expect(document.body.innerHTML).not.toContain('<img');
+  });
+
+  it('ignores a stale response after the selected scope changes', async () => {
+    let resolveProject: ((value: SkillListOutput) => void) | undefined;
+    const projectRequest = new Promise<SkillListOutput>((resolve) => {
+      resolveProject = resolve;
+    });
+    const globalRequest = Promise.resolve(result('global', [globalSkill]));
+    const apiClient: SkillApiClient = {
+      list: ({ scope }) => scope === 'global' ? globalRequest : projectRequest,
+    };
+    render(<SkillsPanel projectId={projectId} apiClient={apiClient} />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Globais' }));
+    await screen.findByText('global-reviewer');
+
+    resolveProject?.(result('project', [projectSkill]));
+    await waitFor(() => expect(screen.queryByText('reviewer')).toBeNull());
+    expect(screen.getByText('global-reviewer')).toBeTruthy();
+  });
+
+  it('rejects invalid nested bindings and exposes the complete policy context', async () => {
+    const invalidBinding = {
+      ...projectSkill,
+      binding: { ...projectSkill.binding!, project_id: 'other-project' },
+    };
+    const apiClient: SkillApiClient = {
+      list: async () => result('project', [invalidBinding]),
+    };
+    render(<SkillsPanel projectId={projectId} apiClient={apiClient} />);
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/fora do projeto/i));
+    expect(screen.queryByText('reviewer')).toBeNull();
+  });
+
+  it('shows bounded approval, budget and explicit import metadata', async () => {
+    const importedGlobal: SkillSummary = {
+      ...globalSkill,
+      binding: {
+        ...projectSkill.binding!,
+        scope: 'global',
+        current_version: globalSkill.version,
+        import_reference: 'project-import:global-reviewer',
+      },
+    };
+    const apiClient: SkillApiClient = {
+      list: async ({ scope }) => result(scope ?? 'project', scope === 'global' ? [importedGlobal] : []),
+    };
+    render(<SkillsPanel projectId={projectId} apiClient={apiClient} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Globais' }));
+
+    await screen.findByText('global-reviewer');
+    expect(screen.getByText(/Aprovação obrigatória · approval_1/)).toBeTruthy();
+    expect(screen.getByText(/100\.000 micro-USD.*60s.*nunca/)).toBeTruthy();
+    expect(screen.getByText(/Importação explícita · versão 1.2.0/)).toBeTruthy();
+  });
+
+  it('does not render a mutation action for a read-only API client', async () => {
+    const apiClient: SkillApiClient = { list: async () => result('project', [projectSkill]) };
+    render(<SkillsPanel projectId={projectId} apiClient={apiClient} />);
+
+    await screen.findByText('reviewer');
+    expect(screen.queryByRole('button', { name: 'Rollback reviewer' })).toBeNull();
   });
 
   it('never renders a skill returned for another project', async () => {
