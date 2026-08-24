@@ -30,7 +30,7 @@
 
 ## T-303 — Criar crate agent-runtime (execution/durable) [concluida]
 - Refs: US-301, AC-301, AC-303
-- Arquivos: crates/agent-runtime/Cargo.toml, crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/memory.rs, crates/agent-runtime/src/provider.rs, crates/agent-runtime/src/python.rs, crates/agent-runtime/src/sandbox.rs, crates/agent-runtime/src/scheduler.rs, crates/agent-runtime/src/skill_loader.rs, crates/agent-runtime/src/skill_repo.rs, crates/agent-runtime/src/skill_runtime.rs, crates/agent-runtime/src/tool.rs, crates/agent-runtime/src/workflow_runtime.rs
+- Arquivos: crates/agent-runtime/Cargo.toml, crates/agent-runtime/src/lib.rs, crates/agent-runtime/src/memory.rs, crates/agent-runtime/src/project_skills.rs, crates/agent-runtime/src/provider.rs, crates/agent-runtime/src/python.rs, crates/agent-runtime/src/sandbox.rs, crates/agent-runtime/src/scheduler.rs, crates/agent-runtime/src/skill_loader.rs, crates/agent-runtime/src/skill_repo.rs, crates/agent-runtime/src/skill_runtime.rs, crates/agent-runtime/src/tool.rs, crates/agent-runtime/src/workflow_runtime.rs, migrations/0008_project_skill_bindings.sql, docs/project-skill-bindings.md
 - Notas: Dependência permitida: agent-core, agent-protocol; pode usar tokio, sqlx aqui
 
 ## T-304 — Criar crate agent-protocol (tipos estáveis/serialização) [concluida]
