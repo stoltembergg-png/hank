@@ -342,6 +342,7 @@ mod tests {
     fn input() -> MemoryMutationInput {
         MemoryMutationInput {
             project_id: "proj-00000000-0000-4000-8000-000000000301".into(),
+            agent_id: Some("agent-00000000-0000-4000-8000-000000000303".into()),
             memory_id: "mem-00000000-0000-4000-8000-000000000302".into(),
             actor_id: "operator-1".into(),
             trace_id: "trace-1".into(),
