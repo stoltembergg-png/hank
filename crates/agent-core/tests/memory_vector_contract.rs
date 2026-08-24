@@ -47,6 +47,7 @@ fn vector_query_is_scoped_ranked_and_dimension_checked() {
 }
 
 // @spec:AC-762
+// @spec:AC-779
 #[test]
 fn upsert_is_idempotent_and_archive_delete_remove_active_index() {
     let project = ProjectId::new();
@@ -57,11 +58,24 @@ fn upsert_is_idempotent_and_archive_delete_remove_active_index() {
         index.query(&query(project, vec![0.0, 1.0])).unwrap()[0].id,
         "m1"
     );
-    index.archive("m1").unwrap();
+    index.archive(&project, "m1").unwrap();
     assert!(index
         .query(&query(project, vec![0.0, 1.0]))
         .unwrap()
         .is_empty());
+
+    let foreign = ProjectId::new();
+    index
+        .upsert(record(foreign, "foreign", vec![1.0, 0.0]))
+        .unwrap();
+    assert!(matches!(
+        index.archive(&project, "foreign"),
+        Err(VectorError::ProjectScope)
+    ));
+    assert_eq!(
+        index.query(&query(foreign, vec![1.0, 0.0])).unwrap()[0].id,
+        "foreign"
+    );
 }
 
 // @spec:AC-763
