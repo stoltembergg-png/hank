@@ -9,7 +9,7 @@ use crate::skill_loader::{SkillGlobalImport, SkillLoadBudget, SkillLoadPolicy, S
 use crate::skill_repo::{SkillRecord, SqliteSkillRepository};
 use agent_core::{
     Action, AgentId, Capability, CapabilitySet, DomainError, ProjectId, Resource, SkillId,
-    SkillScope, SkillStatus, TraceId,
+    SkillScope, SkillSourceKind, SkillStatus, TraceId,
 };
 use agent_protocol::events::{ApplicationEvent, EventKind};
 use agent_protocol::ids::EventId;
@@ -522,6 +522,19 @@ fn validate_binding_request(request: &ProjectSkillBindingRequest) -> Result<(), 
         semver::Version::parse(version)
             .map_err(|_| DomainError::Validation("skill version is invalid".into()))?;
     }
+    if request.scope == SkillScope::Global {
+        if request.version.is_none() {
+            return Err(DomainError::Validation(
+                "global skill import requires an exact version pin".into(),
+            ));
+        }
+        if request.approval_id.is_none() {
+            return Err(DomainError::PermissionDenied {
+                capability: "skill.import".into(),
+                reason: "global skill import requires explicit approval".into(),
+            });
+        }
+    }
     if request.scope == SkillScope::Project && request.import_reference.is_some() {
         return Err(DomainError::Validation(
             "project skill binding cannot carry a global import reference".into(),
@@ -618,6 +631,17 @@ fn validate_record_for_binding(
         return Err(DomainError::InvalidStateTransition {
             from: format!("{:?}", record.skill.status),
             to: "bound".into(),
+        });
+    }
+    if request.scope == SkillScope::Global
+        && matches!(
+            record.skill.manifest.source.kind,
+            SkillSourceKind::Git | SkillSourceKind::Registry
+        )
+    {
+        return Err(DomainError::PermissionDenied {
+            capability: "skill.import".into(),
+            reason: "remote global skill sources are not enabled by this contract".into(),
         });
     }
     for declared in &record.skill.manifest.capabilities {

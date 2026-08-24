@@ -11,8 +11,11 @@ exists in SQLite or on disk.
 - The required mutation capability is `skill:configure:<project-id>` and it
   must also be present in the project policy.
 - Project-scoped Skills must belong to the requested project.
-- Global Skills require an explicit `project-import:*` reference. There is no
-  implicit global fallback.
+- Global Skills require an explicit `project-import:*` reference, an exact
+  version pin and an approval identifier. There is no implicit global fallback.
+- This stage accepts only local, built-in or previously imported global
+  sources. Git, registry and other remote marketplace sources are rejected;
+  importing content never silently changes runtime behavior.
 - Only an active Skill head can be enabled. Skill content is still loaded by
   `SkillLoader` as untrusted data; scripts are never executed by binding.
 - A repeated bind for the same scope, version and import is idempotent.
