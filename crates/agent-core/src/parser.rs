@@ -7,6 +7,7 @@
 
 use crate::ids::{ProjectId, SkillId, TraceId};
 use crate::skill::{Skill, SkillError, SkillFileRole, SkillManifest, SkillScope, SkillSource};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
@@ -129,27 +130,27 @@ pub enum SkillParseError {
     Manifest(#[from] SkillError),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SkillDiagnosticSeverity {
     Warning,
     Quarantine,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SkillDiagnosticCode {
     ExternalLink,
     InstructionOverride,
 }
 
 /// Diagnostics deliberately contain no raw skill content or URLs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SkillDiagnostic {
     pub code: SkillDiagnosticCode,
     pub severity: SkillDiagnosticSeverity,
     pub line: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SkillInstructionSection {
     pub heading: String,
     pub level: u8,
@@ -158,22 +159,22 @@ pub struct SkillInstructionSection {
     pub quarantined: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SkillLinkKind {
     Internal,
     External,
     Anchor,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SkillLink {
-    pub source_path: &'static str,
+    pub source_path: String,
     pub target: String,
     pub kind: SkillLinkKind,
     pub line: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SkillArtifact {
     pub path: String,
     pub role: SkillFileRole,
@@ -182,7 +183,7 @@ pub struct SkillArtifact {
 
 /// Provenance is bounded metadata only; no instruction or artifact body is
 /// copied into the trace record.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SkillParseProvenance {
     pub schema_version: u32,
     pub skill_id: SkillId,
@@ -196,7 +197,7 @@ pub struct SkillParseProvenance {
     pub diagnostics_count: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParsedSkill {
     /// Declarative metadata parsed from the closed frontmatter object.
     pub manifest: SkillManifest,
@@ -570,7 +571,7 @@ fn parse_links(
             )?;
         }
         links.push(SkillLink {
-            source_path: "SKILL.md",
+            source_path: "SKILL.md".into(),
             target: target.to_owned(),
             kind,
             line: line_number,

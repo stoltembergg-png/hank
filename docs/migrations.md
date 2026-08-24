@@ -17,6 +17,8 @@ The `migrations` module in `crates/agent-runtime` provides deterministic, embedd
 - `agents`: agents scoped to projects.
 - `sessions`: chat sessions scoped to projects and agents.
 - `messages`: session messages with role, content, and tool executions.
+- `skill_versions` and `skill_heads`: immutable, scoped Skill history and its
+  optimistic-concurrency head (migration `0007_skill_storage.sql`).
 
 ## Usage
 
