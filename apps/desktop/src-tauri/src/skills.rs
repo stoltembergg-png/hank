@@ -5,9 +5,8 @@
 //! confirmation envelope and an optimistic revision.
 
 use agent_core::{
-    error::DomainErrorCode,
-    Action, Capability, CapabilitySet, DomainError, ProjectId, Resource, SkillCompatibility,
-    SkillId, SkillScope, SkillSourceKind, SkillStatus, TraceId,
+    error::DomainErrorCode, Action, Capability, CapabilitySet, DomainError, ProjectId, Resource,
+    SkillCompatibility, SkillId, SkillScope, SkillSourceKind, SkillStatus, TraceId,
 };
 use agent_runtime::{
     project_skills::{
@@ -101,7 +100,9 @@ impl std::fmt::Display for SkillBridgeError {
         match self {
             Self::InvalidInput => write!(formatter, "invalid skill bridge input"),
             Self::ConfirmationRequired => write!(formatter, "skill rollback confirmation required"),
-            Self::MutationRejected { code } => write!(formatter, "skill mutation rejected: {code:?}"),
+            Self::MutationRejected { code } => {
+                write!(formatter, "skill mutation rejected: {code:?}")
+            }
         }
     }
 }
@@ -285,8 +286,8 @@ pub async fn rollback_skill(
     }
     validate_binding_for_rollback(&binding, &current_record, &input)?;
 
-    let capability = Capability::new(Resource::Skill, Action::Configure)
-        .with_scope(project_id.to_string());
+    let capability =
+        Capability::new(Resource::Skill, Action::Configure).with_scope(project_id.to_string());
     let policy = ProjectSkillBindingPolicy {
         allow: true,
         allowed_capabilities: CapabilitySet::new().insert(capability.clone()),
@@ -323,7 +324,10 @@ fn normalize_list_input(
     input: &ListSkillsInput,
 ) -> Result<(SkillScope, usize, usize), SkillBridgeError> {
     let scope = input.scope.unwrap_or(SkillScope::Project);
-    let limit = input.limit.unwrap_or(MAX_SKILLS_PER_PAGE).clamp(1, MAX_SKILLS_PER_PAGE);
+    let limit = input
+        .limit
+        .unwrap_or(MAX_SKILLS_PER_PAGE)
+        .clamp(1, MAX_SKILLS_PER_PAGE);
     let offset = input.offset.unwrap_or(0).min(MAX_OFFSET);
     Ok((scope, limit, offset))
 }
