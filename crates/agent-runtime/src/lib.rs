@@ -63,6 +63,7 @@ pub mod tool_node;
 pub mod usage;
 pub mod workflow_repo;
 pub mod workflow_runtime;
+pub mod workflow_state_repo;
 
 pub use agent_core::*;
 pub use agent_group_repo::*;
