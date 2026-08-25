@@ -181,6 +181,9 @@ jobs:
       - name: Verify agent group repository
         run: node tools/ci/run-onp-spec.mjs verify agent-group-repository
 
+      - name: Verify agent group membership
+        run: node tools/ci/run-onp-spec.mjs verify agent-group-membership
+
       - name: Verify json-rpc transport
         run: node tools/ci/run-onp-spec.mjs verify json-rpc-transport
 
