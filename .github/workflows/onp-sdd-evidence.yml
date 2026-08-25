@@ -211,6 +211,9 @@ jobs:
       - name: Verify group budget
         run: node tools/ci/run-onp-spec.mjs verify group-budget
 
+      - name: Verify moderator policy
+        run: node tools/ci/run-onp-spec.mjs verify moderator-policy
+
       - name: Verify json-rpc transport
         run: node tools/ci/run-onp-spec.mjs verify json-rpc-transport
 
