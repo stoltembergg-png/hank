@@ -46,6 +46,7 @@ pub mod skill_candidate;
 pub mod skill_creation;
 pub mod skill_editor;
 pub mod skill_evaluation;
+pub mod skill_lifecycle_curator;
 pub mod skill_loader;
 pub mod skill_repo;
 pub mod skill_rollback;
