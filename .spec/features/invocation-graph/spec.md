@@ -33,6 +33,10 @@ antes de qualquer execução.
 
 - Cycle detection adicional, scheduler, parallelism, provider, transport e UI.
 
+## Suposições
+
+Nenhuma.
+
 ## Perguntas em aberto
 
 Nenhuma.
