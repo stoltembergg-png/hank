@@ -276,3 +276,203 @@ impl WorkflowNode {
         Ok(())
     }
 }
+
+pub const WORKFLOW_GRAPH_MAX_NODES: usize = 512;
+pub const WORKFLOW_GRAPH_MAX_EDGES: usize = 1024;
+const MAX_EDGE_ID_BYTES: usize = 128;
+const MAX_PORT_BYTES: usize = 64;
+const MAX_CONDITION_BYTES: usize = 256;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowEdge {
+    pub edge_id: String,
+    pub workflow_id: String,
+    pub source_node: String,
+    pub source_port: String,
+    pub target_node: String,
+    pub target_port: String,
+    pub condition: Option<String>,
+    pub ordering: u32,
+}
+
+impl WorkflowEdge {
+    pub fn new(
+        edge_id: impl Into<String>,
+        source_node: impl Into<String>,
+        target_node: impl Into<String>,
+    ) -> Self {
+        Self {
+            edge_id: edge_id.into(),
+            workflow_id: "workflow-1".into(),
+            source_node: source_node.into(),
+            source_port: "out".into(),
+            target_node: target_node.into(),
+            target_port: "in".into(),
+            condition: None,
+            ordering: 0,
+        }
+    }
+    fn validate_shape(&self) -> Result<(), WorkflowEdgeError> {
+        if self.edge_id.trim().is_empty()
+            || self.edge_id.len() > MAX_EDGE_ID_BYTES
+            || self.source_node.trim().is_empty()
+            || self.target_node.trim().is_empty()
+            || self.source_port.len() > MAX_PORT_BYTES
+            || self.target_port.len() > MAX_PORT_BYTES
+            || self
+                .condition
+                .as_ref()
+                .is_some_and(|value| value.len() > MAX_CONDITION_BYTES)
+        {
+            return Err(WorkflowEdgeError::InvalidShape);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum WorkflowEdgeError {
+    #[error("workflow edge shape is invalid")]
+    InvalidShape,
+    #[error("workflow edge references an unknown node")]
+    UnknownNode,
+    #[error("workflow edge is a self-edge")]
+    SelfEdge,
+    #[error("workflow edge belongs to another workflow")]
+    CrossWorkflow,
+    #[error("workflow edge is duplicated")]
+    DuplicateEdge,
+    #[error("workflow graph has too many nodes or edges")]
+    TooManyEdges,
+    #[error("workflow graph contains a cycle")]
+    Cycle,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowGraph {
+    pub workflow_id: String,
+    pub workflow_version: u32,
+    pub nodes: BTreeMap<String, WorkflowNode>,
+    pub edges: Vec<WorkflowEdge>,
+}
+
+impl WorkflowGraph {
+    pub fn new(workflow_id: String, workflow_version: u32) -> Result<Self, WorkflowEdgeError> {
+        if workflow_id.trim().is_empty() || workflow_version == 0 {
+            return Err(WorkflowEdgeError::InvalidShape);
+        }
+        Ok(Self {
+            workflow_id,
+            workflow_version,
+            nodes: BTreeMap::new(),
+            edges: Vec::new(),
+        })
+    }
+    pub fn add_node(&mut self, node: WorkflowNode) -> Result<(), WorkflowEdgeError> {
+        node.validate()
+            .map_err(|_| WorkflowEdgeError::InvalidShape)?;
+        if node.workflow_id != self.workflow_id || node.workflow_version != self.workflow_version {
+            return Err(WorkflowEdgeError::CrossWorkflow);
+        }
+        if self.nodes.len() >= WORKFLOW_GRAPH_MAX_NODES {
+            return Err(WorkflowEdgeError::TooManyEdges);
+        }
+        if self.nodes.insert(node.node_id.clone(), node).is_some() {
+            return Err(WorkflowEdgeError::DuplicateEdge);
+        }
+        Ok(())
+    }
+    pub fn add_edge(&mut self, edge: WorkflowEdge) -> Result<(), WorkflowEdgeError> {
+        edge.validate_shape()?;
+        if edge.workflow_id != self.workflow_id {
+            return Err(WorkflowEdgeError::CrossWorkflow);
+        }
+        if edge.source_node == edge.target_node {
+            return Err(WorkflowEdgeError::SelfEdge);
+        }
+        if !self.nodes.contains_key(&edge.source_node)
+            || !self.nodes.contains_key(&edge.target_node)
+        {
+            return Err(WorkflowEdgeError::UnknownNode);
+        }
+        if self
+            .edges
+            .iter()
+            .any(|existing| existing.edge_id == edge.edge_id)
+        {
+            return Err(WorkflowEdgeError::DuplicateEdge);
+        }
+        if self.edges.len() >= WORKFLOW_GRAPH_MAX_EDGES {
+            return Err(WorkflowEdgeError::TooManyEdges);
+        }
+        self.edges.push(edge);
+        Ok(())
+    }
+    pub fn validate(&self) -> Result<(), WorkflowEdgeError> {
+        if self.nodes.len() > WORKFLOW_GRAPH_MAX_NODES
+            || self.edges.len() > WORKFLOW_GRAPH_MAX_EDGES
+        {
+            return Err(WorkflowEdgeError::TooManyEdges);
+        }
+        let mut edge_ids = std::collections::BTreeSet::new();
+        for edge in &self.edges {
+            edge.validate_shape()?;
+            if !edge_ids.insert(&edge.edge_id) {
+                return Err(WorkflowEdgeError::DuplicateEdge);
+            }
+            if edge.workflow_id != self.workflow_id {
+                return Err(WorkflowEdgeError::CrossWorkflow);
+            }
+            if edge.source_node == edge.target_node {
+                return Err(WorkflowEdgeError::SelfEdge);
+            }
+            if !self.nodes.contains_key(&edge.source_node)
+                || !self.nodes.contains_key(&edge.target_node)
+            {
+                return Err(WorkflowEdgeError::UnknownNode);
+            }
+        }
+        let mut adjacency: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+        for edge in &self.edges {
+            adjacency
+                .entry(&edge.source_node)
+                .or_default()
+                .push(&edge.target_node);
+        }
+        let mut visiting = BTreeMap::new();
+        let mut visited = BTreeMap::new();
+        for node in self.nodes.keys() {
+            if Self::has_cycle(node, &adjacency, &mut visiting, &mut visited) {
+                return Err(WorkflowEdgeError::Cycle);
+            }
+        }
+        Ok(())
+    }
+    fn has_cycle<'a>(
+        node: &'a str,
+        adjacency: &BTreeMap<&'a str, Vec<&'a str>>,
+        visiting: &mut BTreeMap<&'a str, bool>,
+        visited: &mut BTreeMap<&'a str, bool>,
+    ) -> bool {
+        if visiting.get(node).copied().unwrap_or(false) {
+            return true;
+        }
+        if visited.get(node).copied().unwrap_or(false) {
+            return false;
+        }
+        visiting.insert(node, true);
+        if let Some(targets) = adjacency.get(node) {
+            if targets
+                .iter()
+                .any(|target| Self::has_cycle(target, adjacency, visiting, visited))
+            {
+                return true;
+            }
+        }
+        visiting.remove(node);
+        visited.insert(node, true);
+        false
+    }
+}
