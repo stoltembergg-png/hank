@@ -193,6 +193,9 @@ jobs:
       - name: Verify agent invocation protocol
         run: node tools/ci/run-onp-spec.mjs verify agent-invocation-protocol
 
+      - name: Verify delegation tool
+        run: node tools/ci/run-onp-spec.mjs verify delegation-tool
+
       - name: Verify json-rpc transport
         run: node tools/ci/run-onp-spec.mjs verify json-rpc-transport
 

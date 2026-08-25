@@ -2,6 +2,7 @@
 
 pub mod confirmation;
 pub mod context;
+pub mod delegation;
 pub mod directory_list;
 pub mod error;
 pub mod filesystem_read;
@@ -24,6 +25,7 @@ pub mod trait_def;
 
 pub use confirmation::*;
 pub use context::*;
+pub use delegation::*;
 pub use directory_list::*;
 pub use error::*;
 pub use filesystem_read::*;
