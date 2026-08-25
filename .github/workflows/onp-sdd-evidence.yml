@@ -223,6 +223,9 @@ jobs:
       - name: Verify group chat
         run: node tools/ci/run-onp-spec.mjs verify group-chat
 
+      - name: Verify agent message
+        run: node tools/ci/run-onp-spec.mjs verify agent-message
+
       - name: Verify json-rpc transport
         run: node tools/ci/run-onp-spec.mjs verify json-rpc-transport
 
