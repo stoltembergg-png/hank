@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use thiserror::Error;
 
+pub mod condition;
 pub mod execution;
 
 pub use execution::{ExecutionError, NodeRunState, RetryEnvelope, RunState, WorkflowRun};
