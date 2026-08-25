@@ -196,6 +196,9 @@ jobs:
       - name: Verify delegation tool
         run: node tools/ci/run-onp-spec.mjs verify delegation-tool
 
+      - name: Verify invocation graph
+        run: node tools/ci/run-onp-spec.mjs verify invocation-graph
+
       - name: Verify json-rpc transport
         run: node tools/ci/run-onp-spec.mjs verify json-rpc-transport
 
