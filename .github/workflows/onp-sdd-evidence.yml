@@ -148,6 +148,9 @@ jobs:
       - name: Verify memory core
         run: node tools/ci/run-onp-spec.mjs verify memory-core
 
+      - name: Verify agent group entity
+        run: node tools/ci/run-onp-spec.mjs verify agent-group-entity
+
       - name: Verify json-rpc transport
         run: node tools/ci/run-onp-spec.mjs verify json-rpc-transport
 
