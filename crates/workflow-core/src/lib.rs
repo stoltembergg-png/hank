@@ -3,6 +3,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use thiserror::Error;
 
+pub mod execution;
+
+pub use execution::{ExecutionError, NodeRunState, RetryEnvelope, RunState, WorkflowRun};
+
 pub const WORKFLOW_SCHEMA_VERSION: u32 = 1;
 const MAX_NAME_BYTES: usize = 128;
 const MAX_POLICY_BYTES: usize = 128;

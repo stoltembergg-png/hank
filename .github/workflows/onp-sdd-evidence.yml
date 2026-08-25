@@ -241,6 +241,9 @@ jobs:
       - name: Verify workflow persistence
         run: node tools/ci/run-onp-spec.mjs verify workflow-persistence
 
+      - name: Verify workflow execution
+        run: node tools/ci/run-onp-spec.mjs verify workflow-execution
+
       - name: Verify project desktop bridge
         env:
           HANK_SKIP_TAURI: ''
