@@ -271,6 +271,9 @@ jobs:
       - name: Verify interval scheduling
         run: node tools/ci/run-onp-spec.mjs verify interval-scheduling
 
+      - name: Verify one-shot scheduling
+        run: node tools/ci/run-onp-spec.mjs verify one-shot-scheduling
+
       - name: Verify cron parsing
         run: node tools/ci/run-onp-spec.mjs verify cron-parsing
 

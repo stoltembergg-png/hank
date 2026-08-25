@@ -93,6 +93,7 @@ pub struct ScheduledJob {
     pub enabled: bool,
     pub lifecycle: String,
     pub revision: u64,
+    pub expires_at_ms: Option<u64>,
 }
 impl ScheduledJob {
     #[allow(clippy::too_many_arguments)]
@@ -127,7 +128,20 @@ impl ScheduledJob {
             enabled: true,
             lifecycle: "active".into(),
             revision: 0,
+            expires_at_ms: None,
         })
+    }
+
+    pub fn with_expiration(mut self, expires_at_ms: u64) -> Result<Self, JobError> {
+        let due = match self.trigger {
+            Trigger::OneShot { at_ms } => at_ms,
+            _ => return Err(JobError::InvalidTrigger),
+        };
+        if expires_at_ms <= due {
+            return Err(JobError::InvalidBounds);
+        }
+        self.expires_at_ms = Some(expires_at_ms);
+        Ok(self)
     }
 }
 
@@ -348,6 +362,34 @@ impl IntervalSchedule {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClaimReceipt {
+    pub project_id: String,
+    pub job_id: String,
+    pub claim_id: String,
+    pub claimed_at_ms: u64,
+    pub due_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum ClaimError {
+    #[error("one-shot claim identity is invalid")]
+    InvalidIdentity,
+    #[error("one-shot job was not found")]
+    NotFound,
+    #[error("one-shot job is not due")]
+    NotDue,
+    #[error("one-shot job is expired")]
+    Expired,
+    #[error("one-shot job is disabled or archived")]
+    Disabled,
+    #[error("one-shot job was already consumed")]
+    Consumed,
+    #[error("one-shot actor is not the owner")]
+    Unauthorized,
+    #[error("one-shot claim storage query failed")]
+    Query,
+}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum JobError {
     #[error("scheduler job identity is invalid")]
@@ -384,13 +426,82 @@ impl JobStore {
     }
     pub async fn create(&self, job: ScheduledJob) -> Result<(), JobError> {
         validate_job(&job)?;
-        sqlx::query("INSERT INTO scheduler_jobs (project_id, job_id, owner_id, trigger_kind, trigger_value, target_kind, target_id, target_version, timezone, enabled, lifecycle, concurrency_limit, missed_run_policy, revision, created_at_ms, updated_at_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)").bind(&job.project_id).bind(&job.job_id).bind(&job.owner_id).bind(job.trigger.kind()).bind(job.trigger.value()?).bind(job.target.parts().0).bind(job.target.parts().1).bind(i64::from(job.target.parts().2)).bind(&job.timezone).bind(job.enabled).bind(&job.lifecycle).bind(i64::from(job.concurrency_limit)).bind(job.missed_run_policy.as_str()).bind(now_ms()).bind(now_ms()).execute(&self.pool).await.map_err(map_error)?;
+        sqlx::query("INSERT INTO scheduler_jobs (project_id, job_id, owner_id, trigger_kind, trigger_value, target_kind, target_id, target_version, timezone, enabled, lifecycle, concurrency_limit, missed_run_policy, revision, created_at_ms, updated_at_ms, expires_at_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)").bind(&job.project_id).bind(&job.job_id).bind(&job.owner_id).bind(job.trigger.kind()).bind(job.trigger.value()?).bind(job.target.parts().0).bind(job.target.parts().1).bind(i64::from(job.target.parts().2)).bind(&job.timezone).bind(job.enabled).bind(&job.lifecycle).bind(i64::from(job.concurrency_limit))
+            .bind(job.missed_run_policy.as_str())
+            .bind(now_ms())
+            .bind(now_ms())
+            .bind(job.expires_at_ms.map(|value| i64::try_from(value).unwrap_or(i64::MAX)))
+            .execute(&self.pool).await.map_err(map_error)?;
         Ok(())
     }
+    pub async fn claim_one_shot(
+        &self,
+        project: &str,
+        job_id: &str,
+        actor_id: &str,
+        claim_id: &str,
+        now_ms: u64,
+    ) -> Result<ClaimReceipt, ClaimError> {
+        for value in [project, job_id, actor_id, claim_id] {
+            validate_claim_text(value)?;
+        }
+        let row = sqlx::query("SELECT owner_id, trigger_kind, trigger_value, enabled, lifecycle, expires_at_ms, claim_id, consumed_at_ms FROM scheduler_jobs WHERE project_id = ? AND job_id = ?")
+            .bind(project).bind(job_id).fetch_optional(&self.pool).await.map_err(|_| ClaimError::Query)?.ok_or(ClaimError::NotFound)?;
+        if row.get::<String, _>("owner_id") != actor_id {
+            return Err(ClaimError::Unauthorized);
+        }
+        if row.get::<String, _>("trigger_kind") != "one_shot" {
+            return Err(ClaimError::NotFound);
+        }
+        let due_at = row
+            .get::<String, _>("trigger_value")
+            .parse::<u64>()
+            .map_err(|_| ClaimError::Query)?;
+        if let Some(existing) = row.get::<Option<String>, _>("claim_id") {
+            if existing == claim_id {
+                if let Some(consumed_at) = row.get::<Option<i64>, _>("consumed_at_ms") {
+                    return Ok(ClaimReceipt {
+                        project_id: project.into(),
+                        job_id: job_id.into(),
+                        claim_id: claim_id.into(),
+                        claimed_at_ms: u64::try_from(consumed_at).map_err(|_| ClaimError::Query)?,
+                        due_at_ms: due_at,
+                    });
+                }
+            }
+            return Err(ClaimError::Consumed);
+        }
+        if row.get::<i64, _>("enabled") == 0 || row.get::<String, _>("lifecycle") != "active" {
+            return Err(ClaimError::Disabled);
+        }
+        if now_ms < due_at {
+            return Err(ClaimError::NotDue);
+        }
+        if row
+            .get::<Option<i64>, _>("expires_at_ms")
+            .is_some_and(|value| now_ms >= u64::try_from(value).unwrap_or(0))
+        {
+            return Err(ClaimError::Expired);
+        }
+        let claimed_at = i64::try_from(now_ms).map_err(|_| ClaimError::Query)?;
+        let result = sqlx::query("UPDATE scheduler_jobs SET claim_id = ?, consumed_at_ms = ?, updated_at_ms = ? WHERE project_id = ? AND job_id = ? AND trigger_kind = 'one_shot' AND enabled = 1 AND lifecycle = 'active' AND claim_id IS NULL AND consumed_at_ms IS NULL")
+            .bind(claim_id).bind(claimed_at).bind(claimed_at).bind(project).bind(job_id).execute(&self.pool).await.map_err(|_| ClaimError::Query)?;
+        if result.rows_affected() != 1 {
+            return Err(ClaimError::Consumed);
+        }
+        Ok(ClaimReceipt {
+            project_id: project.into(),
+            job_id: job_id.into(),
+            claim_id: claim_id.into(),
+            claimed_at_ms: now_ms,
+            due_at_ms: due_at,
+        })
+    }
+
     pub async fn get(&self, project: &str, job_id: &str) -> Result<ScheduledJob, JobError> {
         validate_text(project)?;
         validate_text(job_id)?;
-        let row = sqlx::query("SELECT owner_id, trigger_kind, trigger_value, target_kind, target_id, target_version, timezone, enabled, lifecycle, concurrency_limit, missed_run_policy, revision FROM scheduler_jobs WHERE project_id = ? AND job_id = ?").bind(project).bind(job_id).fetch_optional(&self.pool).await.map_err(|_| JobError::Query)?.ok_or(JobError::NotFound)?;
+        let row = sqlx::query("SELECT owner_id, trigger_kind, trigger_value, target_kind, target_id, target_version, timezone, enabled, lifecycle, concurrency_limit, missed_run_policy, revision, expires_at_ms, claim_id, consumed_at_ms FROM scheduler_jobs WHERE project_id = ? AND job_id = ?").bind(project).bind(job_id).fetch_optional(&self.pool).await.map_err(|_| JobError::Query)?.ok_or(JobError::NotFound)?;
         decode(project, job_id, row)
     }
     pub async fn update(
@@ -399,7 +510,11 @@ impl JobStore {
         expected_revision: u64,
     ) -> Result<ScheduledJob, JobError> {
         validate_job(&job)?;
-        let result = sqlx::query("UPDATE scheduler_jobs SET owner_id=?, trigger_kind=?, trigger_value=?, target_kind=?, target_id=?, target_version=?, timezone=?, enabled=?, lifecycle=?, concurrency_limit=?, missed_run_policy=?, revision=revision+1, updated_at_ms=? WHERE project_id=? AND job_id=? AND revision=?").bind(&job.owner_id).bind(job.trigger.kind()).bind(job.trigger.value()?).bind(job.target.parts().0).bind(job.target.parts().1).bind(i64::from(job.target.parts().2)).bind(&job.timezone).bind(job.enabled).bind(&job.lifecycle).bind(i64::from(job.concurrency_limit)).bind(job.missed_run_policy.as_str()).bind(now_ms()).bind(&job.project_id).bind(&job.job_id).bind(i64::try_from(expected_revision).map_err(|_| JobError::StaleRevision)?).execute(&self.pool).await.map_err(|_| JobError::Query)?;
+        let result = sqlx::query("UPDATE scheduler_jobs SET owner_id=?, trigger_kind=?, trigger_value=?, target_kind=?, target_id=?, target_version=?, timezone=?, enabled=?, lifecycle=?, concurrency_limit=?, missed_run_policy=?, expires_at_ms=?, revision=revision+1, updated_at_ms=? WHERE project_id=? AND job_id=? AND revision=?").bind(&job.owner_id).bind(job.trigger.kind()).bind(job.trigger.value()?).bind(job.target.parts().0).bind(job.target.parts().1).bind(i64::from(job.target.parts().2)).bind(&job.timezone).bind(job.enabled).bind(&job.lifecycle).bind(i64::from(job.concurrency_limit)).bind(job.missed_run_policy.as_str())
+            .bind(job.expires_at_ms.map(|value| i64::try_from(value).unwrap_or(i64::MAX)))
+            .bind(now_ms())
+            .bind(&job.project_id)
+            .bind(&job.job_id).bind(i64::try_from(expected_revision).map_err(|_| JobError::StaleRevision)?).execute(&self.pool).await.map_err(|_| JobError::Query)?;
         if result.rows_affected() != 1 {
             return Err(JobError::StaleRevision);
         }
@@ -421,6 +536,15 @@ fn validate_job(job: &ScheduledJob) -> Result<(), JobError> {
         return Err(JobError::InvalidBounds);
     }
     job.trigger.value()?;
+    if let Some(expires_at_ms) = job.expires_at_ms {
+        let due_at_ms = match job.trigger {
+            Trigger::OneShot { at_ms } => at_ms,
+            _ => return Err(JobError::InvalidTrigger),
+        };
+        if expires_at_ms <= due_at_ms || i64::try_from(expires_at_ms).is_err() {
+            return Err(JobError::InvalidBounds);
+        }
+    }
     Ok(())
 }
 fn decode(
@@ -489,8 +613,20 @@ fn decode(
         lifecycle: row.get("lifecycle"),
         revision: u64::try_from(row.get::<i64, _>("revision"))
             .map_err(|_| JobError::InvalidBounds)?,
+        expires_at_ms: row
+            .get::<Option<i64>, _>("expires_at_ms")
+            .map(|value| u64::try_from(value).map_err(|_| JobError::InvalidBounds))
+            .transpose()?,
     })
 }
+fn validate_claim_text(value: &str) -> Result<(), ClaimError> {
+    if value.trim().is_empty() || value.len() > MAX_TEXT || value.chars().any(char::is_control) {
+        Err(ClaimError::InvalidIdentity)
+    } else {
+        Ok(())
+    }
+}
+
 fn validate_text(value: &str) -> Result<(), JobError> {
     if value.trim().is_empty() || value.len() > MAX_TEXT || value.chars().any(char::is_control) {
         Err(JobError::InvalidIdentity)
