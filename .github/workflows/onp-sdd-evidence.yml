@@ -217,6 +217,9 @@ jobs:
       - name: Verify round policy
         run: node tools/ci/run-onp-spec.mjs verify round-policy
 
+      - name: Verify synthesis
+        run: node tools/ci/run-onp-spec.mjs verify synthesis
+
       - name: Verify json-rpc transport
         run: node tools/ci/run-onp-spec.mjs verify json-rpc-transport
 
