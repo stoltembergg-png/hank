@@ -58,6 +58,7 @@ pub mod skill_validation;
 pub mod sqlite;
 pub mod streaming;
 pub mod tool;
+pub mod tool_node;
 pub mod usage;
 pub mod workflow_repo;
 pub mod workflow_runtime;
