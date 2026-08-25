@@ -8,6 +8,7 @@
 //! NÃO deve vazar providers concretos para o core.
 
 pub mod agent_group_repo;
+pub mod agent_node;
 pub mod agent_repo;
 pub mod agent_service;
 pub mod agent_skills;
