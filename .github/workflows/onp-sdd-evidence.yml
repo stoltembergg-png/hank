@@ -202,6 +202,9 @@ jobs:
       - name: Verify cycle detection
         run: node tools/ci/run-onp-spec.mjs verify cycle-detection
 
+      - name: Verify invocation depth
+        run: node tools/ci/run-onp-spec.mjs verify invocation-depth
+
       - name: Verify json-rpc transport
         run: node tools/ci/run-onp-spec.mjs verify json-rpc-transport
 
