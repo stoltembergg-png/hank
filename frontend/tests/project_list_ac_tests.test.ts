@@ -27,15 +27,12 @@ describe('Project UI Listing (PR-036) AC Tests', () => {
     },
   ];
 
-  it('AC-3601: ProjectApiClient provides fallback in decoupled/browser environment', async () => {
+  it('AC-3601: ProjectApiClient fails closed when the desktop bridge is unavailable', async () => {
+    // @spec:AC-113
     const client = new DesktopProjectApiClient();
-    const result = await client.list({ limit: 10, offset: 0 });
 
-    expect(result).toMatchObject({
-      projects: [],
-      total: 0,
-      limit: 10,
-      offset: 0,
+    await expect(client.list({ limit: 10, offset: 0 })).rejects.toMatchObject({
+      code: 'PROJECT_BRIDGE_UNAVAILABLE',
     });
   });
 

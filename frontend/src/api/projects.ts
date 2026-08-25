@@ -30,6 +30,15 @@ interface InjectedBridgeWindow {
   __TAURI_INVOKE__?: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
 }
 
+export class ProjectBridgeUnavailableError extends Error {
+  readonly code = 'PROJECT_BRIDGE_UNAVAILABLE';
+
+  constructor() {
+    super('Project desktop bridge is unavailable; no synthetic fallback is permitted');
+    this.name = 'ProjectBridgeUnavailableError';
+  }
+}
+
 export class DesktopProjectApiClient implements ProjectApiClient {
   async list(input: ListProjectsInput = {}): Promise<ListProjectsOutput> {
     if (typeof window !== 'undefined') {
@@ -40,13 +49,7 @@ export class DesktopProjectApiClient implements ProjectApiClient {
       }
     }
 
-    // Retorno fallback seguro para ambiente desacoplado, teste ou browser
-    return {
-      projects: [],
-      total: 0,
-      limit: Math.min(Math.max(input.limit ?? 20, 1), 100),
-      offset: Math.max(input.offset ?? 0, 0),
-    };
+    throw new ProjectBridgeUnavailableError();
   }
 
   async get(id: string): Promise<ProjectSummary | null> {
@@ -58,7 +61,7 @@ export class DesktopProjectApiClient implements ProjectApiClient {
       }
     }
 
-    return null;
+    throw new ProjectBridgeUnavailableError();
   }
 
   async create(input: CreateProjectInput): Promise<CreateProjectOutput> {
@@ -70,26 +73,7 @@ export class DesktopProjectApiClient implements ProjectApiClient {
       }
     }
 
-    // Retorno fallback seguro para ambiente desacoplado / teste / demo
-    const now = new Date().toISOString();
-    return {
-      project: {
-        id: `prj_${Date.now().toString(36)}`,
-        name: input.name.trim(),
-        owner: input.owner.trim(),
-        description: input.description?.trim() || null,
-        status: 'active',
-        created_at: now,
-        updated_at: now,
-        settings: {
-          retention_days: 90,
-          auto_archive_idle_days: null,
-          telemetry_enabled: false,
-          max_active_agents: 5,
-        },
-      },
-      correlation_id: input.correlation_id ?? null,
-    };
+    throw new ProjectBridgeUnavailableError();
   }
 
   async update(input: UpdateProjectInput): Promise<UpdateProjectOutput> {
@@ -101,19 +85,7 @@ export class DesktopProjectApiClient implements ProjectApiClient {
       }
     }
 
-    const now = new Date().toISOString();
-    return {
-      project: {
-        id: input.id,
-        name: input.name ?? 'Updated Project',
-        description: input.description ?? null,
-        status: input.status ?? 'active',
-        owner: 'current_owner',
-        created_at: input.expected_updated_at ?? now,
-        updated_at: now,
-      },
-      correlation_id: input.correlation_id ?? null,
-    };
+    throw new ProjectBridgeUnavailableError();
   }
 
   async archive(input: ArchiveProjectInput): Promise<ArchiveProjectOutput> {
@@ -125,20 +97,7 @@ export class DesktopProjectApiClient implements ProjectApiClient {
       }
     }
 
-    const now = new Date().toISOString();
-    return {
-      project: {
-        id: input.id,
-        name: 'Archived Project',
-        description: null,
-        status: 'archived',
-        owner: 'current_owner',
-        created_at: now,
-        updated_at: now,
-      },
-      already_archived: false,
-      correlation_id: input.correlation_id ?? null,
-    };
+    throw new ProjectBridgeUnavailableError();
   }
 }
 

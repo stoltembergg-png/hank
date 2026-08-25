@@ -66,18 +66,17 @@ describe('Create Project UI (PR-037) AC Tests', () => {
     }
   });
 
-  it('AC-3703: Fallback client handles create without window bridge safely', async () => {
+  it('AC-3703: ProjectApiClient fails closed without the desktop bridge', async () => {
+    // @spec:AC-113
     const client = new DesktopProjectApiClient();
-    const result = await client.create({
-      name: 'Fallback Project',
-      owner: 'fallback-owner',
-      description: 'Running without desktop bridge',
-    });
 
-    expect(result.project.id).toMatch(/^prj_/);
-    expect(result.project.name).toBe('Fallback Project');
-    expect(result.project.owner).toBe('fallback-owner');
-    expect(result.project.status).toBe('active');
+    await expect(
+      client.create({
+        name: 'Fallback Project',
+        owner: 'fallback-owner',
+        description: 'Running without desktop bridge',
+      }),
+    ).rejects.toMatchObject({ code: 'PROJECT_BRIDGE_UNAVAILABLE' });
   });
 
   it('AC-3704: Error handling and conflict outcomes fail closed', async () => {

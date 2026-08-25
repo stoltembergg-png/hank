@@ -173,7 +173,12 @@ pub fn command_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 
         crate::skills::get_skill_editor,
         crate::skills::validate_skill_draft,
         crate::skills::save_skill_draft,
-        crate::skills::discard_skill_draft
+        crate::skills::discard_skill_draft,
+        crate::projects::create_project,
+        crate::projects::list_projects,
+        crate::projects::get_project,
+        crate::projects::update_project,
+        crate::projects::archive_project
     ]
 }
 
