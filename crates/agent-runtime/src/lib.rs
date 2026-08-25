@@ -61,6 +61,7 @@ pub mod streaming;
 pub mod tool;
 pub mod tool_node;
 pub mod usage;
+pub mod workflow_recovery;
 pub mod workflow_repo;
 pub mod workflow_runtime;
 pub mod workflow_state_repo;
