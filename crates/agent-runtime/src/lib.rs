@@ -48,6 +48,7 @@ pub mod skill_editor;
 pub mod skill_evaluation;
 pub mod skill_loader;
 pub mod skill_repo;
+pub mod skill_rollback;
 pub mod skill_runtime;
 pub mod skill_testing;
 pub mod skill_validation;
