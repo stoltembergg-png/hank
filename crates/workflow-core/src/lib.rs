@@ -8,6 +8,7 @@ pub mod condition;
 pub mod delay;
 pub mod execution;
 pub mod parallel;
+pub mod subworkflow;
 
 pub use execution::{ExecutionError, NodeRunState, RetryEnvelope, RunState, WorkflowRun};
 
