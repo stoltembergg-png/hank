@@ -23,6 +23,18 @@ pub enum AgentGroupLifecycle {
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum AgentGroupError {
+    #[error("group membership operation is not authorized")]
+    MembershipPermissionDenied,
+    #[error("group member is already present")]
+    DuplicateMember,
+    #[error("group member is not present")]
+    MissingMember,
+    #[error("membership role is invalid")]
+    InvalidRole,
+    #[error("membership snapshot is invalid")]
+    InvalidMembershipSnapshot,
+    #[error("group is archived")]
+    Archived,
     #[error("group member project is unknown at entity boundary")]
     MemberProjectUnknown,
     #[error("group limits are invalid")]
@@ -39,6 +51,14 @@ pub enum AgentGroupError {
     InvalidProject,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentGroupMembership {
+    pub agent_id: AgentId,
+    pub project_id: ProjectId,
+    pub role: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentGroup {
@@ -49,6 +69,7 @@ pub struct AgentGroup {
     pub owner_id: AgentId,
     pub members: Vec<AgentId>,
     pub member_projects: Vec<(AgentId, ProjectId)>,
+    pub memberships: Vec<AgentGroupMembership>,
     pub moderator_id: Option<AgentId>,
     pub max_rounds: u32,
     pub max_depth: u16,
@@ -70,6 +91,11 @@ impl AgentGroup {
             owner_id,
             members: vec![owner_id],
             member_projects: vec![(owner_id, project_id)],
+            memberships: vec![AgentGroupMembership {
+                agent_id: owner_id,
+                project_id,
+                role: "owner".into(),
+            }],
             moderator_id: Some(owner_id),
             max_rounds: 20,
             max_depth: 8,
@@ -107,6 +133,16 @@ impl AgentGroup {
             || self.moderator_id.is_some_and(|id| !unique.contains(&id))
         {
             return Err(AgentGroupError::MemberProjectUnknown);
+        }
+        if self.memberships.len() != self.members.len()
+            || self.memberships.iter().any(|membership| {
+                membership.project_id != self.project_id
+                    || membership.role.trim().is_empty()
+                    || membership.role.len() > 32
+                    || !unique.contains(&membership.agent_id)
+            })
+        {
+            return Err(AgentGroupError::InvalidMembershipSnapshot);
         }
         if self.max_rounds == 0
             || self.max_rounds > MAX_GROUP_ROUNDS
@@ -149,6 +185,79 @@ impl AgentGroup {
         }
         self.lifecycle = AgentGroupLifecycle::Archived;
         Ok(true)
+    }
+
+    pub fn add_member(
+        &mut self,
+        agent_id: AgentId,
+        member_project: ProjectId,
+        actor_id: AgentId,
+        role: String,
+    ) -> Result<(), AgentGroupError> {
+        if self.lifecycle == AgentGroupLifecycle::Archived {
+            return Err(AgentGroupError::Archived);
+        }
+        if actor_id != self.owner_id && self.moderator_id != Some(actor_id) {
+            return Err(AgentGroupError::MembershipPermissionDenied);
+        }
+        if member_project != self.project_id {
+            return Err(AgentGroupError::MemberProjectUnknown);
+        }
+        if role.trim().is_empty() || role.len() > 32 {
+            return Err(AgentGroupError::InvalidRole);
+        }
+        if self.members.contains(&agent_id) {
+            return Err(AgentGroupError::DuplicateMember);
+        }
+        if self.members.len() >= MAX_GROUP_MEMBERS {
+            return Err(AgentGroupError::InvalidLimits);
+        }
+        self.members.push(agent_id);
+        self.member_projects.push((agent_id, member_project));
+        self.memberships.push(AgentGroupMembership {
+            agent_id,
+            project_id: member_project,
+            role,
+        });
+        self.validate()
+    }
+
+    pub fn remove_member(
+        &mut self,
+        agent_id: AgentId,
+        actor_id: AgentId,
+    ) -> Result<(), AgentGroupError> {
+        if actor_id != self.owner_id && self.moderator_id != Some(actor_id) {
+            return Err(AgentGroupError::MembershipPermissionDenied);
+        }
+        if agent_id == self.owner_id || !self.members.contains(&agent_id) {
+            return Err(AgentGroupError::MissingMember);
+        }
+        self.members.retain(|member| *member != agent_id);
+        self.member_projects
+            .retain(|(member, _)| *member != agent_id);
+        self.memberships
+            .retain(|membership| membership.agent_id != agent_id);
+        self.validate()
+    }
+
+    pub fn restore_memberships(
+        &mut self,
+        snapshot: Vec<AgentGroupMembership>,
+    ) -> Result<(), AgentGroupError> {
+        if snapshot.is_empty() || snapshot.len() > MAX_GROUP_MEMBERS {
+            return Err(AgentGroupError::InvalidMembershipSnapshot);
+        }
+        self.members = snapshot
+            .iter()
+            .map(|membership| membership.agent_id)
+            .collect();
+        self.member_projects = snapshot
+            .iter()
+            .map(|membership| (membership.agent_id, membership.project_id))
+            .collect();
+        self.memberships = snapshot;
+        self.validate()
     }
 
     pub fn domain_error(&self) -> Result<(), DomainError> {
