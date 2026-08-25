@@ -233,6 +233,8 @@ jobs:
         run: node tools/ci/run-onp-spec.mjs verify workflow-entity
 
       - name: Verify project desktop bridge
+        env:
+          HANK_SKIP_TAURI: ''
         run: node tools/ci/run-onp-spec.mjs verify project-desktop-bridge
 
       - name: Verify json-rpc transport

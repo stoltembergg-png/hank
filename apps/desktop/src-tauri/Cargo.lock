@@ -1440,6 +1440,7 @@ dependencies = [
  "agent-protocol",
  "agent-runtime",
  "anyhow",
+ "chrono",
  "serde",
  "serde_json",
  "sha2",
