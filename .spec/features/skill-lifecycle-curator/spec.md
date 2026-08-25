@@ -1,7 +1,7 @@
 # Spec: Skill lifecycle curator
 
 > feature: skill-lifecycle-curator
-> status: em implementação
+> status: implementada
 
 ## História
 

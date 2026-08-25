@@ -1,7 +1,7 @@
 # Spec: Explicit Skill rollback
 
 > feature: skill-rollback
-> status: em implementação
+> status: implementada
 
 ## História
 
