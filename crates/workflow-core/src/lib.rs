@@ -5,6 +5,7 @@ use thiserror::Error;
 
 pub mod condition;
 pub mod execution;
+pub mod parallel;
 
 pub use execution::{ExecutionError, NodeRunState, RetryEnvelope, RunState, WorkflowRun};
 
