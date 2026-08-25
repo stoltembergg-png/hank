@@ -76,9 +76,13 @@ mod tauri_tests {
 
     #[test]
     fn ac_104_bridge_registra_somente_commands_tipados() {
-        // @spec:AC-104
+        // @spec:AC-104 @spec:AC-111 @spec:AC-112 @spec:AC-114
         let source = fs::read_to_string(source_path()).expect("main.rs não encontrado");
 
+        assert!(
+            source.contains("pub mod projects;"),
+            "módulo de Projects ausente"
+        );
         assert!(
             source.contains(".invoke_handler(confirmations::command_handler())"),
             "bridge deve registrar o handler tipado"
@@ -107,6 +111,11 @@ mod tauri_tests {
             "crate::skills::validate_skill_draft",
             "crate::skills::save_skill_draft",
             "crate::skills::discard_skill_draft",
+            "crate::projects::create_project",
+            "crate::projects::list_projects",
+            "crate::projects::get_project",
+            "crate::projects::update_project",
+            "crate::projects::archive_project",
         ] {
             assert!(
                 registered.contains(command),
@@ -116,11 +125,11 @@ mod tauri_tests {
 
         assert_eq!(
             registered.split(',').count(),
-            11,
+            16,
             "a ponte deve registrar exatamente os comandos tipados previstos"
         );
 
-        for forbidden in ["chat_stream", "send_command", "list_projects", "run_tool"] {
+        for forbidden in ["chat_stream", "send_command", "run_tool"] {
             assert!(
                 !bridge.contains(forbidden),
                 "comando de produto fora do ciclo de confirmação: {forbidden}"

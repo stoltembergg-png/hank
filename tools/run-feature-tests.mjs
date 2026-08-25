@@ -16,6 +16,8 @@ if (!existsSync(spec)) {
 }
 
 const acs = new Set([...readFileSync(spec, 'utf8').matchAll(/AC-(\d{3,})/g)].map((m) => `AC-${m[1]}`));
+const skipTauri = process.env.HANK_SKIP_TAURI === '1';
+
 const files = spawnSync('git', ['ls-files', '-co', '--exclude-standard'], {
   cwd: root,
   encoding: 'utf8',
@@ -24,6 +26,7 @@ const files = spawnSync('git', ['ls-files', '-co', '--exclude-standard'], {
   /(?:^test\/|^tests\/|\/tests\/|\.test\.|_test\.|\.spec\.)/.test(file)
 );
 const tagged = files.filter((file) => {
+  if (skipTauri && file.startsWith('apps/desktop/')) return false;
   const text = readFileSync(join(root, file), 'utf8');
   return [...text.matchAll(/@spec:(AC-\d{3,})/g)].some((m) => acs.has(m[1]));
 });

@@ -2,6 +2,7 @@
 
 pub mod confirmations;
 pub mod memory;
+pub mod projects;
 pub mod skills;
 pub mod streaming;
 
@@ -37,6 +38,7 @@ fn main() {
                     .map_err(|error| std::io::Error::other(error.to_string()))?;
                 Ok::<_, std::io::Error>(storage)
             })?;
+            app.manage(projects::bridge_state(&storage));
             app.manage(memory::bridge_state(&storage));
             app.manage(skills::bridge_state(&storage));
 

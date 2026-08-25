@@ -22,6 +22,18 @@ impl SqliteProjectRepository {
     pub fn new(pool: Pool<Sqlite>) -> Self {
         Self { pool }
     }
+
+    pub async fn count(&self) -> Result<usize, DomainError> {
+        let row = sqlx::query("SELECT COUNT(*) AS count FROM projects")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| {
+                DomainError::InvariantViolation(format!("erro ao contar projetos: {e}"))
+            })?;
+        let count: i64 = row.get("count");
+        usize::try_from(count)
+            .map_err(|_| DomainError::InvariantViolation("contagem de projetos inválida".into()))
+    }
 }
 
 impl ProjectRepository for SqliteProjectRepository {
@@ -493,7 +505,8 @@ impl ProjectRepository for SqliteProjectRepository {
 mod tests {
     use super::*;
     use crate::migrations::run_migrations;
-    use crate::sqlite::SqliteStorage;
+    use crate::sqlite::{SqliteStorage, SqliteStorageConfig};
+    use tempfile::tempdir;
 
     async fn setup_repo() -> SqliteProjectRepository {
         let storage = SqliteStorage::connect_in_memory().await.unwrap();
@@ -518,6 +531,33 @@ mod tests {
         assert_eq!(retrieved.owner, "gabriel");
         assert_eq!(retrieved.status, ProjectStatus::Active);
         assert_eq!(retrieved.description, Some("Description".into()));
+    }
+
+    #[tokio::test]
+    // @spec:AC-114
+    async fn project_survives_sqlite_reopen() {
+        let directory = tempdir().unwrap();
+        let database_path = directory.path().join("projects.db");
+        let project = Project::create("Persistent Desktop", "gabriel", None).unwrap();
+
+        {
+            let storage = SqliteStorage::connect(SqliteStorageConfig::for_file(&database_path))
+                .await
+                .unwrap();
+            run_migrations(storage.pool()).await.unwrap();
+            let repo = SqliteProjectRepository::new(storage.pool().clone());
+            repo.save(&project).await.unwrap();
+            storage.close().await;
+        }
+
+        let storage = SqliteStorage::connect(SqliteStorageConfig::for_file(&database_path))
+            .await
+            .unwrap();
+        run_migrations(storage.pool()).await.unwrap();
+        let repo = SqliteProjectRepository::new(storage.pool().clone());
+        let reopened = repo.get_by_id(&project.id).await.unwrap().unwrap();
+        assert_eq!(reopened.name, "Persistent Desktop");
+        assert_eq!(repo.count().await.unwrap(), 1);
     }
 
     #[tokio::test]
