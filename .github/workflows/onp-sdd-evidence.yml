@@ -226,6 +226,9 @@ jobs:
       - name: Verify agent message
         run: node tools/ci/run-onp-spec.mjs verify agent-message
 
+      - name: Verify delegation graph
+        run: node tools/ci/run-onp-spec.mjs verify delegation-graph
+
       - name: Verify json-rpc transport
         run: node tools/ci/run-onp-spec.mjs verify json-rpc-transport
 
