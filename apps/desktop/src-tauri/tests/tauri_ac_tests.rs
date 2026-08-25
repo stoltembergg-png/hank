@@ -79,7 +79,10 @@ mod tauri_tests {
         // @spec:AC-104 @spec:AC-111 @spec:AC-112 @spec:AC-114
         let source = fs::read_to_string(source_path()).expect("main.rs não encontrado");
 
-        assert!(source.contains("pub mod projects;"), "módulo de Projects ausente");
+        assert!(
+            source.contains("pub mod projects;"),
+            "módulo de Projects ausente"
+        );
         assert!(
             source.contains(".invoke_handler(confirmations::command_handler())"),
             "bridge deve registrar o handler tipado"

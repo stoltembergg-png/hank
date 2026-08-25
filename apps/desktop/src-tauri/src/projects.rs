@@ -4,8 +4,8 @@
 //! persistence, concurrency and lifecycle rules remain in agent-runtime.
 
 use agent_core::error::{DomainError, DomainErrorCode, Retryability};
-use agent_core::project::{Project, ProjectSettings, ProjectStatus};
 use agent_core::ids::ProjectId;
+use agent_core::project::{Project, ProjectSettings, ProjectStatus};
 use agent_runtime::{
     ArchiveProjectInput, ArchiveProjectService, CreateProjectInput, CreateProjectService,
     ListProjectsInput, ListProjectsService, SqliteProjectRepository, SqliteStorage,
@@ -32,7 +32,9 @@ impl ProjectBridgeState {
 }
 
 pub fn bridge_state(storage: &SqliteStorage) -> ProjectBridgeState {
-    ProjectBridgeState::new(Arc::new(SqliteProjectRepository::new(storage.pool().clone())))
+    ProjectBridgeState::new(Arc::new(SqliteProjectRepository::new(
+        storage.pool().clone(),
+    )))
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -61,10 +63,16 @@ fn bridge_error(error: DomainError, correlation_id: Option<String>) -> ProjectBr
     }
 }
 
-fn parse_project_id(value: String, correlation_id: Option<String>) -> Result<ProjectId, ProjectBridgeError> {
-    value
-        .parse::<ProjectId>()
-        .map_err(|_| bridge_error(DomainError::Validation("invalid project id".into()), correlation_id))
+fn parse_project_id(
+    value: String,
+    correlation_id: Option<String>,
+) -> Result<ProjectId, ProjectBridgeError> {
+    value.parse::<ProjectId>().map_err(|_| {
+        bridge_error(
+            DomainError::Validation("invalid project id".into()),
+            correlation_id,
+        )
+    })
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -267,7 +275,12 @@ pub async fn update_project(
         .expected_updated_at
         .map(|value| DateTime::parse_from_rfc3339(&value).map(|date| date.with_timezone(&Utc)))
         .transpose()
-        .map_err(|_| bridge_error(DomainError::Validation("invalid expected_updated_at".into()), correlation_id.clone()))?;
+        .map_err(|_| {
+            bridge_error(
+                DomainError::Validation("invalid expected_updated_at".into()),
+                correlation_id.clone(),
+            )
+        })?;
     let service = UpdateProjectService::new(state.repository().clone(), None);
     let output = service
         .execute(UpdateProjectInput {
