@@ -208,6 +208,9 @@ jobs:
       - name: Verify parallel invocation
         run: node tools/ci/run-onp-spec.mjs verify parallel-invocation
 
+      - name: Verify group budget
+        run: node tools/ci/run-onp-spec.mjs verify group-budget
+
       - name: Verify json-rpc transport
         run: node tools/ci/run-onp-spec.mjs verify json-rpc-transport
 
