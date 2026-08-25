@@ -51,6 +51,7 @@ dependencies = [
  "tool-core",
  "tracing",
  "uuid",
+ "workflow-core",
 ]
 
 [[package]]
