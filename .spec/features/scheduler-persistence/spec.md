@@ -9,19 +9,19 @@ Como scheduler, quero armazenar estado de runs e leases no SQLite, para que rest
 processos tenham uma autoridade durável.
 
 #### AC-1201 — Migration e isolamento
-- clean/upgrade migration cria `scheduler_runs`, colunas bounded de due/status e índices;
-- segunda execução da migration não duplica schema;
-- consultas exigem project scope.
+- **Dado** um banco limpo ou já atualizado
+- **Quando** as migrations são executadas uma ou mais vezes e uma run é consultada
+- **Então** `scheduler_runs`, colunas bounded, índices e project scope existem sem duplicação;
 
 #### AC-1202 — Atomic claim e lease expiry
-- dois claimers não obtêm o mesmo run;
-- claim com lease expirado pode ser recuperado atomicamente;
-- owner incorreto não pode completar o run.
+- **Dado** dois claimers ou um lease expirado
+- **Quando** tentam reclamar o mesmo run
+- **Então** somente um lease vigente é aceito, e lease expirado pode ser recuperado atomicamente;
 
 #### AC-1203 — Completion
-- somente o lease owner completa o run;
-- completion é terminal e bounded;
-- estado permanece após novo pool/restart.
+- **Dado** um run claimed por um owner
+- **Quando** o owner ou outro actor tenta completar o run
+- **Então** somente o owner completa, o estado vira terminal e permanece após restart;
 
 ## Suposições
 - ASM-1204: worker, polling e notificações permanecem fora desta PR.
