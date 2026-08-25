@@ -42,6 +42,7 @@ pub mod retry;
 pub mod sandbox;
 pub mod scheduler;
 pub mod scheduler_persistence;
+pub mod scheduler_worker;
 pub mod session_repo;
 pub mod session_service;
 pub mod skill_activation_policy;

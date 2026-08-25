@@ -271,6 +271,9 @@ jobs:
       - name: Verify interval scheduling
         run: node tools/ci/run-onp-spec.mjs verify interval-scheduling
 
+      - name: Verify scheduler worker
+        run: node tools/ci/run-onp-spec.mjs verify scheduler-worker
+
       - name: Verify scheduler persistence
         run: node tools/ci/run-onp-spec.mjs verify scheduler-persistence
 
