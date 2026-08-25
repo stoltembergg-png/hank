@@ -42,6 +42,7 @@ pub mod python_node;
 pub mod retry;
 pub mod sandbox;
 pub mod scheduler;
+pub mod scheduler_concurrency;
 pub mod scheduler_persistence;
 pub mod scheduler_worker;
 pub mod session_repo;
