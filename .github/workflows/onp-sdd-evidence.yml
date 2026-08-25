@@ -250,6 +250,9 @@ jobs:
       - name: Verify workflow ToolNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-tool-node
 
+      - name: Verify workflow PythonNode
+        run: node tools/ci/run-onp-spec.mjs verify workflow-python-node
+
       - name: Verify project desktop bridge
         env:
           HANK_SKIP_TAURI: ''
