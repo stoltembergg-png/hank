@@ -214,6 +214,9 @@ jobs:
       - name: Verify moderator policy
         run: node tools/ci/run-onp-spec.mjs verify moderator-policy
 
+      - name: Verify round policy
+        run: node tools/ci/run-onp-spec.mjs verify round-policy
+
       - name: Verify json-rpc transport
         run: node tools/ci/run-onp-spec.mjs verify json-rpc-transport
 
