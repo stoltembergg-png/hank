@@ -247,9 +247,11 @@ jobs:
       - name: Verify workflow DelayNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-delay-node
 
+      - name: Verify workflow ApprovalNode
+        run: node tools/ci/run-onp-spec.mjs verify workflow-approval-node
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
-
       - name: Verify workflow ToolNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-tool-node
 
