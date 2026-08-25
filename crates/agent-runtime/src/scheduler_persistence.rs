@@ -17,6 +17,17 @@ pub struct SchedulerRun {
     pub outcome: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MissedOutcomeRecord {
+    pub outcome_id: String,
+    pub run_id: String,
+    pub occurrence_at_ms: u64,
+    pub action: String,
+    pub reason: String,
+    pub coalesce_key: Option<String>,
+    pub policy_version: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum PersistenceError {
     #[error("scheduler persistence identity is invalid")]
@@ -166,6 +177,37 @@ impl SchedulerPersistence {
         self.row(project, run_id).await
     }
 
+    pub async fn record_missed_outcome(
+        &self,
+        project: &str,
+        record: &MissedOutcomeRecord,
+        created_at_ms: u64,
+    ) -> Result<String, PersistenceError> {
+        for value in [
+            project,
+            record.outcome_id.as_str(),
+            record.run_id.as_str(),
+            record.action.as_str(),
+            record.reason.as_str(),
+            record.policy_version.as_str(),
+        ] {
+            validate_id(value)?;
+        }
+        let occurrence = i64::try_from(record.occurrence_at_ms)
+            .map_err(|_| PersistenceError::InvalidIdentity)?;
+        let created =
+            i64::try_from(created_at_ms).map_err(|_| PersistenceError::InvalidIdentity)?;
+        let existing = sqlx::query("SELECT outcome_id FROM scheduler_missed_outcomes WHERE project_id=? AND run_id=? AND occurrence_at_ms=? AND action=?")
+            .bind(project).bind(&record.run_id).bind(occurrence).bind(&record.action).fetch_optional(&self.pool).await.map_err(|_| PersistenceError::Query)?;
+        if let Some(row) = existing {
+            return Ok(row.get("outcome_id"));
+        }
+        self.row(project, &record.run_id).await?;
+        sqlx::query("INSERT INTO scheduler_missed_outcomes (project_id, outcome_id, run_id, occurrence_at_ms, action, reason, coalesce_key, policy_version, created_at_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            .bind(project).bind(&record.outcome_id).bind(&record.run_id).bind(occurrence).bind(&record.action).bind(&record.reason).bind(&record.coalesce_key).bind(&record.policy_version).bind(created)
+            .execute(&self.pool).await.map_err(|_| PersistenceError::Query)?;
+        Ok(record.outcome_id.clone())
+    }
     pub async fn get_run(
         &self,
         project: &str,
