@@ -190,6 +190,9 @@ jobs:
       - name: Verify agent group mention parser
         run: node tools/ci/run-onp-spec.mjs verify agent-group-mention-parser
 
+      - name: Verify agent invocation protocol
+        run: node tools/ci/run-onp-spec.mjs verify agent-invocation-protocol
+
       - name: Verify json-rpc transport
         run: node tools/ci/run-onp-spec.mjs verify json-rpc-transport
 
