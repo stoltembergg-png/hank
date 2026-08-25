@@ -130,6 +130,58 @@ impl ScheduledJob {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum ScheduleError {
+    #[error("interval is below the minimum frequency")]
+    TooFrequent,
+    #[error("interval exceeds the bounded maximum")]
+    TooLong,
+    #[error("interval arithmetic overflowed")]
+    Overflow,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IntervalSchedule {
+    anchor_ms: u64,
+    interval_ms: u64,
+}
+
+impl IntervalSchedule {
+    pub fn new(anchor_ms: u64, interval_seconds: u64) -> Result<Self, ScheduleError> {
+        if interval_seconds < MIN_INTERVAL_SECONDS {
+            return Err(ScheduleError::TooFrequent);
+        }
+        if interval_seconds > 31 * 24 * 60 * 60 {
+            return Err(ScheduleError::TooLong);
+        }
+        let interval_ms = interval_seconds
+            .checked_mul(1_000)
+            .ok_or(ScheduleError::Overflow)?;
+        Ok(Self {
+            anchor_ms,
+            interval_ms,
+        })
+    }
+
+    pub fn next_due(&self, now_ms: u64, enabled: bool) -> Result<Option<u64>, ScheduleError> {
+        if !enabled {
+            return Ok(None);
+        }
+        let elapsed = now_ms.saturating_sub(self.anchor_ms);
+        let periods = elapsed
+            .checked_div(self.interval_ms)
+            .and_then(|value| value.checked_add(1))
+            .ok_or(ScheduleError::Overflow)?;
+        let offset = periods
+            .checked_mul(self.interval_ms)
+            .ok_or(ScheduleError::Overflow)?;
+        self.anchor_ms
+            .checked_add(offset)
+            .map(Some)
+            .ok_or(ScheduleError::Overflow)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum JobError {
     #[error("scheduler job identity is invalid")]
     InvalidIdentity,
