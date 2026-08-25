@@ -94,6 +94,50 @@ impl SchedulerPersistence {
         self.row(project, run_id).await
     }
 
+    pub async fn claim_next_due(
+        &self,
+        project: &str,
+        lease_owner: &str,
+        now_ms: u64,
+        lease_duration_ms: u64,
+    ) -> Result<Option<SchedulerRun>, PersistenceError> {
+        validate_id(project)?;
+        let now = i64::try_from(now_ms).map_err(|_| PersistenceError::InvalidIdentity)?;
+        let row = sqlx::query("SELECT run_id FROM scheduler_runs WHERE project_id=? AND due_at_ms <= ? AND (status='pending' OR (status='claimed' AND lease_expires_at_ms <= ?)) ORDER BY due_at_ms, run_id LIMIT 1")
+            .bind(project).bind(now).bind(now).fetch_optional(&self.pool).await.map_err(|_| PersistenceError::Query)?;
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        let run_id: String = row.get("run_id");
+        self.claim(project, &run_id, lease_owner, now_ms, lease_duration_ms)
+            .await
+            .map(Some)
+    }
+
+    pub async fn renew(
+        &self,
+        project: &str,
+        run_id: &str,
+        lease_owner: &str,
+        now_ms: u64,
+        lease_duration_ms: u64,
+    ) -> Result<SchedulerRun, PersistenceError> {
+        for value in [project, run_id, lease_owner] {
+            validate_id(value)?;
+        }
+        let now = i64::try_from(now_ms).map_err(|_| PersistenceError::InvalidIdentity)?;
+        let lease = now
+            .checked_add(
+                i64::try_from(lease_duration_ms).map_err(|_| PersistenceError::InvalidIdentity)?,
+            )
+            .ok_or(PersistenceError::InvalidIdentity)?;
+        let result = sqlx::query("UPDATE scheduler_runs SET lease_expires_at_ms=?, updated_at_ms=? WHERE project_id=? AND run_id=? AND status='claimed' AND lease_owner=? AND lease_expires_at_ms > ?")
+            .bind(lease).bind(now).bind(project).bind(run_id).bind(lease_owner).bind(now).execute(&self.pool).await.map_err(|_| PersistenceError::Query)?;
+        if result.rows_affected() != 1 {
+            return Err(PersistenceError::NotClaimed);
+        }
+        self.row(project, run_id).await
+    }
     pub async fn complete(
         &self,
         project: &str,
@@ -122,6 +166,15 @@ impl SchedulerPersistence {
         self.row(project, run_id).await
     }
 
+    pub async fn get_run(
+        &self,
+        project: &str,
+        run_id: &str,
+    ) -> Result<SchedulerRun, PersistenceError> {
+        validate_id(project)?;
+        validate_id(run_id)?;
+        self.row(project, run_id).await
+    }
     async fn row(&self, project: &str, run_id: &str) -> Result<SchedulerRun, PersistenceError> {
         let row = sqlx::query("SELECT project_id, run_id, job_id, due_at_ms, status, lease_owner, lease_expires_at_ms, completed_at_ms, outcome FROM scheduler_runs WHERE project_id=? AND run_id=?")
             .bind(project).bind(run_id).fetch_optional(&self.pool).await.map_err(|_| PersistenceError::Query)?.ok_or(PersistenceError::NotFound)?;
