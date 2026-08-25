@@ -12,6 +12,7 @@ pub mod chat_stream;
 pub mod envelope;
 pub mod events;
 pub mod ids;
+pub mod invocation;
 pub mod json_rpc;
 pub mod policy;
 pub mod version;
@@ -21,6 +22,7 @@ pub use capability::*;
 pub use envelope::*;
 pub use events::*;
 pub use ids::*;
+pub use invocation::*;
 pub use policy::*;
 pub use version::*;
 
