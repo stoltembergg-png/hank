@@ -7,6 +7,7 @@
 //! Pode depender de: agent-core, agent-protocol, tokio, sqlx, tracing
 //! NÃO deve vazar providers concretos para o core.
 
+pub mod agent_group_repo;
 pub mod agent_repo;
 pub mod agent_service;
 pub mod agent_skills;
@@ -60,6 +61,7 @@ pub mod usage;
 pub mod workflow_runtime;
 
 pub use agent_core::*;
+pub use agent_group_repo::*;
 pub use agent_service::*;
 pub use agent_skills::*;
 pub use memory_repo::*;
