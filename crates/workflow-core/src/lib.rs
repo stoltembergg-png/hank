@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use thiserror::Error;
 
+pub mod approval;
 pub mod condition;
 pub mod delay;
 pub mod execution;
