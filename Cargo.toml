@@ -15,6 +15,7 @@ members = [
     "crates/provider-adapters/ollama",
     "crates/tool-core",
     "crates/test-support",
+    "crates/workflow-core",
     "crates/xtask",
 ]
 

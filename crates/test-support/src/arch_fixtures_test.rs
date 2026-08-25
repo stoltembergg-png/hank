@@ -203,6 +203,7 @@ fn metadata_lists_expected_crates() {
         "provider-adapter-ollama",
         "test-support",
         "tool-core",
+        "workflow-core",
         "xtask",
     ];
     expected.sort();
