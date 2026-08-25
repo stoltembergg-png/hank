@@ -229,6 +229,9 @@ jobs:
       - name: Verify delegation graph
         run: node tools/ci/run-onp-spec.mjs verify delegation-graph
 
+      - name: Verify workflow entity
+        run: node tools/ci/run-onp-spec.mjs verify workflow-entity
+
       - name: Verify json-rpc transport
         run: node tools/ci/run-onp-spec.mjs verify json-rpc-transport
 
