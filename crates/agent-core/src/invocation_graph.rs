@@ -78,6 +78,10 @@ impl InvocationGraph {
         Ok(())
     }
 
+    pub fn request(&self, id: uuid::Uuid) -> Option<InvocationRequest> {
+        self.nodes.get(&id).map(|node| node.request.clone())
+    }
+
     pub fn status(&self, id: uuid::Uuid) -> Option<InvocationNodeStatus> {
         self.nodes.get(&id).map(|node| node.status)
     }

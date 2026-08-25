@@ -12,6 +12,7 @@ pub mod agent;
 pub mod autonomy;
 pub mod budget;
 pub mod config;
+pub mod cycle_detection;
 pub mod dedupe;
 pub mod embedding;
 pub mod error;
@@ -44,6 +45,7 @@ pub use agent_protocol::{
 };
 pub use autonomy::*;
 pub use budget::*;
+pub use cycle_detection::*;
 pub use dedupe::*;
 pub use embedding::*;
 pub use error::DomainError;
