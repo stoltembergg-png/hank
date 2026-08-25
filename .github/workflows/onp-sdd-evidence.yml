@@ -271,6 +271,9 @@ jobs:
       - name: Verify interval scheduling
         run: node tools/ci/run-onp-spec.mjs verify interval-scheduling
 
+      - name: Verify concurrent-run protection
+        run: node tools/ci/run-onp-spec.mjs verify concurrent-run-protection
+
       - name: Verify missed-run policy
         run: node tools/ci/run-onp-spec.mjs verify missed-run-policy
 
