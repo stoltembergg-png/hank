@@ -292,6 +292,9 @@ jobs:
       - name: Verify scheduled job entity
         run: node tools/ci/run-onp-spec.mjs verify scheduled-job-entity
 
+      - name: Verify workflow scheduler integration
+        run: node tools/ci/run-onp-spec.mjs verify workflow-scheduler-integration
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
