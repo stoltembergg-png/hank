@@ -29,6 +29,16 @@ credenciais ou links não validados.
 - **Quando** o destino não corresponde ao project/run permitido ou contém dados extras
 - **Então** o link é rejeitado e nenhum path, token ou conteúdo bruto é retornado.
 
+#### AC-1295 — Registro oficial e capability mínima
+- **Dado** o bootstrap Tauri e a capability da janela principal
+- **Quando** a aplicação é compilada
+- **Então** o plugin oficial 2.3.3 é registrado e somente permissões mínimas de permission state/request/notify são concedidas.
+
+#### AC-1296 — Adapter isolado e sem panic externo
+- **Dado** uma decisão já produzida pela policy interna
+- **Quando** o adapter Tauri é compilado e usado
+- **Então** ele implementa `NotificationSink`, mapeia erros/permission states e não expõe tipos Tauri ao runtime nem usa panic em boundary externa.
+
 ## Suposições
 
 | ID | Suposição | Status | Resolução |

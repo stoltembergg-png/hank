@@ -2,6 +2,7 @@
 
 pub mod confirmations;
 pub mod memory;
+pub mod notifications;
 pub mod projects;
 pub mod scheduler;
 pub mod skills;
@@ -49,6 +50,7 @@ fn main() {
         .init();
 
     let result = tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .manage(confirmations::bridge_state())
         .invoke_handler(confirmations::command_handler())
         .setup(|app| {
@@ -62,6 +64,11 @@ fn main() {
                     .map_err(|error| io::Error::other(error.to_string()))?;
                 Ok::<_, io::Error>(storage)
             })?;
+            app.manage(std::sync::Mutex::new(
+                agent_runtime::notifications::NotificationWorker::new(
+                    notifications::TauriNotificationSink::new(app.handle().clone()),
+                ),
+            ));
             app.manage(projects::bridge_state(&storage));
             app.manage(scheduler::bridge_state(&storage));
             app.manage(memory::bridge_state(&storage));

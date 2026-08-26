@@ -299,6 +299,8 @@ jobs:
         run: node tools/ci/run-onp-spec.mjs verify execution-history
 
       - name: Verify desktop notifications
+        env:
+          HANK_SKIP_TAURI: '0'
         run: node tools/ci/run-onp-spec.mjs verify desktop-notifications
 
       - name: Verify workflow scheduler integration
