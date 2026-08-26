@@ -24,7 +24,6 @@ jobs:
     timeout-minutes: 45
     env:
       CARGO_TERM_COLOR: always
-      HANK_DESKTOP_E2E_ARTIFACTS: ${{ runner.temp }}/hank-desktop-e2e-artifacts
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -77,6 +76,7 @@ jobs:
       - name: Run real Project lifecycle on Linux
         if: runner.os == 'Linux'
         env:
+          HANK_DESKTOP_E2E_ARTIFACTS: ${{ runner.temp }}/hank-desktop-e2e-artifacts
           HANK_DESKTOP_BIN: ${{ github.workspace }}/apps/desktop/src-tauri/target/debug/hank-desktop
           HANK_E2E_APP_DATA_DIR: ${{ runner.temp }}/hank-e2e-app-data
           HANK_WEBDRIVER_PORT: 4444
@@ -98,6 +98,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         env:
+          HANK_DESKTOP_E2E_ARTIFACTS: ${{ runner.temp }}\hank-desktop-e2e-artifacts
           HANK_DESKTOP_BIN: ${{ github.workspace }}\apps\desktop\src-tauri\target\debug\hank-desktop.exe
           HANK_E2E_APP_DATA_DIR: ${{ runner.temp }}\hank-e2e-app-data
           HANK_WEBDRIVER_PORT: 4444
