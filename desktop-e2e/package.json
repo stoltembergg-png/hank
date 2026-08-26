@@ -1,0 +1,8 @@
+{
+  "name": "hank-desktop-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node specs/project-lifecycle.e2e.mjs"
+  }
+}

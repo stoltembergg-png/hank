@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  REQUIRED_POST_MERGE_CHECKS: Build Frontend,Build Rust,Build Rust Windows,Build Tauri Desktop,w0-contract-gate,CodeQL (rust),CodeQL (javascript-typescript)
+  REQUIRED_POST_MERGE_CHECKS: Build Frontend,Build Rust,Build Rust Windows,Build Tauri Desktop,Desktop E2E / Project Lifecycle,w0-contract-gate,CodeQL (rust),CodeQL (javascript-typescript)
 
 jobs:
   preflight:
