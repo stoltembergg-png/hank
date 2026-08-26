@@ -58,6 +58,9 @@ jobs:
           toolchain: 1.97.1
           components: rustfmt
 
+      - name: Install pinned tauri-driver
+        run: cargo install tauri-driver --version 2.0.6 --locked
+
       - name: Install frontend dependencies
         run: npm ci --no-fund
         working-directory: frontend
