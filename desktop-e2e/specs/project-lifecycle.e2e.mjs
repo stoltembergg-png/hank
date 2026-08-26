@@ -54,6 +54,7 @@ class WebDriverSession {
   }
   async click(element) { await this.request('POST', `/session/${this.sessionId}/element/${element}/click`, {}); }
   async value(element, value) {
+    await this.request('POST', `/session/${this.sessionId}/element/${element}/clear`, {});
     await this.request('POST', `/session/${this.sessionId}/element/${element}/value`, { text: value, value: [...value] });
   }
   async text(element) { return this.request('GET', `/session/${this.sessionId}/element/${element}/text`); }
