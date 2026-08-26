@@ -1,8 +1,9 @@
-use sqlx::{Pool, Row, Sqlite};
+use sqlx::{Pool, QueryBuilder, Row, Sqlite};
 use thiserror::Error;
 
 const MAX_ID: usize = 128;
 const MAX_OUTCOME: usize = 64;
+const MAX_HISTORY_PAGE: u32 = 100;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SchedulerRun {
@@ -28,6 +29,27 @@ pub struct MissedOutcomeRecord {
     pub policy_version: String,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SchedulerHistoryQuery<'a> {
+    pub job_id: Option<&'a str>,
+    pub status: Option<&'a str>,
+    pub from_due_at_ms: Option<u64>,
+    pub to_due_at_ms: Option<u64>,
+    pub limit: u32,
+    pub offset: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SchedulerHistoryEntry {
+    pub project_id: String,
+    pub run_id: String,
+    pub job_id: String,
+    pub due_at_ms: u64,
+    pub status: String,
+    pub completed_at_ms: Option<u64>,
+    pub outcome: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum PersistenceError {
     #[error("scheduler persistence identity is invalid")]
@@ -38,6 +60,8 @@ pub enum PersistenceError {
     Terminal,
     #[error("scheduler run claim was not acquired")]
     NotClaimed,
+    #[error("scheduler history pagination is invalid")]
+    InvalidPagination,
     #[error("scheduler run storage query failed")]
     Query,
 }
@@ -177,6 +201,79 @@ impl SchedulerPersistence {
         self.row(project, run_id).await
     }
 
+    pub async fn list_history(
+        &self,
+        project: &str,
+        query: &SchedulerHistoryQuery<'_>,
+    ) -> Result<Vec<SchedulerHistoryEntry>, PersistenceError> {
+        validate_id(project)?;
+        if query.limit == 0 || query.limit > MAX_HISTORY_PAGE {
+            return Err(PersistenceError::InvalidPagination);
+        }
+        if let Some(job_id) = query.job_id {
+            validate_id(job_id)?;
+        }
+        if let Some(status) = query.status {
+            validate_id(status)?;
+        }
+        if let (Some(from), Some(to)) = (query.from_due_at_ms, query.to_due_at_ms) {
+            if from > to {
+                return Err(PersistenceError::InvalidPagination);
+            }
+        }
+        let mut builder = QueryBuilder::<Sqlite>::new(
+            "SELECT project_id, run_id, job_id, due_at_ms, status, completed_at_ms, outcome FROM scheduler_runs WHERE project_id = ",
+        );
+        builder.push_bind(project);
+        if let Some(job_id) = query.job_id {
+            builder.push(" AND job_id = ").push_bind(job_id);
+        }
+        if let Some(status) = query.status {
+            builder.push(" AND status = ").push_bind(status);
+        }
+        if let Some(from) = query.from_due_at_ms {
+            builder.push(" AND due_at_ms >= ").push_bind(to_i64(from)?);
+        }
+        if let Some(to) = query.to_due_at_ms {
+            builder.push(" AND due_at_ms <= ").push_bind(to_i64(to)?);
+        }
+        builder
+            .push(" ORDER BY due_at_ms ASC, run_id ASC LIMIT ")
+            .push_bind(i64::from(query.limit))
+            .push(" OFFSET ")
+            .push_bind(i64::from(query.offset));
+        let rows = builder
+            .build()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|_| PersistenceError::Query)?;
+        rows.into_iter().map(history_entry).collect()
+    }
+
+    pub async fn prune_completed(
+        &self,
+        project: &str,
+        completed_before_ms: u64,
+        limit: u32,
+    ) -> Result<u64, PersistenceError> {
+        validate_id(project)?;
+        if limit == 0 || limit > MAX_HISTORY_PAGE {
+            return Err(PersistenceError::InvalidPagination);
+        }
+        let cutoff = to_i64(completed_before_ms)?;
+        let result = sqlx::query(
+            "DELETE FROM scheduler_runs WHERE project_id = ? AND run_id IN (SELECT run_id FROM scheduler_runs WHERE project_id = ? AND status = 'completed' AND completed_at_ms IS NOT NULL AND completed_at_ms < ? ORDER BY completed_at_ms ASC, run_id ASC LIMIT ?)",
+        )
+        .bind(project)
+        .bind(project)
+        .bind(cutoff)
+        .bind(i64::from(limit))
+        .execute(&self.pool)
+        .await
+        .map_err(|_| PersistenceError::Query)?;
+        Ok(result.rows_affected())
+    }
+
     pub async fn record_missed_outcome(
         &self,
         project: &str,
@@ -238,6 +335,25 @@ impl SchedulerPersistence {
             outcome: row.get("outcome"),
         })
     }
+}
+
+fn history_entry(row: sqlx::sqlite::SqliteRow) -> Result<SchedulerHistoryEntry, PersistenceError> {
+    Ok(SchedulerHistoryEntry {
+        project_id: row.get("project_id"),
+        run_id: row.get("run_id"),
+        job_id: row.get("job_id"),
+        due_at_ms: decode_u64(row.get("due_at_ms"))?,
+        status: row.get("status"),
+        completed_at_ms: row
+            .get::<Option<i64>, _>("completed_at_ms")
+            .map(decode_u64)
+            .transpose()?,
+        outcome: row.get("outcome"),
+    })
+}
+
+fn to_i64(value: u64) -> Result<i64, PersistenceError> {
+    i64::try_from(value).map_err(|_| PersistenceError::InvalidIdentity)
 }
 
 fn validate_id(value: &str) -> Result<(), PersistenceError> {
