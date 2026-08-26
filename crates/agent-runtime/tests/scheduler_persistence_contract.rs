@@ -1,6 +1,8 @@
 use agent_runtime::migrations::run_migrations;
 use agent_runtime::scheduler::{JobStore, JobTarget, MissedRunPolicy, ScheduledJob, Trigger};
-use agent_runtime::scheduler_persistence::{PersistenceError, SchedulerPersistence};
+use agent_runtime::scheduler_persistence::{
+    PersistenceError, SchedulerHistoryQuery, SchedulerPersistence,
+};
 use agent_runtime::sqlite::SqliteStorage;
 
 async fn setup() -> (SqliteStorage, SchedulerPersistence) {
@@ -118,4 +120,99 @@ async fn only_current_owner_completes_and_completion_is_terminal() {
             .await,
         Err(PersistenceError::Terminal)
     ));
+}
+
+// @spec:AC-1278
+#[tokio::test]
+async fn history_is_project_scoped_filtered_and_deterministic() {
+    let (_storage, persistence) = setup().await;
+    for (run_id, due) in [("run-c", 3_000), ("run-a", 1_000), ("run-b", 2_000)] {
+        persistence
+            .create_run("project-a", run_id, "job-a", due)
+            .await
+            .unwrap();
+    }
+    let query = SchedulerHistoryQuery {
+        limit: 50,
+        ..Default::default()
+    };
+    let all = persistence.list_history("project-a", &query).await.unwrap();
+    assert_eq!(
+        all.iter()
+            .map(|entry| entry.run_id.as_str())
+            .collect::<Vec<_>>(),
+        ["run-a", "run-b", "run-c"]
+    );
+    assert!(persistence
+        .list_history("project-b", &query)
+        .await
+        .unwrap()
+        .is_empty());
+    assert!(all.iter().all(|entry| entry.outcome.is_none()));
+}
+
+// @spec:AC-1279
+#[tokio::test]
+async fn history_pagination_and_retention_are_bounded() {
+    let (_storage, persistence) = setup().await;
+    for (run_id, due) in [("run-a", 1_000), ("run-b", 2_000), ("run-c", 3_000)] {
+        persistence
+            .create_run("project-a", run_id, "job-a", due)
+            .await
+            .unwrap();
+        persistence
+            .claim("project-a", run_id, "worker-a", due, 100)
+            .await
+            .unwrap();
+        persistence
+            .complete("project-a", run_id, "worker-a", "ok", due + 1)
+            .await
+            .unwrap();
+    }
+    let page_query = SchedulerHistoryQuery {
+        status: Some("completed"),
+        limit: 2,
+        offset: 1,
+        ..Default::default()
+    };
+    let page = persistence
+        .list_history("project-a", &page_query)
+        .await
+        .unwrap();
+    assert_eq!(
+        page.iter()
+            .map(|entry| entry.run_id.as_str())
+            .collect::<Vec<_>>(),
+        ["run-b", "run-c"]
+    );
+    assert_eq!(
+        persistence
+            .prune_completed("project-a", 2_000, 1)
+            .await
+            .unwrap(),
+        1
+    );
+    assert!(matches!(
+        persistence.get_run("project-a", "run-a").await,
+        Err(PersistenceError::NotFound)
+    ));
+    assert!(persistence.get_run("project-a", "run-b").await.is_ok());
+}
+
+// @spec:AC-1280
+#[tokio::test]
+async fn foreign_history_and_retention_do_not_mutate_other_scope() {
+    let (_storage, persistence) = setup().await;
+    persistence
+        .create_run("project-a", "run-a", "job-a", 1_000)
+        .await
+        .unwrap();
+    assert_eq!(
+        persistence
+            .prune_completed("project-b", 9_999, 50)
+            .await
+            .unwrap(),
+        0
+    );
+    assert!(persistence.get_run("project-a", "run-a").await.is_ok());
 }
