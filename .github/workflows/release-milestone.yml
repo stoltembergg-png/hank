@@ -56,6 +56,16 @@ jobs:
           stableVersion=$(node tools/release-prerelease.mjs milestone-version --milestone "$MILESTONE")
           test "$stableVersion" = "$STABLE_VERSION"
           sha=$(git rev-parse HEAD)
+          checks_file="$RUNNER_TEMP/main-checks.json"
+          gh api --paginate "repos/$REPOSITORY/commits/$sha/check-runs" --jq '[.check_runs[] | {name,status,conclusion}]' > "$checks_file"
+          node - "$checks_file" <<'NODE'
+          const fs = require('node:fs');
+          const pages = fs.readFileSync(process.argv[2], 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
+          const checks = pages.flat();
+          const required = 'Desktop E2E / Project Lifecycle';
+          const match = checks.find((check) => check.name === required && check.status === 'completed' && check.conclusion === 'success');
+          if (!match) { console.error(`required check missing or non-success: ${required}`); process.exit(1); }
+          NODE
           release=$(gh api "repos/$REPOSITORY/releases/tags/$PRERELEASE_TAG")
           test "$(printf '%s' "$release" | jq -r .prerelease)" = true
           test "$(printf '%s' "$release" | jq -r .target_commitish)" = "$sha"

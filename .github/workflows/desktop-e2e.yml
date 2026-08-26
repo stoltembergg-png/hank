@@ -1,0 +1,139 @@
+name: Desktop E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  project-lifecycle:
+    name: Project Lifecycle (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      CARGO_TERM_COLOR: always
+      HANK_DESKTOP_E2E_ARTIFACTS: ${{ runner.temp }}/hank-desktop-e2e-artifacts
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Install Linux desktop dependencies
+        if: runner.os == 'Linux'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          timeout 180s sudo apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          timeout 300s sudo apt-get -o Acquire::ForceIPv4=true -o DPkg::Lock::Timeout=60 -o Dpkg::Use-Pty=0 install --no-install-recommends -y \
+            libwebkit2gtk-4.1-dev webkit2gtk-driver xvfb curl build-essential file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          pkg-config --modversion javascriptcoregtk-4.1
+          pkg-config --modversion webkit2gtk-4.1
+
+      - name: Setup pinned Node.js 20
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 20.19.1
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop-e2e/package-lock.json
+
+      - name: Setup pinned Rust
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.97.1
+          components: rustfmt
+
+      - name: Install frontend dependencies
+        run: npm ci --no-fund
+        working-directory: frontend
+
+      - name: Install desktop E2E dependencies
+        run: npm ci --no-fund
+        working-directory: desktop-e2e
+
+      - name: Build frontend production bundle
+        run: npm run build
+        working-directory: frontend
+
+      - name: Build real Tauri application
+        run: cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
+
+      - name: Run real Project lifecycle on Linux
+        if: runner.os == 'Linux'
+        env:
+          HANK_DESKTOP_BIN: ${{ github.workspace }}/apps/desktop/src-tauri/target/debug/hank-desktop
+          HANK_E2E_APP_DATA_DIR: ${{ runner.temp }}/hank-e2e-app-data
+          HANK_WEBDRIVER_PORT: 4444
+          RUST_LOG: info
+        run: |
+          set -euo pipefail
+          mkdir -p "$HANK_DESKTOP_E2E_ARTIFACTS" "$HANK_E2E_APP_DATA_DIR"
+          set +e
+          xvfb-run -a --server-args='-screen 0 1280x1024x24' bash desktop-e2e/run-linux.sh
+          status=$?
+          set -e
+          if [[ "$status" -ne 0 ]]; then
+            cp -R "$HANK_E2E_APP_DATA_DIR" "$HANK_DESKTOP_E2E_ARTIFACTS/app-data" || true
+            exit "$status"
+          fi
+          rm -rf "$HANK_E2E_APP_DATA_DIR"
+
+      - name: Run real Project lifecycle on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          HANK_DESKTOP_BIN: ${{ github.workspace }}\apps\desktop\src-tauri\target\debug\hank-desktop.exe
+          HANK_E2E_APP_DATA_DIR: ${{ runner.temp }}\hank-e2e-app-data
+          HANK_WEBDRIVER_PORT: 4444
+          RUST_LOG: info
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:HANK_DESKTOP_E2E_ARTIFACTS, $env:HANK_E2E_APP_DATA_DIR | Out-Null
+          try {
+            & powershell -NoProfile -ExecutionPolicy Bypass -File desktop-e2e\run-windows.ps1
+            if ($LASTEXITCODE -ne 0) { throw "Desktop E2E failed with exit code $LASTEXITCODE" }
+            Remove-Item -LiteralPath $env:HANK_E2E_APP_DATA_DIR -Recurse -Force
+          } catch {
+            Copy-Item -LiteralPath $env:HANK_E2E_APP_DATA_DIR -Destination (Join-Path $env:HANK_DESKTOP_E2E_ARTIFACTS 'app-data') -Recurse -Force -ErrorAction SilentlyContinue
+            throw
+          }
+
+      - name: Upload desktop diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: desktop-e2e-${{ runner.os }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/hank-desktop-e2e-artifacts/
+            ${{ runner.temp }}/hank-e2e-app-data/
+          if-no-files-found: warn
+          retention-days: 14
+
+  desktop-e2e-required:
+    name: Desktop E2E / Project Lifecycle
+    if: always()
+    needs: project-lifecycle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every platform lifecycle test to pass
+        env:
+          RESULTS: ${{ toJSON(needs.project-lifecycle.result) }}
+        run: |
+          set -euo pipefail
+          test "$RESULTS" = '"success"'
