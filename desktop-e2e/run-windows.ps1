@@ -16,10 +16,25 @@ if (-not $driver) {
 }
 if (-not (Test-Path -LiteralPath $driver -PathType Leaf)) { throw "msedgedriver not found: $driver" }
 
-$driverLog = Join-Path $env:HANK_DESKTOP_E2E_ARTIFACTS 'tauri-driver.stdout.log'
-$driverErrorLog = Join-Path $env:HANK_DESKTOP_E2E_ARTIFACTS 'tauri-driver.stderr.log'
-$driverProcess = Start-Process -FilePath 'tauri-driver' -ArgumentList @('--port', '4444', '--native-driver', $driver) -RedirectStandardOutput $driverLog -RedirectStandardError $driverErrorLog -PassThru
+$frontendLog = Join-Path $env:HANK_DESKTOP_E2E_ARTIFACTS 'frontend-preview.stdout.log'
+$frontendErrorLog = Join-Path $env:HANK_DESKTOP_E2E_ARTIFACTS 'frontend-preview.stderr.log'
+$frontendProcess = Start-Process -FilePath 'npm.cmd' -ArgumentList @('--prefix', 'frontend', 'run', 'preview', '--', '--host', '127.0.0.1', '--port', '1420') -RedirectStandardOutput $frontendLog -RedirectStandardError $frontendErrorLog -PassThru
 try {
+  $frontendReady = $false
+  for ($attempt = 0; $attempt -lt 60; $attempt++) {
+    try {
+      $response = Invoke-WebRequest 'http://127.0.0.1:1420/' -UseBasicParsing -TimeoutSec 2
+      if ($response.StatusCode -eq 200) { $frontendReady = $true; break }
+    } catch { }
+    if ($frontendProcess.HasExited) { throw "frontend preview exited with code $($frontendProcess.ExitCode)" }
+    Start-Sleep -Seconds 1
+  }
+  if (-not $frontendReady) { throw 'frontend preview did not become ready' }
+
+  $driverLog = Join-Path $env:HANK_DESKTOP_E2E_ARTIFACTS 'tauri-driver.stdout.log'
+  $driverErrorLog = Join-Path $env:HANK_DESKTOP_E2E_ARTIFACTS 'tauri-driver.stderr.log'
+  $driverProcess = Start-Process -FilePath 'tauri-driver' -ArgumentList @('--port', '4444', '--native-driver', $driver) -RedirectStandardOutput $driverLog -RedirectStandardError $driverErrorLog -PassThru
+  try {
   $ready = $false
   for ($attempt = 0; $attempt -lt 60; $attempt++) {
     try {
@@ -31,6 +46,9 @@ try {
   }
   if (-not $ready) { throw 'tauri-driver did not become ready' }
   npm --prefix desktop-e2e test
+  } finally {
+    if (-not $driverProcess.HasExited) { Stop-Process -Id $driverProcess.Id -Force -ErrorAction SilentlyContinue }
+  }
 } finally {
-  if (-not $driverProcess.HasExited) { Stop-Process -Id $driverProcess.Id -Force -ErrorAction SilentlyContinue }
+  if (-not $frontendProcess.HasExited) { Stop-Process -Id $frontendProcess.Id -Force -ErrorAction SilentlyContinue }
 }
