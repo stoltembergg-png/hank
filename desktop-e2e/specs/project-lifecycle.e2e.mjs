@@ -50,7 +50,9 @@ class WebDriverSession {
     while (Date.now() < deadline) {
       try { return await this.find(selector); } catch (error) { last = error; await new Promise((resolve) => setTimeout(resolve, 250)); }
     }
-    throw new Error(`element did not appear: ${selector}; ${last}`);
+    let body = '';
+    try { body = await this.bodyText(); } catch (error) { body = `body unavailable: ${error.message}`; }
+    throw new Error(`element did not appear: ${selector}; last error: ${last}; body: ${body}`);
   }
   async click(element) { await this.request('POST', `/session/${this.sessionId}/element/${element}/click`, {}); }
   async value(element, value) {
