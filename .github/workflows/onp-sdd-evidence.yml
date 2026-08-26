@@ -298,6 +298,9 @@ jobs:
       - name: Verify execution history
         run: node tools/ci/run-onp-spec.mjs verify execution-history
 
+      - name: Verify desktop notifications
+        run: node tools/ci/run-onp-spec.mjs verify desktop-notifications
+
       - name: Verify workflow scheduler integration
         run: node tools/ci/run-onp-spec.mjs verify workflow-scheduler-integration
 

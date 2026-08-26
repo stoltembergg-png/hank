@@ -26,6 +26,7 @@ pub mod memory_service;
 pub mod message_repo;
 pub mod migrations;
 pub mod missed_run_policy;
+pub mod notifications;
 pub mod project_archive_service;
 pub mod project_query_service;
 pub mod project_repo;
