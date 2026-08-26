@@ -39,6 +39,16 @@ credenciais ou links não validados.
 - **Quando** o adapter Tauri é compilado e usado
 - **Então** ele implementa `NotificationSink`, mapeia erros/permission states e não expõe tipos Tauri ao runtime nem usa panic em boundary externa.
 
+#### AC-1297 — Entrega concedida uma única vez
+- **Dado** um sink com permissão `Granted`
+- **Quando** o worker processa uma decisão de entrega
+- **Então** o sink é chamado exatamente uma vez e o resultado é `Delivered`.
+
+#### AC-1298 — Falha do sink não derruba o runtime
+- **Dado** um sink concedido que retorna falha
+- **Quando** o worker tenta entregar
+- **Então** retorna `Failed` de forma controlada e permanece utilizável para o scheduler.
+
 ## Suposições
 
 | ID | Suposição | Status | Resolução |

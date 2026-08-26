@@ -2,6 +2,10 @@ use agent_runtime::notifications::{
     DeliveryOutcome, NotificationDecision, NotificationEvent, NotificationKind, NotificationPolicy,
     NotificationPreferences, NotificationSink, NotificationWorker, PermissionState,
 };
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 
 fn event(kind: NotificationKind, body: &str) -> NotificationEvent {
     NotificationEvent {
@@ -16,6 +20,8 @@ fn event(kind: NotificationKind, body: &str) -> NotificationEvent {
 
 struct FixtureSink {
     permission: PermissionState,
+    calls: Arc<AtomicUsize>,
+    succeeds: bool,
 }
 
 impl NotificationSink for FixtureSink {
@@ -24,7 +30,8 @@ impl NotificationSink for FixtureSink {
     }
 
     fn deliver(&mut self, _notification: &agent_runtime::notifications::Notification) -> bool {
-        true
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        self.succeeds
     }
 }
 
@@ -81,7 +88,11 @@ fn disabled_preferences_and_rate_limit_fail_closed() {
 // @spec:AC-1287
 fn denied_or_unavailable_sink_is_safe_and_non_blocking() {
     for permission in [PermissionState::Denied, PermissionState::Unavailable] {
-        let mut worker = NotificationWorker::new(FixtureSink { permission });
+        let mut worker = NotificationWorker::new(FixtureSink {
+            permission,
+            calls: Arc::new(AtomicUsize::new(0)),
+            succeeds: true,
+        });
         let notification = match NotificationPolicy::new(NotificationPreferences::enabled(1))
             .evaluate(event(NotificationKind::Success, "safe"))
         {
@@ -107,4 +118,45 @@ fn deep_link_rejects_foreign_scope_and_unknown_data() {
         NotificationPolicy::deep_link("project-a", "run-1", "project-a", "run-1", &["token"])
             .is_none()
     );
+}
+
+#[test]
+// @spec:AC-1297
+fn granted_sink_is_called_once_and_reports_delivery() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut worker = NotificationWorker::new(FixtureSink {
+        permission: PermissionState::Granted,
+        calls: Arc::clone(&calls),
+        succeeds: true,
+    });
+    let notification = match NotificationPolicy::new(NotificationPreferences::enabled(1))
+        .evaluate(event(NotificationKind::Success, "safe"))
+    {
+        NotificationDecision::Deliver(notification) => notification,
+        _ => panic!("event should be deliverable"),
+    };
+
+    assert_eq!(worker.deliver(&notification), DeliveryOutcome::Delivered);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+// @spec:AC-1298
+fn failed_sink_returns_controlled_outcome_and_worker_remains_usable() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut worker = NotificationWorker::new(FixtureSink {
+        permission: PermissionState::Granted,
+        calls: Arc::clone(&calls),
+        succeeds: false,
+    });
+    let notification = match NotificationPolicy::new(NotificationPreferences::enabled(2))
+        .evaluate(event(NotificationKind::Failure, "safe"))
+    {
+        NotificationDecision::Deliver(notification) => notification,
+        _ => panic!("event should be deliverable"),
+    };
+
+    assert_eq!(worker.deliver(&notification), DeliveryOutcome::Failed);
+    assert_eq!(worker.deliver(&notification), DeliveryOutcome::Failed);
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
