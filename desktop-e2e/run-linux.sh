@@ -12,13 +12,14 @@ frontend_pid=''
 tauri_driver_pid=''
 cleanup() {
   status=$?
+  set +e
   if [[ -n "$tauri_driver_pid" ]] && kill -0 "$tauri_driver_pid" 2>/dev/null; then
-    kill "$tauri_driver_pid" 2>/dev/null || true
-    wait "$tauri_driver_pid" 2>/dev/null || true
+    kill "$tauri_driver_pid" 2>/dev/null
+    wait "$tauri_driver_pid" 2>/dev/null
   fi
   if [[ -n "$frontend_pid" ]] && kill -0 "$frontend_pid" 2>/dev/null; then
-    kill "$frontend_pid" 2>/dev/null || true
-    wait "$frontend_pid" 2>/dev/null || true
+    kill "$frontend_pid" 2>/dev/null
+    wait "$frontend_pid" 2>/dev/null
   fi
   exit "$status"
 }
