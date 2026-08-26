@@ -52,7 +52,7 @@ class WebDriverSession {
     }
     throw new Error(`element did not appear: ${selector}; ${last}`);
   }
-  async click(element) { await this.request('POST', `/session/${this.sessionId}/element/${element}/click`); }
+  async click(element) { await this.request('POST', `/session/${this.sessionId}/element/${element}/click`, {}); }
   async value(element, value) {
     await this.request('POST', `/session/${this.sessionId}/element/${element}/value`, { text: value, value: [...value] });
   }
