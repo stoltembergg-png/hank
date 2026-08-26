@@ -1,6 +1,6 @@
 use agent_runtime::notifications::{
-    DeliveryOutcome, Notification, NotificationDecision, NotificationSink,
-    NotificationWorker, PermissionState as RuntimePermissionState,
+    DeliveryOutcome, Notification, NotificationDecision, NotificationSink, NotificationWorker,
+    PermissionState as RuntimePermissionState,
 };
 use std::sync::Mutex;
 use tauri::{AppHandle, Runtime};
@@ -100,9 +100,18 @@ mod tests {
 
     #[test]
     fn maps_plugin_permission_states_without_leaking_plugin_types() {
-        assert_eq!(map_permission(TauriPermissionState::Granted), PermissionState::Granted);
-        assert_eq!(map_permission(TauriPermissionState::Denied), PermissionState::Denied);
-        assert_eq!(map_permission(TauriPermissionState::Prompt), PermissionState::Denied);
+        assert_eq!(
+            map_permission(TauriPermissionState::Granted),
+            PermissionState::Granted
+        );
+        assert_eq!(
+            map_permission(TauriPermissionState::Denied),
+            PermissionState::Denied
+        );
+        assert_eq!(
+            map_permission(TauriPermissionState::Prompt),
+            PermissionState::Denied
+        );
         assert_eq!(
             map_permission(TauriPermissionState::PromptWithRationale),
             PermissionState::Denied

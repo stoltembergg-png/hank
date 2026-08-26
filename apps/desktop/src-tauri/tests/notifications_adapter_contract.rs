@@ -19,8 +19,13 @@ fn desktop_notification_plugin_is_registered_with_minimal_capability() {
     )
     .expect("capability JSON deve ser válido");
     assert!(manifest.contains("tauri-plugin-notification = \"2.3.3\""));
-    let permissions = capability["permissions"].as_array().expect("permissions array");
-    let names = permissions.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+    let permissions = capability["permissions"]
+        .as_array()
+        .expect("permissions array");
+    let names = permissions
+        .iter()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>();
     assert_eq!(
         names,
         [
