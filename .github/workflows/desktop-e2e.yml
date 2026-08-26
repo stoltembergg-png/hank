@@ -158,7 +158,7 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
       HANK_DESKTOP_BIN: ${{ github.workspace }}/apps/desktop/src-tauri/target/debug/hank-desktop
-      HANK_WEBDRIVER_PORT: 4445
+      HANK_WEBDRIVER_PORT: 4444
       RUST_LOG: info
     steps:
       - name: Checkout repository
