@@ -5,6 +5,7 @@ import { SkillEditorApiClient } from '../api/skillEditor';
 import { ProjectSummary, ProjectStatus } from '../types/project';
 import { MemoryPanel } from './MemoryPanel';
 import { SkillsPanel } from './SkillsPanel';
+import { AutomationList } from './AutomationList';
 import './ProjectDetailView.css';
 
 export interface ProjectDetailViewProps {
@@ -332,6 +333,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
       <MemoryPanel projectId={project.id} />
       <SkillsPanel projectId={project.id} apiClient={skillApiClient} skillEditorApiClient={skillEditorApiClient} />
+      <AutomationList projectId={project.id} ownerId={project.owner} />
 
       {showArchiveConfirm && (
         <div

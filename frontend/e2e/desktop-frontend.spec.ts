@@ -107,7 +107,7 @@ test('desktop frontend renders project-scoped Skills and keeps unimported global
   await expect(page.getByRole('heading', { name: 'Editor de skill' })).toBeVisible();
   await page.getByLabel('Instruções Markdown').fill('reviewed draft');
   await page.getByRole('button', { name: 'Validar rascunho' }).click();
-  await expect(page.getByRole('alert')).toContainText('Rascunho válido');
+  await expect(page.getByRole('alert').filter({ hasText: 'Rascunho válido' })).toBeVisible();
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'Salvar rascunho' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'salvo' })).toBeVisible();
@@ -116,4 +116,26 @@ test('desktop frontend renders project-scoped Skills and keeps unimported global
   await expect(page.getByRole('heading', { name: 'global-reviewer' })).toBeVisible();
   await expect(page.getByText('Indisponível: importe explicitamente para este projeto.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Rollback global-reviewer' })).toHaveCount(0);
+});
+
+test('desktop frontend renders project-scoped automation controls and explicit pause flow', async ({ page }) => {
+  await page.addInitScript(() => {
+    const project = { id: 'project-automation', name: 'Automation Project', description: null, status: 'active', owner: 'owner', created_at: '2026-08-24T00:00:00.000Z', updated_at: '2026-08-24T00:00:00.000Z', settings: { retention_days: 30, auto_archive_idle_days: null, telemetry_enabled: false, max_active_agents: 3 } };
+    let jobs = [{ project_id: project.id, job_id: 'job-a', owner_id: project.owner, trigger_kind: 'interval', trigger_value: '60', target_kind: 'workflow', target_id: 'workflow-a', target_version: 1, timezone: 'UTC', concurrency_limit: 1, missed_run_policy: 'skip', enabled: true, lifecycle: 'active', revision: 0 }];
+    (window as unknown as { __TAURI_INTERNALS__: { invoke: (command: string, args?: { input?: any }) => Promise<unknown> } }).__TAURI_INTERNALS__ = { invoke: async (command, args) => {
+      if (command === 'list_projects') return { projects: [project], total: 1, limit: 10, offset: 0 };
+      if (command === 'list_memories') return { project_id: project.id, memories: [] };
+      if (command === 'list_skills') return { project_id: project.id, scope: 'project', skills: [], total: 0, limit: 50, offset: 0, available: true };
+      if (command === 'list_scheduled_jobs') return jobs;
+      if (command === 'create_scheduled_job') return args?.input;
+      if (command === 'update_scheduled_job') { jobs = [{ ...jobs[0], enabled: false, lifecycle: 'disabled', revision: 1 }]; return jobs[0]; }
+      throw new Error(`Unexpected command: ${command}`);
+    } };
+  });
+  await page.goto('/');
+  await page.getByRole('listitem', { name: 'Ver detalhes de Automation Project' }).click();
+  await expect(page.getByRole('region', { name: 'Automações do projeto' })).toBeVisible();
+  await expect(page.getByText('job-a')).toBeVisible();
+  await page.getByRole('button', { name: 'Pausar' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'pausada' })).toBeVisible();
 });

@@ -504,6 +504,27 @@ impl JobStore {
         let row = sqlx::query("SELECT owner_id, trigger_kind, trigger_value, target_kind, target_id, target_version, timezone, enabled, lifecycle, concurrency_limit, missed_run_policy, revision, expires_at_ms, claim_id, consumed_at_ms FROM scheduler_jobs WHERE project_id = ? AND job_id = ?").bind(project).bind(job_id).fetch_optional(&self.pool).await.map_err(|_| JobError::Query)?.ok_or(JobError::NotFound)?;
         decode(project, job_id, row)
     }
+    pub async fn list(
+        &self,
+        project: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<ScheduledJob>, JobError> {
+        validate_text(project)?;
+        if limit == 0 || limit > 100 || offset > 10_000 {
+            return Err(JobError::InvalidBounds);
+        }
+        let rows = sqlx::query("SELECT job_id, owner_id, trigger_kind, trigger_value, target_kind, target_id, target_version, timezone, enabled, lifecycle, concurrency_limit, missed_run_policy, revision, expires_at_ms, claim_id, consumed_at_ms FROM scheduler_jobs WHERE project_id = ? ORDER BY job_id LIMIT ? OFFSET ?")
+            .bind(project)
+            .bind(i64::from(limit))
+            .bind(i64::from(offset))
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|_| JobError::Query)?;
+        rows.into_iter()
+            .map(|row| decode(project, &row.get::<String, _>("job_id"), row))
+            .collect()
+    }
     pub async fn update(
         &self,
         job: ScheduledJob,

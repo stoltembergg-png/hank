@@ -122,3 +122,15 @@ async fn migration_is_repeatable_and_stale_update_does_not_overwrite() {
         .unwrap();
     assert_eq!(updated.revision, current.revision + 1);
 }
+
+// @spec:AC-1271
+#[tokio::test]
+async fn list_is_project_scoped_and_bounded() {
+    let (_storage, store) = setup().await;
+    for id in ["job-a", "job-b", "job-c"] {
+        store.create(job(id)).await.unwrap();
+    }
+    let listed = store.list("project-a", 2, 0).await.unwrap();
+    assert_eq!(listed.len(), 2);
+    assert!(listed.iter().all(|item| item.project_id == "project-a"));
+}

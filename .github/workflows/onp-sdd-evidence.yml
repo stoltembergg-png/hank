@@ -313,6 +313,9 @@ jobs:
       - name: Verify workflow ParallelNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-parallel-node
 
+      - name: Verify automation UI
+        run: node tools/ci/run-onp-spec.mjs verify automation-ui
+
       - name: Verify project desktop bridge
         env:
           HANK_SKIP_TAURI: ''

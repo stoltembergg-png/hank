@@ -116,6 +116,9 @@ mod tauri_tests {
             "crate::projects::get_project",
             "crate::projects::update_project",
             "crate::projects::archive_project",
+            "crate::scheduler::list_scheduled_jobs",
+            "crate::scheduler::create_scheduled_job",
+            "crate::scheduler::update_scheduled_job",
         ] {
             assert!(
                 registered.contains(command),
@@ -125,7 +128,7 @@ mod tauri_tests {
 
         assert_eq!(
             registered.split(',').count(),
-            16,
+            19,
             "a ponte deve registrar exatamente os comandos tipados previstos"
         );
 
@@ -167,6 +170,29 @@ mod tauri_tests {
         );
     }
 
+    #[test]
+    fn ac_1271_1273_scheduler_bridge_is_project_scoped_and_revision_safe() {
+        // @spec:AC-1271 @spec:AC-1273
+        let bridge =
+            fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/scheduler.rs"))
+                .expect("scheduler.rs não encontrado");
+        for required in [
+            "list_scheduled_jobs",
+            "create_scheduled_job",
+            "update_scheduled_job",
+            "authorize(&state",
+            "expected_revision",
+            ".update(",
+            ".list(",
+            "get_by_id",
+        ] {
+            assert!(
+                bridge.contains(required),
+                "boundary scheduler ausente: {required}"
+            );
+        }
+        assert!(!bridge.contains("sqlx::query(\"INSERT INTO scheduler_jobs"));
+    }
     #[test]
     fn ac_105_logs_estruturados() {
         // @spec:AC-105
