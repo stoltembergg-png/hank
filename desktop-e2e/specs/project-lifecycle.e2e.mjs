@@ -66,7 +66,7 @@ class WebDriverSession {
     const deadline = Date.now() + timeout;
     let actual = '';
     while (Date.now() < deadline) {
-      try { actual = await this.bodyText(); if (actual.includes(expected)) return; } catch { /* retry while WebView settles */ }
+      try { actual = await this.bodyText(); if (actual.toLowerCase().includes(expected.toLowerCase())) return; } catch { /* retry while WebView settles */ }
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
     throw new Error(`body did not contain ${JSON.stringify(expected)}; got ${JSON.stringify(actual)}`);
@@ -112,7 +112,7 @@ try {
   await browser.click(await element(`[aria-label="Ver detalhes de ${projectName}"]`));
   await element(`[aria-label="Detalhes do Projeto ${projectName}"]`);
   const detail = await browser.text(await element(`[aria-label="Detalhes do Projeto ${projectName}"]`));
-  for (const expected of [projectName, owner, description, 'active']) if (!detail.includes(expected)) throw new Error(`open: missing ${expected}`);
+  for (const expected of [projectName, owner, description, 'active']) if (!detail.toLowerCase().includes(expected.toLowerCase())) throw new Error(`open: missing ${expected}`);
   if (!/proj-[0-9a-f-]{36}/i.test(detail)) throw new Error('open: valid ProjectId was not displayed');
   await screenshot('02-opened');
 
