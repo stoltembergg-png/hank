@@ -121,7 +121,7 @@ try {
   await browser.value(await element('#edit-project-name'), updatedName);
   await browser.value(await element('#edit-project-desc'), updatedDescription);
   await browser.click(await element('button[type="submit"]'));
-  await assertText('[role="status"]', 'atualizado');
+  await assertText('.project-detail-success', 'atualizado');
   await browser.waitForText(updatedName);
   await browser.click(await element('[aria-label="Voltar para a lista"]'));
   await element(`[aria-label="Ver detalhes de ${updatedName}"]`);
@@ -139,7 +139,7 @@ try {
   await element('[role="dialog"]');
   await browser.value(await element('#archive-reason-input'), 'Desktop lifecycle E2E');
   await browser.click(await element('button.btn-danger'));
-  await assertText('[role="status"]', 'arquivado');
+  await assertText('.project-detail-success', 'arquivado');
   await browser.waitForText('archived');
   await screenshot('04-archived');
 
