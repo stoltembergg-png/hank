@@ -10,6 +10,14 @@
 - Refs: US-1284, AC-1287
 - Arquivos: `apps/desktop/src-tauri/src/notifications.rs`, `frontend/src/api/notifications.ts`
 
+Bloqueada até existir uma boundary/plugin OS aprovada; o worker genérico não assume uma implementação de plataforma.
+
+## T-1294 — Definir boundary interna de capability [concluida]
+- Refs: AC-1287
+- Arquivos: `crates/agent-runtime/src/notifications.rs`, `crates/agent-runtime/tests/notifications_contract.rs`
+
+Estados de permissão e fallback determinísticos foram implementados sem bloquear o scheduler.
+
 ## T-1293 — Auditar e publicar PR-203 [pendente]
 - Refs: US-1284, AC-1285, AC-1286, AC-1287, AC-1288
 - Arquivos: `.github/workflows/onp-sdd-evidence.yml`, `docs/desktop-notifications.md`

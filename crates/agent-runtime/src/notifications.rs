@@ -53,6 +53,45 @@ pub struct Notification {
     pub deep_link: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PermissionState {
+    Granted,
+    Denied,
+    Unavailable,
+}
+
+pub trait NotificationSink {
+    fn permission(&self) -> PermissionState;
+    fn deliver(&mut self, notification: &Notification) -> bool;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeliveryOutcome {
+    Delivered,
+    Suppressed(&'static str),
+    Failed,
+}
+
+pub struct NotificationWorker<S: NotificationSink> {
+    sink: S,
+}
+
+impl<S: NotificationSink> NotificationWorker<S> {
+    pub fn new(sink: S) -> Self {
+        Self { sink }
+    }
+
+    pub fn deliver(&mut self, notification: &Notification) -> DeliveryOutcome {
+        if self.sink.permission() != PermissionState::Granted {
+            return DeliveryOutcome::Suppressed("permission");
+        }
+        if self.sink.deliver(notification) {
+            DeliveryOutcome::Delivered
+        } else {
+            DeliveryOutcome::Failed
+        }
+    }
+}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NotificationDecision {
     Deliver(Notification),

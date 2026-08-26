@@ -1,6 +1,6 @@
 use agent_runtime::notifications::{
-    NotificationDecision, NotificationEvent, NotificationKind, NotificationPolicy,
-    NotificationPreferences,
+    DeliveryOutcome, NotificationDecision, NotificationEvent, NotificationKind, NotificationPolicy,
+    NotificationPreferences, NotificationSink, NotificationWorker, PermissionState,
 };
 
 fn event(kind: NotificationKind, body: &str) -> NotificationEvent {
@@ -11,6 +11,20 @@ fn event(kind: NotificationKind, body: &str) -> NotificationEvent {
         kind,
         title: "Job completed".into(),
         body: body.into(),
+    }
+}
+
+struct FixtureSink {
+    permission: PermissionState,
+}
+
+impl NotificationSink for FixtureSink {
+    fn permission(&self) -> PermissionState {
+        self.permission
+    }
+
+    fn deliver(&mut self, _notification: &agent_runtime::notifications::Notification) -> bool {
+        true
     }
 }
 
@@ -61,6 +75,24 @@ fn disabled_preferences_and_rate_limit_fail_closed() {
         limited.evaluate(second),
         NotificationDecision::Suppressed("rate_limited")
     );
+}
+
+#[test]
+// @spec:AC-1287
+fn denied_or_unavailable_sink_is_safe_and_non_blocking() {
+    for permission in [PermissionState::Denied, PermissionState::Unavailable] {
+        let mut worker = NotificationWorker::new(FixtureSink { permission });
+        let notification = match NotificationPolicy::new(NotificationPreferences::enabled(1))
+            .evaluate(event(NotificationKind::Success, "safe"))
+        {
+            NotificationDecision::Deliver(notification) => notification,
+            _ => panic!("event should be deliverable before sink policy"),
+        };
+        assert_eq!(
+            worker.deliver(&notification),
+            DeliveryOutcome::Suppressed("permission")
+        );
+    }
 }
 
 #[test]
