@@ -38,6 +38,9 @@ for (const [ac, description, rustTest] of cases) {
       0,
       `${ac}: cargo test failed with ${cargoResult.status ?? 'signal'}\n${cargoOutput.slice(-12000)}`,
     );
-    assert.match(cargoOutput, new RegExp(`test ${rustTest} \.\.\. ok`), `${ac}: Rust test result missing`);
+    assert.ok(
+      cargoOutput.split(/\r?\n/).some((line) => line.includes(`test ${rustTest} ... ok`)),
+      `${ac}: Rust test result missing`,
+    );
   });
 }

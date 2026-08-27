@@ -345,17 +345,22 @@ jobs:
         env:
           HANK_SKIP_TAURI: ''
           HANK_ONLY_TAURI: '1'
-        run: node tools/ci/run-onp-spec.mjs verify tauri-desktop
+        run: |
+          set -o pipefail
+          node tools/ci/run-onp-spec.mjs verify tauri-desktop 2>&1 | tee .spec/tauri-desktop-onp.log
 
       - name: Audit SDD
         run: node tools/ci/run-onp-spec.mjs audit --ci
 
       - name: Upload ONP evidence
+        if: always()
         id: upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: onp-evidence-${{ github.sha }}
-          path: .spec/verification/*.json
+          path: |
+            .spec/verification/*.json
+            .spec/tauri-desktop-onp.log
           if-no-files-found: error
           retention-days: 7
 
