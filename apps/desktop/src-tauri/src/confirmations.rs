@@ -181,7 +181,8 @@ pub fn command_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 
         crate::projects::archive_project,
         crate::scheduler::list_scheduled_jobs,
         crate::scheduler::create_scheduled_job,
-        crate::scheduler::update_scheduled_job
+        crate::scheduler::update_scheduled_job,
+        crate::lifecycle::frontend_ready
     ]
 }
 

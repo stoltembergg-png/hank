@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -14,6 +15,18 @@ const updatedDescription = 'Desktop Project Lifecycle E2E Updated';
 
 if (!binary || !dataDir) throw new Error('HANK_DESKTOP_BIN and HANK_E2E_APP_DATA_DIR are required');
 await fs.mkdir(diagnostics, { recursive: true });
+
+const artifactBytes = await fs.readFile(binary);
+const artifactIdentity = {
+  executable: path.resolve(binary),
+  sha256: createHash('sha256').update(artifactBytes).digest('hex'),
+  version: process.env.HANK_EXPECTED_VERSION ?? null,
+  commitSha: process.env.HANK_EXPECTED_COMMIT_SHA ?? process.env.GITHUB_SHA ?? null,
+  treeSha: process.env.HANK_EXPECTED_TREE_SHA ?? null,
+  buildTimestamp: process.env.HANK_BUILD_TIMESTAMP ?? (await fs.stat(binary)).mtime.toISOString(),
+  platform: process.platform,
+};
+await fs.writeFile(path.join(diagnostics, 'artifact-identity.json'), JSON.stringify(artifactIdentity, null, 2));
 
 class WebDriverSession {
   constructor() { this.sessionId = undefined; }
@@ -87,7 +100,9 @@ async function assertText(selector, expected) {
 
 async function start() {
   browser = await new WebDriverSession().start();
-  await element('h1');
+  await element('[data-hank-frontend-mounted="true"]');
+  await element('[data-hank-frontend-ready="true"]');
+  await assertText('header .status', 'ready');
   await element('[aria-label="Gerenciamento de Projetos"]');
 }
 async function stop() {
@@ -97,6 +112,7 @@ async function stop() {
 
 try {
   await start();
+  console.log(`DESKTOP E2E ARTIFACT: ${JSON.stringify(artifactIdentity)}`);
   phase = 'startup';
   await assertText('[aria-label="Gerenciamento de Projetos"]', 'Projetos');
   await browser.waitForText('Nenhum projeto encontrado');

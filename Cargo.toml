@@ -46,7 +46,7 @@ futures-util = "0.3"
 tempfile = "3.8"
 getrandom = "0.2"
 syn = "3"
-rand = "0.8"
+rand = "0.10"
 sha2 = "0.10"
 
 # [workspace.lints]  # Disabled due to format issues; add back when Rust version supports it
