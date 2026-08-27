@@ -44,7 +44,7 @@ semver = { version = "1.0", features = ["serde"] }
 futures-core = "0.3"
 futures-util = "0.3"
 tempfile = "3.8"
-getrandom = "0.2"
+getrandom = "0.4"
 syn = "3"
 rand = "0.10"
 sha2 = "0.10"
