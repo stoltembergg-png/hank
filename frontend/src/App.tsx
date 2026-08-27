@@ -1,39 +1,46 @@
-import { useState, useEffect } from 'react';
+import { useState, useLayoutEffect } from 'react';
 import { ProjectList } from './components/ProjectList';
 import { APP_VERSION } from './version';
+import { FRONTEND_READY_EVENT, FRONTEND_STARTUP_FAILED_EVENT } from './api/lifecycle';
 import './App.css';
 
 function App() {
   const [status, setStatus] = useState<'booting' | 'ready' | 'error'>('booting');
   const [version] = useState<string>(APP_VERSION);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     console.log({ event: 'mount', version, timestamp: new Date().toISOString() });
-    setStatus('booting');
 
-    const timer = setTimeout(() => {
-      try {
-        console.log({ event: 'ready', version, timestamp: new Date().toISOString() });
-        setStatus('ready');
-      } catch (error) {
-        console.error({
-          event: 'error',
-          version,
-          error: error instanceof Error ? error.name : 'unknown',
-          timestamp: new Date().toISOString(),
-        });
-        setStatus('error');
-      }
-    }, 100);
+    const onReady = () => {
+      console.log({ event: 'ready', version, timestamp: new Date().toISOString() });
+      setStatus('ready');
+    };
+    const onFailure = (event: Event) => {
+      console.error({
+        event: 'error',
+        version,
+        error: event.type,
+        timestamp: new Date().toISOString(),
+      });
+      setStatus('error');
+    };
+
+    window.addEventListener(FRONTEND_READY_EVENT, onReady);
+    window.addEventListener(FRONTEND_STARTUP_FAILED_EVENT, onFailure);
 
     return () => {
-      clearTimeout(timer);
+      window.removeEventListener(FRONTEND_READY_EVENT, onReady);
+      window.removeEventListener(FRONTEND_STARTUP_FAILED_EVENT, onFailure);
       console.log({ event: 'unmount', version, timestamp: new Date().toISOString() });
     };
   }, [version]);
 
   return (
-    <div className="app">
+    <div
+      className="app"
+      data-hank-frontend-mounted="true"
+      data-hank-frontend-ready={status === 'ready' ? 'true' : 'false'}
+    >
       <header>
         <h1>Hank Desktop</h1>
         <span className={`status ${status}`}>{status}</span>

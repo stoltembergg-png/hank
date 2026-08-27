@@ -94,6 +94,32 @@ describe('CI Build workflow AC tests', () => {
     expect(release).toContain('Start-Process');
   });
 
+  it('Windows packaging runs the installed binary through the real Project lifecycle', () => {
+    const release = workflow('release-prerelease.yml');
+    expect(release).toContain('Run installed Windows Project lifecycle E2E');
+    expect(release).toContain('HANK_DESKTOP_BIN = $executable');
+    expect(release).toContain("HANK_E2E_ALLOW_RELEASE_DATA_DIR = '1'");
+    expect(release).toContain('desktop-e2e\\run-windows.ps1');
+    expect(release).toContain('cargo install tauri-driver --version 2.0.6 --locked');
+  });
+
+  it('native lifecycle asserts frontend mount and the successful IPC readiness handshake', () => {
+    const e2e = readFileSync(join(REPOSITORY_ROOT, 'desktop-e2e', 'specs', 'project-lifecycle.e2e.mjs'), 'utf8');
+    expect(e2e).toContain('[data-hank-frontend-mounted="true"]');
+    expect(e2e).toContain('[data-hank-frontend-ready="true"]');
+    expect(e2e).toContain("header .status', 'ready'");
+    expect(e2e).toContain('artifact-identity.json');
+    const runner = readFileSync(join(REPOSITORY_ROOT, 'desktop-e2e', 'run-windows.ps1'), 'utf8');
+    expect(runner).toContain('node_modules/vite/bin/vite.js');
+    expect(runner).toContain('project-lifecycle.e2e.mjs');
+    expect(runner).toContain('Get-WebView2Executable');
+    expect(runner).toContain('Get-MatchingWebView2Driver');
+    expect(runner).toContain('msedgewebview2.exe');
+    expect(runner).toContain('msedgedriverVersion');
+    expect(runner).toContain('HANK_WEBDRIVER_PORT');
+    expect(runner).toContain('--native-port');
+  });
+
   it('Windows packaging resolves frontendDist from the checked out Tauri config', () => {
     const release = workflow('release-prerelease.yml');
     expect(release).toContain("$config = Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/src-tauri/tauri.conf.json'");

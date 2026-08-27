@@ -52,6 +52,22 @@ mod tauri_tests {
         }
 
         assert!(manifest["app"]["windows"].is_array());
+        assert_eq!(manifest["app"]["windows"][0]["create"], false);
+    }
+
+    #[test]
+    fn ac_101_webview_usa_diretorio_de_dados_dedicado() {
+        // @spec:AC-101
+        let manifest = manifest();
+        assert_eq!(
+            manifest["app"]["windows"][0]["dataDirectory"], "webview",
+            "WebView2 deve ter um perfil dedicado e estável por aplicativo"
+        );
+        let source = fs::read_to_string(source_path()).expect("main.rs não encontrado");
+        assert!(
+            source.contains(".data_directory(webview_data_directory)"),
+            "o builder deve aplicar explicitamente o perfil dedicado"
+        );
     }
 
     #[test]
@@ -119,6 +135,7 @@ mod tauri_tests {
             "crate::scheduler::list_scheduled_jobs",
             "crate::scheduler::create_scheduled_job",
             "crate::scheduler::update_scheduled_job",
+            "crate::lifecycle::frontend_ready",
         ] {
             assert!(
                 registered.contains(command),
@@ -128,7 +145,7 @@ mod tauri_tests {
 
         assert_eq!(
             registered.split(',').count(),
-            19,
+            20,
             "a ponte deve registrar exatamente os comandos tipados previstos"
         );
 
@@ -197,10 +214,17 @@ mod tauri_tests {
     fn ac_105_logs_estruturados() {
         // @spec:AC-105
         let source = fs::read_to_string(source_path()).expect("main.rs não encontrado");
+        let lifecycle =
+            fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/lifecycle.rs"))
+                .expect("lifecycle.rs não encontrado");
 
-        for event in ["boot", "ready", "close", "failure"] {
+        for event in ["boot", "webview_ready", "close", "failure"] {
             assert!(source.contains(&format!("event = \"{event}\"")));
         }
+        assert!(lifecycle.contains("event = \"ready\""));
+        assert!(source.contains("APPLICATION_STARTUP_FAILED"));
+        assert!(source.contains("stage"));
+        assert!(source.contains("error_code"));
         assert!(source.contains("version"));
         for forbidden in ["token", "secret", "password", "Authorization"] {
             assert!(!source.contains(forbidden));
