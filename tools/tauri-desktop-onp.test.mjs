@@ -24,6 +24,10 @@ before(() => {
 
 for (const [ac, description, rustTest] of cases) {
   test(`${description} @spec:${ac}`, () => {
+    if (cargoResult.error || cargoResult.status !== 0) {
+      console.error('Tauri desktop cargo test output:');
+      console.error(cargoOutput);
+    }
     assert.equal(
       cargoResult.error,
       undefined,
