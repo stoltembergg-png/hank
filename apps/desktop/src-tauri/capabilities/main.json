@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-capability",
+  "description": "Minimal capability for the Hank desktop window",
+  "windows": ["main"],
+  "permissions": [
+    "notification:allow-is-permission-granted",
+    "notification:allow-permission-state",
+    "notification:allow-request-permission",
+    "notification:allow-notify"
+  ]
+}
