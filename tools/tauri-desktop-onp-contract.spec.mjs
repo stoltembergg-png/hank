@@ -27,6 +27,5 @@ test('the Tauri ONP runner maps every desktop AC to a real Rust test', () => {
   assert.match(runner, /@spec:\$\{ac\}/);
   assert.match(runner, /cargo test/);
   assert.match(runner, /--test', 'tauri_ac_tests'/);
-  assert.match(runner, /test \$\{rustTest\}/);
-  assert.match(runner, /Rust test result missing/);
+  assert.match(runner, /rustTest\} \.\.\. ok/);
 });

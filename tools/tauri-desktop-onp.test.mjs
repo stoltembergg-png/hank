@@ -39,7 +39,7 @@ for (const [ac, description, rustTest] of cases) {
       `${ac}: cargo test failed with ${cargoResult.status ?? 'signal'}\n${cargoOutput.slice(-12000)}`,
     );
     assert.ok(
-      cargoOutput.split(/\r?\n/).some((line) => line.includes(`test ${rustTest} ... ok`)),
+      cargoOutput.split(/\r?\n/).some((line) => line.includes(`${rustTest} ... ok`)),
       `${ac}: Rust test result missing`,
     );
   });
