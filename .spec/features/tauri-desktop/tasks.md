@@ -47,3 +47,9 @@
 - Refs: US-101, AC-101, AC-102, AC-103, AC-104, AC-105
 - Arquivos: apps/desktop/src-tauri/tests/tauri_ac_tests.rs, apps/desktop/src-tauri/Cargo.toml, tools/run-all-tests.mjs, .github/workflows/build-tauri.yml
 - Notas: cargo check/test e fmt em Ubuntu com WebKitGTK; valida AC-101..105
+
+## T-1300 — Endurecer readiness nativa e E2E do shell desktop [em-andamento]
+
+- Refs: US-101, AC-101, AC-105
+- Arquivos: apps/desktop/src-tauri/src/lifecycle.rs, frontend/src/api/lifecycle.ts, frontend/src/App.tsx, frontend/src/main.tsx, frontend/tests/lifecycle_handshake.test.ts, frontend/tests/app_lifecycle_handshake.test.tsx, desktop-e2e/run-windows.ps1, desktop-e2e/specs/project-lifecycle.e2e.mjs
+- Notas: readiness só é publicada após o handshake IPC real; o registro dos listeners precede a chamada nativa para suportar restart; o runner Windows resolve o WebDriver compatível com o WebView2 instalado e isola as portas.

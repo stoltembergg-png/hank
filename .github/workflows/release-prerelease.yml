@@ -287,6 +287,31 @@ jobs:
           }
           exit 0
 
+      - name: Run installed Windows Project lifecycle E2E
+        shell: pwsh
+        env:
+          TAG: ${{ needs.preflight.outputs.tag }}
+          COMMIT_SHA: ${{ needs.preflight.outputs.sha }}
+          TREE_SHA: ${{ needs.preflight.outputs.tree }}
+        run: |
+          $installDir = Join-Path $env:RUNNER_TEMP 'hank-desktop-e2e'
+          $executable = Join-Path $installDir 'hank-desktop.exe'
+          if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) { throw "installed desktop executable not found: $executable" }
+          npm --prefix desktop-e2e ci --no-fund
+          cargo install tauri-driver --version 2.0.6 --locked
+          $env:HANK_DESKTOP_BIN = $executable
+          $env:HANK_E2E_APP_DATA_DIR = Join-Path $env:RUNNER_TEMP 'hank-desktop-lifecycle-data'
+          $env:HANK_E2E_ALLOW_RELEASE_DATA_DIR = '1'
+          $env:HANK_DESKTOP_E2E_ARTIFACTS = Join-Path $env:RUNNER_TEMP 'hank-desktop-lifecycle-artifacts'
+          $env:HANK_WEBDRIVER_PORT = '4444'
+          $env:HANK_EXPECTED_VERSION = $env:TAG.Substring(1)
+          $env:HANK_EXPECTED_COMMIT_SHA = $env:COMMIT_SHA
+          $env:HANK_EXPECTED_TREE_SHA = $env:TREE_SHA
+          $env:RUST_LOG = 'info'
+          New-Item -ItemType Directory -Force -Path $env:HANK_DESKTOP_E2E_ARTIFACTS, $env:HANK_E2E_APP_DATA_DIR | Out-Null
+          & powershell -NoProfile -ExecutionPolicy Bypass -File desktop-e2e\run-windows.ps1
+          if ($LASTEXITCODE -ne 0) { throw "installed Windows Project lifecycle E2E failed with exit code $LASTEXITCODE" }
+
       - name: Upload Windows installer
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
