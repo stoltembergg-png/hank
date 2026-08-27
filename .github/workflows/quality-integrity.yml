@@ -32,6 +32,9 @@ jobs:
       - name: Validate Dependabot configuration
         run: node --test tools/dependabot-config.spec.mjs
 
+      - name: Validate security advisory baseline
+        run: node --test tools/security-advisory-baseline.spec.mjs
+
       - name: Validate architecture documentation
         run: node --test tools/architecture-docs.spec.mjs
 

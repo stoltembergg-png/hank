@@ -9,6 +9,22 @@ updates:
       - dependencies
       - rust
 
+  - package-ecosystem: cargo
+    directory: /apps/desktop/src-tauri
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    allow:
+      - dependency-name: tauri
+      - dependency-name: tauri-runtime-wry
+      - dependency-name: wry
+      - dependency-name: gtk
+      - dependency-name: gtk-sys
+      - dependency-name: glib
+      - dependency-name: glib-sys
+      - dependency-name: webkit2gtk
+      - dependency-name: webkit2gtk-sys
+
   - package-ecosystem: npm
     directory: /frontend
     schedule:
