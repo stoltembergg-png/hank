@@ -113,6 +113,7 @@ export function runVerify(project, featureName) {
   }
   const configuredCommand =
     config.testCommands?.[featureName] || config.testCommands?.['*'];
+  const reporter = config.reporters?.[featureName] || config.reporter;
   const testCommand = (configuredCommand || config.testCommand)?.replace(
     '{feature}',
     featureName
@@ -140,9 +141,9 @@ export function runVerify(project, featureName) {
   const output = `${proc.stdout || ''}\n${proc.stderr || ''}`;
 
   let tests = [];
-  if (config.reporter === 'tap') {
+  if (reporter === 'tap') {
     tests = parseTap(output);
-  } else if (config.reporter === 'vitest-json' || config.reporter === 'jest-json') {
+  } else if (reporter === 'vitest-json' || reporter === 'jest-json') {
     let jsonText = null;
     if (config.reporterOutputFile) {
       const p = path.join(config.rootDir, config.reporterOutputFile);
@@ -155,14 +156,14 @@ export function runVerify(project, featureName) {
     }
     if (jsonText === null) {
       throw new Error(
-        `reporter ${config.reporter}: não achei o JSON — configure "reporterOutputFile" ou garanta o JSON no stdout`
+        `reporter ${reporter}: não achei o JSON — configure "reporterOutputFile" ou garanta o JSON no stdout`
       );
     }
     tests = parseJsonReport(jsonText);
-  } else if (config.reporter === 'exitcode') {
+  } else if (reporter === 'exitcode') {
     tests = []; // sem granularidade por teste
   } else {
-    throw new Error(`reporter desconhecido: ${config.reporter}`);
+    throw new Error(`reporter desconhecido: ${reporter}`);
   }
 
   const { acResults, principleResults } = resultsByTag(tests);
@@ -179,13 +180,13 @@ export function runVerify(project, featureName) {
   const featureAcs = allAcs(feature.spec);
   for (const ac of featureAcs) {
     if (acResults[ac.id]) {
-      results[ac.id] = { ...acResults[ac.id], method: config.reporter };
-    } else if (config.reporter === 'exitcode' && annotatedAcs.has(ac.id)) {
+      results[ac.id] = { ...acResults[ac.id], method: reporter };
+    } else if (reporter === 'exitcode' && annotatedAcs.has(ac.id)) {
       // sem per-teste: só o exit code global prova (fraco, mas explícito)
       results[ac.id] = {
         status: proc.status === 0 ? 'pass' : 'fail',
         testName: null,
-        method: 'exitcode',
+        method: reporter,
       };
     }
     // sem tag correspondente → sem entrada → audit acusa AC_SEM_PROVA
@@ -194,7 +195,7 @@ export function runVerify(project, featureName) {
   // dica de UX: rodou testes mas nenhum título carrega tag de AC da feature
   const anyTagMatched = featureAcs.some((ac) => acResults[ac.id]);
   const hint =
-    tests.length > 0 && !anyTagMatched && config.reporter !== 'exitcode'
+    tests.length > 0 && !anyTagMatched && reporter !== 'exitcode'
       ? `nenhum título de teste contém @spec:${featureAcs[0]?.id || 'AC-xxx'} — a tag vai no TÍTULO do teste`
       : null;
 
@@ -203,7 +204,7 @@ export function runVerify(project, featureName) {
     timestamp: new Date().toISOString(),
     gitRev: gitRev(config.rootDir),
     command: testCommand,
-    reporter: config.reporter,
+    reporter,
     exitCode: proc.status,
     testsParsed: tests.length,
     results,
