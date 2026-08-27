@@ -10,5 +10,5 @@ description = "Provider-neutral OAuth framework boundary"
 [dependencies]
 provider-core = { path = "../provider-core" }
 base64 = "0.23"
-sha2 = "0.10"
+sha2 = "0.11"
 thiserror.workspace = true
