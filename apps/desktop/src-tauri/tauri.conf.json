@@ -20,6 +20,8 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
+        "dataDirectory": "webview",
         "title": "Hank Desktop",
         "width": 1200,
         "height": 800,
