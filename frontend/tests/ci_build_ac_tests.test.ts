@@ -118,6 +118,11 @@ describe('CI Build workflow AC tests', () => {
     expect(runner).toContain('msedgedriverVersion');
     expect(runner).toContain('HANK_WEBDRIVER_PORT');
     expect(runner).toContain('--native-port');
+    expect(runner).toContain('$versionsToTry += $runtimeVersion');
+    expect(runner).toContain('foreach ($version in ($versionsToTry | Select-Object -Unique))');
+    expect(runner.indexOf('$versionsToTry += $runtimeVersion')).toBeLessThan(
+      runner.indexOf('LATEST_RELEASE_$($runtimeParts[0])'),
+    );
   });
 
   it('Windows packaging resolves frontendDist from the checked out Tauri config', () => {

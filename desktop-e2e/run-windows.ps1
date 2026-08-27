@@ -95,9 +95,9 @@ function Get-MatchingWebView2Driver {
   $runnerTemp = $env:RUNNER_TEMP
   if (-not $runnerTemp) { $runnerTemp = [IO.Path]::GetTempPath().TrimEnd('\') }
   New-Item -ItemType Directory -Force -Path $runnerTemp | Out-Null
-  $version = $null
+  $versionsToTry = @()
   $lookupErrors = @()
-  foreach ($lookup in @("LATEST_RELEASE_$runtimeBuild", "LATEST_RELEASE_$($runtimeParts[0])")) {
+  foreach ($lookup in @("LATEST_RELEASE_$runtimeBuild")) {
     try {
       $response = Invoke-WebRequest "https://msedgedriver.microsoft.com/$lookup" -UseBasicParsing -TimeoutSec 30
       if ($response.Content -is [byte[]]) {
@@ -113,31 +113,64 @@ function Get-MatchingWebView2Driver {
       }
       $candidateVersion = [regex]::Match($content.Trim(), '\d+\.\d+\.\d+\.\d+')
       if ($candidateVersion.Success) {
-        $version = $candidateVersion.Value
-        break
+        $versionsToTry += $candidateVersion.Value
       }
       $lookupErrors += "$lookup returned an invalid version payload"
     } catch {
       $lookupErrors += "${lookup}: $($_.Exception.Message)"
     }
   }
-  if (-not $version) {
-    throw "Could not resolve a compatible Microsoft EdgeDriver for WebView2 Runtime $runtimeVersion. $($lookupErrors -join '; ')"
+  # The runtime's exact version is a safe fallback when Microsoft's build lookup
+  # is unavailable. The major-only endpoint can return an archived version that
+  # no longer has a downloadable ZIP, so try it only after this exact fallback.
+  $versionsToTry += $runtimeVersion
+  try {
+    $response = Invoke-WebRequest "https://msedgedriver.microsoft.com/LATEST_RELEASE_$($runtimeParts[0])" -UseBasicParsing -TimeoutSec 30
+    if ($response.Content -is [byte[]]) {
+      $bytes = [byte[]]$response.Content
+      $encoding = if ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) {
+        [Text.Encoding]::Unicode
+      } else {
+        [Text.Encoding]::UTF8
+      }
+      $content = $encoding.GetString($bytes)
+    } else {
+      $content = [string]$response.Content
+    }
+    $candidateVersion = [regex]::Match($content.Trim(), '\d+\.\d+\.\d+\.\d+')
+    if ($candidateVersion.Success) {
+      $versionsToTry += $candidateVersion.Value
+    } else {
+      $lookupErrors += "LATEST_RELEASE_$($runtimeParts[0]) returned an invalid version payload"
+    }
+  } catch {
+    $lookupErrors += "LATEST_RELEASE_$($runtimeParts[0]): $($_.Exception.Message)"
   }
-  $zip = Join-Path $runnerTemp "edgedriver-$version.zip"
-  $dir = Join-Path $runnerTemp "edgedriver-$version"
-  Invoke-WebRequest "https://msedgedriver.microsoft.com/$version/edgedriver_win64.zip" -OutFile $zip
-  Expand-Archive -Path $zip -DestinationPath $dir -Force
-  $downloadedDriver = Join-Path $dir 'msedgedriver.exe'
-  if (-not (Test-Path -LiteralPath $downloadedDriver -PathType Leaf)) { throw "Downloaded EdgeDriver is missing: $downloadedDriver" }
-  $downloadedVersionText = (& $downloadedDriver --version 2>$null | Out-String).Trim()
-  $downloadedVersion = [regex]::Match($downloadedVersionText, '\d+\.\d+\.\d+\.\d+')
-  if (-not $downloadedVersion.Success -or (($downloadedVersion.Value.Split('.')[0..2] -join '.') -ne $runtimeBuild)) {
-    throw "Downloaded EdgeDriver $downloadedVersionText does not match WebView2 Runtime build $runtimeBuild"
+
+  $downloadErrors = @()
+  foreach ($version in ($versionsToTry | Select-Object -Unique)) {
+    $zip = Join-Path $runnerTemp "edgedriver-$version.zip"
+    $dir = Join-Path $runnerTemp "edgedriver-$version"
+    try {
+      Invoke-WebRequest "https://msedgedriver.microsoft.com/$version/edgedriver_win64.zip" -OutFile $zip -UseBasicParsing -TimeoutSec 60
+      Expand-Archive -Path $zip -DestinationPath $dir -Force
+      $downloadedDriver = Join-Path $dir 'msedgedriver.exe'
+      if (-not (Test-Path -LiteralPath $downloadedDriver -PathType Leaf)) { throw "Downloaded EdgeDriver is missing: $downloadedDriver" }
+      $downloadedVersionText = (& $downloadedDriver --version 2>$null | Out-String).Trim()
+      $downloadedVersion = [regex]::Match($downloadedVersionText, '\d+\.\d+\.\d+\.\d+')
+      if (-not $downloadedVersion.Success -or (($downloadedVersion.Value.Split('.')[0..2] -join '.') -ne $runtimeBuild)) {
+        throw "Downloaded EdgeDriver $downloadedVersionText does not match WebView2 Runtime build $runtimeBuild"
+      }
+      $script:downloadedDriverDirectory = $dir
+      $script:downloadedDriverZip = $zip
+      return $downloadedDriver
+    } catch {
+      $downloadErrors += "$version`: $($_.Exception.Message)"
+      Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+      Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
+    }
   }
-  $script:downloadedDriverDirectory = $dir
-  $script:downloadedDriverZip = $zip
-  return $downloadedDriver
+  throw "Could not resolve a compatible Microsoft EdgeDriver for WebView2 Runtime $runtimeVersion. Lookups: $($lookupErrors -join '; '). Downloads: $($downloadErrors -join '; ')"
 }
 
 $webView2 = $null
