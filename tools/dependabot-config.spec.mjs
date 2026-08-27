@@ -25,6 +25,13 @@ test('Dependabot updates are bounded and weekly', () => {
   }
 });
 
+test('Dependabot watches the desktop Tauri/GTK dependency chain', () => {
+  const block = config.slice(config.indexOf('directory: /apps/desktop/src-tauri'));
+  for (const dependency of ['tauri', 'tauri-runtime-wry', 'wry', 'gtk', 'glib', 'glib-sys', 'webkit2gtk']) {
+    assert.match(block, new RegExp(`dependency-name: ${dependency}`));
+  }
+});
+
 test('Dependabot configuration cannot authorize automatic merge or secrets', () => {
   assert.doesNotMatch(config, /auto[-_]merge|allow[-_]merge|secrets:/i);
 });

@@ -19,8 +19,14 @@ Every proposal must pass the protected branch required checks before merge.
 - Action updates must pass Actionlint, workflow integrity and the applicable CI jobs.
 - Breaking upgrades require a focused PR with regression evidence; this policy does
   not authorize `npm audit fix --force` or automatic lockfile rewrites.
-- Advisory exceptions require an owner, rationale, expiry and a tracked follow-up;
-  no exception is declared by this configuration.
+- Advisory exceptions require an owner, rationale, expiry and a tracked follow-up.
+  The sole current exception is the documented upstream risk for
+  `RUSTSEC-2024-0429` / `GHSA-wrw7-89jp-8q8g` in
+  `docs/security/advisory-exceptions/RUSTSEC-2024-0429.md`; it is not resolved and
+  does not authorize any other advisory.
+- The security advisory workflow preserves raw `cargo audit` output, compares findings
+  with the resolved package graph, and accepts only that exact reachable exception.
+  Any new reachable advisory or audit execution error fails the gate.
 
 ## Rollback
 

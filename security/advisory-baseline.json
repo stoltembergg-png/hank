@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "owner": "Hank maintainers",
+  "review_policy": "Review monthly and on every Tauri, Wry, GTK, WebKitGTK, or glib release.",
+  "exceptions": [
+    {
+      "advisory": "RUSTSEC-2024-0429",
+      "aliases": ["GHSA-wrw7-89jp-8q8g"],
+      "dependency": "glib",
+      "installed_version": "0.18.5",
+      "installed_range": "0.18.x",
+      "dependency_chain": [
+        "hank-desktop",
+        "tauri 2.11.5",
+        "tauri-runtime-wry 2.11.4",
+        "wry 0.55.1",
+        "webkit2gtk 2.0.2",
+        "gtk 0.18.2",
+        "glib 0.18.5"
+      ],
+      "classification": "UPSTREAM_TRANSITIVE_DEPENDENCY",
+      "status": "OPEN / ACCEPTED UPSTREAM RISK",
+      "mitigation_status": "NO_COMPATIBLE_UPSTREAM_FIX_AVAILABLE",
+      "patched_upstream": ">= 0.20.0",
+      "owner": "Hank maintainers",
+      "created": "2026-08-27",
+      "review_by": "2026-09-27",
+      "removal_condition": "Remove only after a supported stack yields glib >= 0.20.0 and the full remediation matrix passes."
+    }
+  ]
+}
