@@ -35,6 +35,9 @@ jobs:
       - name: Validate security advisory baseline
         run: node --test tools/security-advisory-baseline.spec.mjs
 
+      - name: Validate Tauri ONP reporter contract
+        run: node --test tools/tauri-desktop-onp-contract.spec.mjs
+
       - name: Validate architecture documentation
         run: node --test tools/architecture-docs.spec.mjs
 

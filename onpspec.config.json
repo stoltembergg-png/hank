@@ -1,9 +1,13 @@
 {
   "testCommand": "node tools/run-all-tests.mjs",
   "testCommands": {
-    "*": "node tools/run-feature-tests.mjs {feature}"
+    "*": "node tools/run-feature-tests.mjs {feature}",
+    "tauri-desktop": "node --test tools/tauri-desktop-onp.test.mjs"
   },
   "reporter": "exitcode",
+  "reporters": {
+    "tauri-desktop": "tap"
+  },
   "testGlobs": [
     "test/**/*.js",
     "tests/**/*.rs",
