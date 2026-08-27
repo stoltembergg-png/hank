@@ -1,7 +1,13 @@
 import { useState, useLayoutEffect } from 'react';
 import { ProjectList } from './components/ProjectList';
 import { APP_VERSION } from './version';
-import { FRONTEND_READY_EVENT, FRONTEND_STARTUP_FAILED_EVENT } from './api/lifecycle';
+import {
+  FRONTEND_READY_EVENT,
+  FRONTEND_STARTUP_FAILED_EVENT,
+  notifyFrontendReady,
+  publishFrontendReady,
+  publishFrontendStartupFailure,
+} from './api/lifecycle';
 import './App.css';
 
 function App() {
@@ -27,6 +33,21 @@ function App() {
 
     window.addEventListener(FRONTEND_READY_EVENT, onReady);
     window.addEventListener(FRONTEND_STARTUP_FAILED_EVENT, onFailure);
+
+    // Register listeners before invoking the native command. React's root
+    // commit can be deferred, and a microtask in main.tsx could otherwise
+    // publish the result before this component is listening (notably after a
+    // WebView restart).
+    void notifyFrontendReady()
+      .then(() => publishFrontendReady())
+      .catch((error: unknown) => {
+        console.error({
+          event: 'frontend_ready_failed',
+          error: error instanceof Error ? error.name : 'UnknownError',
+          timestamp: new Date().toISOString(),
+        });
+        publishFrontendStartupFailure(error);
+      });
 
     return () => {
       window.removeEventListener(FRONTEND_READY_EVENT, onReady);
