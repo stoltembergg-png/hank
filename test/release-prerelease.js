@@ -7,7 +7,6 @@ import { join } from 'node:path';
 import test from 'node:test';
 import {
   assertPostMergeChecks,
-  assertRequiredCheckCoverage,
   assertPublishPermission,
   assertTagAvailable,
   buildManifest,
@@ -20,6 +19,11 @@ import {
   renderReleaseNotes,
   verifyVersionConsistency,
 } from '../tools/release-prerelease.mjs';
+import {
+  assertManifestMatchesRuleset,
+  readRequiredChecks,
+  readRulesetRequiredChecks,
+} from '../tools/release-required-checks.mjs';
 
 const sha = 'a'.repeat(40);
 const tree = 'b'.repeat(40);
@@ -63,19 +67,26 @@ test('AC-626: fails closed on missing or failed post-merge checks @spec:AC-626',
   assert.throws(() => assertPostMergeChecks({ checks: [{ name: 'Build Rust', status: 'queued', conclusion: null }], required: ['Build Rust'] }), /not successful/);
 });
 
-test('AC-626: prerelease derives coverage from live branch protection @spec:AC-626', () => {
+test('AC-626: prerelease derives required checks from manifest and active ruleset @spec:AC-626', () => {
   const workflow = readFileSync('.github/workflows/release-prerelease.yml', 'utf8');
-  assert.match(workflow, /branches\/main\/protection\/required_status_checks/);
-  assert.match(workflow, /const protectedNames = \[\.\.\.new Set\(\[/);
-  assert.match(workflow, /writeFileSync\('\/tmp\/required-checks\.txt', protectedNames\.join\(','\)\)/);
-  assert.match(workflow, /required=\$\(cat \/tmp\/required-checks\.txt\)/);
+  const manifest = JSON.parse(readFileSync('.github/required-checks.json', 'utf8'));
+  const activeRules = JSON.parse(readFileSync('.github/required-checks.json', 'utf8'));
+  const names = readRequiredChecks(manifest);
+  assert.equal(names.length, 11);
+  assert.match(workflow, /rules\/branches\/main/);
+  assert.match(workflow, /\.github\/required-checks\.json/);
+  assert.match(workflow, /release-required-checks\.mjs validate/);
   assert.match(workflow, /--required \"\$required\"/);
-  assert.doesNotMatch(workflow, /REQUIRED_POST_MERGE_CHECKS/);
-  const protectedNames = ['Build Rust', 'Quality integrity', 'Security advisory gate'];
-  const configuredNames = [...protectedNames];
-  assert.equal(assertRequiredCheckCoverage({ protectedNames, configuredNames }), true);
-  assert.throws(() => assertRequiredCheckCoverage({ protectedNames, configuredNames: configuredNames.slice(0, 2) }), /coverage mismatch/);
-  assert.throws(() => assertRequiredCheckCoverage({ protectedNames, configuredNames: [...configuredNames, 'Product Acceptance / Workspace'] }), /coverage mismatch/);
+  assert.doesNotMatch(workflow, /branches\/main\/protection\/required_status_checks/);
+  const ruleset = [{ type: 'required_status_checks', parameters: {
+    strict_required_status_checks_policy: true,
+    required_status_checks: names.map((context) => ({ context, integration_id: 15368 })),
+  } }];
+  assert.deepEqual(readRulesetRequiredChecks(ruleset), names);
+  assert.equal(assertManifestMatchesRuleset({ manifestNames: names, rulesetNames: names }), true);
+  assert.throws(() => assertManifestMatchesRuleset({ manifestNames: names, rulesetNames: names.slice(0, -1) }), /mismatch/);
+  assert.throws(() => assertManifestMatchesRuleset({ manifestNames: names, rulesetNames: [...names, 'Product Acceptance \/ Workspace'] }), /mismatch/);
+  assert.deepEqual(activeRules.requiredChecks, names);
 });
 
 test('AC-627: rerun is idempotent only for the exact existing release @spec:AC-627', () => {

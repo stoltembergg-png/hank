@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "branch": "main",
+  "requiredChecks": [
+    "Build Frontend",
+    "Build Rust",
+    "Build Rust Windows",
+    "Build Tauri Desktop",
+    "Desktop E2E / Project Lifecycle",
+    "w0-contract-gate",
+    "CodeQL (rust)",
+    "CodeQL (javascript-typescript)",
+    "ONP SDD verify and audit",
+    "Quality integrity",
+    "Security advisory gate"
+  ]
+}

@@ -102,24 +102,17 @@ jobs:
             echo "classification=$classification"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Require prerelease list matches branch protection
+      - name: Require prerelease manifest matches active ruleset
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh api "repos/$REPOSITORY/branches/main/protection/required_status_checks" > /tmp/protected-checks.json
-          node --input-type=module - <<'NODE'
-          import fs from 'node:fs';
-          const protectedPolicy = JSON.parse(fs.readFileSync('/tmp/protected-checks.json', 'utf8'));
-          const protectedNames = [...new Set([
-            ...(protectedPolicy.contexts ?? []),
-            ...(protectedPolicy.checks ?? []).map((check) => check.context ?? check.name).filter(Boolean),
-          ])];
-          if (!protectedNames.length) throw new Error('branch protection returned no required checks');
-          fs.writeFileSync('/tmp/required-checks.txt', protectedNames.join(','));
-          console.log(`required checks loaded from branch protection: ${protectedNames.length}`);
-          NODE
+          gh api "repos/$REPOSITORY/rules/branches/main" > /tmp/active-rules.json
+          node tools/release-required-checks.mjs validate \
+            --manifest .github/required-checks.json \
+            --rules /tmp/active-rules.json \
+            --output /tmp/required-checks.txt
 
       - name: Wait for required post-merge checks
         env:
