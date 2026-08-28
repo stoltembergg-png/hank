@@ -109,7 +109,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          REQUIRED_POST_MERGE_CHECKS: ${{ env.REQUIRED_POST_MERGE_CHECKS }}
         run: |
           set -euo pipefail
           gh api "repos/$REPOSITORY/branches/main/protection/required_status_checks" > /tmp/protected-checks.json
@@ -131,7 +130,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           SHA: ${{ steps.identity.outputs.sha }}
-          REQUIRED_POST_MERGE_CHECKS: ${{ env.REQUIRED_POST_MERGE_CHECKS }}
         run: |
           set -euo pipefail
           for attempt in $(seq 1 40); do
