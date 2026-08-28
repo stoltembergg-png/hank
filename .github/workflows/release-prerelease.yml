@@ -122,6 +122,7 @@ jobs:
           ];
           const configuredNames = (process.env.REQUIRED_POST_MERGE_CHECKS ?? '').split(',').filter(Boolean);
           assertRequiredCheckCoverage({ protectedNames, configuredNames });
+          fs.writeFileSync('/tmp/required-checks.txt', protectedNames.join(','));
           console.log(`required check sets match: ${configuredNames.length}`);
           NODE
 
@@ -134,8 +135,9 @@ jobs:
           set -euo pipefail
           for attempt in $(seq 1 40); do
             echo "polling required post-merge checks: attempt $attempt/40"
+            required=$(cat /tmp/required-checks.txt)
             gh api --paginate "repos/$REPOSITORY/commits/$SHA/check-runs" --jq '[.check_runs[] | {name,status,conclusion}]' > /tmp/checks.json
-            node tools/release-prerelease.mjs checks --file /tmp/checks.json --required "$REQUIRED_POST_MERGE_CHECKS" && exit 0
+            node tools/release-prerelease.mjs checks --file /tmp/checks.json --required "$required" && exit 0
             sleep 30
           done
           echo "required post-merge checks did not reach success" >&2

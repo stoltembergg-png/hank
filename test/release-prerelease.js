@@ -68,6 +68,9 @@ test('AC-626: prerelease derives coverage from live branch protection @spec:AC-6
   assert.match(workflow, /branches\/main\/protection\/required_status_checks/);
   assert.match(workflow, /const protectedNames = \[/);
   assert.match(workflow, /assertRequiredCheckCoverage\(\{ protectedNames, configuredNames \}\)/);
+  assert.match(workflow, /writeFileSync\('\/tmp\/required-checks\.txt', protectedNames\.join\(','\)\)/);
+  assert.match(workflow, /required=\$\(cat \/tmp\/required-checks\.txt\)/);
+  assert.match(workflow, /--required \"\$required\"/);
   assert.doesNotMatch(workflow, /const expected = \[/);
   const protectedNames = ['Build Rust', 'Quality integrity', 'Security advisory gate'];
   const configuredNames = [...protectedNames];
