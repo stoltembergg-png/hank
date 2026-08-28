@@ -63,13 +63,17 @@ fn approval_binds_exact_request_without_retaining_raw_arguments() {
 
 #[test]
 fn hash_payload_returns_stable_lowercase_sha256_hex() {
-    let hash = ApprovalRequest::hash_payload(&json!({"a": 1})).unwrap();
+    let hash = ApprovalRequest::hash_payload(&json!({"a": 1, "b": 2})).unwrap();
 
     assert_eq!(
         hash,
-        "015abd7f5cc57a2dd94b7590f04ad8084273905ee33ec5cebeae62276a97f862"
+        "43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777"
     );
     assert!(hash.chars().all(|character| character.is_ascii_hexdigit()));
+    assert_eq!(
+        hash,
+        ApprovalRequest::hash_payload(&json!({"b": 2, "a": 1})).unwrap()
+    );
 }
 
 #[test]
