@@ -53,6 +53,17 @@ export function verifyVersionConsistency({ cargoToml, desktopCargoToml, frontend
   return versions;
 }
 
+export function assertRequiredCheckCoverage({ protectedNames, configuredNames }) {
+  const protectedSet = new Set(protectedNames);
+  const configuredSet = new Set(configuredNames);
+  const missing = protectedNames.filter((name) => !configuredSet.has(name));
+  const extra = configuredNames.filter((name) => !protectedSet.has(name));
+  if (missing.length || extra.length || protectedSet.size !== configuredSet.size) {
+    throw new Error(`required check coverage mismatch: ${JSON.stringify({ missing, extra })}`);
+  }
+  return true;
+}
+
 export function assertPostMergeChecks({ checks, required }) {
   const byName = new Map(checks.map((check) => [check.name, check]));
   for (const name of required) {
