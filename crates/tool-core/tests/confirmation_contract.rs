@@ -62,6 +62,17 @@ fn approval_binds_exact_request_without_retaining_raw_arguments() {
 }
 
 #[test]
+fn hash_payload_returns_stable_lowercase_sha256_hex() {
+    let hash = ApprovalRequest::hash_payload(&json!({"a": 1})).unwrap();
+
+    assert_eq!(
+        hash,
+        "015abd7f5cc57a2dd94b7590f04ad8084273905ee33ec5cebeae62276a97f862"
+    );
+    assert!(hash.chars().all(|character| character.is_ascii_hexdigit()));
+}
+
+#[test]
 // @spec:AC-670
 fn approval_expiry_and_revocation_fail_closed() {
     let ledger = ConfirmationLedger::new();
