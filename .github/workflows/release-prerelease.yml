@@ -105,11 +105,33 @@ jobs:
             echo "classification=$classification"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Require prerelease list matches branch protection
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          REQUIRED_POST_MERGE_CHECKS: ${{ env.REQUIRED_POST_MERGE_CHECKS }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPOSITORY/branches/main/protection/required_status_checks" > /tmp/protected-checks.json
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          import { assertRequiredCheckCoverage } from './tools/release-prerelease.mjs';
+          const protectedPolicy = JSON.parse(fs.readFileSync('/tmp/protected-checks.json', 'utf8'));
+          const protectedNames = [
+            ...(protectedPolicy.contexts ?? []),
+            ...(protectedPolicy.checks ?? []).map((check) => check.context ?? check.name).filter(Boolean),
+          ];
+          const configuredNames = (process.env.REQUIRED_POST_MERGE_CHECKS ?? '').split(',').filter(Boolean);
+          assertRequiredCheckCoverage({ protectedNames, configuredNames });
+          console.log(`required check sets match: ${configuredNames.length}`);
+          NODE
+
       - name: Wait for required post-merge checks
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           SHA: ${{ steps.identity.outputs.sha }}
+          REQUIRED_POST_MERGE_CHECKS: ${{ env.REQUIRED_POST_MERGE_CHECKS }}
         run: |
           set -euo pipefail
           for attempt in $(seq 1 40); do

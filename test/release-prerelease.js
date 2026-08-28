@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import {
   assertPostMergeChecks,
+  assertRequiredCheckCoverage,
   assertPublishPermission,
   assertTagAvailable,
   buildManifest,
@@ -62,25 +63,17 @@ test('AC-626: fails closed on missing or failed post-merge checks @spec:AC-626',
   assert.throws(() => assertPostMergeChecks({ checks: [{ name: 'Build Rust', status: 'queued', conclusion: null }], required: ['Build Rust'] }), /not successful/);
 });
 
-test('AC-626: publication requires every protected post-merge context @spec:AC-626', () => {
+test('AC-626: prerelease derives coverage from live branch protection @spec:AC-626', () => {
   const workflow = readFileSync('.github/workflows/release-prerelease.yml', 'utf8');
-  const line = workflow.match(/^  REQUIRED_POST_MERGE_CHECKS: (.+)$/m)?.[1];
-  assert.ok(line, 'required post-merge check list must be declared');
-  const actual = line.split(',');
-  const expected = [
-    'Build Frontend',
-    'Build Rust',
-    'Build Rust Windows',
-    'Build Tauri Desktop',
-    'Desktop E2E / Project Lifecycle',
-    'w0-contract-gate',
-    'CodeQL (rust)',
-    'CodeQL (javascript-typescript)',
-    'ONP SDD verify and audit',
-    'Quality integrity',
-    'Security advisory gate',
-  ];
-  assert.deepEqual(actual, expected);
+  assert.match(workflow, /branches\/main\/protection\/required_status_checks/);
+  assert.match(workflow, /const protectedNames = \[/);
+  assert.match(workflow, /assertRequiredCheckCoverage\(\{ protectedNames, configuredNames \}\)/);
+  assert.doesNotMatch(workflow, /const expected = \[/);
+  const protectedNames = ['Build Rust', 'Quality integrity', 'Security advisory gate'];
+  const configuredNames = [...protectedNames];
+  assert.equal(assertRequiredCheckCoverage({ protectedNames, configuredNames }), true);
+  assert.throws(() => assertRequiredCheckCoverage({ protectedNames, configuredNames: configuredNames.slice(0, 2) }), /coverage mismatch/);
+  assert.throws(() => assertRequiredCheckCoverage({ protectedNames, configuredNames: [...configuredNames, 'Product Acceptance / Workspace'] }), /coverage mismatch/);
 });
 
 test('AC-627: rerun is idempotent only for the exact existing release @spec:AC-627', () => {
