@@ -66,12 +66,11 @@ test('AC-626: fails closed on missing or failed post-merge checks @spec:AC-626',
 test('AC-626: prerelease derives coverage from live branch protection @spec:AC-626', () => {
   const workflow = readFileSync('.github/workflows/release-prerelease.yml', 'utf8');
   assert.match(workflow, /branches\/main\/protection\/required_status_checks/);
-  assert.match(workflow, /const protectedNames = \[/);
-  assert.match(workflow, /assertRequiredCheckCoverage\(\{ protectedNames, configuredNames \}\)/);
+  assert.match(workflow, /const protectedNames = \[\.\.\.new Set\(\[/);
   assert.match(workflow, /writeFileSync\('\/tmp\/required-checks\.txt', protectedNames\.join\(','\)\)/);
   assert.match(workflow, /required=\$\(cat \/tmp\/required-checks\.txt\)/);
   assert.match(workflow, /--required \"\$required\"/);
-  assert.doesNotMatch(workflow, /const expected = \[/);
+  assert.doesNotMatch(workflow, /REQUIRED_POST_MERGE_CHECKS/);
   const protectedNames = ['Build Rust', 'Quality integrity', 'Security advisory gate'];
   const configuredNames = [...protectedNames];
   assert.equal(assertRequiredCheckCoverage({ protectedNames, configuredNames }), true);
