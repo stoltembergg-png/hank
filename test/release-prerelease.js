@@ -62,9 +62,25 @@ test('AC-626: fails closed on missing or failed post-merge checks @spec:AC-626',
   assert.throws(() => assertPostMergeChecks({ checks: [{ name: 'Build Rust', status: 'queued', conclusion: null }], required: ['Build Rust'] }), /not successful/);
 });
 
-test('AC-626: publication requires the Windows Rust check @spec:AC-626', () => {
+test('AC-626: publication requires every protected post-merge context @spec:AC-626', () => {
   const workflow = readFileSync('.github/workflows/release-prerelease.yml', 'utf8');
-  assert.match(workflow, /REQUIRED_POST_MERGE_CHECKS:.*Build Rust Windows/);
+  const line = workflow.match(/^  REQUIRED_POST_MERGE_CHECKS: (.+)$/m)?.[1];
+  assert.ok(line, 'required post-merge check list must be declared');
+  const actual = line.split(',');
+  const expected = [
+    'Build Frontend',
+    'Build Rust',
+    'Build Rust Windows',
+    'Build Tauri Desktop',
+    'Desktop E2E / Project Lifecycle',
+    'w0-contract-gate',
+    'CodeQL (rust)',
+    'CodeQL (javascript-typescript)',
+    'ONP SDD verify and audit',
+    'Quality integrity',
+    'Security advisory gate',
+  ];
+  assert.deepEqual(actual, expected);
 });
 
 test('AC-627: rerun is idempotent only for the exact existing release @spec:AC-627', () => {
