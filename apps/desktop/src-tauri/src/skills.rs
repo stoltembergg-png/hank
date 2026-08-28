@@ -994,7 +994,11 @@ fn source_kind(kind: &SkillSourceKind) -> String {
 fn digest_reference(reference: &str) -> String {
     let mut digest = Sha256::new();
     digest.update(reference.as_bytes());
-    format!("{:x}", digest.finalize())
+    digest
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 #[cfg(test)]
