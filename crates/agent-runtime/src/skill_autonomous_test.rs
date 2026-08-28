@@ -210,8 +210,8 @@ fn validate(request: &SkillAutonomousTestRequest) -> Result<(), DomainError> {
 }
 
 fn digest_json<T: Serialize + ?Sized>(value: &T) -> String {
-    format!(
-        "{:x}",
-        Sha256::digest(serde_json::to_vec(value).unwrap_or_default())
-    )
+    Sha256::digest(serde_json::to_vec(value).unwrap_or_default())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>()
 }

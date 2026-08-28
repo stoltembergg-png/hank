@@ -101,7 +101,7 @@ impl ApprovalRequest {
             return Err(ConfirmationError::InvalidPayload);
         }
         let digest = Sha256::digest(bytes);
-        Ok(format!("{digest:x}"))
+        Ok(lower_hex(digest.as_ref()))
     }
 
     fn request_fingerprint(&self) -> Result<String, ConfirmationError> {
@@ -405,10 +405,20 @@ impl<'a> RequestBinding<'a> {
     }
 }
 
+fn lower_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    output
+}
+
 fn fingerprint<T: Serialize>(value: &T) -> Result<String, ConfirmationError> {
     let bytes = serde_json::to_vec(value).map_err(|_| ConfirmationError::InvalidRequest)?;
     let digest = Sha256::digest(bytes);
-    Ok(format!("{digest:x}"))
+    Ok(lower_hex(digest.as_ref()))
 }
 
 fn validate_text(value: &str, _field: &str) -> Result<(), ConfirmationError> {

@@ -425,5 +425,8 @@ fn contains_sensitive_marker(value: &str) -> bool {
 
 fn digest_json<T: Serialize + ?Sized>(value: &T) -> String {
     let bytes = serde_json::to_vec(value).unwrap_or_default();
-    format!("{:x}", Sha256::digest(bytes))
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }

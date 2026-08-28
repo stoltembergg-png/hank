@@ -1150,13 +1150,19 @@ fn compute_content_hash(_skill: &Skill, parsed: &ParsedSkill) -> Result<String, 
         "quarantined": parsed.quarantined,
     });
     let bytes = serde_json::to_vec(&canonical)?;
-    Ok(format!("{:x}", Sha256::digest(bytes)))
+    Ok(Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect())
 }
 
 fn source_event_metadata(source: &agent_core::SkillSource) -> serde_json::Value {
     serde_json::json!({
         "kind": source.kind,
-        "reference_digest": format!("{:x}", Sha256::digest(source.reference.as_bytes())),
+        "reference_digest": Sha256::digest(source.reference.as_bytes())
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>(),
     })
 }
 

@@ -130,7 +130,10 @@ impl DeterministicSkillTestRunner {
 
         let bytes = serde_json::to_vec(fixture)
             .map_err(|_| SkillTestError::InvalidManifest("serialization"))?;
-        let digest = format!("{:x}", Sha256::digest(bytes));
+        let digest = Sha256::digest(bytes)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
         Ok(SkillTestReport {
             project_id: fixture.project_id,
             skill_id: fixture.skill_id,
