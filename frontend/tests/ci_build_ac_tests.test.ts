@@ -46,7 +46,7 @@ describe('CI Build workflow AC tests', () => {
   it('AC-402: workflow frontend executa npm ci/build e publica artifact com digest', () => {
     const frontend = workflow('build-frontend.yml');
     assertCommonGateProperties(frontend);
-    expect(frontend).toContain('node-version: 20.19.1');
+    expect(frontend).toContain('node-version: 22.22.2');
     expect(frontend).toContain('cache-dependency-path: frontend/package-lock.json');
     expect(frontend).toContain('npm ci --no-fund');
     expect(frontend).toContain('npm audit --audit-level=high');
@@ -75,7 +75,7 @@ describe('CI Build workflow AC tests', () => {
     );
     expect(rust).toContain('toolchain: 1.97.1');
     expect(frontend).toContain('runs-on: ubuntu-latest');
-    expect(frontend).toContain('node-version: 20.19.1');
+    expect(frontend).toContain('node-version: 22.22.2');
   });
 
   it('Windows packaging rejects absolute frontend asset URLs', () => {
