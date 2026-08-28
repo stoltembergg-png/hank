@@ -12,9 +12,6 @@ concurrency:
   group: publish-prerelease-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  REQUIRED_POST_MERGE_CHECKS: Build Frontend,Build Rust,Build Rust Windows,Build Tauri Desktop,Desktop E2E / Project Lifecycle,w0-contract-gate,CodeQL (rust),CodeQL (javascript-typescript),ONP SDD verify and audit,Quality integrity,Security advisory gate
-
 jobs:
   preflight:
     name: Preflight and post-merge gate
@@ -114,16 +111,14 @@ jobs:
           gh api "repos/$REPOSITORY/branches/main/protection/required_status_checks" > /tmp/protected-checks.json
           node --input-type=module - <<'NODE'
           import fs from 'node:fs';
-          import { assertRequiredCheckCoverage } from './tools/release-prerelease.mjs';
           const protectedPolicy = JSON.parse(fs.readFileSync('/tmp/protected-checks.json', 'utf8'));
-          const protectedNames = [
+          const protectedNames = [...new Set([
             ...(protectedPolicy.contexts ?? []),
             ...(protectedPolicy.checks ?? []).map((check) => check.context ?? check.name).filter(Boolean),
-          ];
-          const configuredNames = (process.env.REQUIRED_POST_MERGE_CHECKS ?? '').split(',').filter(Boolean);
-          assertRequiredCheckCoverage({ protectedNames, configuredNames });
+          ])];
+          if (!protectedNames.length) throw new Error('branch protection returned no required checks');
           fs.writeFileSync('/tmp/required-checks.txt', protectedNames.join(','));
-          console.log(`required check sets match: ${configuredNames.length}`);
+          console.log(`required checks loaded from branch protection: ${protectedNames.length}`);
           NODE
 
       - name: Wait for required post-merge checks
