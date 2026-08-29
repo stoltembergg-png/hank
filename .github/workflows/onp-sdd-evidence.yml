@@ -321,6 +321,9 @@ jobs:
       - name: Verify task-to-branch mapping
         run: node tools/ci/run-onp-spec.mjs verify task-branch-mapping
 
+      - name: Verify coding agent profile
+        run: node tools/ci/run-onp-spec.mjs verify coding-agent-profile
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
