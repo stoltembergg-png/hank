@@ -2,7 +2,7 @@
 
 > feature: automation-ui
 
-## T-1276 — Expor listagem bounded e commands de scheduler [em-andamento]
+## T-1276 — Expor listagem bounded e commands de scheduler [concluida]
 
 - Refs: US-1270, AC-1271, AC-1272, AC-1273
 - Arquivos: `crates/agent-runtime/src/scheduler.rs`, `apps/desktop/src-tauri/src/scheduler.rs`, `apps/desktop/src-tauri/src/main.rs`, `frontend/src/api/scheduler.ts`
