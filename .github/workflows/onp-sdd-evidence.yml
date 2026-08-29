@@ -339,6 +339,9 @@ jobs:
       - name: Verify PR generation workflow
         run: node tools/ci/run-onp-spec.mjs verify pr-generation-workflow
 
+      - name: Verify review workflow
+        run: node tools/ci/run-onp-spec.mjs verify review-workflow
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
