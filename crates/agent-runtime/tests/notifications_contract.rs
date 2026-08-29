@@ -63,6 +63,29 @@ fn duplicate_event_is_suppressed_without_changing_first_decision() {
 }
 
 #[test]
+// @spec:AC-1286
+fn deduplication_key_includes_project_and_run_scope() {
+    let mut policy = NotificationPolicy::new(NotificationPreferences::enabled(10));
+    assert!(matches!(
+        policy.evaluate(event(NotificationKind::Success, "project a")),
+        NotificationDecision::Deliver(_)
+    ));
+
+    let mut other_scope = event(NotificationKind::Success, "project b");
+    other_scope.project_id = "project-b".into();
+    other_scope.run_id = "run-2".into();
+    assert!(matches!(
+        policy.evaluate(other_scope),
+        NotificationDecision::Deliver(_)
+    ));
+
+    assert_eq!(
+        policy.evaluate(event(NotificationKind::Failure, "same scope")),
+        NotificationDecision::Suppressed("duplicate")
+    );
+}
+
+#[test]
 // @spec:AC-1287
 fn disabled_preferences_and_rate_limit_fail_closed() {
     let mut disabled = NotificationPolicy::new(NotificationPreferences::disabled());
