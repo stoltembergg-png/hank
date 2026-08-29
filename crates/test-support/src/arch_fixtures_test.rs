@@ -194,6 +194,7 @@ fn metadata_lists_expected_crates() {
         "agent-runtime",
         "provider-core",
         "secrets-core",
+        "security-core",
         "auth-core",
         "provider-adapter-openai-compatible",
         "provider-adapter-openai",
