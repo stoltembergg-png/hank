@@ -12,6 +12,7 @@ pub mod agent;
 pub mod architecture_profile;
 pub mod autonomy;
 pub mod budget;
+pub mod ci_status_integration;
 pub mod coding_profile;
 pub mod config;
 pub mod cycle_detection;
