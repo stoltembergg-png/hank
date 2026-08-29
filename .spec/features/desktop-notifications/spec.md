@@ -1,7 +1,7 @@
 # Spec: desktop notifications
 
 > feature: desktop-notifications
-> status: em-implementacao
+> status: implementada
 
 ### US-1284 — Notificações seguras de automação
 
@@ -53,7 +53,7 @@ credenciais ou links não validados.
 
 | ID | Suposição | Status | Resolução |
 | --- | --- | --- | --- |
-| ASM-1289 | O worker de OS notification consumirá uma decisão pura desta política; este slice não introduz chamada direta de sistema operacional. | confirmada | Boundary OS será T-1292. |
+| ASM-1289 | O worker de OS notification consumirá uma decisão pura desta política; este slice não introduz chamada direta de sistema operacional. | confirmada | Boundary OS foi implementada em T-1292. |
 | ASM-1290 | `project_id` e `run_id` são identificadores opacos e permanecem parâmetros bounded do deep link. | confirmada | IDs são validados por allowlist. |
 
 ## Perguntas em aberto
