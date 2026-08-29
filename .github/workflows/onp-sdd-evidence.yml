@@ -354,6 +354,9 @@ jobs:
       - name: Verify improvement observation event
         run: node tools/ci/run-onp-spec.mjs verify improvement-observation-event
 
+      - name: Verify improvement candidate entity
+        run: node tools/ci/run-onp-spec.mjs verify improvement-candidate-entity
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
