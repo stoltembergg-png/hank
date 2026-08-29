@@ -64,6 +64,14 @@ ou seja tratado como instrução executável.
 - **Quando** incorporado ao handoff.
 - **Então** é rejeitado como dado inválido, sem execução, approval ou capability.
 
+## Suposições
+
+Nenhuma.
+
+## Perguntas em aberto
+
+Nenhuma.
+
 ## Definition of Done
 
 Contrato, testes positivos/negativos, documentação e verify ONP passam; adapter
