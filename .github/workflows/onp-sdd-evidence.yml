@@ -342,6 +342,9 @@ jobs:
       - name: Verify review workflow
         run: node tools/ci/run-onp-spec.mjs verify review-workflow
 
+      - name: Verify CI status integration
+        run: node tools/ci/run-onp-spec.mjs verify ci-status-integration
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
