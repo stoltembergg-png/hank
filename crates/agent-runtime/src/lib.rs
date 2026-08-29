@@ -64,6 +64,7 @@ pub mod skill_testing;
 pub mod skill_validation;
 pub mod sqlite;
 pub mod streaming;
+pub mod task_mapping_repo;
 pub mod tool;
 pub mod tool_node;
 pub mod usage;
@@ -106,3 +107,4 @@ pub use skill_evaluation::{
 pub use skill_loader::*;
 pub use skill_repo::*;
 pub use sqlite::*;
+pub use task_mapping_repo::*;

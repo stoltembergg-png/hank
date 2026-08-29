@@ -46,7 +46,7 @@ uma revisão diferente carregada pelo owner apropriado.
 - criação ou checkout de branch;
 - commit, push, force-push ou merge reais;
 - GitHub live rulesets, criação de PR ou aprovação remota;
-- persistência de task-to-branch mapping (PR-207);
+- Persistência e reconciliação de task-to-branch mapping são responsabilidades do repository bounded em `agent-runtime` (PR-207); a policy continua sem acesso a storage.
 - credentials, secrets, release signing e UI.
 
 ## Verificação
