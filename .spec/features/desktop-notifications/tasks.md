@@ -6,7 +6,7 @@
 - Refs: US-1284, AC-1285, AC-1286, AC-1287, AC-1288
 - Arquivos: `crates/agent-runtime/src/notifications.rs`, `crates/agent-runtime/src/lib.rs`, `crates/agent-runtime/tests/notifications_contract.rs`, `docs/desktop-notifications.md`
 
-## T-1292 — Integrar worker desktop e preferência OS [pendente]
+## T-1292 — Integrar worker desktop e preferência OS [concluida]
 - Refs: US-1284, AC-1287, AC-1295, AC-1296, AC-1297, AC-1298
 - Arquivos: `apps/desktop/src-tauri/src/notifications.rs`, `apps/desktop/src-tauri/src/main.rs`, `apps/desktop/src-tauri/tests/notifications_adapter_contract.rs`, `apps/desktop/src-tauri/Cargo.toml`, `apps/desktop/src-tauri/Cargo.lock`, `apps/desktop/src-tauri/capabilities/main.json`
 
