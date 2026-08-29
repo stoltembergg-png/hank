@@ -53,6 +53,13 @@ test('ONP workflow runs reviewer agent profile verification explicitly', () => {
     /Verify reviewer agent profile[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify reviewer-agent-profile/,
   );
 });
+test('ONP workflow runs QA agent profile verification explicitly', () => {
+  assert.match(
+    workflow,
+    /Verify QA agent profile[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify qa-agent-profile/,
+  );
+});
+
 test('ONP workflow runs coding agent profile verification explicitly', () => {
   assert.match(
     workflow,
