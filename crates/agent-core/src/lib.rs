@@ -32,6 +32,7 @@ pub mod moderator_policy;
 pub mod parallel_batch;
 pub mod parser;
 pub mod project;
+pub mod reviewer_profile;
 pub mod round_policy;
 pub mod session;
 pub mod skill;
