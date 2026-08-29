@@ -10,12 +10,12 @@
 
 ## T-1305 — Implementar adapter Git bounded [pendente]
 
-- Refs: US-1302, AC-1306, AC-1309, AC-1310
-- Arquivos: crates/tool-core/src/git_worktree.rs, crates/tool-core/tests/git_worktree_contract.rs
+- Refs: US-1302
+- Arquivos futuros: adapter Git estruturado e contratos do executor
 - Notas: argv explícito para add/list/remove, output bounded e parser fail-closed de `git worktree list`.
 
 ## T-1306 — Cleanup recovery, documentação e auditoria [pendente]
 
-- Refs: US-1302, AC-1307, AC-1308, AC-1309, AC-1310
-- Arquivos: docs/git-worktree-manager.md, .github/workflows/onp-sdd-evidence.yml
+- Refs: US-1302
+- Arquivos futuros: documentação do lifecycle e integração de auditoria
 - Notas: orphan recovery somente dentro da allowlist, owner authorization, testes de failure modes e prova ONP.
