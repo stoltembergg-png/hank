@@ -351,6 +351,9 @@ jobs:
       - name: Verify release-agent workflow
         run: node tools/ci/run-onp-spec.mjs verify release-agent-workflow
 
+      - name: Verify improvement observation event
+        run: node tools/ci/run-onp-spec.mjs verify improvement-observation-event
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 

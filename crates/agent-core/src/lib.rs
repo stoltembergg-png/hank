@@ -25,6 +25,7 @@ pub mod group_budget;
 pub mod group_entity;
 pub mod group_session;
 pub mod importance;
+pub mod improvement_observation;
 pub mod invocation_graph;
 pub mod keyword;
 pub mod memory;
