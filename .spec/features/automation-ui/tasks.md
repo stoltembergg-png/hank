@@ -8,7 +8,7 @@
 - Arquivos: `crates/agent-runtime/src/scheduler.rs`, `apps/desktop/src-tauri/src/scheduler.rs`, `apps/desktop/src-tauri/src/main.rs`, `frontend/src/api/scheduler.ts`
 - Escopo: listar jobs por project com limite/página, criar e atualizar via application boundary; sem executar jobs.
 
-## T-1277 — Construir tela acessível de automations [pendente]
+## T-1277 — Construir tela acessível de automations [concluida]
 
 - Refs: US-1270, AC-1272, AC-1274
 - Arquivos: `frontend/src/components/AutomationList.tsx`, `frontend/src/api/scheduler.ts`, `frontend/src/components/ProjectDetailView.tsx`
