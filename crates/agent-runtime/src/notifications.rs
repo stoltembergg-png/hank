@@ -121,7 +121,8 @@ impl NotificationPolicy {
         if !valid_id(&event.project_id) || !valid_id(&event.run_id) || !valid_id(&event.event_id) {
             return NotificationDecision::Suppressed("invalid_scope");
         }
-        if self.seen.contains(&event.event_id) {
+        let dedupe_key = dedupe_key(&event);
+        if self.seen.contains(&dedupe_key) {
             return NotificationDecision::Suppressed("duplicate");
         }
         if self.delivered >= self.preferences.max_per_window {
@@ -141,7 +142,7 @@ impl NotificationPolicy {
             body: redact(&event.body),
             deep_link: format!("hank://runs/{}/{}", event.project_id, event.run_id),
         };
-        self.seen.insert(event.event_id);
+        self.seen.insert(dedupe_key);
         if self.seen.len() > MAX_DEDUP_ENTRIES {
             self.seen.clear();
         }
@@ -166,6 +167,10 @@ impl NotificationPolicy {
         }
         Some(format!("hank://runs/{project_id}/{run_id}"))
     }
+}
+
+fn dedupe_key(event: &NotificationEvent) -> String {
+    format!("{}\0{}\0{}", event.project_id, event.run_id, event.event_id)
 }
 
 fn valid_id(value: &str) -> bool {
