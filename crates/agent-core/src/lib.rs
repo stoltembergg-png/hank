@@ -11,6 +11,7 @@
 pub mod agent;
 pub mod autonomy;
 pub mod budget;
+pub mod coding_profile;
 pub mod config;
 pub mod cycle_detection;
 pub mod dedupe;
