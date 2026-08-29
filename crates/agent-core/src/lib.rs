@@ -9,6 +9,7 @@
 //! - APENAS depender de: agent-protocol, std, serde, thiserror, uuid, chrono
 
 pub mod agent;
+pub mod architecture_profile;
 pub mod autonomy;
 pub mod budget;
 pub mod coding_profile;
