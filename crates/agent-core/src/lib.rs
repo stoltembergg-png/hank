@@ -35,6 +35,7 @@ pub mod parser;
 pub mod pr_generation_workflow;
 pub mod project;
 pub mod qa_profile;
+pub mod review_workflow;
 pub mod reviewer_profile;
 pub mod round_policy;
 pub mod session;
