@@ -32,6 +32,7 @@ pub mod mention_parser;
 pub mod moderator_policy;
 pub mod parallel_batch;
 pub mod parser;
+pub mod pr_generation_workflow;
 pub mod project;
 pub mod qa_profile;
 pub mod reviewer_profile;

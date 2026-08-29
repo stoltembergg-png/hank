@@ -336,6 +336,9 @@ jobs:
       - name: Verify architecture agent profile
         run: node tools/ci/run-onp-spec.mjs verify architecture-agent-profile
 
+      - name: Verify PR generation workflow
+        run: node tools/ci/run-onp-spec.mjs verify pr-generation-workflow
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
