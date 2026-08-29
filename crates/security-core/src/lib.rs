@@ -4,6 +4,14 @@
 //! policy state. Callers provide bounded identity and policy-revision data and
 //! receive an explicit allow/deny result.
 
+pub mod security_profile;
+pub use security_profile::{
+    SecurityAgentProfile, SecurityEvidence, SecurityEvidenceStatus, SecurityFinding,
+    SecurityFindingClassification, SecurityFindingSeverity, SecurityFindingStatus, SecurityHandoff,
+    SecurityHandoffStatus, SecurityPermit, SecurityProfileError, SecurityReport,
+    SecurityReportStatus, SecurityThreatCase, SecurityThreatManifest,
+};
+
 use std::collections::BTreeSet;
 use thiserror::Error;
 
