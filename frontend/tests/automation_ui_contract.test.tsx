@@ -1,7 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AutomationList } from '../src/components/AutomationList';
-import { type SchedulerApiClient } from '../src/api/scheduler';
+import { type SchedulerApiClient, type ScheduledJobView } from '../src/api/scheduler';
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => { resolve = res; });
+  return { promise, resolve };
+}
 
 function api() {
   return {
@@ -51,6 +57,26 @@ describe('AutomationList', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
     expect(client.list).toHaveBeenCalledWith({ project_id: 'project-a', owner_id: 'owner', limit: 50, offset: 0 });
     expect(screen.getByRole('alert').textContent).toContain('bridge unavailable');
+  });
+
+  // @spec:AC-1274
+  it('keeps newer project state when list responses resolve out of order', async () => {
+    const client = api();
+    const first = deferred<ScheduledJobView[]>();
+    const second = deferred<ScheduledJobView[]>();
+    const oldJob = { project_id: 'project-a', job_id: 'old-job', owner_id: 'owner', trigger_kind: 'interval', trigger_value: '60', target_kind: 'workflow', target_id: 'workflow-a', target_version: 1, timezone: 'UTC', concurrency_limit: 1, missed_run_policy: 'skip', enabled: true, lifecycle: 'active', revision: 1 };
+    const newJob = { ...oldJob, project_id: 'project-b', job_id: 'new-job', revision: 2 };
+    client.list.mockReset();
+    client.list.mockImplementationOnce(() => first.promise).mockImplementationOnce(() => second.promise);
+    const { rerender } = render(<AutomationList projectId="project-a" ownerId="owner" api={client as SchedulerApiClient} />);
+    await waitFor(() => expect(client.list).toHaveBeenCalledTimes(1));
+    rerender(<AutomationList projectId="project-b" ownerId="owner" api={client as SchedulerApiClient} />);
+    await waitFor(() => expect(client.list).toHaveBeenCalledTimes(2));
+    second.resolve([newJob]);
+    await waitFor(() => expect(screen.getByText(/new-job/)).toBeTruthy());
+    first.resolve([oldJob]);
+    await waitFor(() => expect(screen.queryByText(/old-job/)).toBeNull());
+    expect(screen.getByText(/new-job/)).toBeTruthy();
   });
 
   // @spec:AC-1273
