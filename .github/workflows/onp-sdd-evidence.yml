@@ -306,6 +306,9 @@ jobs:
           HANK_SKIP_TAURI: '0'
         run: node tools/ci/run-onp-spec.mjs verify desktop-notifications
 
+      - name: Verify repository workspace
+        run: node tools/ci/run-onp-spec.mjs verify repository-workspace
+
       - name: Verify workflow scheduler integration
         run: node tools/ci/run-onp-spec.mjs verify workflow-scheduler-integration
 
