@@ -14,8 +14,8 @@
 - Arquivos: crates/tool-core/src/git_worktree.rs, crates/tool-core/tests/git_worktree_contract.rs
 - Notas: argv explícito para add/list/remove, output bounded e parser fail-closed de `git worktree list`.
 
-## T-1306 — Cleanup recovery, documentação e auditoria [pendente]
+## T-1306 — Cleanup recovery, documentação e auditoria [concluida]
 
-- Refs: US-1302
-- Arquivos futuros: documentação do lifecycle e integração de auditoria
-- Notas: orphan recovery somente dentro da allowlist, owner authorization, testes de failure modes e prova ONP.
+- Refs: US-1302, AC-1311, AC-1312
+- Arquivos: crates/agent-core/src/worktree.rs, crates/agent-core/tests/worktree_contract.rs, docs/git-worktree-manager.md
+- Notas: plano dry-run determinístico, allowlist por registry, owner authorization e preservação explícita de paths desconhecidos; não remove automaticamente.
