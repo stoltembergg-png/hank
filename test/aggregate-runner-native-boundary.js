@@ -67,6 +67,13 @@ test('ONP workflow runs security agent profile verification explicitly', () => {
   );
 });
 
+test('ONP workflow runs architecture agent profile verification explicitly', () => {
+  assert.match(
+    workflow,
+    /Verify architecture agent profile[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify architecture-agent-profile/,
+  );
+});
+
 test('ONP workflow runs coding agent profile verification explicitly', () => {
   assert.match(
     workflow,
