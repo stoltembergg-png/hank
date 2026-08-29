@@ -348,6 +348,9 @@ jobs:
       - name: Verify fix-review workflow
         run: node tools/ci/run-onp-spec.mjs verify fix-review-workflow
 
+      - name: Verify release-agent workflow
+        run: node tools/ci/run-onp-spec.mjs verify release-agent-workflow
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
