@@ -18,6 +18,6 @@ A implementação usa o plugin oficial atrás da boundary interna; nenhuma API T
 
 Estados de permissão e fallback determinísticos foram implementados sem bloquear o scheduler.
 
-## T-1293 — Auditar e publicar PR-203 [pendente]
+## T-1293 — Auditar e publicar PR-203 [concluida]
 - Refs: US-1284, AC-1285, AC-1286, AC-1287, AC-1288, AC-1295, AC-1296
 - Arquivos: `.github/workflows/onp-sdd-evidence.yml`, `docs/desktop-notifications.md`
