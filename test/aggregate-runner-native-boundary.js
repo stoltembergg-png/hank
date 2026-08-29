@@ -39,3 +39,10 @@ test('ONP workflow runs branch policy verification explicitly', () => {
     /Verify branch policy[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify branch-policy/,
   );
 });
+
+test('ONP workflow runs task-to-branch mapping verification explicitly', () => {
+  assert.match(
+    workflow,
+    /Verify task-to-branch mapping[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify task-branch-mapping/,
+  );
+});

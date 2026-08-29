@@ -35,6 +35,7 @@ pub mod round_policy;
 pub mod session;
 pub mod skill;
 pub mod synthesis;
+pub mod task_mapping;
 pub mod taxonomy;
 pub mod tool_permissions;
 pub mod vector;

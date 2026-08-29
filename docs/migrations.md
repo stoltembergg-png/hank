@@ -34,6 +34,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+## Task-to-branch mapping (migration `0021_task_workspace_mappings.sql`)
+
+A migração adiciona o mapping durável e project-scoped entre task, repository,
+worktree, branch, agent run e eventual pull request. O repository usa
+compare-and-set por `revision`; o domínio mantém lifecycle explícito e envia
+mismatches para reconciliação sem executar efeitos externos.
+
 ## Workflow state persistence (migration `0014_workflow_state.sql`)
 
 The additive migration adds durable run/node state, transition journal, and pending approval/delay anchors. `StateStore` uses project/run-scoped transactional compare-and-set; duplicate idempotency keys replay without a second journal row. Checkpoints are bounded redacted envelopes and never store prompts, provider payloads, credentials, or capabilities. Crash recovery policy remains the scope of PR-187.
