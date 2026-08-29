@@ -1776,6 +1776,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "security-core"
+version = "0.3.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "semver"
 version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"

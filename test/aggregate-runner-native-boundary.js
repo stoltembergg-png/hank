@@ -32,3 +32,10 @@ test('ONP workflow runs Git worktree verification explicitly', () => {
     /Verify Git worktree manager[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify git-worktree-manager/,
   );
 });
+
+test('ONP workflow runs branch policy verification explicitly', () => {
+  assert.match(
+    workflow,
+    /Verify branch policy[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify branch-policy/,
+  );
+});

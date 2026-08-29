@@ -1,0 +1,11 @@
+[package]
+name = "security-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Provider-neutral branch mutation policy boundary"
+
+[dependencies]
+thiserror.workspace = true
