@@ -38,12 +38,24 @@ branch ou ownership.
 - **Quando** tento registrar o worktree
 - **Então** recebo `DomainError::Validation` antes de qualquer mutação do registry
 
+#### AC-1309 — Adapter materializa request com argv seguro @spec:AC-1309
+
+- **Dado** um request válido do registry e uma decisão `Allowed`
+- **Quando** o adapter executa `add` no repository autorizado
+- **Então** usa `git worktree add` sem shell, limita output, rejeita project/path/permission incompatíveis antes da execução e cria somente o worktree dentro do workspace configurado
+
+#### AC-1310 — List e remove são bounded e fail-closed @spec:AC-1310
+
+- **Dado** um repository autorizado
+- **Quando** consulto `list` ou removo um worktree pelo path validado
+- **Então** `list --porcelain` é parseado em registros estruturados e `remove` não usa force; output truncado, formato inválido, projeto estranho ou falha Git não são tratados como sucesso
+
 ## Fora de escopo
 
-- Execução de Git, criação física de diretórios ou leitura de filesystem
+- Acesso direto a filesystem ou execução de Git pela camada de domínio
 - Checkout, commit, push, merge, branch policy e credentials
-- Persistência, restart recovery e remoção física
-- Detecção de orphan baseada em `git worktree list`
+- Persistência, restart recovery e orphan recovery
+- Comandos Git diferentes de `add`, `list --porcelain` e `remove` sem force
 
 ## Suposições
 

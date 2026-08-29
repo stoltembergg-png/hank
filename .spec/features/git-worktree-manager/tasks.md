@@ -8,10 +8,10 @@
 - Arquivos: crates/agent-core/src/worktree.rs, crates/agent-core/src/lib.rs, crates/agent-core/tests/worktree_contract.rs
 - Notas: registra task/workspace/owner/mode, valida containment lexical e mantém idempotência sem I/O.
 
-## T-1305 — Implementar adapter Git bounded [pendente]
+## T-1305 — Implementar adapter Git bounded [concluida]
 
-- Refs: US-1302
-- Arquivos futuros: adapter Git estruturado e contratos do executor
+- Refs: US-1302, AC-1309, AC-1310
+- Arquivos: crates/tool-core/src/git_worktree.rs, crates/tool-core/tests/git_worktree_contract.rs
 - Notas: argv explícito para add/list/remove, output bounded e parser fail-closed de `git worktree list`.
 
 ## T-1306 — Cleanup recovery, documentação e auditoria [pendente]
