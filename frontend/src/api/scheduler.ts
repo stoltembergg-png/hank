@@ -34,10 +34,38 @@ export interface ScheduledJobView extends ScheduledJobInput {
 }
 type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 
+function validateText(value: string, field: string): void {
+  if (!value.trim() || value.length > 128 || [...value].some((character) => /\p{Cc}/u.test(character))) {
+    throw new Error(`${field} is invalid`);
+  }
+}
+
 function validate(input: ScheduledJobInput): void {
-  if (!input.project_id || !input.owner_id || !input.job_id) throw new Error('project, owner and job_id are required');
+  validateText(input.project_id, 'project');
+  validateText(input.owner_id, 'owner');
+  validateText(input.job_id, 'job_id');
   if (!input.trigger || !input.target) throw new Error('trigger and target are required');
-  if (!input.timezone || input.concurrency_limit < 1 || input.concurrency_limit > 64) throw new Error('timezone and bounded concurrency are required');
+  validateText(input.target.id, 'target');
+  if (!Number.isSafeInteger(input.target.version) || input.target.version < 1) throw new Error('target version is invalid');
+  validateText(input.timezone, 'timezone');
+  if (!Number.isSafeInteger(input.concurrency_limit) || input.concurrency_limit < 1 || input.concurrency_limit > 64) throw new Error('concurrency is invalid');
+  switch (input.trigger.kind) {
+    case 'interval':
+      if (!Number.isSafeInteger(input.trigger.seconds) || input.trigger.seconds < 60) throw new Error('interval is invalid');
+      break;
+    case 'one_shot':
+      if (!Number.isSafeInteger(input.trigger.at_ms) || input.trigger.at_ms < 1) throw new Error('one-shot is invalid');
+      break;
+    case 'cron':
+      validateText(input.trigger.expression, 'cron');
+      break;
+    case 'event':
+      validateText(input.trigger.name, 'event');
+      break;
+    case 'dependency':
+      validateText(input.trigger.job_id, 'dependency');
+      break;
+  }
 }
 
 function desktopInvoke(): Invoke {

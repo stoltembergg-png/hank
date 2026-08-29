@@ -29,4 +29,14 @@ describe('automation UI application bridge contract', () => {
     await expect(api.create({ ...input, trigger: undefined as never })).rejects.toThrow('trigger');
     expect(invoke).not.toHaveBeenCalled();
   });
+
+  // @spec:AC-1272
+  it('rejects invalid bounded numeric values before invoking', async () => {
+    const invoke = vi.fn();
+    const api = new DesktopSchedulerApi(invoke);
+    await expect(api.create({ ...input, trigger: { kind: 'interval', seconds: 0 } })).rejects.toThrow('interval');
+    await expect(api.create({ ...input, target: { kind: 'workflow', id: 'workflow-a', version: 0 } })).rejects.toThrow('version');
+    await expect(api.create({ ...input, concurrency_limit: 0 })).rejects.toThrow('concurrency');
+    expect(invoke).not.toHaveBeenCalled();
+  });
 });
