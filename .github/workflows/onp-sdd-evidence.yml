@@ -324,6 +324,9 @@ jobs:
       - name: Verify coding agent profile
         run: node tools/ci/run-onp-spec.mjs verify coding-agent-profile
 
+      - name: Verify reviewer agent profile
+        run: node tools/ci/run-onp-spec.mjs verify reviewer-agent-profile
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 

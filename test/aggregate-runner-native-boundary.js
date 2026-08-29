@@ -47,6 +47,12 @@ test('ONP workflow runs task-to-branch mapping verification explicitly', () => {
   );
 });
 
+test('ONP workflow runs reviewer agent profile verification explicitly', () => {
+  assert.match(
+    workflow,
+    /Verify reviewer agent profile[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify reviewer-agent-profile/,
+  );
+});
 test('ONP workflow runs coding agent profile verification explicitly', () => {
   assert.match(
     workflow,
