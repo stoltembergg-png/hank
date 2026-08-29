@@ -20,6 +20,7 @@ pub mod dedupe;
 pub mod depth_limit;
 pub mod embedding;
 pub mod error;
+pub mod fix_review_workflow;
 pub mod group_budget;
 pub mod group_entity;
 pub mod group_session;
