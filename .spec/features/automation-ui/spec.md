@@ -1,7 +1,7 @@
 # Spec: automation UI
 
 > feature: automation-ui
-> status: em-implementacao
+> status: implementada
 
 ### US-1270 — Governar jobs agendados pela UI desktop
 
