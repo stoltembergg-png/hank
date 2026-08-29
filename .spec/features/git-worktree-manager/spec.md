@@ -5,12 +5,11 @@
 
 ## Contexto
 
-PR-205 define worktrees isolados para tarefas de desenvolvimento. O primeiro
-slice estabelece uma boundary pura em `agent-core`: registra a intenção de um
-worktree, vincula task/workspace/owner, valida containment lexical e impede
-colisões. A execução real de `git worktree` pertence a um adapter bounded em
-`tool-core`; este domínio não executa processos, acessa filesystem ou altera
-branches.
+PR-205 define slices de worktrees isolados para tarefas de desenvolvimento. O
+registry puro em `agent-core` registra a intenção de um worktree, vincula
+task/workspace/owner, valida containment lexical e impede colisões. A execução
+real de `git worktree` pertence a um adapter bounded em `tool-core`; o domínio
+não executa processos, acessa filesystem ou altera branches.
 
 ## História
 
@@ -50,11 +49,23 @@ branch ou ownership.
 - **Quando** consulto `list` ou removo um worktree pelo path validado
 - **Então** `list --porcelain` é parseado em registros estruturados e `remove` não usa force; output truncado, formato inválido, projeto estranho ou falha Git não são tratados como sucesso
 
+#### AC-1311 — Recovery plan respeita allowlist e owner @spec:AC-1311
+
+- **Dado** um snapshot estruturado de `git worktree list` e o owner autorizado
+- **Quando** construo o plano de cleanup
+- **Então** somente paths registrados no mesmo projeto e pertencentes ao owner viram `RemoveRegistered`; paths desconhecidos ou de outro owner viram `PreserveUnknown`, sem I/O ou mutação
+
+#### AC-1312 — Recovery plan inválido falha fechado @spec:AC-1312
+
+- **Dado** um path observado relativo, traversal, controlado ou oversized
+- **Quando** construo o plano
+- **Então** recebo `DomainError::Validation`, sem ações parciais e sem alterar o registry
+
 ## Fora de escopo
 
 - Acesso direto a filesystem ou execução de Git pela camada de domínio
 - Checkout, commit, push, merge, branch policy e credentials
-- Persistência, restart recovery e orphan recovery
+- Persistência, restart recovery automático e orphan recovery destrutivo
 - Comandos Git diferentes de `add`, `list --porcelain` e `remove` sem force
 
 ## Suposições

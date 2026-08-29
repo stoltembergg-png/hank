@@ -14,6 +14,7 @@ pub const MAX_WORKTREE_OWNER_ID_LEN: usize = 128;
 pub const MAX_WORKTREE_PATH_LEN: usize = 4096;
 pub const MAX_WORKTREE_BRANCH_LEN: usize = 256;
 pub const MAX_WORKTREE_REGISTRY_CAPACITY: usize = 1024;
+const MAX_OBSERVED_WORKTREE_PATHS: usize = 1024;
 
 /// Modo de associação que o adapter Git deverá materializar.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,7 +126,19 @@ impl WorktreeRecord {
     }
 }
 
-/// Registry bounded e determinístico de intenções de worktree.
+/// Ação segura produzida pelo plano de recuperação dry-run.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WorktreeRecoveryAction {
+    /// Pode ser entregue ao adapter de remoção sem `force`.
+    RemoveRegistered {
+        worktree_id: String,
+        worktree_path: String,
+    },
+    /// Deve permanecer intocado até uma autorização/registro explícitos.
+    PreserveUnknown { worktree_path: String },
+}
+
+/// Registro bounded e determinístico de intenções de worktree.
 #[derive(Debug)]
 pub struct WorktreeRegistry {
     capacity: usize,
@@ -154,6 +167,54 @@ impl WorktreeRegistry {
 
     pub fn list(&self) -> Vec<WorktreeRecord> {
         self.records.values().cloned().collect()
+    }
+
+    /// Constrói um plano dry-run sem tocar no registry ou no filesystem.
+    pub fn recovery_plan(
+        &self,
+        project_id: &str,
+        owner_id: &str,
+        observed_paths: &[String],
+    ) -> DomainResult<Vec<WorktreeRecoveryAction>> {
+        validate_id(
+            "recovery_project_id",
+            project_id,
+            MAX_WORKTREE_PROJECT_ID_LEN,
+        )?;
+        validate_id("recovery_owner_id", owner_id, MAX_WORKTREE_OWNER_ID_LEN)?;
+        if observed_paths.len() > MAX_OBSERVED_WORKTREE_PATHS {
+            return Err(DomainError::Validation(
+                "quantidade de paths observados excede o limite".into(),
+            ));
+        }
+        for path in observed_paths {
+            validate_path("observed_worktree_path", path)?;
+        }
+
+        let mut actions = BTreeMap::new();
+        for path in observed_paths {
+            let registered = self
+                .records
+                .values()
+                .find(|record| record.project_id() == project_id && record.worktree_path() == path);
+            let (priority, action) = match registered {
+                Some(record) if record.owner_id() == owner_id => (
+                    1_u8,
+                    WorktreeRecoveryAction::RemoveRegistered {
+                        worktree_id: record.worktree_id().to_owned(),
+                        worktree_path: path.clone(),
+                    },
+                ),
+                _ => (
+                    0_u8,
+                    WorktreeRecoveryAction::PreserveUnknown {
+                        worktree_path: path.clone(),
+                    },
+                ),
+            };
+            actions.insert((priority, path.clone()), action);
+        }
+        Ok(actions.into_values().collect())
     }
 
     /// Registra ou retorna o mesmo registro quando o request é idêntico.
