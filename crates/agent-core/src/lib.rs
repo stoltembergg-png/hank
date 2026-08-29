@@ -40,6 +40,7 @@ pub mod tool_permissions;
 pub mod vector;
 pub mod versioning;
 pub mod workflow;
+pub mod workspace;
 
 pub use agent::*;
 pub use agent_protocol::{capability, events, ids, policy, version};
