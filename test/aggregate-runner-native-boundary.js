@@ -18,3 +18,10 @@ test('ONP workflow runs native Tauri coverage explicitly', () => {
   assert.match(workflow, /HANK_SKIP_TAURI:\s*['"]?1/);
   assert.match(workflow, /Verify Tauri desktop[\s\S]*?HANK_SKIP_TAURI:\s*['"]?['"]?[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify tauri-desktop/);
 });
+
+test('ONP workflow runs repository workspace verification explicitly', () => {
+  assert.match(
+    workflow,
+    /Verify repository workspace[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify repository-workspace/,
+  );
+});
