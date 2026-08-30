@@ -20,6 +20,10 @@ export const AgentList: React.FC<AgentListProps> = ({
   const [offset, setOffset] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
+  const [createName, setCreateName] = useState<string>('');
+  const [createDescription, setCreateDescription] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const fetchAgents = useCallback(async () => {
     setIsLoading(true);
@@ -53,6 +57,82 @@ export const AgentList: React.FC<AgentListProps> = ({
   const handlePrevPage = () => {
     setOffset((prev) => Math.max(0, prev - pageSize));
   };
+
+  const handleCreateAgent = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isSubmitting) return;
+
+    const name = createName.trim();
+    if (!name) {
+      setError('O nome do agent é obrigatório.');
+      return;
+    }
+    if (name.length > 120) {
+      setError('O nome do agent deve ter no máximo 120 caracteres.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      await apiClient.create({
+        project_id: projectId,
+        name,
+        description: createDescription.trim() ? createDescription.trim() : null,
+      });
+      setCreateName('');
+      setCreateDescription('');
+      setShowCreateForm(false);
+      await fetchAgents();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao criar agent');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const createButton = (
+    <button
+      type="button"
+      className="agent-list-create-button"
+      onClick={() => setShowCreateForm((current) => !current)}
+      aria-label={showCreateForm
+        ? 'Fechar formulário de criação de agent'
+        : 'Abrir formulário de criação de agent'}
+    >
+      {showCreateForm ? 'Cancelar' : '+ Novo Agent'}
+    </button>
+  );
+  const createForm = showCreateForm && (
+    <form className="agent-create-form" onSubmit={handleCreateAgent} noValidate>
+      <div className="agent-create-field">
+        <label htmlFor="agent-create-name">Nome do agent</label>
+        <input
+          id="agent-create-name"
+          type="text"
+          value={createName}
+          maxLength={120}
+          disabled={isSubmitting}
+          onChange={(event) => setCreateName(event.target.value)}
+          required
+        />
+      </div>
+      <div className="agent-create-field">
+        <label htmlFor="agent-create-description">Descrição do agent</label>
+        <textarea
+          id="agent-create-description"
+          value={createDescription}
+          maxLength={4_000}
+          rows={3}
+          disabled={isSubmitting}
+          onChange={(event) => setCreateDescription(event.target.value)}
+        />
+      </div>
+      <button type="submit" disabled={isSubmitting || !createName.trim()}>
+        {isSubmitting ? 'Criando...' : 'Criar agent'}
+      </button>
+    </form>
+  );
 
   const currentPage = Math.floor(offset / pageSize) + 1;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -91,7 +171,9 @@ export const AgentList: React.FC<AgentListProps> = ({
       <section className="agent-list-container" aria-label="Gerenciamento de Agents">
         <header className="agent-list-header">
           <h2>Agents</h2>
+          {createButton}
         </header>
+        {createForm}
         <div className="agent-list-empty">
           <p>Nenhum agent encontrado para este projeto.</p>
         </div>
@@ -103,7 +185,9 @@ export const AgentList: React.FC<AgentListProps> = ({
     <section className="agent-list-container" aria-label="Gerenciamento de Agents">
       <header className="agent-list-header">
         <h2>Agents ({total})</h2>
+        {createButton}
       </header>
+      {createForm}
       <table className="agent-list-table">
         <thead>
           <tr>

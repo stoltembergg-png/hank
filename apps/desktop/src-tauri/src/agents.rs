@@ -8,7 +8,8 @@ use agent_core::agent::{Agent, AgentStatus, Personality};
 use agent_core::error::{DomainError, DomainErrorCode, Retryability};
 use agent_core::ids::ProjectId;
 use agent_runtime::{
-    agent_repo::SqliteAgentRepository, AgentService, SqliteProjectRepository, SqliteStorage,
+    agent_repo::SqliteAgentRepository, AgentService, CreateAgentInput, SqliteProjectRepository,
+    SqliteStorage,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -124,6 +125,23 @@ pub struct ListAgentsCommandOutput {
     pub correlation_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub struct CreateAgentCommandInput {
+    pub project_id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub correlation_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct CreateAgentCommandOutput {
+    pub agent: AgentSummary,
+    pub event_id: Option<agent_protocol::ids::EventId>,
+    pub correlation_id: Option<String>,
+}
+
 #[tauri::command]
 pub async fn list_agents(
     state: State<'_, AgentBridgeState>,
@@ -157,6 +175,39 @@ async fn list_agents_for_state(
         limit,
         offset,
         correlation_id,
+    })
+}
+
+#[tauri::command]
+pub async fn create_agent(
+    state: State<'_, AgentBridgeState>,
+    input: CreateAgentCommandInput,
+) -> Result<CreateAgentCommandOutput, AgentBridgeError> {
+    create_agent_for_state(&state, input).await
+}
+
+async fn create_agent_for_state(
+    state: &AgentBridgeState,
+    input: CreateAgentCommandInput,
+) -> Result<CreateAgentCommandOutput, AgentBridgeError> {
+    let correlation_id = input.correlation_id.clone();
+    let project_id = parse_project_id(input.project_id, correlation_id.clone())?;
+    let service = AgentService::new(state.agents.clone(), state.projects.clone(), None);
+    let output = service
+        .create(CreateAgentInput {
+            project_id,
+            name: input.name,
+            description: input.description,
+            policy: Default::default(),
+            correlation_id,
+        })
+        .await
+        .map_err(|error| bridge_error(error, input.correlation_id.clone()))?;
+
+    Ok(CreateAgentCommandOutput {
+        agent: AgentSummary::from(&output.agent),
+        event_id: output.event_id,
+        correlation_id: output.correlation_id,
     })
 }
 
@@ -244,5 +295,42 @@ mod tests {
         assert_eq!(error.code, DomainErrorCode::Validation);
         assert_eq!(error.correlation_id.as_deref(), Some("corr-invalid"));
         assert!(!error.message.contains("not-a-project"));
+    }
+
+    #[tokio::test]
+    async fn create_uses_project_scope_and_persists_the_domain_default_policy() {
+        let storage = SqliteStorage::connect_in_memory().await.unwrap();
+        run_migrations(storage.pool()).await.unwrap();
+        let projects = Arc::new(SqliteProjectRepository::new(storage.pool().clone()));
+        let agents = Arc::new(SqliteAgentRepository::new(storage.pool().clone()));
+        let project = Project::create("create-project", "owner", None).unwrap();
+        projects.save(&project).await.unwrap();
+
+        let state = AgentBridgeState::new(agents.clone(), projects);
+        let output = create_agent_for_state(
+            &state,
+            CreateAgentCommandInput {
+                project_id: project.id.to_string(),
+                name: "release-agent".into(),
+                description: Some("Prepara releases com revisão humana.".into()),
+                correlation_id: Some("corr-create".into()),
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(output.agent.project_id, project.id.to_string());
+        assert_eq!(output.agent.name, "release-agent");
+        assert_eq!(
+            output.agent.description.as_deref(),
+            Some("Prepara releases com revisão humana.")
+        );
+        assert_eq!(output.correlation_id.as_deref(), Some("corr-create"));
+        let persisted = agents
+            .get(&project.id, &output.agent.id.parse().unwrap())
+            .await
+            .unwrap()
+            .expect("agent must be persisted in the requested project");
+        assert_eq!(persisted.name, "release-agent");
     }
 }

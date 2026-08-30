@@ -138,7 +138,11 @@ try {
   phase = 'agents';
   await browser.click(await element('[aria-label="Conteúdo do projeto"] button[role="tab"]:nth-child(2)'));
   await element('[aria-label="Gerenciamento de Agents"]');
-  await browser.waitForText('Nenhum agent encontrado para este projeto.');
+  await browser.click(await element('[aria-label="Abrir formulário de criação de agent"]'));
+  await browser.value(await element('#agent-create-name'), 'release-agent');
+  await browser.value(await element('#agent-create-description'), 'Prepara releases com revisão humana.');
+  await browser.click(await element('button[type="submit"]'));
+  await browser.waitForText('release-agent');
   await screenshot('03-agents');
   await browser.click(await element('[aria-label="Conteúdo do projeto"] button[role="tab"]:first-child'));
 

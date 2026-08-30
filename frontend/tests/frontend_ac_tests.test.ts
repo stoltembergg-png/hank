@@ -46,6 +46,7 @@ describe('Frontend Workspace AC Tests', () => {
       lint: expect.any(String),
       typecheck: expect.any(String),
     });
+    expect(packageJson.scripts.lint).not.toMatch(/^[A-Z_]+=.+\s/);
     expect(packageJson.dependencies).toHaveProperty('react');
     expect(packageJson.devDependencies).toHaveProperty('@typescript-eslint/parser');
   });

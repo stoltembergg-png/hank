@@ -4,6 +4,9 @@
 }
 
 .agent-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 16px;
 }
 
@@ -114,4 +117,50 @@
 .agent-list-page-info {
   font-size: 0.875rem;
   color: #666;
+}
+
+.agent-list-create-button,
+.agent-create-form button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  background: #0066cc;
+  color: white;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.agent-list-create-button:hover,
+.agent-create-form button:hover:not(:disabled) {
+  background: #0052a3;
+}
+
+.agent-create-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid #d9e2ec;
+  border-radius: 6px;
+  background: #f8fbff;
+}
+
+.agent-create-field {
+  display: grid;
+  gap: 6px;
+}
+
+.agent-create-field input,
+.agent-create-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid #b8c4d1;
+  border-radius: 4px;
+  font: inherit;
+}
+
+.agent-create-form button:disabled {
+  background: #aab4bf;
+  cursor: not-allowed;
 }
