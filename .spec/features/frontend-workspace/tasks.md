@@ -121,3 +121,15 @@
 - Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
 - Arquivos: frontend/src/components/ProjectDetailView.tsx, frontend/src/components/ProjectDetailView.css, frontend/tests/project_agents_workbench.test.tsx
 - Notas: Aba acessível e project-scoped para abrir a listagem de Agents existente; client injetável preserva a fronteira de serviços e não cria dados sintéticos.
+
+## T-1385 — Criar Agent pelo workbench do Project [em-andamento]
+
+- Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
+- Arquivos: frontend/src/components/AgentList.tsx, frontend/src/components/AgentList.css, frontend/tests/agent_creation_workbench.test.tsx
+- Notas: formulário bounded e acessível usa o AgentApiClient injetado, envia somente project_id/nome/descrição e recarrega a listagem após confirmação do serviço.
+
+## T-1387 — Tornar o lint do frontend portátil [em-andamento]
+
+- Refs: US-201, AC-201, AC-202
+- Arquivos: frontend/package.json, frontend/tests/frontend_ac_tests.test.ts
+- Notas: o script `lint` não depende de atribuição de variável POSIX, permitindo executar o mesmo gate em Windows e CI.

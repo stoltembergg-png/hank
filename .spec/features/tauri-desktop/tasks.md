@@ -59,3 +59,9 @@
 - Refs: US-101, AC-101, AC-104, AC-105
 - Arquivos: apps/desktop/src-tauri/src/agents.rs, apps/desktop/src-tauri/src/main.rs, apps/desktop/src-tauri/src/confirmations.rs, apps/desktop/src-tauri/tests/tauri_ac_tests.rs, crates/agent-runtime/src/agent_repo.rs, frontend/src/api/agents.ts, frontend/tests/agent_bridge_contract.test.ts
 - Notas: `list_agents` usa o pool SQLite do boot, application service real, paginação bounded, envelope de erro tipado e ausência de fallback sintético; comandos de escrita de Agent permanecem fora deste incremento.
+
+## T-1386 — Expor criação project-scoped de Agent no desktop [em-andamento]
+
+- Refs: US-101, AC-101, AC-104, AC-105
+- Arquivos: apps/desktop/src-tauri/src/agents.rs, apps/desktop/src-tauri/src/confirmations.rs, apps/desktop/src-tauri/tests/tauri_ac_tests.rs, desktop-e2e/specs/project-lifecycle.e2e.mjs
+- Notas: `create_agent` usa o pool SQLite do boot e `AgentService::create`, valida o Project antes da persistência, aplica a policy default do domínio e rejeita campos desconhecidos; o E2E confirma criação pela UI.
