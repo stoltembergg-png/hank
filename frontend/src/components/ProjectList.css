@@ -1,60 +1,126 @@
 .project-list-container {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
   width: 100%;
-  max-width: 900px;
-  margin: 1.5rem auto;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 1.75rem clamp(1rem, 2.4vw, 2rem) 2rem;
+  color: #f8fafc;
   text-align: left;
 }
 
 .project-list-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
+  gap: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.project-list-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.project-list-eyebrow {
+  margin: 0;
+  color: #7da8ff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .project-list-header h2 {
   margin: 0;
-  font-size: 1.25rem;
-  color: #f1f5f9;
+  color: #f8fafc;
+  font-size: clamp(1.5rem, 2.4vw, 2rem);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.project-list-description {
+  margin: 0.05rem 0 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.project-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-shrink: 0;
+}
+
+.project-list-count {
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .btn-new-project {
-  padding: 0.45rem 0.9rem;
-  background: #2563eb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.45rem;
+  padding: 0.55rem 0.95rem;
+  background: linear-gradient(135deg, #3478f6, #2563eb);
   color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  font-weight: 500;
+  border: 1px solid rgba(125, 168, 255, 0.65);
+  border-radius: 0.65rem;
+  box-shadow: 0 0.45rem 1.2rem rgba(37, 99, 235, 0.22);
   font-size: 0.875rem;
+  font-weight: 650;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 
 .btn-new-project:hover {
-  background: #1d4ed8;
+  border-color: #bfdbfe;
+  box-shadow: 0 0.65rem 1.5rem rgba(37, 99, 235, 0.3);
+  transform: translateY(-1px);
 }
 
+.btn-new-project:focus-visible,
+.btn-retry:focus-visible,
+.project-pagination button:focus-visible {
+  outline: 2px solid #7da8ff;
+  outline-offset: 3px;
+}
+
+.btn-new-project-icon {
+  font-size: 1.15rem;
+  font-weight: 400;
+  line-height: 1;
+}
 
 .project-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 28rem), 1fr));
+  gap: 0.9rem;
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
 .project-card {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  padding: 1rem 1.25rem;
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 8px;
-  transition: border-color 0.2s, background-color 0.2s;
+  gap: 0.9rem;
+  min-height: 7.2rem;
+  padding: 1rem 1.1rem;
+  background: linear-gradient(145deg, rgba(25, 32, 49, 0.96), rgba(16, 22, 35, 0.96));
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  border-radius: 0.85rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025), 0 0.75rem 1.8rem rgba(2, 6, 23, 0.14);
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 
 .project-card.clickable {
@@ -62,108 +128,204 @@
 }
 
 .project-card:hover {
-  border-color: #64748b;
-  background: #233146;
+  background: linear-gradient(145deg, rgba(30, 41, 66, 0.98), rgba(18, 27, 44, 0.98));
+  border-color: rgba(96, 165, 250, 0.72);
+  box-shadow: 0 0.9rem 2rem rgba(2, 6, 23, 0.25), 0 0 1.2rem rgba(37, 99, 235, 0.08);
+  transform: translateY(-1px);
 }
 
 .project-card:focus {
   outline: 2px solid #3b82f6;
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
+.project-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.65rem;
+  height: 2.65rem;
+  color: #8db7ff;
+  background: linear-gradient(145deg, rgba(37, 99, 235, 0.24), rgba(30, 64, 175, 0.18));
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  border-radius: 0.75rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  font-size: 1.35rem;
+  line-height: 1;
+}
 
 .project-card-main {
   display: flex;
+  min-width: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.35rem;
+}
+
+.project-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
 }
 
 .project-card-title {
-  font-weight: 600;
-  font-size: 1.05rem;
+  min-width: 0;
+  overflow: hidden;
   color: #f8fafc;
+  font-size: 1rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .project-card-desc {
-  font-size: 0.875rem;
+  overflow: hidden;
   color: #94a3b8;
+  font-size: 0.825rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .project-card-meta {
-  font-size: 0.75rem;
+  overflow: hidden;
   color: #64748b;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-card-open {
+  color: #7da8ff;
+  font-size: 1.35rem;
+  line-height: 1;
+  opacity: 0.72;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.project-card:hover .project-card-open {
+  opacity: 1;
+  transform: translateX(2px);
 }
 
 .project-status-badge {
   display: inline-block;
-  padding: 0.25rem 0.6rem;
+  flex-shrink: 0;
+  padding: 0.22rem 0.55rem;
+  border: 1px solid transparent;
   border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
+  font-size: 0.65rem;
+  font-weight: 700;
   letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .project-status-badge.active {
-  background: #065f46;
-  color: #34d399;
+  background: rgba(6, 95, 70, 0.35);
+  border-color: rgba(52, 211, 153, 0.22);
+  color: #6ee7b7;
 }
 
 .project-status-badge.paused {
-  background: #854d0e;
-  color: #facc15;
+  background: rgba(133, 77, 14, 0.35);
+  border-color: rgba(250, 204, 21, 0.2);
+  color: #fde047;
 }
 
 .project-status-badge.archived {
-  background: #374151;
-  color: #9ca3af;
+  background: rgba(55, 65, 81, 0.55);
+  border-color: rgba(156, 163, 175, 0.18);
+  color: #cbd5e1;
 }
 
 .project-state-message {
-  padding: 2rem;
+  padding: 2.5rem 1.5rem;
   text-align: center;
-  background: #0f172a;
-  border: 1px dashed #334155;
-  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px dashed rgba(100, 116, 139, 0.5);
+  border-radius: 0.85rem;
   color: #94a3b8;
 }
 
 .project-error {
-  color: #f87171;
-  border-color: #7f1d1d;
+  color: #fca5a5;
+  border-color: rgba(127, 29, 29, 0.9);
 }
 
 .btn-retry {
   margin-top: 0.75rem;
-  padding: 0.4rem 1rem;
-  background: #dc2626;
-  color: white;
-  border: none;
-  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  background: #b91c1c;
+  color: #ffffff;
+  border: 1px solid rgba(252, 165, 165, 0.3);
+  border-radius: 0.5rem;
   cursor: pointer;
 }
 
 .btn-retry:hover {
-  background: #b91c1c;
+  background: #dc2626;
 }
 
 .project-pagination {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 0.5rem;
+  gap: 1rem;
+  margin-top: 0.15rem;
+  color: #94a3b8;
+  font-size: 0.8rem;
 }
 
 .project-pagination button {
-  padding: 0.4rem 0.8rem;
-  background: #334155;
+  padding: 0.5rem 0.85rem;
+  background: rgba(51, 65, 85, 0.78);
   color: #f8fafc;
-  border: none;
-  border-radius: 4px;
+  border: 1px solid rgba(100, 116, 139, 0.35);
+  border-radius: 0.5rem;
   cursor: pointer;
+}
+
+.project-pagination button:hover:not(:disabled) {
+  background: rgba(71, 85, 105, 0.9);
+  border-color: rgba(148, 163, 184, 0.55);
 }
 
 .project-pagination button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .project-list-container {
+    padding-top: 1.25rem;
+  }
+
+  .project-list-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .project-list-actions {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .project-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .project-card-open {
+    display: none;
+  }
+
+  .project-card-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .project-card-desc,
+  .project-card-meta {
+    white-space: normal;
+  }
 }
