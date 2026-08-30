@@ -2,9 +2,9 @@
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color-scheme: dark;
+  color: #e8edf5;
+  background-color: #090d13;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -15,7 +15,9 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #0b0f14;
+  background:
+    radial-gradient(circle at 65% -20%, rgb(37 80 155 / 14%), transparent 35rem),
+    #090d13;
 }
 
 #root {
