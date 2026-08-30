@@ -133,3 +133,9 @@
 - Refs: US-201, AC-201, AC-202
 - Arquivos: frontend/package.json, frontend/tests/frontend_ac_tests.test.ts
 - Notas: o script `lint` não depende de atribuição de variável POSIX, permitindo executar o mesmo gate em Windows e CI.
+
+## T-1389 — Integrar fundação do Product Shell [em-andamento]
+
+- Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
+- Arquivos: frontend/src/App.tsx, frontend/src/App.css, frontend/src/components/ProductShell.tsx, frontend/src/components/ProductShell.css, frontend/tests/product_shell.test.tsx
+- Notas: shell persistente com navegação acessível, status de sessão local e conteúdo Projects real; módulos ainda não integrados ficam desabilitados e explicitamente identificados, sem rotas ou dados fictícios.

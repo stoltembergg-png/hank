@@ -1,0 +1,226 @@
+.product-shell {
+  display: flex;
+  min-height: 100vh;
+  background: #0b0f14;
+  color: #e5e7eb;
+}
+
+.product-shell-sidebar {
+  display: flex;
+  width: 248px;
+  flex-direction: column;
+  flex-shrink: 0;
+  padding: 24px 16px 18px;
+  background: #11161d;
+  border-right: 1px solid #27313d;
+}
+
+.product-shell-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 10px 28px;
+  border-bottom: 1px solid #27313d;
+}
+
+.product-shell-brand-mark {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid #8b5cf6;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #5b21b6, #312e81);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.product-shell-brand-name {
+  color: #f8fafc;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.17em;
+}
+
+.product-shell-navigation {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 28px;
+  padding-top: 24px;
+}
+
+.product-shell-navigation-group {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.product-shell-navigation-label {
+  margin: 0 10px;
+  color: #6b7787;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.product-shell-navigation-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.product-shell-navigation-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #aeb8c6;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.product-shell-navigation-item:hover:not(:disabled) {
+  background: #1a222c;
+  color: #f8fafc;
+}
+
+.product-shell-navigation-item:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 2px;
+}
+
+.product-shell-navigation-item.is-active {
+  border-color: #3b2a67;
+  background: #211b35;
+  color: #f8fafc;
+}
+
+.product-shell-navigation-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.66;
+}
+
+.product-shell-navigation-icon {
+  display: inline-grid;
+  width: 18px;
+  place-items: center;
+  color: #9b8cda;
+  font-size: 1.05rem;
+}
+
+.product-shell-navigation-state {
+  margin-left: auto;
+  color: #667384;
+  font-size: 0.64rem;
+  text-align: right;
+}
+
+.product-shell-sidebar-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 10px 0;
+  border-top: 1px solid #27313d;
+  color: #738093;
+  font-size: 0.72rem;
+}
+
+.product-shell-sidebar-note-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 0 3px rgb(52 211 153 / 12%);
+}
+
+.product-shell-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.product-shell-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 76px;
+  padding: 0 36px;
+  border-bottom: 1px solid #27313d;
+  background: #10151c;
+}
+
+.product-shell-eyebrow {
+  margin: 0 0 2px;
+  color: #8190a3;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.product-shell-header h1 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.product-shell-header-status {
+  padding: 6px 10px;
+  border: 1px solid #1d604b;
+  border-radius: 999px;
+  background: #0f2a22;
+  color: #6ee7b7;
+  font-size: 0.75rem;
+}
+
+.product-shell-content {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 36px 32px;
+}
+
+@media (max-width: 760px) {
+  .product-shell-sidebar {
+    width: 68px;
+    padding: 18px 8px;
+  }
+
+  .product-shell-brand {
+    justify-content: center;
+    padding: 0 0 20px;
+  }
+
+  .product-shell-brand-name,
+  .product-shell-navigation-label,
+  .product-shell-navigation-item > span:not(.product-shell-navigation-icon),
+  .product-shell-sidebar-note {
+    display: none;
+  }
+
+  .product-shell-navigation-item {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .product-shell-navigation {
+    gap: 20px;
+  }
+
+  .product-shell-header {
+    padding: 0 18px;
+  }
+
+  .product-shell-content {
+    padding: 8px 18px 24px;
+  }
+}
