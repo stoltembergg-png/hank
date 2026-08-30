@@ -369,6 +369,9 @@ jobs:
       - name: Verify agent configuration proposal
         run: node tools/ci/run-onp-spec.mjs verify agent-configuration-proposal
 
+      - name: Verify automated evaluation
+        run: node tools/ci/run-onp-spec.mjs verify automated-evaluation
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
