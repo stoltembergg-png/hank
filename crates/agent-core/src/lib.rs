@@ -54,6 +54,7 @@ pub mod tool_permissions;
 pub mod vector;
 pub mod versioning;
 pub mod workflow;
+pub mod workflow_improvement_proposal;
 pub mod workspace;
 pub mod worktree;
 
