@@ -147,6 +147,10 @@ test('ONP workflow runs PR generation workflow verification explicitly', () => {
     workflow,
     /Verify self-development branch[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify self-development-branch/,
   );
+  assert.match(
+    workflow,
+    /Verify self-development PR[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify self-development-pr/,
+  );
 });
 
 test('ONP workflow runs coding agent profile verification explicitly', () => {

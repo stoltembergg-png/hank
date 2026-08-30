@@ -390,6 +390,9 @@ jobs:
       - name: Verify self-development branch
         run: node tools/ci/run-onp-spec.mjs verify self-development-branch
 
+      - name: Verify self-development PR
+        run: node tools/ci/run-onp-spec.mjs verify self-development-pr
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
