@@ -97,6 +97,27 @@
   font-size: 0.9rem;
 }
 
+.project-detail-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid #334155;
+}
+
+.project-detail-tabs button {
+  padding: 0.6rem 1rem;
+  background: transparent;
+  color: #94a3b8;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.project-detail-tabs button[aria-selected='true'] {
+  color: #bfdbfe;
+  border-bottom-color: #60a5fa;
+}
+
 .project-detail-body {
   display: flex;
   flex-direction: column;

@@ -115,3 +115,9 @@
 - Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
 - Arquivos: frontend/src/api/agent-autonomy.ts, frontend/src/agents/builder/autonomy/AutonomyPage.tsx, frontend/src/agents/builder/autonomy/types.ts, frontend/src/agents/builder/autonomy/AutonomyPage.css, frontend/tests/agent_autonomy_ac_tests.test.tsx, docs/agent-autonomy-page.md
 - Notas: L0-L4, matriz de decisões, downgrade reversível, escalação com approval bounded, stale/unsupported fail-closed e sem autoelevação
+
+## T-1301 — Integrar Agents ao detalhe do Project [em-andamento]
+
+- Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
+- Arquivos: frontend/src/components/ProjectDetailView.tsx, frontend/src/components/ProjectDetailView.css, frontend/tests/project_agents_workbench.test.tsx
+- Notas: Aba acessível e project-scoped para abrir a listagem de Agents existente; client injetável preserva a fronteira de serviços e não cria dados sintéticos.

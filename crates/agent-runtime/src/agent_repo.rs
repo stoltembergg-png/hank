@@ -15,6 +15,19 @@ impl SqliteAgentRepository {
         Self { pool }
     }
 
+    pub async fn count(&self, project_id: &ProjectId) -> Result<usize, DomainError> {
+        let row = sqlx::query("SELECT COUNT(*) AS count FROM agents WHERE project_id = ?")
+            .bind(project_id.to_string())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|error| {
+                DomainError::InvariantViolation(format!("agent count failed: {error}"))
+            })?;
+        let count: i64 = row.get("count");
+        usize::try_from(count)
+            .map_err(|_| DomainError::InvariantViolation("agent count is invalid".into()))
+    }
+
     pub async fn save(&self, agent: &Agent) -> Result<(), DomainError> {
         agent.validate()?;
         let result = sqlx::query(

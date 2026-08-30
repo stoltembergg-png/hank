@@ -53,3 +53,9 @@
 - Refs: US-101, AC-101, AC-105
 - Arquivos: apps/desktop/src-tauri/src/lifecycle.rs, frontend/src/api/lifecycle.ts, frontend/src/App.tsx, frontend/src/main.tsx, frontend/tests/lifecycle_handshake.test.ts, frontend/tests/app_lifecycle_handshake.test.tsx, desktop-e2e/run-windows.ps1, desktop-e2e/specs/project-lifecycle.e2e.mjs
 - Notas: readiness só é publicada após o handshake IPC real; o registro dos listeners precede a chamada nativa para suportar restart; o runner Windows resolve o WebDriver compatível com o WebView2 instalado e isola as portas.
+
+## T-1302 — Expor leitura project-scoped de Agents no desktop [em-andamento]
+
+- Refs: US-101, AC-101, AC-104, AC-105
+- Arquivos: apps/desktop/src-tauri/src/agents.rs, apps/desktop/src-tauri/src/main.rs, apps/desktop/src-tauri/src/confirmations.rs, apps/desktop/src-tauri/tests/tauri_ac_tests.rs, crates/agent-runtime/src/agent_repo.rs, frontend/src/api/agents.ts, frontend/tests/agent_bridge_contract.test.ts
+- Notas: `list_agents` usa o pool SQLite do boot, application service real, paginação bounded, envelope de erro tipado e ausência de fallback sintético; comandos de escrita de Agent permanecem fora deste incremento.
