@@ -135,6 +135,13 @@ try {
   if (!/proj-[0-9a-f-]{36}/i.test(detail)) throw new Error('open: valid ProjectId was not displayed');
   await screenshot('02-opened');
 
+  phase = 'agents';
+  await browser.click(await element('[aria-label="Conteúdo do projeto"] button[role="tab"]:nth-child(2)'));
+  await element('[aria-label="Gerenciamento de Agents"]');
+  await browser.waitForText('Nenhum agent encontrado para este projeto.');
+  await screenshot('03-agents');
+  await browser.click(await element('[aria-label="Conteúdo do projeto"] button[role="tab"]:first-child'));
+
   phase = 'update';
   await browser.click(await element('button.btn-edit'));
   await browser.value(await element('#edit-project-name'), updatedName);
@@ -151,7 +158,7 @@ try {
   await browser.click(await element(`[aria-label="Ver detalhes de ${updatedName}"]`));
   await browser.waitForText(updatedDescription);
   await browser.waitForText(owner);
-  await screenshot('03-after-restart-1');
+  await screenshot('04-after-restart-1');
 
   phase = 'archive';
   await browser.click(await element('button[aria-label="Arquivar este projeto"]'));
@@ -160,7 +167,7 @@ try {
   await browser.click(await element('button.btn-danger'));
   await assertText('.project-detail-success', 'arquivado');
   await browser.waitForText('archived');
-  await screenshot('04-archived');
+  await screenshot('05-archived');
 
   phase = 'restart-2';
   await stop();
@@ -168,7 +175,7 @@ try {
   await browser.click(await element(`[aria-label="Ver detalhes de ${updatedName}"]`));
   await browser.waitForText(updatedDescription);
   await browser.waitForText('archived');
-  await screenshot('05-after-restart-2');
+  await screenshot('06-after-restart-2');
   console.log('DESKTOP E2E PROJECT LIFECYCLE: PASS');
 } catch (error) {
   await screenshot(`failure-${phase}`).catch(() => {});

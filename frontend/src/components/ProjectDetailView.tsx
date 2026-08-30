@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ProjectApiClient, defaultProjectApi } from '../api/projects';
+import { AgentApiClient } from '../api/agents';
 import { SkillApiClient } from '../api/skills';
 import { SkillEditorApiClient } from '../api/skillEditor';
 import { ProjectSummary, ProjectStatus } from '../types/project';
 import { MemoryPanel } from './MemoryPanel';
 import { SkillsPanel } from './SkillsPanel';
 import { AutomationList } from './AutomationList';
+import { AgentList } from './AgentList';
 import './ProjectDetailView.css';
 
 export interface ProjectDetailViewProps {
   projectId: string;
   initialProject?: ProjectSummary;
   apiClient?: ProjectApiClient;
+  agentApiClient?: AgentApiClient;
   skillApiClient?: SkillApiClient;
   skillEditorApiClient?: SkillEditorApiClient;
   onBack?: () => void;
@@ -23,6 +26,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   projectId,
   initialProject,
   apiClient = defaultProjectApi,
+  agentApiClient,
   skillApiClient,
   skillEditorApiClient,
   onBack,
@@ -38,6 +42,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [archiveReason, setArchiveReason] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'agents'>('overview');
 
   // Edit form state
   const [editName, setEditName] = useState<string>(initialProject?.name ?? '');
@@ -223,7 +228,28 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         </div>
       )}
 
-      {isEditing ? (
+      <div className="project-detail-tabs" role="tablist" aria-label="Conteúdo do projeto">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'overview'}
+          onClick={() => setActiveTab('overview')}
+        >
+          Visão geral
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'agents'}
+          onClick={() => setActiveTab('agents')}
+        >
+          Agents
+        </button>
+      </div>
+
+      {activeTab === 'agents' ? (
+        <AgentList projectId={project.id} apiClient={agentApiClient} />
+      ) : isEditing ? (
         <form onSubmit={handleSaveUpdate} className="project-edit-form" noValidate>
           <div className="form-group">
             <label htmlFor="edit-project-name">

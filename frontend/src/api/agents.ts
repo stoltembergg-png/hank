@@ -23,6 +23,17 @@ export interface AgentApiClient {
   archive(input: ArchiveAgentInput): Promise<ArchiveAgentOutput>;
 }
 
+export const AGENT_BRIDGE_UNAVAILABLE_CODE = 'AGENT_BRIDGE_UNAVAILABLE' as const;
+
+export class AgentBridgeUnavailableError extends Error {
+  readonly code = AGENT_BRIDGE_UNAVAILABLE_CODE;
+
+  constructor() {
+    super('Agent desktop bridge is unavailable');
+    this.name = 'AgentBridgeUnavailableError';
+  }
+}
+
 interface InjectedBridgeWindow {
   __TAURI_INTERNALS__?: {
     invoke?: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
@@ -30,93 +41,57 @@ interface InjectedBridgeWindow {
   __TAURI_INVOKE__?: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
 }
 
+function getAgentInvoker() {
+  if (typeof window === 'undefined') return undefined;
+
+  const bridgeWin = window as unknown as InjectedBridgeWindow;
+  return bridgeWin.__TAURI_INTERNALS__?.invoke ?? bridgeWin.__TAURI_INVOKE__;
+}
+
 export class DesktopAgentApiClient implements AgentApiClient {
   async list(input: ListAgentsInput): Promise<ListAgentsOutput> {
-    if (typeof window !== 'undefined') {
-      const bridgeWin = window as unknown as InjectedBridgeWindow;
-      const invoker = bridgeWin.__TAURI_INTERNALS__?.invoke ?? bridgeWin.__TAURI_INVOKE__;
-      if (typeof invoker === 'function') {
-        return await invoker<ListAgentsOutput>('list_agents', { input });
-      }
+    const invoker = getAgentInvoker();
+    if (typeof invoker === 'function') {
+      return await invoker<ListAgentsOutput>('list_agents', { input });
     }
 
-    // Retorno fallback seguro para ambiente desacoplado, teste ou browser
-    return {
-      agents: [],
-      total: 0,
-      limit: Math.min(Math.max(input.limit ?? 20, 1), 100),
-      offset: Math.max(input.offset ?? 0, 0),
-    };
+    throw new AgentBridgeUnavailableError();
   }
 
   async get(projectId: string, agentId: string): Promise<AgentSummary | null> {
-    if (typeof window !== 'undefined') {
-      const bridgeWin = window as unknown as InjectedBridgeWindow;
-      const invoker = bridgeWin.__TAURI_INTERNALS__?.invoke ?? bridgeWin.__TAURI_INVOKE__;
-      if (typeof invoker === 'function') {
-        return await invoker<AgentSummary | null>('get_agent', { projectId, agentId });
-      }
+    const invoker = getAgentInvoker();
+    if (typeof invoker === 'function') {
+      return await invoker<AgentSummary | null>('get_agent', { projectId, agentId });
     }
 
-    return null;
+    throw new AgentBridgeUnavailableError();
   }
 
   async create(input: CreateAgentInput): Promise<CreateAgentOutput> {
-    if (typeof window !== 'undefined') {
-      const bridgeWin = window as unknown as InjectedBridgeWindow;
-      const invoker = bridgeWin.__TAURI_INTERNALS__?.invoke ?? bridgeWin.__TAURI_INVOKE__;
-      if (typeof invoker === 'function') {
-        return await invoker<CreateAgentOutput>('create_agent', { input });
-      }
+    const invoker = getAgentInvoker();
+    if (typeof invoker === 'function') {
+      return await invoker<CreateAgentOutput>('create_agent', { input });
     }
 
-    // Retorno fallback seguro para ambiente desacoplado / teste / demo
-    const now = new Date().toISOString();
-    return {
-      agent: {
-        id: `agt_${Date.now().toString(36)}`,
-        project_id: input.project_id,
-        name: input.name.trim(),
-        description: input.description?.trim() || null,
-        status: 'active',
-        personality: {
-          name: 'Default',
-          description: null,
-          traits: ['helpful', 'accurate'],
-          communication_style: 'technical',
-        },
-        created_at: now,
-        updated_at: now,
-      },
-      event_id: `evt_${Date.now().toString(36)}`,
-      correlation_id: input.correlation_id || null,
-    };
+    throw new AgentBridgeUnavailableError();
   }
 
   async update(input: UpdateAgentInput): Promise<UpdateAgentOutput> {
-    if (typeof window !== 'undefined') {
-      const bridgeWin = window as unknown as InjectedBridgeWindow;
-      const invoker = bridgeWin.__TAURI_INTERNALS__?.invoke ?? bridgeWin.__TAURI_INVOKE__;
-      if (typeof invoker === 'function') {
-        return await invoker<UpdateAgentOutput>('update_agent', { input });
-      }
+    const invoker = getAgentInvoker();
+    if (typeof invoker === 'function') {
+      return await invoker<UpdateAgentOutput>('update_agent', { input });
     }
 
-    // Fallback com erro de versão para simular optimistic locking
-    throw new Error('Optimistic version check failed - stale version');
+    throw new AgentBridgeUnavailableError();
   }
 
   async archive(input: ArchiveAgentInput): Promise<ArchiveAgentOutput> {
-    if (typeof window !== 'undefined') {
-      const bridgeWin = window as unknown as InjectedBridgeWindow;
-      const invoker = bridgeWin.__TAURI_INTERNALS__?.invoke ?? bridgeWin.__TAURI_INVOKE__;
-      if (typeof invoker === 'function') {
-        return await invoker<ArchiveAgentOutput>('archive_agent', { input });
-      }
+    const invoker = getAgentInvoker();
+    if (typeof invoker === 'function') {
+      return await invoker<ArchiveAgentOutput>('archive_agent', { input });
     }
 
-    // Fallback
-    throw new Error('Archive requires explicit confirmation');
+    throw new AgentBridgeUnavailableError();
   }
 }
 
