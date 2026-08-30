@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ProjectApiClient, defaultProjectApi } from '../api/projects';
 import { AgentApiClient } from '../api/agents';
+import { SessionSummary } from '../types/session';
 import { SkillApiClient } from '../api/skills';
 import { SkillEditorApiClient } from '../api/skillEditor';
 import { ProjectSummary, ProjectStatus } from '../types/project';
@@ -15,6 +16,7 @@ export interface ProjectDetailViewProps {
   initialProject?: ProjectSummary;
   apiClient?: ProjectApiClient;
   agentApiClient?: AgentApiClient;
+  onOpenSession?: (session: SessionSummary, agentId: string) => void;
   skillApiClient?: SkillApiClient;
   skillEditorApiClient?: SkillEditorApiClient;
   onBack?: () => void;
@@ -27,6 +29,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   initialProject,
   apiClient = defaultProjectApi,
   agentApiClient,
+  onOpenSession,
   skillApiClient,
   skillEditorApiClient,
   onBack,
@@ -248,7 +251,11 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       </div>
 
       {activeTab === 'agents' ? (
-        <AgentList projectId={project.id} apiClient={agentApiClient} />
+        <AgentList
+          projectId={project.id}
+          apiClient={agentApiClient}
+          onOpenSession={(session) => onOpenSession?.(session, session.agent_id)}
+        />
       ) : isEditing ? (
         <form onSubmit={handleSaveUpdate} className="project-edit-form" noValidate>
           <div className="form-group">

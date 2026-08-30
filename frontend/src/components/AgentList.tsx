@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AgentApiClient, defaultAgentApi } from '../api/agents';
+import { defaultSessionApi, SessionApiClient } from '../api/sessions';
 import { AgentSummary, AgentStatus, ListAgentsInput } from '../types/agent';
+import { SessionSummary } from '../types/session';
+import { SessionList } from './SessionList';
 import './AgentList.css';
 
 export interface AgentListProps {
   projectId: string;
   apiClient?: AgentApiClient;
+  sessionApiClient?: SessionApiClient;
+  onOpenSession?: (session: SessionSummary, agent: AgentSummary) => void;
   _statusFilter?: AgentStatus;
   pageSize?: number;
 }
@@ -13,6 +18,8 @@ export interface AgentListProps {
 export const AgentList: React.FC<AgentListProps> = ({
   projectId,
   apiClient = defaultAgentApi,
+  sessionApiClient = defaultSessionApi,
+  onOpenSession,
   pageSize = 10,
 }) => {
   const [agents, setAgents] = useState<AgentSummary[]>([]);
@@ -24,6 +31,7 @@ export const AgentList: React.FC<AgentListProps> = ({
   const [createName, setCreateName] = useState<string>('');
   const [createDescription, setCreateDescription] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
   const fetchAgents = useCallback(async () => {
     setIsLoading(true);
@@ -136,6 +144,7 @@ export const AgentList: React.FC<AgentListProps> = ({
 
   const currentPage = Math.floor(offset / pageSize) + 1;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const selectedAgent = agents.find((agent) => agent.id === selectedAgentId);
 
   if (isLoading) {
     return (
@@ -196,6 +205,7 @@ export const AgentList: React.FC<AgentListProps> = ({
             <th scope="col">Personality</th>
             <th scope="col">Criado em</th>
             <th scope="col">Atualizado em</th>
+            <th scope="col">Conversas</th>
           </tr>
         </thead>
         <tbody>
@@ -210,10 +220,34 @@ export const AgentList: React.FC<AgentListProps> = ({
               <td>{agent.personality.name}</td>
               <td>{new Date(agent.created_at).toLocaleString()}</td>
               <td>{new Date(agent.updated_at).toLocaleString()}</td>
+              <td>
+                {agent.status === 'active' && (
+                  <button
+                    type="button"
+                    className="agent-conversations-button"
+                    onClick={() => setSelectedAgentId((current) => current === agent.id ? null : agent.id)}
+                    aria-label={selectedAgentId === agent.id
+                      ? `Fechar conversas de ${agent.name}`
+                      : `Abrir conversas de ${agent.name}`}
+                  >
+                    {selectedAgentId === agent.id ? 'Fechar' : 'Conversar'}
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {selectedAgent && selectedAgent.status === 'active' && (
+        <SessionList
+          projectId={projectId}
+          agentId={selectedAgent.id}
+          agentName={selectedAgent.name}
+          apiClient={sessionApiClient}
+          pageSize={pageSize}
+          onOpenSession={onOpenSession ? (session) => onOpenSession(session, selectedAgent) : undefined}
+        />
+      )}
       {totalPages > 1 && (
         <nav className="agent-list-pagination" aria-label="Paginação de agents">
           <button

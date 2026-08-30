@@ -61,6 +61,21 @@
   background: #fafafa;
 }
 
+.agent-conversations-button {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: #0066cc;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.agent-conversations-button:hover {
+  background: #0052a3;
+}
+
 .agent-status {
   display: inline-block;
   padding: 2px 8px;
