@@ -170,28 +170,22 @@
 
 .project-card-title {
   min-width: 0;
-  overflow: hidden;
   color: #f8fafc;
   font-size: 1rem;
   font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .project-card-desc {
-  overflow: hidden;
   color: #94a3b8;
   font-size: 0.825rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .project-card-meta {
-  overflow: hidden;
   color: #64748b;
   font-size: 0.72rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .project-card-open {
