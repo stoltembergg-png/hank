@@ -1,11 +1,16 @@
 .session-workbench {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  padding: 1.25rem;
-  background: #111827;
-  border: 1px solid #334155;
-  border-radius: 8px;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 1.25rem clamp(1rem, 2.4vw, 2rem) 1.5rem;
+  background: linear-gradient(145deg, rgba(22, 29, 44, 0.98), rgba(11, 17, 28, 0.98));
+  border: 1px solid rgba(100, 116, 139, 0.34);
+  border-radius: 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 1.5rem 3rem rgba(2, 6, 23, 0.22);
 }
 
 .session-workbench-header {
@@ -14,38 +19,73 @@
   justify-content: space-between;
   gap: 1rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.session-workbench-agent {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.session-workbench-agent-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.8rem;
+  height: 2.8rem;
+  color: #dbeafe;
+  background: linear-gradient(145deg, #4f46e5, #2563eb);
+  border: 1px solid rgba(147, 197, 253, 0.68);
+  border-radius: 0.85rem;
+  box-shadow: 0 0.45rem 1rem rgba(37, 99, 235, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  font-size: 1.25rem;
 }
 
 .session-workbench-eyebrow {
-  margin: 0 0 0.35rem;
-  color: #93c5fd;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
+  margin: 0 0 0.3rem;
+  color: #8db7ff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .session-workbench h3 {
   margin: 0;
+  overflow-wrap: anywhere;
   color: #f8fafc;
-  font-size: 1.35rem;
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
 
 .session-workbench-back {
   flex-shrink: 0;
-  padding: 0.45rem 0.75rem;
-  border: 1px solid #475569;
-  border-radius: 6px;
-  background: #1e293b;
+  min-height: 2.35rem;
+  padding: 0.5rem 0.8rem;
+  background: rgba(30, 41, 59, 0.78);
   color: #cbd5e1;
+  border: 1px solid rgba(100, 116, 139, 0.42);
+  border-radius: 0.55rem;
   cursor: pointer;
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 
 .session-workbench-back:hover {
-  background: #334155;
+  background: rgba(51, 65, 85, 0.92);
+  border-color: rgba(148, 163, 184, 0.64);
   color: #f8fafc;
+}
+
+.session-workbench-back:focus-visible,
+.session-workbench-composer button:focus-visible {
+  outline: 2px solid #7da8ff;
+  outline-offset: 3px;
 }
 
 .session-workbench-details {
@@ -57,60 +97,96 @@
 
 .session-workbench-details > div {
   min-width: 0;
-  padding: 0.75rem;
-  border: 1px solid #334155;
-  border-radius: 6px;
-  background: #1e293b;
+  padding: 0.8rem 0.9rem;
+  background: rgba(15, 23, 42, 0.58);
+  border: 1px solid rgba(100, 116, 139, 0.24);
+  border-radius: 0.7rem;
 }
 
 .session-workbench-details dt {
   margin-bottom: 0.35rem;
-  color: #94a3b8;
-  font-size: 0.75rem;
-  font-weight: 600;
+  color: #64748b;
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .session-workbench-details dd {
   margin: 0;
-  color: #f1f5f9;
-  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+  color: #e2e8f0;
+  font-size: 0.86rem;
 }
 
 .session-workbench-id {
-  overflow-wrap: anywhere;
   color: #7dd3fc !important;
   font-family: monospace;
+  font-size: 0.75rem !important;
 }
 
 .session-workbench .session-status {
+  display: inline-block;
   width: fit-content;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 500;
+  padding: 0.22rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: capitalize;
 }
 
 .session-workbench .session-status--active,
 .session-workbench .session-status--created {
-  background: #14532d;
+  background: rgba(20, 83, 45, 0.4);
+  border-color: rgba(74, 222, 128, 0.22);
   color: #bbf7d0;
 }
 
 .session-workbench .session-status--closing,
 .session-workbench .session-status--closed,
 .session-workbench .session-status--failed {
-  background: #7f1d1d;
+  background: rgba(127, 29, 29, 0.4);
+  border-color: rgba(252, 165, 165, 0.2);
   color: #fecaca;
 }
 
+.session-workbench-conversation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 12rem;
+  padding: 1.25rem;
+  background: radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.09), transparent 58%), rgba(8, 15, 27, 0.72);
+  border: 1px solid rgba(100, 116, 139, 0.2);
+  border-radius: 0.85rem;
+}
+
 .session-workbench-notice {
-  padding: 1rem;
-  border: 1px solid #854d0e;
-  border-radius: 6px;
-  background: #422006;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  width: min(100%, 44rem);
+  padding: 1rem 1.1rem;
+  background: rgba(66, 32, 6, 0.54);
+  border: 1px solid rgba(245, 158, 11, 0.42);
+  border-radius: 0.75rem;
   color: #fde68a;
+}
+
+.session-workbench-notice-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  color: #451a03;
+  background: #fbbf24;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 800;
 }
 
 .session-workbench-notice strong,
@@ -119,11 +195,16 @@
   margin: 0;
 }
 
+.session-workbench-notice strong {
+  color: #fef3c7;
+  font-size: 0.88rem;
+}
+
 .session-workbench-notice p {
   margin-top: 0.35rem;
-  color: #fef3c7;
-  font-size: 0.875rem;
-  line-height: 1.4;
+  color: #fde68a;
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .session-workbench-composer {
@@ -131,47 +212,54 @@
   gap: 0.6rem;
   margin: 0;
   padding: 1rem;
-  border: 1px solid #334155;
-  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(100, 116, 139, 0.24);
+  border-radius: 0.75rem;
 }
 
 .session-workbench-composer legend {
   padding: 0 0.35rem;
   color: #cbd5e1;
-  font-weight: 600;
+  font-size: 0.85rem;
+  font-weight: 650;
 }
 
 .session-workbench-composer label {
   color: #94a3b8;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 
 .session-workbench-composer textarea {
   box-sizing: border-box;
   width: 100%;
+  min-height: 6rem;
   resize: vertical;
-  padding: 0.75rem;
-  border: 1px solid #475569;
-  border-radius: 6px;
-  background: #0f172a;
+  padding: 0.8rem;
+  background: rgba(8, 15, 27, 0.9);
   color: #f8fafc;
+  border: 1px solid rgba(100, 116, 139, 0.36);
+  border-radius: 0.6rem;
   font: inherit;
+}
+
+.session-workbench-composer textarea::placeholder {
+  color: #64748b;
 }
 
 .session-workbench-composer button {
   width: fit-content;
   padding: 0.5rem 0.9rem;
-  border: 0;
-  border-radius: 6px;
   background: #2563eb;
-  color: #fff;
+  color: #ffffff;
+  border: 1px solid rgba(147, 197, 253, 0.42);
+  border-radius: 0.55rem;
   cursor: pointer;
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 
 .session-workbench-composer:disabled {
-  opacity: 0.7;
+  opacity: 0.76;
 }
 
 .session-workbench-composer button:disabled {
@@ -183,7 +271,16 @@
     flex-direction: column;
   }
 
+  .session-workbench-back {
+    width: 100%;
+  }
+
   .session-workbench-details {
     grid-template-columns: 1fr;
+  }
+
+  .session-workbench-conversation {
+    min-height: 10rem;
+    padding: 0.75rem;
   }
 }
