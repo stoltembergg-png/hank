@@ -372,6 +372,9 @@ jobs:
       - name: Verify automated evaluation
         run: node tools/ci/run-onp-spec.mjs verify automated-evaluation
 
+      - name: Verify regression evaluation
+        run: node tools/ci/run-onp-spec.mjs verify regression-evaluation
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 

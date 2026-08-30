@@ -41,6 +41,7 @@ pub mod parser;
 pub mod pr_generation_workflow;
 pub mod project;
 pub mod qa_profile;
+pub mod regression_evaluation;
 pub mod release_agent_workflow;
 pub mod review_workflow;
 pub mod reviewer_profile;
