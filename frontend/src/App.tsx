@@ -1,5 +1,6 @@
 import { useState, useLayoutEffect } from 'react';
 import { ProjectList } from './components/ProjectList';
+import { ProductShell } from './components/ProductShell';
 import { APP_VERSION } from './version';
 import {
   FRONTEND_READY_EVENT,
@@ -62,14 +63,13 @@ function App() {
       data-hank-frontend-mounted="true"
       data-hank-frontend-ready={status === 'ready' ? 'true' : 'false'}
     >
-      <header>
-        <h1>Hank Desktop</h1>
-        <span className={`status ${status}`}>{status}</span>
-      </header>
-      <main>
-        <p className="app-version">Version: {version}</p>
+      <ProductShell>
+        <div className="app-content-status" aria-label={`Estado da aplicação: ${status}`}>
+          <span className={`status ${status}`}>{status}</span>
+          <span className="app-version">Version: {version}</span>
+        </div>
         <ProjectList />
-      </main>
+      </ProductShell>
     </div>
   );
 }

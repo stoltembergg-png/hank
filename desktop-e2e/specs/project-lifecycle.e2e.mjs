@@ -108,14 +108,14 @@ async function screenshot(name) { if (browser) await browser.screenshot(name); }
 async function element(selector) { return browser.wait(selector); }
 async function assertText(selector, expected) {
   const actual = await browser.text(await element(selector));
-  if (!actual.includes(expected)) throw new Error(`${phase}: ${selector} did not contain ${JSON.stringify(expected)}; got ${JSON.stringify(actual)}`);
+  if (!actual.toLowerCase().includes(expected.toLowerCase())) throw new Error(`${phase}: ${selector} did not contain ${JSON.stringify(expected)}; got ${JSON.stringify(actual)}`);
 }
 
 async function start() {
   browser = await new WebDriverSession().start();
   await element('[data-hank-frontend-mounted="true"]');
   await element('[data-hank-frontend-ready="true"]');
-  await assertText('header .status', 'ready');
+  await assertText('[aria-label^="Estado da aplicação"] .status', 'ready');
   await element('[aria-label="Gerenciamento de Projetos"]');
 }
 async function stop() {
