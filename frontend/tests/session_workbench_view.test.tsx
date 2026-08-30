@@ -30,6 +30,9 @@ describe('Session workbench view', () => {
 
     expect(screen.getByRole('heading', { name: 'Preparar release Windows' })).toBeInTheDocument();
     expect(screen.getByText('Conversa com release-agent')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Resumo da sessão' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Área da conversa' })).toBeInTheDocument();
+    expect(document.querySelector('.session-workbench-agent-avatar')).not.toBeNull();
     expect(screen.getByText('2 mensagens registradas')).toBeInTheDocument();
     expect(screen.getByText('Envio de mensagens ainda não está integrado ao desktop.')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Mensagem' })).toBeDisabled();
