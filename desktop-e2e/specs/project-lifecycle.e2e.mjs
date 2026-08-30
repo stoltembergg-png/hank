@@ -162,6 +162,14 @@ try {
   await browser.value(await element('[id^="session-title-"]'), 'Release validation conversation');
   await browser.click(await element('.session-create-form button[type="submit"]'));
   await browser.waitForText('Release validation conversation');
+  phase = 'session-open';
+  await browser.click(await element('.session-open-button'));
+  await element('[aria-label="Conversa Release validation conversation"]');
+  await assertText('.session-workbench-notice', 'Envio de mensagens ainda não está integrado ao desktop.');
+  await element('.session-workbench-composer textarea:disabled');
+  await screenshot('04-session-opened');
+  await browser.click(await element('[aria-label="Conversa Release validation conversation"] button'));
+  await element('[aria-label="Conversas de release-agent"]');
   const projects = await browser.invoke('list_projects', {
     limit: 100,
     offset: 0,
