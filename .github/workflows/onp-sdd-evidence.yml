@@ -414,6 +414,9 @@ jobs:
       - name: Verify plugin manifest
         run: node tools/ci/run-onp-spec.mjs verify plugin-manifest
 
+      - name: Verify plugin discovery
+        run: node tools/ci/run-onp-spec.mjs verify plugin-discovery
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 

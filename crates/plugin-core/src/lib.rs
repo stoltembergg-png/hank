@@ -1,4 +1,7 @@
 //! Canonical, bounded plugin manifest contract.
+pub mod discovery;
+pub use discovery::{DiscoveryError, PluginCatalog, PluginDiscovery, PluginStage, StagedPlugin};
+
 use semver::Version;
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
@@ -85,6 +88,14 @@ impl PluginManifest {
             trust,
         })
     }
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn api_revision(&self) -> &str {
+        &self.api_revision
+    }
+
     pub fn trust(&self) -> TrustState {
         self.trust
     }

@@ -179,6 +179,10 @@ test('ONP workflow runs PR generation workflow verification explicitly', () => {
     workflow,
     /Verify plugin manifest[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify plugin-manifest/,
   );
+  assert.match(
+    workflow,
+    /Verify plugin discovery[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify plugin-discovery/,
+  );
 });
 
 test('ONP workflow runs coding agent profile verification explicitly', () => {
