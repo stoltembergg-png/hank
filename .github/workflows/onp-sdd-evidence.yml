@@ -387,6 +387,9 @@ jobs:
       - name: Verify self-development issue
         run: node tools/ci/run-onp-spec.mjs verify self-development-issue
 
+      - name: Verify self-development branch
+        run: node tools/ci/run-onp-spec.mjs verify self-development-branch
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
