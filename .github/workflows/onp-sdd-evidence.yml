@@ -393,6 +393,9 @@ jobs:
       - name: Verify self-development PR
         run: node tools/ci/run-onp-spec.mjs verify self-development-pr
 
+      - name: Verify MCP transport abstraction
+        run: node tools/ci/run-onp-spec.mjs verify mcp-transport-abstraction
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
