@@ -116,23 +116,23 @@
 - Arquivos: frontend/src/api/agent-autonomy.ts, frontend/src/agents/builder/autonomy/AutonomyPage.tsx, frontend/src/agents/builder/autonomy/types.ts, frontend/src/agents/builder/autonomy/AutonomyPage.css, frontend/tests/agent_autonomy_ac_tests.test.tsx, docs/agent-autonomy-page.md
 - Notas: L0-L4, matriz de decisões, downgrade reversível, escalação com approval bounded, stale/unsupported fail-closed e sem autoelevação
 
-## T-1301 — Integrar Agents ao detalhe do Project [em-andamento]
+## T-1301 — Integrar Agents ao detalhe do Project [concluida]
 
 - Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
 - Arquivos: frontend/src/components/ProjectDetailView.tsx, frontend/src/components/ProjectDetailView.css, frontend/tests/project_agents_workbench.test.tsx
-- Notas: Aba acessível e project-scoped para abrir a listagem de Agents existente; client injetável preserva a fronteira de serviços e não cria dados sintéticos.
+- Notas: Aba acessível e project-scoped para abrir a listagem de Agents existente; client injetável preserva a fronteira de serviços e não cria dados sintéticos. Validado por testes de frontend e pelo ciclo nativo de Project.
 
-## T-1385 — Criar Agent pelo workbench do Project [em-andamento]
+## T-1385 — Criar Agent pelo workbench do Project [concluida]
 
 - Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
 - Arquivos: frontend/src/components/AgentList.tsx, frontend/src/components/AgentList.css, frontend/tests/agent_creation_workbench.test.tsx
-- Notas: formulário bounded e acessível usa o AgentApiClient injetado, envia somente project_id/nome/descrição e recarrega a listagem após confirmação do serviço.
+- Notas: formulário bounded e acessível usa o AgentApiClient injetado, envia somente project_id/nome/descrição e recarrega a listagem após confirmação do serviço. Validado por teste de criação do workbench e pelo ciclo nativo de Project.
 
-## T-1387 — Tornar o lint do frontend portátil [em-andamento]
+## T-1387 — Tornar o lint do frontend portátil [concluida]
 
 - Refs: US-201, AC-201, AC-202
 - Arquivos: frontend/package.json, frontend/tests/frontend_ac_tests.test.ts
-- Notas: o script `lint` não depende de atribuição de variável POSIX, permitindo executar o mesmo gate em Windows e CI.
+- Notas: o script `lint` não depende de atribuição de variável POSIX, permitindo executar o mesmo gate em Windows e CI. Validado por teste de contrato, lint local e Build Frontend oficial.
 
 ## T-1389 — Integrar fundação do Product Shell [concluída]
 

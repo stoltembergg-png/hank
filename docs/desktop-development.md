@@ -25,7 +25,7 @@ node tools/verify-desktop-frontend-assets.mjs frontend/dist
 
 ## Browser E2E
 
-The browser E2E suite runs the Vite frontend in Chromium and verifies that the project workspace renders and the create-project form opens:
+The browser E2E suite runs the Vite frontend in Chromium and verifies that the project workspace renders, the create-project form opens, and an existing project session can be opened in the read-only workbench:
 
 ```bash
 npm --prefix frontend run test:e2e
@@ -33,4 +33,4 @@ npm --prefix frontend run test:e2e
 
 The CI workflow `.github/workflows/frontend-e2e.yml` installs Chromium, runs the suite, and uploads Playwright traces, screenshots, videos, and HTML reports on failure.
 
-This browser suite verifies the application surface and asset path behavior. A future Tauri WebDriver suite is still needed for native window lifecycle, IPC and OS-specific desktop behavior; browser E2E does not claim that coverage.
+This browser suite verifies the application surface and asset path behavior. Native Tauri WebDriver coverage for window lifecycle, IPC, project/agent/session persistence, and Linux/Windows behavior runs through `desktop-e2e/run-linux.sh` and `desktop-e2e/run-windows.ps1`, and is aggregated by the `Desktop E2E / Project Lifecycle` check. Browser E2E does not replace that native coverage.
