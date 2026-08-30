@@ -156,6 +156,12 @@ try {
   await browser.value(await element('#agent-create-description'), 'Prepara releases com revisão humana.');
   await browser.click(await element('button[type="submit"]'));
   await browser.waitForText('release-agent');
+  await browser.click(await element('[aria-label="Abrir conversas de release-agent"]'));
+  await browser.waitForText('Nenhuma conversa iniciada para este agent.');
+  await browser.click(await element('[aria-label="Abrir formulário de nova conversa"]'));
+  await browser.value(await element('[id^="session-title-"]'), 'Release validation conversation');
+  await browser.click(await element('.session-create-form button[type="submit"]'));
+  await browser.waitForText('Release validation conversation');
   const projects = await browser.invoke('list_projects', {
     limit: 100,
     offset: 0,
@@ -171,13 +177,6 @@ try {
   });
   const agent = agents.agents.find((candidate) => candidate.name === 'release-agent');
   if (!agent) throw new Error('sessions: created agent was not returned by the real bridge');
-  const createdSession = await browser.invoke('create_session', {
-    project_id: project.id,
-    agent_id: agent.id,
-    title: 'Release validation conversation',
-    correlation_id: 'e2e-session-create',
-  });
-  if (createdSession.session.status !== 'active') throw new Error('sessions: created session was not active');
   const sessions = await browser.invoke('list_sessions', {
     project_id: project.id,
     agent_id: agent.id,
@@ -185,9 +184,10 @@ try {
     offset: 0,
     correlation_id: 'e2e-session-list',
   });
-  if (sessions.total !== 1 || sessions.sessions[0]?.id !== createdSession.session.id) {
-    throw new Error(`sessions: scoped list did not return the created session: ${JSON.stringify(sessions)}`);
+  if (sessions.total !== 1 || sessions.sessions[0]?.title !== 'Release validation conversation') {
+    throw new Error(`sessions: UI-created session was not returned by the real bridge: ${JSON.stringify(sessions)}`);
   }
+  if (sessions.sessions[0]?.status !== 'active') throw new Error('sessions: created session was not active');
   await screenshot('03-agents');
   await browser.click(await element('[aria-label="Conteúdo do projeto"] button[role="tab"]:first-child'));
 
