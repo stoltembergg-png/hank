@@ -46,6 +46,7 @@ pub mod round_policy;
 pub mod self_evaluation_workflow;
 pub mod session;
 pub mod skill;
+pub mod skill_improvement_proposal;
 pub mod synthesis;
 pub mod task_mapping;
 pub mod taxonomy;
