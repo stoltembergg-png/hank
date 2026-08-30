@@ -48,8 +48,20 @@ export function ProductShell({
     <div className="product-shell">
       <aside className="product-shell-sidebar" aria-label="Navegação principal">
         <div className="product-shell-brand" aria-label="Hank">
-          <span className="product-shell-brand-mark" aria-hidden="true">H</span>
-          <span className="product-shell-brand-name">HANK</span>
+          <span className="product-shell-brand-mark" aria-hidden="true">✦</span>
+          <div className="product-shell-brand-copy">
+            <span className="product-shell-brand-name">Hank</span>
+            <span className="product-shell-brand-subtitle">Desktop workspace</span>
+          </div>
+        </div>
+
+        <div className="product-shell-workspace-card" aria-label="Workspace ativo">
+          <span className="product-shell-workspace-avatar" aria-hidden="true">HD</span>
+          <span className="product-shell-workspace-copy">
+            <strong>Hank</strong>
+            <small>Workspace local</small>
+          </span>
+          <span className="product-shell-workspace-chevron" aria-hidden="true">⌄</span>
         </div>
 
         <nav className="product-shell-navigation">
@@ -69,19 +81,36 @@ export function ProductShell({
           />
         </nav>
 
-        <div className="product-shell-sidebar-note">
-          <span className="product-shell-sidebar-note-dot" aria-hidden="true" />
-          <span>Execução segura e local</span>
+        <div className="product-shell-sidebar-footer">
+          <div className="product-shell-sidebar-note">
+            <span className="product-shell-sidebar-note-dot" aria-hidden="true" />
+            <span>Execução segura e local</span>
+          </div>
+          <div className="product-shell-profile" aria-label="Perfil local">
+            <span className="product-shell-profile-avatar" aria-hidden="true">G</span>
+            <span className="product-shell-profile-copy">
+              <strong>Gabriel</strong>
+              <small>Conta local</small>
+            </span>
+            <span className="product-shell-profile-status" aria-label="Online" />
+          </div>
         </div>
       </aside>
 
       <section className="product-shell-main">
-        <header className="product-shell-header">
+        <header className="product-shell-header" aria-label="Cabeçalho do workspace">
           <div>
             <p className="product-shell-eyebrow">Hank Desktop</p>
             <h1>Workspace</h1>
           </div>
-          <span className="product-shell-header-status">Sessão local</span>
+          <div className="product-shell-header-meta">
+            <span className="product-shell-header-status">
+              <span className="product-shell-header-status-dot" aria-hidden="true" />
+              Sessão local
+            </span>
+            <span className="product-shell-header-divider" aria-hidden="true" />
+            <span className="product-shell-header-caption">Privado por padrão</span>
+          </div>
         </header>
         <div className="product-shell-content">{children}</div>
       </section>
