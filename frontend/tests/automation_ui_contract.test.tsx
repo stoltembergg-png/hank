@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AutomationList } from '../src/components/AutomationList';
 import { type SchedulerApiClient, type ScheduledJobView } from '../src/api/scheduler';
@@ -18,6 +18,30 @@ function api() {
 }
 
 describe('AutomationList', () => {
+  it('keeps the default scheduler client stable after the first load', async () => {
+    const jobs: ScheduledJobView[] = [];
+    const invoke = vi.fn().mockResolvedValue(jobs);
+    const bridgeWindow = window as unknown as {
+      __TAURI_INTERNALS__?: { invoke: typeof invoke };
+    };
+    const previousBridge = bridgeWindow.__TAURI_INTERNALS__;
+    bridgeWindow.__TAURI_INTERNALS__ = { invoke };
+
+    try {
+      const { unmount } = render(<AutomationList projectId="project-a" ownerId="owner" />);
+      await waitFor(() => expect(invoke).toHaveBeenCalled());
+      await waitFor(() => expect(screen.getByText('Nenhuma automação encontrada.')).toBeInTheDocument());
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      });
+
+      expect(invoke).toHaveBeenCalledTimes(1);
+      unmount();
+    } finally {
+      bridgeWindow.__TAURI_INTERNALS__ = previousBridge;
+    }
+  });
+
   // @spec:AC-1272
   it('exposes explicit interval, target, version and timezone fields', async () => {
     const client = api();

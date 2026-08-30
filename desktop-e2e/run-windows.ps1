@@ -198,9 +198,14 @@ try {
   $frontendProcess = Start-Process -FilePath $nodeBinary -ArgumentList @('node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '1420') -WorkingDirectory (Join-Path $repositoryRoot 'frontend') -RedirectStandardOutput $frontendLog -RedirectStandardError $frontendErrorLog -PassThru
   $frontendReady = $false
   for ($attempt = 0; $attempt -lt 60; $attempt++) {
+    if ($frontendProcess.HasExited) { throw "frontend preview exited with code $($frontendProcess.ExitCode)" }
     try {
       $response = Invoke-WebRequest 'http://127.0.0.1:1420/' -UseBasicParsing -TimeoutSec 2
-      if ($response.StatusCode -eq 200) { $frontendReady = $true; break }
+      if ($response.StatusCode -eq 200) {
+        if ($frontendProcess.HasExited) { throw "frontend preview exited with code $($frontendProcess.ExitCode)" }
+        $frontendReady = $true
+        break
+      }
     } catch { }
     if ($frontendProcess.HasExited) { throw "frontend preview exited with code $($frontendProcess.ExitCode)" }
     Start-Sleep -Seconds 1

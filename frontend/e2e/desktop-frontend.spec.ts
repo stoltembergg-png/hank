@@ -12,6 +12,81 @@ test('desktop frontend renders the project workspace without a Tauri bridge fail
   await expect(page.getByRole('form', { name: 'Criar novo projeto' })).toBeVisible();
 });
 
+test('desktop frontend opens a project session in the read-only workbench', async ({ page }) => {
+  await page.addInitScript(() => {
+    const project = {
+      id: 'project-session-open',
+      name: 'Session Open Project',
+      description: 'Project with an existing session',
+      status: 'active',
+      owner: 'e2e',
+      created_at: '2026-08-30T00:00:00.000Z',
+      updated_at: '2026-08-30T00:00:00.000Z',
+      settings: {
+        retention_days: 30,
+        auto_archive_idle_days: null,
+        telemetry_enabled: false,
+        max_active_agents: 3,
+      },
+    };
+    const agent = {
+      id: 'agent-session-open',
+      project_id: project.id,
+      name: 'session-agent',
+      description: 'Agent for session opening',
+      status: 'active',
+      personality: {
+        name: 'Default',
+        description: null,
+        traits: ['helpful'],
+        communication_style: 'technical',
+      },
+      created_at: '2026-08-30T00:00:00.000Z',
+      updated_at: '2026-08-30T00:00:00.000Z',
+    };
+    const session = {
+      id: 'session-session-open',
+      project_id: project.id,
+      agent_id: agent.id,
+      status: 'active',
+      title: 'Open this conversation',
+      message_count: 0,
+      token_count: 0,
+      created_at: '2026-08-30T00:00:00.000Z',
+      updated_at: '2026-08-30T00:00:00.000Z',
+      closed_at: null,
+    };
+
+    (window as unknown as {
+      __TAURI_INTERNALS__: { invoke: (command: string) => Promise<unknown> };
+    }).__TAURI_INTERNALS__ = {
+      invoke: async (command) => {
+        if (command === 'frontend_ready') return { stage: 'APPLICATION_READY' };
+        if (command === 'list_projects') return { projects: [project], total: 1, limit: 10, offset: 0 };
+        if (command === 'list_agents') return { agents: [agent], total: 1, limit: 10, offset: 0 };
+        if (command === 'list_sessions') return { sessions: [session], total: 1, limit: 10, offset: 0 };
+        if (command === 'list_memories') return { project_id: project.id, memories: [] };
+        if (command === 'list_skills') return { project_id: project.id, scope: 'project', skills: [], total: 0, limit: 50, offset: 0, available: true };
+        if (command === 'list_scheduled_jobs') return [];
+        throw new Error(`Unexpected command: ${command}`);
+      },
+    };
+  });
+
+  await page.goto('/');
+  await page.getByRole('listitem', { name: 'Ver detalhes de Session Open Project' }).click();
+  await page.getByRole('tab', { name: 'Agents' }).click();
+  await expect(page.getByText('session-agent')).toBeVisible();
+  await page.getByRole('button', { name: 'Abrir conversas de session-agent' }).click();
+  await page.getByRole('button', { name: 'Abrir conversa' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Open this conversation' })).toBeVisible();
+  await expect(page.getByText('Envio de mensagens ainda não está integrado ao desktop.')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Mensagem' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Voltar para conversas' }).click();
+  await expect(page.getByRole('button', { name: 'Abrir conversa' })).toBeVisible();
+});
+
 test('desktop frontend renders project-scoped Skills and keeps unimported globals unavailable', async ({ page }) => {
   await page.addInitScript(() => {
     const projectId = 'prj_e2e_skill_project';

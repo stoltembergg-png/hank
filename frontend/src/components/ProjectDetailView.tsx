@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ProjectApiClient, defaultProjectApi } from '../api/projects';
 import { AgentApiClient } from '../api/agents';
+import { SessionApiClient } from '../api/sessions';
 import { SessionSummary } from '../types/session';
 import { SkillApiClient } from '../api/skills';
 import { SkillEditorApiClient } from '../api/skillEditor';
@@ -9,6 +10,7 @@ import { MemoryPanel } from './MemoryPanel';
 import { SkillsPanel } from './SkillsPanel';
 import { AutomationList } from './AutomationList';
 import { AgentList } from './AgentList';
+import { SessionWorkbench } from './SessionWorkbench';
 import './ProjectDetailView.css';
 
 export interface ProjectDetailViewProps {
@@ -16,6 +18,7 @@ export interface ProjectDetailViewProps {
   initialProject?: ProjectSummary;
   apiClient?: ProjectApiClient;
   agentApiClient?: AgentApiClient;
+  sessionApiClient?: SessionApiClient;
   onOpenSession?: (session: SessionSummary, agentId: string) => void;
   skillApiClient?: SkillApiClient;
   skillEditorApiClient?: SkillEditorApiClient;
@@ -29,6 +32,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   initialProject,
   apiClient = defaultProjectApi,
   agentApiClient,
+  sessionApiClient,
   onOpenSession,
   skillApiClient,
   skillEditorApiClient,
@@ -46,6 +50,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'agents'>('overview');
+  const [selectedSession, setSelectedSession] = useState<{
+    session: SessionSummary;
+    agentName: string;
+  } | null>(null);
 
   // Edit form state
   const [editName, setEditName] = useState<string>(initialProject?.name ?? '');
@@ -251,11 +259,24 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       </div>
 
       {activeTab === 'agents' ? (
-        <AgentList
-          projectId={project.id}
-          apiClient={agentApiClient}
-          onOpenSession={(session) => onOpenSession?.(session, session.agent_id)}
-        />
+        <>
+          <AgentList
+            projectId={project.id}
+            apiClient={agentApiClient}
+            sessionApiClient={sessionApiClient}
+            onOpenSession={(session, agent) => {
+              setSelectedSession({ session, agentName: agent.name });
+              onOpenSession?.(session, agent.id);
+            }}
+          />
+          {selectedSession && (
+            <SessionWorkbench
+              session={selectedSession.session}
+              agentName={selectedSession.agentName}
+              onBack={() => setSelectedSession(null)}
+            />
+          )}
+        </>
       ) : isEditing ? (
         <form onSubmit={handleSaveUpdate} className="project-edit-form" noValidate>
           <div className="form-group">

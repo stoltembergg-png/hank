@@ -1,0 +1,189 @@
+.session-workbench {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 8px;
+}
+
+.session-workbench-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #334155;
+}
+
+.session-workbench-eyebrow {
+  margin: 0 0 0.35rem;
+  color: #93c5fd;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.session-workbench h3 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 1.35rem;
+}
+
+.session-workbench-back {
+  flex-shrink: 0;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  background: #1e293b;
+  color: #cbd5e1;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.session-workbench-back:hover {
+  background: #334155;
+  color: #f8fafc;
+}
+
+.session-workbench-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.session-workbench-details > div {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  background: #1e293b;
+}
+
+.session-workbench-details dt {
+  margin-bottom: 0.35rem;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.session-workbench-details dd {
+  margin: 0;
+  color: #f1f5f9;
+  font-size: 0.9rem;
+}
+
+.session-workbench-id {
+  overflow-wrap: anywhere;
+  color: #7dd3fc !important;
+  font-family: monospace;
+}
+
+.session-workbench .session-status {
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.session-workbench .session-status--active,
+.session-workbench .session-status--created {
+  background: #14532d;
+  color: #bbf7d0;
+}
+
+.session-workbench .session-status--closing,
+.session-workbench .session-status--closed,
+.session-workbench .session-status--failed {
+  background: #7f1d1d;
+  color: #fecaca;
+}
+
+.session-workbench-notice {
+  padding: 1rem;
+  border: 1px solid #854d0e;
+  border-radius: 6px;
+  background: #422006;
+  color: #fde68a;
+}
+
+.session-workbench-notice strong,
+.session-workbench-notice p {
+  display: block;
+  margin: 0;
+}
+
+.session-workbench-notice p {
+  margin-top: 0.35rem;
+  color: #fef3c7;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.session-workbench-composer {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid #334155;
+  border-radius: 6px;
+}
+
+.session-workbench-composer legend {
+  padding: 0 0.35rem;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.session-workbench-composer label {
+  color: #94a3b8;
+  font-size: 0.875rem;
+}
+
+.session-workbench-composer textarea {
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+  padding: 0.75rem;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #f8fafc;
+  font: inherit;
+}
+
+.session-workbench-composer button {
+  width: fit-content;
+  padding: 0.5rem 0.9rem;
+  border: 0;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.session-workbench-composer:disabled {
+  opacity: 0.7;
+}
+
+.session-workbench-composer button:disabled {
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .session-workbench-header {
+    flex-direction: column;
+  }
+
+  .session-workbench-details {
+    grid-template-columns: 1fr;
+  }
+}

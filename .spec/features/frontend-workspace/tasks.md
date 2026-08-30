@@ -139,3 +139,9 @@
 - Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
 - Arquivos: frontend/src/App.tsx, frontend/src/App.css, frontend/src/components/ProductShell.tsx, frontend/src/components/ProductShell.css, frontend/tests/product_shell.test.tsx
 - Notas: shell persistente com navegação acessível, status de sessão local e conteúdo Projects real; módulos ainda não integrados ficam desabilitados e explicitamente identificados, sem rotas ou dados fictícios. Validado por testes de frontend, E2E Chromium e E2E nativo do Windows com persistência após reinícios.
+
+## T-1390 — Abrir sessão existente no workbench do Project [concluída]
+
+- Refs: US-201, AC-201, AC-202, AC-203, AC-204, AC-205
+- Arquivos: frontend/src/components/ProjectDetailView.tsx, frontend/src/components/SessionWorkbench.tsx, frontend/src/components/SessionWorkbench.css, frontend/tests/project_agents_workbench.test.tsx, frontend/tests/session_workbench_view.test.tsx, desktop-e2e/specs/project-lifecycle.e2e.mjs, docs/desktop-e2e-project-lifecycle.md
+- Notas: sessão criada/listada pode ser aberta em uma superfície read-only com metadados project-scoped e retorno para a lista; composição permanece desabilitada e informa que o bridge de execução ainda não está integrado. Validado por teste de frontend e E2E nativo.

@@ -7,6 +7,8 @@ type TriggerKind = 'interval' | 'cron' | 'one_shot';
 type TargetKind = 'workflow' | 'agent' | 'tool';
 type MissedRunPolicy = ScheduledJobInput['missed_run_policy'];
 
+const defaultSchedulerApi = new DesktopSchedulerApi();
+
 function inputFor(job: ScheduledJobView): ScheduledJobInput {
   const trigger = job.trigger_kind === 'interval'
     ? { kind: 'interval' as const, seconds: Number(job.trigger_value) }
@@ -21,7 +23,7 @@ function inputFor(job: ScheduledJobView): ScheduledJobInput {
   return { project_id: job.project_id, owner_id: job.owner_id, job_id: job.job_id, trigger, target, timezone: job.timezone, concurrency_limit: job.concurrency_limit, missed_run_policy: job.missed_run_policy as ScheduledJobInput['missed_run_policy'], enabled: job.enabled, lifecycle: job.lifecycle };
 }
 
-export const AutomationList: React.FC<Props> = ({ projectId, ownerId, api = new DesktopSchedulerApi() }) => {
+export const AutomationList: React.FC<Props> = ({ projectId, ownerId, api = defaultSchedulerApi }) => {
   const [jobs, setJobs] = useState<ScheduledJobView[]>([]);
   const [kind, setKind] = useState<TriggerKind>('interval');
   const [jobId, setJobId] = useState('');
