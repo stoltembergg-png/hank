@@ -181,6 +181,8 @@ pub fn command_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 
         crate::projects::archive_project,
         crate::agents::list_agents,
         crate::agents::create_agent,
+        crate::sessions::list_sessions,
+        crate::sessions::create_session,
         crate::scheduler::list_scheduled_jobs,
         crate::scheduler::create_scheduled_job,
         crate::scheduler::update_scheduled_job,

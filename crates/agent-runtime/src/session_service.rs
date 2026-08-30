@@ -75,7 +75,7 @@ pub struct TurnResult {
 pub struct SessionApplicationService {
     sessions: SqliteSessionRepository,
     messages: SqliteMessageRepository,
-    invoker: Arc<dyn TurnInvoker>,
+    invoker: Option<Arc<dyn TurnInvoker>>,
     concurrency: crate::execution::ExecutionConcurrency,
 }
 
@@ -88,7 +88,34 @@ impl SessionApplicationService {
         Ok(Self {
             sessions: SqliteSessionRepository::new(pool.clone()),
             messages: SqliteMessageRepository::new(pool),
-            invoker,
+            invoker: Some(invoker),
+            concurrency: crate::execution::ExecutionConcurrency::new(max_concurrent)
+                .map_err(|_| SessionServiceError::Concurrency)?,
+        })
+    }
+
+    /// Builds the lifecycle-only service used by desktop bridges before a
+    /// provider route is configured. Turn execution remains unavailable until
+    /// the provider-backed constructor is used.
+    pub fn new_lifecycle(
+        pool: sqlx::Pool<sqlx::Sqlite>,
+        max_concurrent: usize,
+    ) -> Result<Self, SessionServiceError> {
+        Self::new_lifecycle_from_repository(
+            SqliteSessionRepository::new(pool.clone()),
+            max_concurrent,
+        )
+    }
+
+    pub fn new_lifecycle_from_repository(
+        sessions: SqliteSessionRepository,
+        max_concurrent: usize,
+    ) -> Result<Self, SessionServiceError> {
+        let pool = sessions.pool();
+        Ok(Self {
+            sessions,
+            messages: SqliteMessageRepository::new(pool),
+            invoker: None,
             concurrency: crate::execution::ExecutionConcurrency::new(max_concurrent)
                 .map_err(|_| SessionServiceError::Concurrency)?,
         })
@@ -154,6 +181,10 @@ impl SessionApplicationService {
         generation: u64,
         user_text: &str,
     ) -> Result<TurnResult, SessionServiceError> {
+        let invoker = self
+            .invoker
+            .as_ref()
+            .ok_or(SessionServiceError::ProviderFailure)?;
         let _permit = self
             .concurrency
             .try_acquire()
@@ -211,7 +242,7 @@ impl SessionApplicationService {
                 request.normalized.request_id.clone(),
             ))
             .map_err(|_| SessionServiceError::State)?;
-        let result = match self.invoker.complete(request).await {
+        let result = match invoker.complete(request).await {
             Ok(result) => result,
             Err(InvocationError::Cancelled) => {
                 execution

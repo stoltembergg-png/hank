@@ -7,6 +7,7 @@ pub mod memory;
 pub mod notifications;
 pub mod projects;
 pub mod scheduler;
+pub mod sessions;
 pub mod skills;
 pub mod streaming;
 
@@ -150,6 +151,7 @@ fn main() {
                 .map_err(startup_transition_failure)?;
             app.manage(projects::bridge_state(&storage));
             app.manage(agents::bridge_state(&storage));
+            app.manage(sessions::bridge_state(&storage));
             app.manage(scheduler::bridge_state(&storage));
             app.manage(memory::bridge_state(&storage));
             app.manage(skills::bridge_state(&storage));
