@@ -81,10 +81,7 @@ fn bridge_error(error: DomainError, correlation_id: Option<String>) -> SessionBr
     }
 }
 
-fn session_error(
-    error: SessionServiceError,
-    correlation_id: Option<String>,
-) -> SessionBridgeError {
+fn session_error(error: SessionServiceError, correlation_id: Option<String>) -> SessionBridgeError {
     let domain_error = match error {
         SessionServiceError::Storage(error) => match error {
             SessionStorageError::NotFound => DomainError::NotFound("session".into()),
@@ -119,9 +116,9 @@ fn session_error(
             from: "closed".into(),
             to: "active".into(),
         },
-        SessionServiceError::Cancelled => DomainError::InvariantViolation(
-            "session lifecycle operation was cancelled".into(),
-        ),
+        SessionServiceError::Cancelled => {
+            DomainError::InvariantViolation("session lifecycle operation was cancelled".into())
+        }
         SessionServiceError::ProviderFailure => {
             DomainError::CapabilityUnavailable("session turn execution".into())
         }
@@ -190,7 +187,12 @@ async fn load_scope(
         .get_by_id(project_id)
         .await
         .map_err(|error| bridge_error(error, correlation_id.clone()))?
-        .ok_or_else(|| bridge_error(DomainError::NotFound("project".into()), correlation_id.clone()))?;
+        .ok_or_else(|| {
+            bridge_error(
+                DomainError::NotFound("project".into()),
+                correlation_id.clone(),
+            )
+        })?;
     let agent = state
         .agents
         .get(project_id, agent_id)
@@ -347,14 +349,13 @@ async fn create_session_for_state(
     let correlation_id = Some(input.correlation_id.clone());
     let project_id = parse_project_id(input.project_id, correlation_id.clone())?;
     let agent_id = parse_agent_id(input.agent_id, correlation_id.clone())?;
-    let (project, agent) = load_scope(state, &project_id, &agent_id, correlation_id.clone()).await?;
+    let (project, agent) =
+        load_scope(state, &project_id, &agent_id, correlation_id.clone()).await?;
     require_creation_scope(&project, &agent, correlation_id.clone())?;
     let title = bounded_title(input.title, correlation_id.clone())?;
-    let service = SessionApplicationService::new_lifecycle_from_repository(
-        (*state.sessions).clone(),
-        1,
-    )
-        .map_err(|error| session_error(error, correlation_id.clone()))?;
+    let service =
+        SessionApplicationService::new_lifecycle_from_repository((*state.sessions).clone(), 1)
+            .map_err(|error| session_error(error, correlation_id.clone()))?;
     let session = service
         .create(project_id, agent_id, &input.correlation_id, title)
         .await

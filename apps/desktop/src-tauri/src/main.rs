@@ -7,8 +7,8 @@ pub mod memory;
 pub mod notifications;
 pub mod projects;
 pub mod scheduler;
-pub mod skills;
 pub mod sessions;
+pub mod skills;
 pub mod streaming;
 
 use agent_runtime::{
