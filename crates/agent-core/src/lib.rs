@@ -43,6 +43,7 @@ pub mod release_agent_workflow;
 pub mod review_workflow;
 pub mod reviewer_profile;
 pub mod round_policy;
+pub mod self_evaluation_workflow;
 pub mod session;
 pub mod skill;
 pub mod synthesis;
