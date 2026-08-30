@@ -107,7 +107,7 @@ describe('CI Build workflow AC tests', () => {
     const e2e = readFileSync(join(REPOSITORY_ROOT, 'desktop-e2e', 'specs', 'project-lifecycle.e2e.mjs'), 'utf8');
     expect(e2e).toContain('[data-hank-frontend-mounted="true"]');
     expect(e2e).toContain('[data-hank-frontend-ready="true"]');
-    expect(e2e).toContain("header .status', 'ready'");
+    expect(e2e).toContain("[aria-label^=\"Estado da aplicação\"] .status', 'ready'");
     expect(e2e).toContain('artifact-identity.json');
     const runner = readFileSync(join(REPOSITORY_ROOT, 'desktop-e2e', 'run-windows.ps1'), 'utf8');
     expect(runner).toContain('node_modules/vite/bin/vite.js');
