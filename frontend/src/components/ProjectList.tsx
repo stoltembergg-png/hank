@@ -94,17 +94,27 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   return (
     <section className="project-list-container" aria-label="Gerenciamento de Projetos">
       <header className="project-list-header">
-        <h2>Projetos ({total})</h2>
-        {!isCreating && (
-          <button
-            type="button"
-            className="btn-new-project"
-            onClick={() => setIsCreating(true)}
-            aria-label="Abrir formulário de criação de projeto"
-          >
-            + Novo Projeto
-          </button>
-        )}
+        <div className="project-list-heading">
+          <span className="project-list-eyebrow">Workspace</span>
+          <h2>Projetos</h2>
+          <p className="project-list-description">Organize seus projetos e sessões.</p>
+        </div>
+        <div className="project-list-actions" role="toolbar" aria-label="Ferramentas de projetos">
+          <span className="project-list-count">
+            {total} {total === 1 ? 'projeto' : 'projetos'}
+          </span>
+          {!isCreating && (
+            <button
+              type="button"
+              className="btn-new-project"
+              onClick={() => setIsCreating(true)}
+              aria-label="Abrir formulário de criação de projeto"
+            >
+              <span className="btn-new-project-icon" aria-hidden="true">＋</span>
+              <span>Novo Projeto</span>
+            </button>
+          )}
+        </div>
       </header>
 
       {isCreating && (
@@ -153,8 +163,14 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                 }}
                 aria-label={`Ver detalhes de ${project.name}`}
               >
+                <span className="project-card-icon" aria-hidden="true">◇</span>
                 <div className="project-card-main">
-                  <span className="project-card-title">{project.name}</span>
+                  <div className="project-card-title-row">
+                    <span className="project-card-title">{project.name}</span>
+                    <span className={`project-status-badge ${project.status}`}>
+                      {project.status}
+                    </span>
+                  </div>
                   {project.description && (
                     <span className="project-card-desc">{project.description}</span>
                   )}
@@ -163,9 +179,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                     {new Date(project.created_at).toLocaleDateString()}
                   </span>
                 </div>
-                <span className={`project-status-badge ${project.status}`}>
-                  {project.status}
-                </span>
+                <span className="project-card-open" aria-hidden="true">→</span>
               </li>
             ))}
           </ul>
