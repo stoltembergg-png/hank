@@ -1,4 +1,9 @@
 //! Canonical, bounded plugin manifest contract.
+pub mod lifecycle;
+pub use lifecycle::{
+    LifecycleError, LifecycleEvent, LifecycleRequest, LifecycleState, PluginLifecycle,
+};
+
 pub mod discovery;
 pub use discovery::{DiscoveryError, PluginCatalog, PluginDiscovery, PluginStage, StagedPlugin};
 
