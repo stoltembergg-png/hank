@@ -4,6 +4,7 @@ members = [
     "crates/agent-core",
     "crates/agent-runtime",
     "crates/agent-protocol",
+    "crates/plugin-core",
     "crates/provider-core",
     "crates/secrets-core",
     "crates/security-core",
