@@ -396,6 +396,9 @@ jobs:
       - name: Verify MCP transport abstraction
         run: node tools/ci/run-onp-spec.mjs verify mcp-transport-abstraction
 
+      - name: Verify MCP stdio client
+        run: node tools/ci/run-onp-spec.mjs verify mcp-stdio-client
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
