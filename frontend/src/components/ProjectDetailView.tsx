@@ -13,6 +13,8 @@ import { AgentList } from './AgentList';
 import { SessionWorkbench } from './SessionWorkbench';
 import './ProjectDetailView.css';
 
+export type ProjectDetailTab = 'overview' | 'agents';
+
 export interface ProjectDetailViewProps {
   projectId: string;
   initialProject?: ProjectSummary;
@@ -25,6 +27,8 @@ export interface ProjectDetailViewProps {
   onBack?: () => void;
   onProjectUpdated?: (project: ProjectSummary) => void;
   onProjectArchived?: (project: ProjectSummary) => void;
+  activeTab?: ProjectDetailTab;
+  onActiveTabChange?: (tab: ProjectDetailTab) => void;
 }
 
 export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
@@ -39,6 +43,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   onBack,
   onProjectUpdated,
   onProjectArchived,
+  activeTab,
+  onActiveTabChange,
 }) => {
   const [project, setProject] = useState<ProjectSummary | null>(initialProject ?? null);
   const [isLoading, setIsLoading] = useState<boolean>(!initialProject);
@@ -49,7 +55,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [archiveReason, setArchiveReason] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'agents'>('overview');
+  const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState<ProjectDetailTab>('overview');
   const [selectedSession, setSelectedSession] = useState<{
     session: SessionSummary;
     agentName: string;
@@ -169,6 +175,14 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     }
   };
 
+  const currentTab = activeTab ?? uncontrolledActiveTab;
+  const selectTab = (tab: ProjectDetailTab) => {
+    if (activeTab === undefined) {
+      setUncontrolledActiveTab(tab);
+    }
+    onActiveTabChange?.(tab);
+  };
+
   if (isLoading) {
     return (
       <div className="project-detail-container" aria-label="Detalhes do Projeto">
@@ -243,22 +257,22 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         <button
           type="button"
           role="tab"
-          aria-selected={activeTab === 'overview'}
-          onClick={() => setActiveTab('overview')}
+          aria-selected={currentTab === 'overview'}
+          onClick={() => selectTab('overview')}
         >
           Visão geral
         </button>
         <button
           type="button"
           role="tab"
-          aria-selected={activeTab === 'agents'}
-          onClick={() => setActiveTab('agents')}
+          aria-selected={currentTab === 'agents'}
+          onClick={() => selectTab('agents')}
         >
           Agents
         </button>
       </div>
 
-      {activeTab === 'agents' ? (
+      {currentTab === 'agents' ? (
         <>
           <AgentList
             projectId={project.id}

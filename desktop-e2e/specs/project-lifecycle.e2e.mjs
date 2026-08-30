@@ -149,7 +149,7 @@ try {
   await screenshot('02-opened');
 
   phase = 'agents';
-  await browser.click(await element('[aria-label="Conteúdo do projeto"] button[role="tab"]:nth-child(2)'));
+  await browser.click(await element('[aria-label="Navegação principal"] button[aria-label="Agents"]'));
   await element('[aria-label="Gerenciamento de Agents"]');
   await browser.click(await element('[aria-label="Abrir formulário de criação de agent"]'));
   await browser.value(await element('#agent-create-name'), 'release-agent');

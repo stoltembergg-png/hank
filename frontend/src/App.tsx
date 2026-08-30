@@ -1,7 +1,9 @@
 import { useState, useLayoutEffect } from 'react';
 import { ProjectList } from './components/ProjectList';
-import { ProductShell } from './components/ProductShell';
+import { ProjectDetailView } from './components/ProjectDetailView';
+import { ProductShell, type ProductShellSection } from './components/ProductShell';
 import { APP_VERSION } from './version';
+import type { ProjectSummary } from './types/project';
 import {
   FRONTEND_READY_EVENT,
   FRONTEND_STARTUP_FAILED_EVENT,
@@ -14,6 +16,8 @@ import './App.css';
 function App() {
   const [status, setStatus] = useState<'booting' | 'ready' | 'error'>('booting');
   const [version] = useState<string>(APP_VERSION);
+  const [selectedProject, setSelectedProject] = useState<ProjectSummary | null>(null);
+  const [activeSection, setActiveSection] = useState<ProductShellSection>('overview');
 
   useLayoutEffect(() => {
     console.log({ event: 'mount', version, timestamp: new Date().toISOString() });
@@ -57,18 +61,53 @@ function App() {
     };
   }, [version]);
 
+  const openProject = (project: ProjectSummary) => {
+    setSelectedProject(project);
+    setActiveSection('overview');
+  };
+
+  const closeProject = () => {
+    setSelectedProject(null);
+    setActiveSection('overview');
+  };
+
+  const updateSelectedProject = (project: ProjectSummary) => {
+    setSelectedProject(project);
+  };
+
+  const enabledSections: readonly ProductShellSection[] = selectedProject
+    ? ['overview', 'agents']
+    : ['overview'];
+  const projectTab = activeSection === 'agents' ? 'agents' : 'overview';
+
   return (
     <div
       className="app"
       data-hank-frontend-mounted="true"
       data-hank-frontend-ready={status === 'ready' ? 'true' : 'false'}
     >
-      <ProductShell>
+      <ProductShell
+        activeSection={activeSection}
+        enabledSections={enabledSections}
+        onSectionChange={setActiveSection}
+      >
         <div className="app-content-status" aria-label={`Estado da aplicação: ${status}`}>
           <span className={`status ${status}`}>{status}</span>
           <span className="app-version">Version: {version}</span>
         </div>
-        <ProjectList />
+        {selectedProject ? (
+          <ProjectDetailView
+            projectId={selectedProject.id}
+            initialProject={selectedProject}
+            activeTab={projectTab}
+            onActiveTabChange={setActiveSection}
+            onBack={closeProject}
+            onProjectUpdated={updateSelectedProject}
+            onProjectArchived={updateSelectedProject}
+          />
+        ) : (
+          <ProjectList onProjectOpen={openProject} />
+        )}
       </ProductShell>
     </div>
   );
