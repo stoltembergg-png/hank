@@ -378,6 +378,9 @@ jobs:
       - name: Verify improvement scoring
         run: node tools/ci/run-onp-spec.mjs verify improvement-scoring
 
+      - name: Verify automatic rollback
+        run: node tools/ci/run-onp-spec.mjs verify automatic-rollback
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 

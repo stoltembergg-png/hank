@@ -12,6 +12,7 @@ pub mod agent;
 pub mod agent_configuration_proposal;
 pub mod architecture_profile;
 pub mod automated_evaluation;
+pub mod automatic_rollback;
 pub mod autonomy;
 pub mod budget;
 pub mod ci_status_integration;
