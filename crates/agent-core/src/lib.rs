@@ -51,6 +51,7 @@ pub mod reviewer_profile;
 pub mod round_policy;
 pub mod self_development_branch;
 pub mod self_development_issue;
+pub mod self_development_pr;
 pub mod self_evaluation_workflow;
 pub mod session;
 pub mod skill;
