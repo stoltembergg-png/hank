@@ -384,6 +384,9 @@ jobs:
       - name: Verify automatic skill rollout
         run: node tools/ci/run-onp-spec.mjs verify automatic-skill-rollout
 
+      - name: Verify self-development issue
+        run: node tools/ci/run-onp-spec.mjs verify self-development-issue
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
