@@ -123,6 +123,10 @@ test('ONP workflow runs PR generation workflow verification explicitly', () => {
     workflow,
     /Verify automated evaluation[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify automated-evaluation/,
   );
+  assert.match(
+    workflow,
+    /Verify regression evaluation[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify regression-evaluation/,
+  );
 });
 
 test('ONP workflow runs coding agent profile verification explicitly', () => {
