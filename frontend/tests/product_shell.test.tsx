@@ -20,6 +20,18 @@ describe('Product shell', () => {
     expect(screen.getAllByText('Em integração').length).toBeGreaterThan(0);
   });
 
+  it('exposes the active workspace context in the shell header', () => {
+    render(
+      <ProductShell enabledSections={['overview']}>
+        <p>Conteúdo do workspace</p>
+      </ProductShell>,
+    );
+
+    expect(screen.getByRole('banner', { name: 'Cabeçalho do workspace' })).toBeInTheDocument();
+    expect(screen.getByText('Hank Desktop', { exact: true })).toBeVisible();
+    expect(screen.getByText('Workspace local', { exact: true })).toBeVisible();
+  });
+
   it('notifies a supported navigation selection without changing the content contract', () => {
     const onSectionChange = vi.fn();
 
