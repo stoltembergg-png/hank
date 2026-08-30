@@ -4,6 +4,7 @@
 //! policy state. Callers provide bounded identity and policy-revision data and
 //! receive an explicit allow/deny result.
 
+pub mod mcp_permission;
 pub mod security_profile;
 pub use security_profile::{
     SecurityAgentProfile, SecurityEvidence, SecurityEvidenceStatus, SecurityFinding,
