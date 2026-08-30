@@ -34,6 +34,7 @@ pub mod improvement_observation;
 pub mod improvement_scoring;
 pub mod invocation_graph;
 pub mod keyword;
+pub mod mcp_transport;
 pub mod memory;
 pub mod memory_candidate;
 pub mod memory_policy;
