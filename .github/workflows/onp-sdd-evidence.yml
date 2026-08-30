@@ -405,6 +405,9 @@ jobs:
       - name: Verify MCP permission integration
         run: node tools/ci/run-onp-spec.mjs verify mcp-permission-integration
 
+      - name: Verify MCP tool discovery
+        run: node tools/ci/run-onp-spec.mjs verify mcp-tool-discovery
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
