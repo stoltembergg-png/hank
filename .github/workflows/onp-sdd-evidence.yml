@@ -381,6 +381,9 @@ jobs:
       - name: Verify automatic rollback
         run: node tools/ci/run-onp-spec.mjs verify automatic-rollback
 
+      - name: Verify automatic skill rollout
+        run: node tools/ci/run-onp-spec.mjs verify automatic-skill-rollout
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
