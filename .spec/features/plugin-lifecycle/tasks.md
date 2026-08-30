@@ -9,7 +9,7 @@
 
 ## T-1394 — Fail-closed failure handling [concluida]
 
-- Refs: US-1394, AC-1394
+- Refs: US-1393, AC-1394
 - Arquivos: crates/plugin-core/src/lifecycle.rs, crates/plugin-core/tests/lifecycle_contract.rs, .github/workflows/onp-sdd-evidence.yml, test/aggregate-runner-native-boundary.js
 
 ## Suposições
