@@ -72,6 +72,19 @@ class WebDriverSession {
     await this.request('POST', `/session/${this.sessionId}/element/${element}/clear`, {});
     await this.request('POST', `/session/${this.sessionId}/element/${element}/value`, { text: value, value: [...value] });
   }
+  async invoke(command, input) {
+    const result = await this.request('POST', `/session/${this.sessionId}/execute/async`, {
+      script: `const done = arguments[arguments.length - 1];
+        const invoke = window.__TAURI_INTERNALS__?.invoke;
+        if (typeof invoke !== 'function') { done({ ok: false, error: 'Tauri invoke bridge unavailable' }); return; }
+        invoke(arguments[0], { input: arguments[1] })
+          .then((value) => done({ ok: true, value }))
+          .catch((error) => done({ ok: false, error: String(error) }));`,
+      args: [command, input],
+    });
+    if (!result?.ok) throw new Error(`Tauri command ${command} failed: ${result?.error ?? 'unknown error'}`);
+    return result.value;
+  }
   async text(element) { return this.request('GET', `/session/${this.sessionId}/element/${element}/text`); }
   async bodyText() { return this.text(await this.find('body')); }
   async screenshot(name) {
@@ -143,6 +156,38 @@ try {
   await browser.value(await element('#agent-create-description'), 'Prepara releases com revisão humana.');
   await browser.click(await element('button[type="submit"]'));
   await browser.waitForText('release-agent');
+  const projects = await browser.invoke('list_projects', {
+    limit: 100,
+    offset: 0,
+    correlation_id: 'e2e-session-projects',
+  });
+  const project = projects.projects.find((candidate) => candidate.name === projectName);
+  if (!project) throw new Error('sessions: created project was not returned by the real bridge');
+  const agents = await browser.invoke('list_agents', {
+    project_id: project.id,
+    limit: 100,
+    offset: 0,
+    correlation_id: 'e2e-session-agents',
+  });
+  const agent = agents.agents.find((candidate) => candidate.name === 'release-agent');
+  if (!agent) throw new Error('sessions: created agent was not returned by the real bridge');
+  const createdSession = await browser.invoke('create_session', {
+    project_id: project.id,
+    agent_id: agent.id,
+    title: 'Release validation conversation',
+    correlation_id: 'e2e-session-create',
+  });
+  if (createdSession.session.status !== 'active') throw new Error('sessions: created session was not active');
+  const sessions = await browser.invoke('list_sessions', {
+    project_id: project.id,
+    agent_id: agent.id,
+    limit: 20,
+    offset: 0,
+    correlation_id: 'e2e-session-list',
+  });
+  if (sessions.total !== 1 || sessions.sessions[0]?.id !== createdSession.session.id) {
+    throw new Error(`sessions: scoped list did not return the created session: ${JSON.stringify(sessions)}`);
+  }
   await screenshot('03-agents');
   await browser.click(await element('[aria-label="Conteúdo do projeto"] button[role="tab"]:first-child'));
 

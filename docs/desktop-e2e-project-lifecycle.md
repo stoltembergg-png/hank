@@ -32,11 +32,12 @@ artifact.
 2. create with name, owner, and description;
 3. list and open;
 4. ID, status, owner, and description verification;
-5. update and UI confirmation;
-6. restart #1 and file-backed persistence verification;
-7. archive through the real UI;
-8. restart #2 and archived persistence verification;
-9. final clean shutdown.
+5. create and list a real project/agent-scoped Session through Tauri IPC and SQLite;
+6. update and UI confirmation;
+7. restart #1 and file-backed persistence verification;
+8. archive through the real UI;
+9. restart #2 and archived persistence verification;
+10. final clean shutdown.
 
 Every failure captures the current phase, screenshot, WebDriver/tauri-driver logs, and app-data
 when available. The workflow has an exact aggregator check named `Desktop E2E / Project Lifecycle`

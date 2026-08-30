@@ -173,6 +173,65 @@ async fn lifecycle_create_open_close_is_project_agent_scoped() {
 }
 
 #[tokio::test]
+async fn lifecycle_constructor_creates_sessions_without_provider_invoker() {
+    let storage = SqliteStorage::connect_in_memory().await.unwrap();
+    run_migrations(storage.pool()).await.unwrap();
+    let project_id = ProjectId::new();
+    let agent_id = AgentId::new();
+    sqlx::query("INSERT INTO projects (id, name, status, owner, created_at, updated_at, settings) VALUES (?, 'Project', 'active', 'owner', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '{}')")
+        .bind(project_id.to_string()).execute(storage.pool()).await.unwrap();
+    sqlx::query("INSERT INTO agents (id, project_id, name, status, personality, policy, created_at, updated_at) VALUES (?, ?, 'Agent', 'active', '{}', '{}', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')")
+        .bind(agent_id.to_string()).bind(project_id.to_string()).execute(storage.pool()).await.unwrap();
+
+    let service = SessionApplicationService::new_lifecycle(storage.pool().clone(), 1).unwrap();
+    let session = service
+        .create(project_id, agent_id, "correlation-lifecycle", None)
+        .await
+        .unwrap();
+
+    assert_eq!(session.status, SessionStatus::Active);
+    storage.close().await;
+}
+
+#[tokio::test]
+async fn lifecycle_service_rejects_turns_before_persisting_messages_without_provider() {
+    let storage = SqliteStorage::connect_in_memory().await.unwrap();
+    run_migrations(storage.pool()).await.unwrap();
+    let project_id = ProjectId::new();
+    let agent_id = AgentId::new();
+    sqlx::query("INSERT INTO projects (id, name, status, owner, created_at, updated_at, settings) VALUES (?, 'Project', 'active', 'owner', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '{}')")
+        .bind(project_id.to_string()).execute(storage.pool()).await.unwrap();
+    sqlx::query("INSERT INTO agents (id, project_id, name, status, personality, policy, created_at, updated_at) VALUES (?, ?, 'Agent', 'active', '{}', '{}', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')")
+        .bind(agent_id.to_string()).bind(project_id.to_string()).execute(storage.pool()).await.unwrap();
+
+    let service = SessionApplicationService::new_lifecycle(storage.pool().clone(), 1).unwrap();
+    let session = service
+        .create(project_id, agent_id, "correlation-no-provider", None)
+        .await
+        .unwrap();
+    let error = service
+        .send_turn(
+            &project_id,
+            &agent_id,
+            &session.id,
+            request(&project_id, &agent_id, &session.id),
+            1,
+            "hello",
+        )
+        .await
+        .unwrap_err();
+    assert!(matches!(error, SessionServiceError::ProviderFailure));
+
+    let messages =
+        agent_runtime::message_repo::SqliteMessageRepository::new(storage.pool().clone())
+            .list(&project_id, &session.id, 0, 10)
+            .await
+            .unwrap();
+    assert!(messages.is_empty());
+    storage.close().await;
+}
+
+#[tokio::test]
 async fn send_turn_persists_user_and_assistant_and_returns_terminal_result() {
     let (storage, service, project_id, agent_id) = setup(MockInvoker::success()).await;
     let session = service

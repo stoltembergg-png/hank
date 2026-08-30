@@ -134,6 +134,8 @@ mod tauri_tests {
             "crate::projects::archive_project",
             "crate::agents::list_agents",
             "crate::agents::create_agent",
+            "crate::sessions::list_sessions",
+            "crate::sessions::create_session",
             "crate::scheduler::list_scheduled_jobs",
             "crate::scheduler::create_scheduled_job",
             "crate::scheduler::update_scheduled_job",
@@ -147,7 +149,7 @@ mod tauri_tests {
 
         assert_eq!(
             registered.split(',').count(),
-            22,
+            24,
             "a ponte deve registrar exatamente os comandos tipados previstos"
         );
 

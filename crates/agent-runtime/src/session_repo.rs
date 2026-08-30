@@ -37,6 +37,10 @@ impl SqliteSessionRepository {
         Self { pool }
     }
 
+    pub fn pool(&self) -> Pool<Sqlite> {
+        self.pool.clone()
+    }
+
     pub async fn create(&self, session: &Session) -> Result<(), SessionStorageError> {
         let encoded = encode_session(session)?;
         let result = sqlx::query(
@@ -127,6 +131,48 @@ impl SqliteSessionRepository {
         .await
         .map_err(|error| SessionStorageError::Database(error.to_string()))?;
         rows.into_iter().map(decode_session).collect()
+    }
+
+    pub async fn list_for_agent(
+        &self,
+        project_id: &ProjectId,
+        agent_id: &AgentId,
+        offset: u32,
+        limit: u32,
+    ) -> Result<Vec<Session>, SessionStorageError> {
+        if limit == 0 {
+            return Err(SessionStorageError::Invalid);
+        }
+        let bounded_limit = limit.min(MAX_PAGE_SIZE);
+        let rows = sqlx::query(
+            "SELECT id, project_id, agent_id, status, title, message_count, token_count, cost_usd, created_at, updated_at, closed_at, schema_version, correlation_id, participants, metadata, budget_ref, trace_id, failure_reason \
+             FROM sessions WHERE project_id = ? AND agent_id = ? ORDER BY created_at DESC, id ASC LIMIT ? OFFSET ?",
+        )
+        .bind(project_id.to_string())
+        .bind(agent_id.to_string())
+        .bind(i64::from(bounded_limit))
+        .bind(i64::from(offset))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|error| SessionStorageError::Database(error.to_string()))?;
+        rows.into_iter().map(decode_session).collect()
+    }
+
+    pub async fn count_for_agent(
+        &self,
+        project_id: &ProjectId,
+        agent_id: &AgentId,
+    ) -> Result<usize, SessionStorageError> {
+        let row = sqlx::query(
+            "SELECT COUNT(*) AS count FROM sessions WHERE project_id = ? AND agent_id = ?",
+        )
+        .bind(project_id.to_string())
+        .bind(agent_id.to_string())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|error| SessionStorageError::Database(error.to_string()))?;
+        let count: i64 = row.get("count");
+        usize::try_from(count).map_err(|_| SessionStorageError::Invalid)
     }
 
     pub async fn update(
