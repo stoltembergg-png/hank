@@ -193,6 +193,7 @@ fn metadata_lists_expected_crates() {
         "agent-protocol",
         "agent-runtime",
         "provider-core",
+        "plugin-core",
         "secrets-core",
         "security-core",
         "auth-core",

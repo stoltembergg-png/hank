@@ -411,6 +411,9 @@ jobs:
       - name: Verify MCP settings UI
         run: node tools/ci/run-onp-spec.mjs verify mcp-settings-ui
 
+      - name: Verify plugin manifest
+        run: node tools/ci/run-onp-spec.mjs verify plugin-manifest
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
