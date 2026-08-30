@@ -29,6 +29,7 @@ pub mod group_session;
 pub mod importance;
 pub mod improvement_candidate;
 pub mod improvement_observation;
+pub mod improvement_scoring;
 pub mod invocation_graph;
 pub mod keyword;
 pub mod memory;
