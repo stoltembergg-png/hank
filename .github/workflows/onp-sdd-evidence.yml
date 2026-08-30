@@ -360,6 +360,9 @@ jobs:
       - name: Verify self-evaluation workflow
         run: node tools/ci/run-onp-spec.mjs verify self-evaluation-workflow
 
+      - name: Verify skill improvement proposal
+        run: node tools/ci/run-onp-spec.mjs verify skill-improvement-proposal
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
