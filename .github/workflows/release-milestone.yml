@@ -186,6 +186,7 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           STABLE_VERSION: ${{ inputs.stable_version }}
           SHA: ${{ needs.verify.outputs.sha }}
+          MILESTONE: ${{ inputs.milestone }}
         run: |
           set -euo pipefail
           stable_tag="v$STABLE_VERSION"
@@ -200,7 +201,7 @@ jobs:
           {
             echo "### Published stable milestone release"
             echo "- Tag: $stable_tag"
-            echo "- Milestone: ${{ inputs.milestone }}"
+            echo "- Milestone: $MILESTONE"
             echo "- Exact main commit: $SHA"
             echo "- Prerelease: false"
             echo "- Tag overwrite: prohibited"
