@@ -1,9 +1,11 @@
 .session-list-container {
   margin-top: 20px;
   padding: 16px;
-  border: 1px solid #d9e2ec;
-  border-radius: 8px;
-  background: #f8fbff;
+  border: 1px solid #263650;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #111925, #0e141d);
+  box-shadow: inset 0 1px rgb(255 255 255 / 3%);
+  color: #dbe7f5;
 }
 
 .session-list-header {
@@ -16,13 +18,15 @@
 
 .session-list-header h3 {
   margin: 0;
-  font-size: 1.05rem;
+  color: #f8fafc;
+  font-size: 1rem;
+  font-weight: 650;
 }
 
 .session-list-subtitle {
   margin: 4px 0 0;
-  color: #5f6b78;
-  font-size: 0.875rem;
+  color: #8fa0b5;
+  font-size: 0.82rem;
 }
 
 .session-list-create-button,
@@ -30,20 +34,32 @@
 .session-list-error button,
 .session-open-button {
   padding: 8px 12px;
-  border: 0;
-  border-radius: 4px;
-  background: #0066cc;
-  color: #fff;
+  border: 1px solid #2d78e5;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #2f7cf6, #1f5fc6);
+  box-shadow: 0 7px 18px rgb(31 95 198 / 20%);
+  color: #f8fbff;
   cursor: pointer;
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
 .session-list-create-button:hover,
 .session-create-form button:hover:not(:disabled),
 .session-list-error button:hover,
 .session-open-button:hover {
-  background: #0052a3;
+  border-color: #65a6ff;
+  background: linear-gradient(135deg, #438cff, #286bd6);
+}
+
+.session-list-create-button:focus-visible,
+.session-create-form button:focus-visible,
+.session-list-error button:focus-visible,
+.session-open-button:focus-visible,
+.session-create-field input:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 2px;
 }
 
 .session-create-form {
@@ -51,9 +67,9 @@
   gap: 12px;
   margin-bottom: 16px;
   padding: 12px;
-  border: 1px solid #b8c4d1;
-  border-radius: 6px;
-  background: #fff;
+  border: 1px solid #2b3a50;
+  border-radius: 8px;
+  background: #0c121b;
 }
 
 .session-create-field {
@@ -61,24 +77,53 @@
   gap: 6px;
 }
 
+.session-create-field label {
+  color: #aab9ca;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
 .session-create-field input {
   box-sizing: border-box;
   width: 100%;
-  padding: 8px;
-  border: 1px solid #b8c4d1;
-  border-radius: 4px;
+  padding: 9px 10px;
+  border: 1px solid #314155;
+  border-radius: 7px;
+  background: #090e15;
+  color: #e7eff9;
   font: inherit;
 }
 
+.session-create-field input::placeholder {
+  color: #64748b;
+}
+
+.session-create-field input:focus {
+  border-color: #4f96f7;
+}
+
 .session-create-form button:disabled {
-  background: #aab4bf;
+  border-color: #303c4d;
+  background: #273241;
+  box-shadow: none;
+  color: #718096;
   cursor: not-allowed;
 }
 
 .session-list-state {
   padding: 20px;
+  border: 1px dashed #2a394d;
+  border-radius: 8px;
+  background: #0d131c;
+  color: #8fa0b5;
   text-align: center;
-  color: #5f6b78;
+}
+
+.session-list-error {
+  border-style: solid;
+  border-color: #6b3340;
+  background: #21131a;
+  color: #fecdd3;
 }
 
 .session-list-error p {
@@ -87,7 +132,7 @@
 
 .session-list {
   display: grid;
-  gap: 8px;
+  gap: 9px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -98,51 +143,65 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px;
-  border: 1px solid #d9e2ec;
-  border-radius: 6px;
-  background: #fff;
+  padding: 13px;
+  border: 1px solid #27364b;
+  border-radius: 8px;
+  background: #101722;
+  box-shadow: inset 0 1px rgb(255 255 255 / 2%);
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.session-card:hover {
+  border-color: #35547c;
+  background: #142031;
 }
 
 .session-card-main {
   display: grid;
-  gap: 5px;
   min-width: 0;
+  gap: 6px;
 }
 
 .session-card-main strong {
   overflow-wrap: anywhere;
+  color: #edf4ff;
+  font-size: 0.9rem;
 }
 
 .session-card-meta {
-  color: #5f6b78;
-  font-size: 0.8rem;
+  color: #8fa0b5;
+  font-size: 0.78rem;
 }
 
 .session-status {
   width: fit-content;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 500;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1;
   text-transform: capitalize;
 }
 
 .session-status--active {
-  background: #e6f4ea;
-  color: #137333;
+  border-color: #1f6848;
+  background: #102b20;
+  color: #6ee7b7;
 }
 
 .session-status--created {
-  background: #e8f0fe;
-  color: #174ea6;
+  border-color: #2d5c9f;
+  background: #10274a;
+  color: #93c5fd;
 }
 
 .session-status--closing,
 .session-status--closed,
 .session-status--failed {
-  background: #fce8e6;
-  color: #c5221f;
+  border-color: #70313d;
+  background: #2b161d;
+  color: #fda4af;
 }
 
 @media (max-width: 640px) {
@@ -150,5 +209,10 @@
   .session-card {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .session-list-create-button,
+  .session-open-button {
+    width: 100%;
   }
 }
