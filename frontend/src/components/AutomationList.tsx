@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { DesktopSchedulerApi, type ScheduledJobInput, type ScheduledJobView, type SchedulerApiClient } from '../api/scheduler';
+import './AutomationList.css';
 
 interface Props { projectId: string; ownerId: string; api?: SchedulerApiClient }
 
