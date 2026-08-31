@@ -25,8 +25,9 @@ contêm rede, secrets ou caminhos de produção.
 `CoreEvaluationFixture::materialize` escreve somente no
 `FixtureWorkspace` fornecido pelo teste e falha se o manifest digest divergir.
 Cada arquivo é criado de forma exclusiva e não é truncado se o caminho já
-existir, inclusive quando o caminho é trocado por um link simbólico durante a
-abertura.
+existir. Se o caminho for trocado por um link simbólico antes da abertura,
+`create_new(true)` falha com `AlreadyExists` e o arquivo externo apontado
+permanece inalterado.
 IDs de fixture são limitados a um componente de caminho seguro; o workspace
 também rejeita alvos existentes que resolvam fora da sua raiz. As métricas de
 contagem têm teto explícito de 32 eventos, enquanto tokens e custo respeitam
