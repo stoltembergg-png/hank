@@ -1,9 +1,12 @@
 .skills-panel {
   margin-top: 1.5rem;
   padding: 1rem;
-  border: 1px solid var(--border-color, #d1d5db);
-  border-radius: 0.75rem;
-  background: var(--panel-background, #fff);
+  border: 1px solid #263650;
+  border-radius: 10px;
+  background-color: #111925;
+  background-image: linear-gradient(135deg, #111925, #0e141d);
+  box-shadow: inset 0 1px rgb(255 255 255 / 3%);
+  color: #dbe7f5;
 }
 
 .skills-panel-header,
@@ -17,13 +20,15 @@
 .skills-panel-header h3,
 .skill-card h4 {
   margin: 0;
+  color: #f8fafc;
+  font-weight: 650;
 }
 
 .skills-panel-scope,
 .skill-description,
 .skill-scope-badge {
   margin: 0.25rem 0 0;
-  color: #4b5563;
+  color: #8fa0b5;
   font-size: 0.875rem;
 }
 
@@ -31,12 +36,27 @@
   display: flex;
   gap: 0.5rem;
   margin: 1rem 0;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #202a36;
+}
+
+.skills-panel-tabs button,
+.skills-panel button {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid #314155;
+  border-radius: 7px;
+  background: #0b1018;
+  color: #dbe7f5;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
 .skills-panel-tabs button[aria-selected="true"] {
-  border-bottom: 2px solid #2563eb;
-  font-weight: 700;
+  border-color: #2d78e5;
+  background: #10274a;
+  color: #bfdbfe;
 }
 
 .skills-search {
@@ -51,11 +71,30 @@
   width: 100%;
   min-height: 2.25rem;
   padding: 0.35rem 0.6rem;
+  border: 1px solid #314155;
+  border-radius: 7px;
+  background: #090e15;
+  color: #e7eff9;
+  font: inherit;
 }
 
-.skills-panel button {
-  min-height: 2.25rem;
-  padding: 0.35rem 0.6rem;
+.skills-panel-tabs button:hover,
+.skills-panel button:hover:not(:disabled) {
+  border-color: #65a6ff;
+  color: #f8fafc;
+}
+
+.skills-panel-tabs button:focus-visible,
+.skills-panel button:focus-visible,
+.skills-search input:focus-visible,
+.skill-editor textarea:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 2px;
+}
+
+.skills-search input:focus,
+.skill-editor textarea:focus {
+  border-color: #4f96f7;
 }
 
 .skills-list {
@@ -68,8 +107,10 @@
 
 .skill-card {
   padding: 0.8rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
+  border: 1px solid #27364b;
+  border-radius: 8px;
+  background: #101722;
+  box-shadow: inset 0 1px rgb(255 255 255 / 2%);
 }
 
 .skill-description {
@@ -80,18 +121,28 @@
 
 .skill-status {
   padding: 0.2rem 0.45rem;
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: #e5e7eb;
-  font-size: 0.75rem;
+  background: #273241;
+  color: #cbd5e1;
+  font-size: 0.72rem;
+  font-weight: 650;
 }
 
-.skill-status.active { background: #dcfce7; color: #166534; }
-.skill-status.testing { background: #fef3c7; color: #92400e; }
+.skill-status.active { border-color: #1f6848; background: #102b20; color: #6ee7b7; }
+.skill-status.testing { border-color: #73561e; background: #30250e; color: #fcd36a; }
 .skill-status.blocked,
-.skill-status.archived { background: #fee2e2; color: #991b1b; }
+.skill-status.archived { border-color: #70313d; background: #2b161d; color: #fda4af; }
 
 .skill-unavailable,
-.skills-mutation-error { color: #991b1b; font-weight: 600; }
+.skills-mutation-error {
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #6b3340;
+  border-radius: 7px;
+  background: #21131a;
+  color: #fecdd3;
+  font-weight: 600;
+}
 
 .skill-metadata {
   display: grid;
@@ -101,7 +152,7 @@
   font-size: 0.8rem;
 }
 
-.skill-metadata dt { color: #4b5563; }
+.skill-metadata dt { color: #8fa0b5; }
 .skill-metadata dd { margin: 0; overflow-wrap: anywhere; }
 
 .skill-capabilities { overflow-wrap: anywhere; font-size: 0.8rem; }
@@ -114,9 +165,9 @@
   gap: 0.75rem;
   margin: 0.75rem 0 0;
   padding: 0.85rem;
-  border: 1px solid #bfdbfe;
-  border-radius: 0.5rem;
-  background: #eff6ff;
+  border: 1px solid #35547c;
+  border-radius: 8px;
+  background: #102031;
 }
 
 .skill-editor h3,
@@ -134,6 +185,10 @@
   width: 100%;
   min-height: 7rem;
   padding: 0.5rem;
+  border: 1px solid #314155;
+  border-radius: 7px;
+  background: #090e15;
+  color: #e7eff9;
   resize: vertical;
   font: 0.875rem/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
 }
