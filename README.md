@@ -27,6 +27,23 @@
 
 ---
 
+<!-- HANK_PLAN_PROGRESS:START -->
+## Progresso do plano
+
+**Cobertura observada:** 375/414 IDs do plano têm PR mergeada · 91%
+
+`██████████████████░░`
+
+- Última PR de trabalho mergeada: `#389 · 2026-08-31T07:52:25Z`
+- IDs do plano sem PR correspondente: `39 · primeira PR-010`
+- Próximo card sem correspondência: `PR-010`
+- PRs mergeadas sem card correspondente: `0`
+- Fonte: `.planning/queue/queue-*.md` e PRs mergeadas no GitHub.
+- Nota: a barra mede correspondência de integração por ID; PRs fora da fila devem declarar `Plan card: none` e a conclusão continua dependente da prova/ledger do plano.
+<!-- HANK_PLAN_PROGRESS:END -->
+
+---
+
 ## Visão Geral
 
 **Hank** é uma plataforma desktop para orquestração e execução de agentes autônomos de IA, combinando a segurança e o desempenho de um **core modular em Rust** com a leveza e flexibilidade de uma interface **React 19** encapsulada via **Tauri 2**.

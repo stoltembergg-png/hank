@@ -23,6 +23,12 @@ The PR must document acceptance criteria, tests, CI state, risks and rollback. A
 is not merge-ready while a required check is pending, failed, skipped unexpectedly,
 or tied to a stale SHA.
 
+Include one standalone traceability line in the PR description: `Plan card: PR-###`
+when the change implements a queue card, or `Plan card: none` for documentation,
+tooling and other changes outside the executable queue. The README progress bar uses
+this metadata only to report ID correspondence; it does not replace the plan ledger,
+dependency gates or Definition of Done evidence.
+
 ## Blockers and reporting
 
 Classify blockers objectively. Continue safe independent diagnosis and preparation
