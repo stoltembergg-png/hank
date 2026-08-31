@@ -76,9 +76,13 @@ function App() {
   };
 
   const enabledSections: readonly ProductShellSection[] = selectedProject
-    ? ['overview', 'agents']
+    ? ['overview', 'agents', 'workflows']
     : ['overview'];
-  const projectTab = activeSection === 'agents' ? 'agents' : 'overview';
+  const projectTab = activeSection === 'agents'
+    ? 'agents'
+    : activeSection === 'workflows'
+      ? 'workflows'
+      : 'overview';
 
   return (
     <div

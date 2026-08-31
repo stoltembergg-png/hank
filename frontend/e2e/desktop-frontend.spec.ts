@@ -30,6 +30,63 @@ test('desktop frontend renders the project workspace without a Tauri bridge fail
   await expect(page.getByRole('form', { name: 'Criar novo projeto' })).toBeVisible();
 });
 
+test('desktop frontend exposes a scoped workflow draft without claiming persistence', async ({ page }) => {
+  await page.addInitScript(() => {
+    const project = {
+      id: 'project-workflow-surface',
+      name: 'Workflow Surface Project',
+      description: 'Project with a bounded workflow draft surface',
+      status: 'active',
+      owner: 'e2e',
+      created_at: '2026-08-30T00:00:00.000Z',
+      updated_at: '2026-08-30T00:00:00.000Z',
+      settings: {
+        retention_days: 30,
+        auto_archive_idle_days: null,
+        telemetry_enabled: false,
+        max_active_agents: 3,
+      },
+    };
+
+    (window as unknown as {
+      __TAURI_INTERNALS__: { invoke: (command: string) => Promise<unknown> };
+    }).__TAURI_INTERNALS__ = {
+      invoke: async (command) => {
+        if (command === 'frontend_ready') return { stage: 'APPLICATION_READY' };
+        if (command === 'list_projects') return { projects: [project], total: 1, limit: 10, offset: 0 };
+        if (command === 'list_memories') return { project_id: project.id, memories: [] };
+        if (command === 'list_skills') return { project_id: project.id, scope: 'project', skills: [], total: 0, limit: 50, offset: 0, available: true };
+        if (command === 'list_scheduled_jobs') return [];
+        throw new Error(`Unexpected command: ${command}`);
+      },
+    };
+  });
+
+  await page.goto('/');
+  await page.getByRole('listitem', { name: 'Ver detalhes de Workflow Surface Project' }).click();
+  const workflowsButton = page.getByRole('button', { name: 'Workflows', exact: true });
+  await expect(workflowsButton).toBeEnabled();
+  await workflowsButton.click();
+
+  await expect(page.getByRole('region', { name: 'Workflows do projeto' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Workflow studio' })).toBeVisible();
+  await expect(page.getByText('Rascunho local')).toBeVisible();
+  await expect(page.getByText('A persistência de workflows ainda não está disponível no desktop.')).toBeVisible();
+  expect(await backgroundLuminance(page, '.workflow-surface')).toBeLessThan(95);
+  expect(await backgroundLuminance(page, '.workflow-canvas')).toBeLessThan(95);
+
+  await page.getByRole('button', { name: 'Adicionar nó Agent' }).click();
+  await expect(page.getByRole('listitem', { name: 'Agent 1' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Salvar workflow' })).toBeDisabled();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await page.getByRole('listitem', { name: 'Ver detalhes de Workflow Surface Project' }).click();
+  await page.getByRole('button', { name: 'Workflows', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Workflows do projeto' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 test('desktop frontend opens a project session in the read-only workbench', async ({ page }) => {
   await page.addInitScript(() => {
     const project = {
