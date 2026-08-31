@@ -1,4 +1,18 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function backgroundLuminance(page: Page, selector: string): Promise<number> {
+  return page.locator(selector).evaluate((element) => {
+    const color = getComputedStyle(element).backgroundColor;
+    const channels = color.match(/\d+(?:\.\d+)?/g)?.slice(0, 3).map(Number);
+
+    if (!channels || channels.length !== 3) {
+      throw new Error(`Expected an RGB background color for ${selector}, received ${color}.`);
+    }
+
+    const [red, green, blue] = channels;
+    return red * 0.2126 + green * 0.7152 + blue * 0.0722;
+  });
+}
 
 test('desktop frontend renders the project workspace without a Tauri bridge failure', async ({ page }) => {
   await page.goto('/');
@@ -78,7 +92,10 @@ test('desktop frontend opens a project session in the read-only workbench', asyn
   await page.getByLabel('Navegação principal').getByRole('button', { name: 'Agents' }).click();
   await expect(page.getByLabel('Navegação principal').getByRole('button', { name: 'Agents' })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByText('session-agent')).toBeVisible();
+  expect(await backgroundLuminance(page, '.agent-list-table thead')).toBeLessThan(95);
   await page.getByRole('button', { name: 'Abrir conversas de session-agent' }).click();
+  expect(await backgroundLuminance(page, '.session-list-container')).toBeLessThan(95);
+  expect(await backgroundLuminance(page, '.session-card')).toBeLessThan(95);
   await page.getByRole('button', { name: 'Abrir conversa' }).click();
 
   await expect(page.getByRole('heading', { name: 'Open this conversation' })).toBeVisible();
