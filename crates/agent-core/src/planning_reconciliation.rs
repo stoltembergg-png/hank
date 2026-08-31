@@ -59,6 +59,7 @@ pub enum ConflictKind {
 pub enum EvidenceStatus {
     Verified,
     Unverified,
+    Conflicting,
     Missing,
     Stale,
 }
@@ -200,7 +201,7 @@ impl ReviewerFinding {
         self
     }
 
-    fn validate_shape(&self) -> Result<(), ReconciliationError> {
+    pub(crate) fn validate_shape(&self) -> Result<(), ReconciliationError> {
         if !bounded_text(&self.finding_id)
             || !bounded_text(&self.reviewer_id)
             || !bounded_text(&self.reviewer_version)
