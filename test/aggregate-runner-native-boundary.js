@@ -121,6 +121,10 @@ test('ONP workflow runs PR generation workflow verification explicitly', () => {
   );
   assert.match(
     workflow,
+    /Verify Claim\/Evidence contract[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify claim-evidence/,
+  );
+  assert.match(
+    workflow,
     /Verify agent configuration proposal[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify agent-configuration-proposal/,
   );
   assert.match(

@@ -369,6 +369,9 @@ jobs:
       - name: Verify planning reconciliation
         run: node tools/ci/run-onp-spec.mjs verify planning-reconciliation
 
+      - name: Verify Claim/Evidence contract
+        run: node tools/ci/run-onp-spec.mjs verify claim-evidence
+
       - name: Verify agent configuration proposal
         run: node tools/ci/run-onp-spec.mjs verify agent-configuration-proposal
 
