@@ -375,6 +375,9 @@ jobs:
       - name: Verify planning evidence binding
         run: node tools/ci/run-onp-spec.mjs verify planning-evidence-binding
 
+      - name: Verify planning adversarial E2E
+        run: node tools/ci/run-onp-spec.mjs verify planning-adversarial-e2e
+
       - name: Verify agent configuration proposal
         run: node tools/ci/run-onp-spec.mjs verify agent-configuration-proposal
 

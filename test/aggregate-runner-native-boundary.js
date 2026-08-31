@@ -129,6 +129,10 @@ test('ONP workflow runs PR generation workflow verification explicitly', () => {
   );
   assert.match(
     workflow,
+    /Verify planning adversarial E2E[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify planning-adversarial-e2e/,
+  );
+  assert.match(
+    workflow,
     /Verify agent configuration proposal[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify agent-configuration-proposal/,
   );
   assert.match(
