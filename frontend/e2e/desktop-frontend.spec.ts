@@ -193,6 +193,11 @@ test('desktop frontend renders project-scoped Skills and keeps unimported global
   await page.goto('/');
   await page.getByRole('listitem', { name: 'Ver detalhes de Skill E2E Project' }).click();
   await expect(page.getByRole('heading', { name: 'reviewer' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Memórias do projeto' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Skills do projeto' })).toBeVisible();
+  expect(await backgroundLuminance(page, '.memory-panel')).toBeLessThan(95);
+  expect(await backgroundLuminance(page, '.skills-panel')).toBeLessThan(95);
+  expect(await backgroundLuminance(page, '.skill-card')).toBeLessThan(95);
   await expect(page.getByText('Versão ativa').locator('..')).toContainText('1.2.0');
   await expect(page.locator('.skill-description')).toContainText('<img src=x onerror=alert(1)> Safe description');
   await expect(page.locator('.skill-description')).not.toHaveCount(0);
