@@ -11,3 +11,4 @@ pub mod evaluation;
 pub mod evaluation_corpus;
 pub mod fixtures;
 pub mod ids;
+pub mod safety_reasoning_corpus;
