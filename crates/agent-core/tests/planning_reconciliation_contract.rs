@@ -80,7 +80,7 @@ fn plan(outcome: ReconciliationOutcome) -> agent_core::planning_reconciliation::
 }
 
 #[test]
-// @spec:AC-PR390-001
+// @spec:AC-1403
 fn disposition_matrix_is_bounded_and_high_findings_need_verified_evidence() {
     let (project_id, run_id, trace_id) = scope();
     let low = finding(
@@ -190,7 +190,7 @@ fn disposition_matrix_is_bounded_and_high_findings_need_verified_evidence() {
 }
 
 #[test]
-// @spec:AC-PR390-002
+// @spec:AC-1404
 fn duplicate_findings_keep_all_provenance_and_conflicting_dispositions_escalate() {
     let (project_id, run_id, trace_id) = scope();
     let first = finding(
@@ -250,7 +250,7 @@ fn duplicate_findings_keep_all_provenance_and_conflicting_dispositions_escalate(
 }
 
 #[test]
-// @spec:AC-PR390-003
+// @spec:AC-1405
 fn unresolved_policy_product_conflict_is_human_required() {
     let (project_id, run_id, trace_id) = scope();
     let conflict = finding(
@@ -279,7 +279,7 @@ fn unresolved_policy_product_conflict_is_human_required() {
 }
 
 #[test]
-// @spec:AC-PR390-004
+// @spec:AC-1406
 fn self_approval_and_round_overflow_fail_closed_without_dropping_findings() {
     let (project_id, run_id, trace_id) = scope();
     let self_approval_finding = finding(
@@ -338,7 +338,7 @@ fn self_approval_and_round_overflow_fail_closed_without_dropping_findings() {
 }
 
 #[test]
-// @spec:AC-PR390-005
+// @spec:AC-1407
 fn final_plan_schema_is_versioned_unknown_fields_fail_closed_and_identity_is_preserved() {
     let (project_id, run_id, trace_id) = scope();
     let value = finding(
@@ -378,7 +378,7 @@ fn final_plan_schema_is_versioned_unknown_fields_fail_closed_and_identity_is_pre
 }
 
 #[test]
-// @spec:AC-PR390-006
+// @spec:AC-1408
 fn fake_pipeline_is_idempotent_cancellable_and_reopens_from_immutable_plan() {
     let (project_id, run_id, trace_id) = scope();
     let findings = vec![
