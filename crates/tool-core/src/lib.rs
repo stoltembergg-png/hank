@@ -16,6 +16,8 @@ pub mod mcp_discovery;
 pub mod mcp_http;
 pub mod mcp_stdio;
 pub mod permission;
+pub mod plugin_tool;
+pub use plugin_tool::ToolPluginAdapter;
 pub mod process;
 pub mod python_permissions;
 pub mod python_registration;
