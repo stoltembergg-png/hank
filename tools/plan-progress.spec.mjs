@@ -87,5 +87,6 @@ test('workflow updates a bot PR and does not push directly to protected main', (
   assert.match(workflow, /pull-requests:\s*write/);
   assert.match(workflow, /automation\/plan-progress/);
   assert.match(workflow, /gh pr create/);
+  assert.match(workflow, /Plan card: none/);
   assert.doesNotMatch(workflow, /git push[^\n]*\bmain\b/);
 });
