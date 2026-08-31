@@ -55,7 +55,8 @@ describe('Project workspace navigation', () => {
       expect(screen.getByRole('button', { name: 'Visão geral' })).toBeEnabled();
       const agentsButton = screen.getByRole('button', { name: 'Agents' });
       expect(agentsButton).toBeEnabled();
-      for (const section of ['Conversas', 'Workflows', 'Skills', 'Memória', 'Configurações']) {
+      expect(screen.getByRole('button', { name: 'Workflows' })).toBeEnabled();
+      for (const section of ['Conversas', 'Skills', 'Memória', 'Configurações']) {
         expect(screen.getByRole('button', { name: section })).toBeDisabled();
       }
 

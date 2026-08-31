@@ -11,9 +11,10 @@ import { SkillsPanel } from './SkillsPanel';
 import { AutomationList } from './AutomationList';
 import { AgentList } from './AgentList';
 import { SessionWorkbench } from './SessionWorkbench';
+import { WorkflowSurface } from './WorkflowSurface';
 import './ProjectDetailView.css';
 
-export type ProjectDetailTab = 'overview' | 'agents';
+export type ProjectDetailTab = 'overview' | 'agents' | 'workflows';
 
 export interface ProjectDetailViewProps {
   projectId: string;
@@ -270,9 +271,19 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         >
           Agents
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={currentTab === 'workflows'}
+          onClick={() => selectTab('workflows')}
+        >
+          Workflows
+        </button>
       </div>
 
-      {currentTab === 'agents' ? (
+      {currentTab === 'workflows' ? (
+        <WorkflowSurface projectId={project.id} />
+      ) : currentTab === 'agents' ? (
         <>
           <AgentList
             projectId={project.id}
