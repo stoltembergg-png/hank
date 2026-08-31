@@ -102,6 +102,14 @@ atalhos para executar, aprovar ou fazer merge.
 - importação de texto externo como fato;
 - adaptação de `ReviewerFinding`, reservada para a PR-391.
 
+## Suposições
+
+Nenhuma.
+
+## Perguntas em aberto
+
+Nenhuma.
+
 ## Definition of Done
 
 Contrato puro em `agent-core`, schema versionado, estados e transições
