@@ -14,6 +14,10 @@ async function backgroundLuminance(page: Page, selector: string): Promise<number
   });
 }
 
+async function backgroundColor(page: Page, selector: string): Promise<string> {
+  return page.locator(selector).evaluate((element) => getComputedStyle(element).backgroundColor);
+}
+
 test('desktop frontend renders the project workspace without a Tauri bridge failure', async ({ page }) => {
   await page.goto('/');
 
@@ -89,6 +93,8 @@ test('desktop frontend opens a project session in the read-only workbench', asyn
 
   await page.goto('/');
   await page.getByRole('listitem', { name: 'Ver detalhes de Session Open Project' }).click();
+  expect(await backgroundColor(page, '.project-detail-body .detail-section:nth-of-type(1)')).toBe('rgb(17, 25, 37)');
+  expect(await backgroundColor(page, '.project-detail-body .detail-section:nth-of-type(2)')).toBe('rgb(17, 25, 37)');
   await page.getByLabel('Navegação principal').getByRole('button', { name: 'Agents' }).click();
   await expect(page.getByLabel('Navegação principal').getByRole('button', { name: 'Agents' })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByText('session-agent')).toBeVisible();

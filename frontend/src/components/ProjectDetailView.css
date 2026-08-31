@@ -125,19 +125,22 @@
 }
 
 .detail-section {
-  padding: 1.25rem;
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 8px;
+  padding: 1rem;
+  border: 1px solid #263650;
+  border-radius: 10px;
+  background-color: #111925;
+  background-image: linear-gradient(135deg, #111925, #0e141d);
+  box-shadow: inset 0 1px rgb(255 255 255 / 3%);
+  color: #dbe7f5;
 }
 
 .detail-section h3 {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  font-size: 1.1rem;
-  color: #93c5fd;
-  border-bottom: 1px solid #334155;
-  padding-bottom: 0.5rem;
+  margin: 0 0 1rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid #202a36;
+  color: #f8fafc;
+  font-size: 1rem;
+  font-weight: 650;
 }
 
 .detail-grid {
