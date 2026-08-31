@@ -27,6 +27,9 @@ const CORE_POLICY_REVISION: &str = "native-eval-policy-v1";
 const CORE_SCHEMA_REVISION: &str = "native-eval-core-v1";
 const CORE_SUITE_ID: &str = "harness-core-v1";
 const CORE_PARTITION_REVISION: &str = "partition-v1";
+const CORE_MAX_EVENT_COUNT: u64 = 32;
+const CORE_MAX_TOKENS: u64 = 100_000;
+const CORE_MAX_COST_MICROS: u64 = 1_000_000;
 
 #[derive(Debug, Error)]
 pub enum EvaluationCorpusError {
@@ -55,6 +58,7 @@ impl CoreEvaluationFixture {
         &self,
         workspace: &FixtureWorkspace,
     ) -> Result<String, EvaluationCorpusError> {
+        self.fixture.validate()?;
         if self.case.fixture.fixture_id != self.fixture.id
             || self.case.fixture.fixture_revision != self.fixture.version.to_string()
         {
@@ -230,12 +234,36 @@ fn core_metric_schema() -> Result<MetricSchema, EvaluationContractError> {
                 None,
                 None,
             ),
-            count_metric(MetricName::TestsPassing, MetricDirection::HigherIsBetter),
-            count_metric(MetricName::ToolCalls, MetricDirection::LowerIsBetter),
-            count_metric(MetricName::FailedToolCalls, MetricDirection::LowerIsBetter),
-            count_metric(MetricName::Retries, MetricDirection::LowerIsBetter),
-            count_metric(MetricName::Tokens, MetricDirection::LowerIsBetter),
-            count_metric(MetricName::Cost, MetricDirection::LowerIsBetter),
+            count_metric(
+                MetricName::TestsPassing,
+                MetricDirection::HigherIsBetter,
+                CORE_MAX_EVENT_COUNT,
+            ),
+            count_metric(
+                MetricName::ToolCalls,
+                MetricDirection::LowerIsBetter,
+                CORE_MAX_EVENT_COUNT,
+            ),
+            count_metric(
+                MetricName::FailedToolCalls,
+                MetricDirection::LowerIsBetter,
+                CORE_MAX_EVENT_COUNT,
+            ),
+            count_metric(
+                MetricName::Retries,
+                MetricDirection::LowerIsBetter,
+                CORE_MAX_EVENT_COUNT,
+            ),
+            count_metric(
+                MetricName::Tokens,
+                MetricDirection::LowerIsBetter,
+                CORE_MAX_TOKENS,
+            ),
+            count_metric(
+                MetricName::Cost,
+                MetricDirection::LowerIsBetter,
+                CORE_MAX_COST_MICROS,
+            ),
             MetricDefinition::new(
                 MetricName::LatencyMs,
                 MetricValueKind::DurationMs,
@@ -260,12 +288,25 @@ fn core_metric_schema() -> Result<MetricSchema, EvaluationContractError> {
                 Some(0.0),
                 Some(1.0),
             ),
-            count_metric(MetricName::PolicyViolations, MetricDirection::LowerIsBetter),
-            count_metric(MetricName::ContextMisses, MetricDirection::LowerIsBetter),
-            count_metric(MetricName::MemoryHits, MetricDirection::HigherIsBetter),
+            count_metric(
+                MetricName::PolicyViolations,
+                MetricDirection::LowerIsBetter,
+                CORE_MAX_EVENT_COUNT,
+            ),
+            count_metric(
+                MetricName::ContextMisses,
+                MetricDirection::LowerIsBetter,
+                CORE_MAX_EVENT_COUNT,
+            ),
+            count_metric(
+                MetricName::MemoryHits,
+                MetricDirection::HigherIsBetter,
+                CORE_MAX_EVENT_COUNT,
+            ),
             count_metric(
                 MetricName::EvidenceConflicts,
                 MetricDirection::LowerIsBetter,
+                CORE_MAX_EVENT_COUNT,
             ),
             MetricDefinition::new(
                 MetricName::SkillSelection,
@@ -278,19 +319,20 @@ fn core_metric_schema() -> Result<MetricSchema, EvaluationContractError> {
             count_metric(
                 MetricName::ExternalSideEffectAttempts,
                 MetricDirection::LowerIsBetter,
+                CORE_MAX_EVENT_COUNT,
             ),
         ],
     )
 }
 
-fn count_metric(name: MetricName, direction: MetricDirection) -> MetricDefinition {
+fn count_metric(name: MetricName, direction: MetricDirection, maximum: u64) -> MetricDefinition {
     MetricDefinition::new(
         name,
         MetricValueKind::Count,
         direction,
         true,
         Some(0.0),
-        None,
+        Some(maximum as f64),
     )
 }
 

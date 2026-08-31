@@ -3,9 +3,11 @@ use std::collections::BTreeSet;
 use tempfile::tempdir;
 use test_support::evaluation::{
     EvaluationContractError, EvaluationEvidenceStatus, EvaluationTerminal, MetricName,
+    MetricObservation, MetricValueKind,
 };
 use test_support::evaluation_corpus::{
-    core_evaluation_corpus, CoreEvaluationFixture, CORE_EVALUATION_CORPUS_SCHEMA_VERSION,
+    core_evaluation_corpus, CoreEvaluationFixture, EvaluationCorpusError,
+    CORE_EVALUATION_CORPUS_SCHEMA_VERSION,
 };
 use test_support::fixtures::FixtureWorkspace;
 
@@ -103,6 +105,23 @@ fn corpus_fixture_materialization_matches_the_case_digest() {
     }
 }
 
+#[test]
+fn corpus_materialization_rejects_path_escape_before_writing() {
+    let mut fixture = core_evaluation_corpus().unwrap().remove(0);
+    fixture.fixture.id = "../outside".into();
+    fixture.case.fixture.fixture_id = "../outside".into();
+
+    let directory = tempdir().unwrap();
+    let workspace_path = directory.path().join("core-corpus");
+    let workspace = FixtureWorkspace::create(&workspace_path).unwrap();
+
+    assert!(matches!(
+        fixture.materialize(&workspace),
+        Err(EvaluationCorpusError::Fixture(_))
+    ));
+    assert!(!directory.path().join("outside.json").exists());
+}
+
 // @spec:AC-1444
 #[test]
 fn core_corpus_is_virtual_only_and_has_no_network_or_secret_fixture() {
@@ -173,4 +192,33 @@ fn stale_evidence_and_replayed_corpus_digests_fail_closed() {
         stale.validate_against(&rust_bug.case),
         Err(EvaluationContractError::EvidenceMismatch)
     ));
+}
+
+#[test]
+fn count_metric_ceilings_reject_observations_above_schema() {
+    let fixture = &core_evaluation_corpus().unwrap()[0];
+
+    for definition in fixture
+        .case
+        .metric_schema
+        .metrics
+        .iter()
+        .filter(|definition| definition.value_kind == MetricValueKind::Count)
+    {
+        let maximum = definition
+            .maximum
+            .expect("every core count metric must have an explicit ceiling");
+        let mut report = fixture.baseline.clone();
+        let observation = report
+            .metrics
+            .iter_mut()
+            .find(|observation| observation.name == definition.name)
+            .expect("every core metric must have an observation");
+        *observation = MetricObservation::count(definition.name, maximum as u64 + 1);
+
+        assert!(matches!(
+            report.validate_against(&fixture.case),
+            Err(EvaluationContractError::InvalidMetricValue)
+        ));
+    }
 }

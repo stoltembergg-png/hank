@@ -8,6 +8,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+const MAX_FIXTURE_ID_BYTES: usize = 128;
 const MAX_PAYLOAD_BYTES: usize = 64 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -36,12 +37,7 @@ impl FixtureCase {
     }
 
     pub fn validate(&self) -> io::Result<()> {
-        if self.id.is_empty() || self.id.len() > 128 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "fixture id must be bounded",
-            ));
-        }
+        validate_fixture_id(&self.id)?;
         if self.payload.len() > MAX_PAYLOAD_BYTES {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -82,8 +78,8 @@ impl FixtureWorkspace {
     }
 
     pub fn write(&self, case: &FixtureCase) -> io::Result<String> {
+        let path = self.fixture_path(&case.id)?;
         let hash = case.manifest_hash()?;
-        let path = self.root.join(format!("{}.json", case.id));
         let encoded = serde_json::to_vec_pretty(case)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
         fs::write(path, encoded)?;
@@ -91,11 +87,29 @@ impl FixtureWorkspace {
     }
 
     pub fn read(&self, id: &str) -> io::Result<FixtureCase> {
-        let case: FixtureCase =
-            serde_json::from_slice(&fs::read(self.root.join(format!("{id}.json")))?)
-                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        let path = self.fixture_path(id)?;
+        let case: FixtureCase = serde_json::from_slice(&fs::read(path)?)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
         case.validate()?;
         Ok(case)
+    }
+
+    fn fixture_path(&self, id: &str) -> io::Result<PathBuf> {
+        validate_fixture_id(id)?;
+        let root = fs::canonicalize(&self.root)?;
+        let path = root.join(format!("{id}.json"));
+
+        if fs::symlink_metadata(&path).is_ok() {
+            let target = fs::canonicalize(&path)?;
+            if target.parent() != Some(root.as_path()) {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "fixture path escapes workspace",
+                ));
+            }
+        }
+
+        Ok(path)
     }
 }
 
@@ -112,6 +126,24 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
         hash = hash.wrapping_mul(0x100000001b3);
     }
     hash
+}
+
+fn validate_fixture_id(id: &str) -> io::Result<()> {
+    let is_safe_component = id
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'));
+    if id.is_empty()
+        || id.len() > MAX_FIXTURE_ID_BYTES
+        || id == "."
+        || id == ".."
+        || !is_safe_component
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "fixture id must be a safe path component",
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -138,6 +170,23 @@ mod tests {
     fn fixture_rejects_secrets_and_oversized_payloads() {
         assert!(FixtureCase::synthetic("secret", 1, 1, "AKIA1234567890123456").is_err());
         assert!(FixtureCase::synthetic("large", 1, 1, "x".repeat(MAX_PAYLOAD_BYTES + 1)).is_err());
+    }
+
+    #[test]
+    fn fixture_rejects_path_like_ids() {
+        for id in [
+            ".",
+            "..",
+            "../outside",
+            r"..\outside",
+            "/outside",
+            r"C:\outside",
+        ] {
+            assert!(
+                FixtureCase::synthetic(id, 1, 1, "payload").is_err(),
+                "path-like fixture id was accepted: {id}"
+            );
+        }
     }
 
     #[test]

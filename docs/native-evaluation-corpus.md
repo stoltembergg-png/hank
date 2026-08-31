@@ -24,5 +24,9 @@ contêm rede, secrets ou caminhos de produção.
 
 `CoreEvaluationFixture::materialize` escreve somente no
 `FixtureWorkspace` fornecido pelo teste e falha se o manifest digest divergir.
+IDs de fixture são limitados a um componente de caminho seguro; o workspace
+também rejeita alvos existentes que resolvam fora da sua raiz. As métricas de
+contagem têm teto explícito de 32 eventos, enquanto tokens e custo respeitam
+os limites do budget core de 100.000 e 1.000.000 micros, respectivamente.
 O runner de benchmark, a comparação candidate/baseline e o corpus de
 segurança/reasoning ficam para cards posteriores.
