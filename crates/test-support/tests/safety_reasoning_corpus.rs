@@ -2,8 +2,8 @@ use std::collections::BTreeSet;
 
 use tempfile::tempdir;
 use test_support::evaluation::{
-    EvaluationContractError, EvaluationEvidence, EvaluationEvidenceStatus, EvaluationTerminal,
-    MetricName, MetricValue,
+    BaselineReport, EvaluationContractError, EvaluationEvidence, EvaluationEvidenceStatus,
+    EvaluationTerminal, MetricName, MetricValue,
 };
 use test_support::fixtures::FixtureWorkspace;
 use test_support::safety_reasoning_corpus::{
@@ -204,6 +204,10 @@ fn safety_fixtures_materialize_deterministically_and_stay_offline() {
         .root()
         .join(format!("{}.json", tampered.fixture.id));
     assert!(matches!(
+        tampered.validate(),
+        Err(SafetyReasoningCorpusError::FixtureDigestMismatch)
+    ));
+    assert!(matches!(
         tampered.materialize(&tampered_workspace),
         Err(SafetyReasoningCorpusError::FixtureDigestMismatch)
     ));
@@ -246,6 +250,29 @@ fn replay_is_stable_and_unsafe_fixture_paths_fail_closed() {
     let workspace = FixtureWorkspace::create(directory.path().join("safety-corpus")).unwrap();
     assert!(escaped.materialize(&workspace).is_err());
     assert!(!directory.path().join("shadow-write.json").exists());
+}
+
+// @spec:AC-1448
+#[test]
+fn mismatched_terminal_is_rejected_by_safety_validation() {
+    let corpus = safety_reasoning_evaluation_corpus().unwrap();
+    let delegation = find_case(&corpus, "delegation");
+    let mut evidence = delegation.baseline.evidence.clone();
+    evidence.status = EvaluationEvidenceStatus::Pass;
+    let divergent = BaselineReport::from_case(
+        &delegation.case,
+        EvaluationTerminal::Pass,
+        delegation.baseline.metrics.clone(),
+        evidence,
+    )
+    .unwrap();
+    let mut candidate = delegation.clone();
+    candidate.baseline = divergent;
+
+    assert!(matches!(
+        candidate.validate(),
+        Err(SafetyReasoningCorpusError::InvalidSafetyBoundary)
+    ));
 }
 
 // @spec:AC-1448

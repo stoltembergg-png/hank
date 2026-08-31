@@ -86,8 +86,20 @@ impl SafetyReasoningEvaluationFixture {
     /// provider-neutral evaluation contracts.
     pub fn validate(&self) -> Result<(), SafetyReasoningCorpusError> {
         self.case.validate()?;
+        self.fixture.validate()?;
+        if self.case.fixture.fixture_id != self.fixture.id
+            || self.case.fixture.fixture_revision != self.fixture.version.to_string()
+        {
+            return Err(SafetyReasoningCorpusError::InvalidFixtureBinding);
+        }
+        if self.fixture.manifest_hash()? != self.case.fixture.fixture_digest {
+            return Err(SafetyReasoningCorpusError::FixtureDigestMismatch);
+        }
         self.validate_evidence_identity()?;
         self.baseline.validate_against(&self.case)?;
+        if self.baseline.terminal != self.case.expected_terminal {
+            return Err(SafetyReasoningCorpusError::InvalidSafetyBoundary);
+        }
 
         match self.failure_mode {
             SafetyReasoningFailureMode::CrossProjectDelegation => {
