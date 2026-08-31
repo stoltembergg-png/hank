@@ -9,7 +9,13 @@ const allowed = new Set(['proposed', 'accepted', 'superseded', 'rejected']);
 const required = ['id', 'status', 'owner', 'date'];
 
 function parse(file) {
-  const raw = fs.readFileSync(file, 'utf8');
+  const base = path.resolve(dir);
+  const target = path.resolve(file);
+  const relative = path.relative(base, target);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`${file}: invalid file path`);
+  }
+  const raw = fs.readFileSync(target, 'utf8');
   const text = raw.replace(/\r\n/g, '\n');
   if (!text.startsWith('---\n')) throw new Error(`${file}: missing frontmatter`);
   const end = text.indexOf('\n---\n', 4);
@@ -37,7 +43,16 @@ export function validateAdrFiles(files, authority) {
     if (data.status === 'accepted' && !/sha:\s*`?[0-9a-f]{40}`?/i.test(text)) errors.push(`${file}: accepted ADR needs SHA evidence`);
     if (/-----BEGIN (?:RSA|OPENSSH|PGP) PRIVATE KEY-----|AKIA[0-9A-Z]{16}/.test(text)) errors.push(`${file}: possible secret`);
   }
-  for (const file of authority.adrs ?? []) if (!fs.existsSync(path.join(dir, file))) errors.push(`authority missing ${file}`);
+  for (const file of authority.adrs ?? []) {
+    const base = path.resolve(dir);
+    const target = path.resolve(base, file);
+    const relative = path.relative(base, target);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      errors.push(`authority invalid path ${file}`);
+    } else if (!fs.existsSync(target)) {
+      errors.push(`authority missing ${file}`);
+    }
+  }
   return { status: errors.length ? 'BLOCKED' : 'PASS', errors, count: files.length };
 }
 

@@ -277,7 +277,19 @@ export function auditProject(project, { ci = false } = {}) {
         }
 
         for (const relFile of task.files) {
-          if (!existsSync(path.join(config.rootDir, relFile))) {
+          const base = path.resolve(config.rootDir);
+          const target = path.resolve(base, relFile);
+          const relative = path.relative(base, target);
+          if (relative.startsWith('..') || path.isAbsolute(relative)) {
+            findings.push(
+              finding(
+                'ARQUIVO_INVALIDO',
+                'erro',
+                `a tarefa ${task.id} mapeia ${relFile}, que é inválido`,
+                { feature: name, file: tasks.file, line: task.line }
+              )
+            );
+          } else if (!existsSync(target)) {
             findings.push(
               finding(
                 'ARQUIVO_INEXISTENTE',

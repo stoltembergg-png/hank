@@ -75,7 +75,13 @@ export function lerEventos() {
 }
 
 export function caminhoStream(runId, chave) {
-  return path.join(caminhos().streams, runId, `${chave}.jsonl`);
+  const base = path.resolve(caminhos().streams);
+  const target = path.resolve(base, runId, `${chave}.jsonl`);
+  const relative = path.relative(base, target);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error('Invalid path');
+  }
+  return target;
 }
 
 export function chaveStream(faixaOuSeq, tarefa) {
@@ -205,7 +211,13 @@ export function podarLedger(maxExecucoes = MAX_EXECUCOES) {
   const remover = new Set(ordem.slice(0, ordem.length - maxExecucoes));
   const mantidos = eventos.filter((e) => !remover.has(e.runId));
   writeFileSync(ledger, mantidos.map((e) => JSON.stringify(e)).join('\n') + (mantidos.length ? '\n' : ''));
-  for (const runId of remover) rmSync(path.join(streams, runId), { recursive: true, force: true });
+  for (const runId of remover) {
+    const base = path.resolve(streams);
+    const target = path.resolve(base, runId);
+    const relative = path.relative(base, target);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) continue;
+    rmSync(target, { recursive: true, force: true });
+  }
   return { removidas: [...remover] };
 }
 
@@ -498,12 +510,15 @@ export function resumirStream(texto, { desde = 0 } = {}) {
 export function lerStream(runId, chave, { desde = 0 } = {}) {
   const caminho = caminhoStream(runId, chave);
   if (!existsSync(caminho)) return { itens: [], total: 0, resumo: null, existe: false };
-  return { ...resumirStream(readFileSync(caminho, 'utf-8'), { desde }), existe: true };
+  const path = require('path'); const base = path.resolve('.'); const target = path.resolve(caminho); const rel = path.relative(base, target); if (rel.startsWith('..') || path.isAbsolute(rel)) throw new Error('Invalid path'); return { ...resumirStream(readFileSync(target, 'utf-8'), { desde }), existe: true };
 }
 
 // streams gravados de uma execução (diagnóstico, mesmo sem evento)
 export function streamsDaExecucao(runId) {
-  const dir = path.join(caminhos().streams, runId);
+  const base = path.resolve(caminhos().streams);
+  const dir = path.resolve(base, runId);
+  const rel = path.relative(base, dir);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) throw new Error('Invalid path');
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
     .filter((f) => f.endsWith('.jsonl'))
