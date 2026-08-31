@@ -381,6 +381,9 @@ jobs:
       - name: Verify native evaluation contract
         run: node tools/ci/run-onp-spec.mjs verify native-evaluation-contract
 
+      - name: Verify native evaluation corpus
+        run: node tools/ci/run-onp-spec.mjs verify native-evaluation-corpus
+
       - name: Verify agent configuration proposal
         run: node tools/ci/run-onp-spec.mjs verify agent-configuration-proposal
 
