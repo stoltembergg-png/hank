@@ -26,6 +26,13 @@ test('ONP workflow runs repository workspace verification explicitly', () => {
   );
 });
 
+test('ONP workflow runs native evaluation contract verification explicitly', () => {
+  assert.match(
+    workflow,
+    /Verify native evaluation contract[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify native-evaluation-contract/,
+  );
+});
+
 test('ONP workflow runs Git worktree verification explicitly', () => {
   assert.match(
     workflow,
