@@ -2,12 +2,14 @@ use std::collections::BTreeSet;
 
 use tempfile::tempdir;
 use test_support::evaluation::{
-    EvaluationContractError, EvaluationEvidenceStatus, EvaluationTerminal, MetricName, MetricValue,
+    EvaluationContractError, EvaluationEvidence, EvaluationEvidenceStatus, EvaluationTerminal,
+    MetricName, MetricValue,
 };
 use test_support::fixtures::FixtureWorkspace;
 use test_support::safety_reasoning_corpus::{
-    safety_reasoning_evaluation_corpus, SafetyReasoningEvaluationFixture,
-    SafetyReasoningFailureMode, SAFETY_REASONING_EVALUATION_CORPUS_SCHEMA_VERSION,
+    safety_reasoning_evaluation_corpus, SafetyReasoningCorpusError,
+    SafetyReasoningEvaluationFixture, SafetyReasoningFailureMode,
+    SAFETY_REASONING_EVALUATION_CORPUS_SCHEMA_VERSION,
 };
 
 fn find_case<'a>(
@@ -144,6 +146,13 @@ fn cross_project_shadow_write_and_policy_bypass_are_explicitly_denied() {
         tool_misuse.failure_mode,
         SafetyReasoningFailureMode::ToolMisuse
     );
+    assert_ne!(
+        delegation.case.project_id,
+        delegation.target_project_id.unwrap()
+    );
+    assert!(find_case(&corpus, "failure_memory")
+        .target_project_id
+        .is_none());
 
     for fixture in [delegation, skill_selection, tool_misuse] {
         assert!(fixture
@@ -157,11 +166,49 @@ fn cross_project_shadow_write_and_policy_bypass_are_explicitly_denied() {
     assert!(count_metric(tool_misuse, MetricName::ExternalSideEffectAttempts) > 0);
 }
 
+// @spec:AC-1449
+#[test]
+fn every_fabricated_evidence_identity_field_is_rejected() {
+    let corpus = safety_reasoning_evaluation_corpus().unwrap();
+    let fabricated = find_case(&corpus, "fabricated_evidence");
+
+    let assert_rejected = |mutate: fn(&mut EvaluationEvidence)| {
+        let mut candidate = fabricated.clone();
+        mutate(&mut candidate.baseline.evidence);
+        assert!(matches!(
+            candidate.validate(),
+            Err(SafetyReasoningCorpusError::FabricatedEvidence)
+        ));
+    };
+
+    assert_rejected(|evidence| evidence.head_sha = "forged-head".into());
+    assert_rejected(|evidence| evidence.tree_sha = "forged-tree".into());
+    assert_rejected(|evidence| evidence.policy_digest = "forged-policy".into());
+    assert_rejected(|evidence| evidence.schema_digest = "forged-schema".into());
+    assert_rejected(|evidence| evidence.fixture_digest = "forged-fixture".into());
+    assert_rejected(|evidence| evidence.environment_digest = "forged-environment".into());
+    assert_rejected(|evidence| evidence.artifact_digests[0] = "forged-artifact".into());
+}
+
 // @spec:AC-1451
 #[test]
 fn safety_fixtures_materialize_deterministically_and_stay_offline() {
     let corpus = safety_reasoning_evaluation_corpus().unwrap();
     let directory = tempdir().unwrap();
+
+    let valid = find_case(&corpus, "fabricated_evidence");
+    let mut tampered = valid.clone();
+    tampered.fixture.payload = "tampered payload".into();
+    let tampered_workspace = FixtureWorkspace::create(directory.path().join("tampered")).unwrap();
+    let tampered_path = tampered_workspace
+        .root()
+        .join(format!("{}.json", tampered.fixture.id));
+    assert!(matches!(
+        tampered.materialize(&tampered_workspace),
+        Err(SafetyReasoningCorpusError::FixtureDigestMismatch)
+    ));
+    assert!(!tampered_path.exists());
+
     let workspace = FixtureWorkspace::create(directory.path().join("safety-corpus")).unwrap();
 
     for fixture in &corpus {
@@ -186,6 +233,7 @@ fn replay_is_stable_and_unsafe_fixture_paths_fail_closed() {
     let corpus = safety_reasoning_evaluation_corpus().unwrap();
     let replay = safety_reasoning_evaluation_corpus().unwrap();
 
+    assert_eq!(corpus.len(), replay.len());
     for (first, second) in corpus.iter().zip(&replay) {
         assert_eq!(first.case.fingerprint(), second.case.fingerprint());
         assert_eq!(first.baseline.report_digest, second.baseline.report_digest);
@@ -198,4 +246,20 @@ fn replay_is_stable_and_unsafe_fixture_paths_fail_closed() {
     let workspace = FixtureWorkspace::create(directory.path().join("safety-corpus")).unwrap();
     assert!(escaped.materialize(&workspace).is_err());
     assert!(!directory.path().join("shadow-write.json").exists());
+}
+
+// @spec:AC-1448
+#[test]
+fn budget_case_is_provably_over_budget_before_activation() {
+    let corpus = safety_reasoning_evaluation_corpus().unwrap();
+    let budget = find_case(&corpus, "budget");
+
+    budget.validate().unwrap();
+    assert!(
+        count_metric(budget, MetricName::ToolCalls) > u64::from(budget.case.budget.max_tool_calls)
+    );
+    assert!(count_metric(budget, MetricName::Tokens) > budget.case.budget.max_tokens);
+    assert!(count_metric(budget, MetricName::Cost) > budget.case.budget.max_cost_micros);
+    assert_eq!(budget.baseline.terminal, EvaluationTerminal::Blocked);
+    assert!(!budget.baseline.can_activate());
 }

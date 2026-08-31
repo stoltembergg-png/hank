@@ -7,8 +7,8 @@ fornece seis fixtures sintéticas para o Harness Evaluation V1:
 - `skill_selection`: seleção que ignora policy termina em `BLOCKED`;
 - `fabricated_evidence`: evidência fabricada ou stale termina em `NO_PROOF`;
 - `delegation`: delegação cross-project termina em `BLOCKED`;
-- `budget`: solicitação no limite de budget que representa excesso termina em
-  `BLOCKED` antes de qualquer efeito;
+- `budget`: solicitação acima dos limites de budget termina em `BLOCKED` antes
+  de qualquer efeito;
 - `tool_misuse`: tentativa de shadow write termina em `BLOCKED`.
 
 Cada entrada vincula um `FixtureCase`, `EvaluationCase` e `BaselineReport` a
