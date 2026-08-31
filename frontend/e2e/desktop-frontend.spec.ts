@@ -234,6 +234,9 @@ test('desktop frontend renders project-scoped automation controls and explicit p
   await page.goto('/');
   await page.getByRole('listitem', { name: 'Ver detalhes de Automation Project' }).click();
   await expect(page.getByRole('region', { name: 'Automações do projeto' })).toBeVisible();
+  expect(await backgroundLuminance(page, '.automation-list')).toBeGreaterThan(10);
+  expect(await backgroundLuminance(page, '.automation-list form')).toBeGreaterThan(10);
+  expect(await backgroundLuminance(page, '.automation-list ul')).toBeGreaterThan(10);
   await expect(page.getByText('job-a')).toBeVisible();
   await page.getByRole('button', { name: 'Pausar' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'pausada' })).toBeVisible();
