@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 const MAX_FIXTURE_ID_BYTES: usize = 128;
@@ -82,7 +82,7 @@ impl FixtureWorkspace {
         let hash = case.manifest_hash()?;
         let encoded = serde_json::to_vec_pretty(case)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-        fs::write(path, encoded)?;
+        self.write_fixture_file(&path, &encoded)?;
         Ok(hash)
     }
 
@@ -110,6 +110,14 @@ impl FixtureWorkspace {
         }
 
         Ok(path)
+    }
+
+    fn write_fixture_file(&self, path: &Path, encoded: &[u8]) -> io::Result<()> {
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path)?;
+        file.write_all(encoded)
     }
 }
 
@@ -187,6 +195,43 @@ mod tests {
                 "path-like fixture id was accepted: {id}"
             );
         }
+    }
+
+    #[test]
+    fn workspace_open_does_not_truncate_existing_fixture() {
+        let directory = tempdir().unwrap();
+        let workspace = FixtureWorkspace::create(directory.path().join("fixtures")).unwrap();
+        let case = FixtureCase::synthetic("existing", 1, 1, "payload").unwrap();
+        let path = workspace.fixture_path(&case.id).unwrap();
+        fs::write(&path, "sentinel").unwrap();
+        let encoded = serde_json::to_vec_pretty(&case).unwrap();
+
+        let error = workspace.write_fixture_file(&path, &encoded).unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read_to_string(path).unwrap(), "sentinel");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn workspace_open_rejects_symlink_replaced_after_path_validation() {
+        let directory = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let outside_path = outside.path().join("outside.json");
+        fs::write(&outside_path, "sentinel").unwrap();
+        let workspace = FixtureWorkspace::create(directory.path().join("fixtures")).unwrap();
+        let case = FixtureCase::synthetic("race", 1, 1, "payload").unwrap();
+        let path = workspace.fixture_path(&case.id).unwrap();
+
+        // Simulate an attacker replacing the validated path before the file
+        // open. The exclusive open must reject the symlink instead of
+        // following it to the outside file.
+        std::os::unix::fs::symlink(&outside_path, &path).unwrap();
+        let encoded = serde_json::to_vec_pretty(&case).unwrap();
+        let error = workspace.write_fixture_file(&path, &encoded).unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read_to_string(outside_path).unwrap(), "sentinel");
     }
 
     #[test]
