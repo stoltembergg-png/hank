@@ -32,6 +32,7 @@ jobs:
       contents: read
     outputs:
       sha: ${{ steps.identity.outputs.sha }}
+      prerelease_manifest_hash: ${{ steps.identity.outputs.prerelease_manifest_hash }}
     steps:
       - name: Checkout prerelease commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -56,16 +57,24 @@ jobs:
           stableVersion=$(node tools/release-prerelease.mjs milestone-version --milestone "$MILESTONE")
           test "$stableVersion" = "$STABLE_VERSION"
           sha=$(git rev-parse HEAD)
+          
+          # Verify the prerelease tag target is integrated into protected main branch
+          if ! git merge-base --is-ancestor "$sha" origin/main; then
+            echo "ERROR: prerelease tag target $sha is not an ancestor of protected main branch" >&2
+            exit 1
+          fi
+          main_sha=$(git rev-parse origin/main)
+          if ! git merge-base --is-ancestor "$sha" "$main_sha"; then
+            echo "ERROR: prerelease tag target $sha is not integrated into current main ($main_sha)" >&2
+            exit 1
+          fi
+          
+          # Validate ALL required checks from required-checks.json, not just one
           checks_file="$RUNNER_TEMP/main-checks.json"
           gh api --paginate "repos/$REPOSITORY/commits/$sha/check-runs" --jq '[.check_runs[] | {name,status,conclusion}]' > "$checks_file"
-          node - "$checks_file" <<'NODE'
-          const fs = require('node:fs');
-          const pages = fs.readFileSync(process.argv[2], 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
-          const checks = pages.flat();
-          const required = 'Desktop E2E / Project Lifecycle';
-          const match = checks.find((check) => check.name === required && check.status === 'completed' && check.conclusion === 'success');
-          if (!match) { console.error(`required check missing or non-success: ${required}`); process.exit(1); }
-          NODE
+          required_checks=$(node --input-type=module -e "import fs from 'node:fs'; const manifest = JSON.parse(fs.readFileSync('.github/required-checks.json', 'utf8')); if (manifest?.schemaVersion !== 1 || !Array.isArray(manifest.requiredChecks)) process.exit(1); process.stdout.write(manifest.requiredChecks.join(','))")
+          node tools/release-prerelease.mjs checks --file "$checks_file" --required "$required_checks"
+          
           release=$(gh api "repos/$REPOSITORY/releases/tags/$PRERELEASE_TAG")
           test "$(printf '%s' "$release" | jq -r .prerelease)" = true
           test "$(printf '%s' "$release" | jq -r .target_commitish)" = "$sha"
@@ -77,12 +86,25 @@ jobs:
           mkdir -p "$RUNNER_TEMP/prerelease"
           gh release download "$PRERELEASE_TAG" --pattern release-manifest.json --pattern manifest.sha256 --dir "$RUNNER_TEMP/prerelease"
           (cd "$RUNNER_TEMP/prerelease" && sha256sum -c manifest.sha256)
+          
+          # Capture the validated manifest hash for later verification
+          prerelease_manifest_hash=$(sha256sum "$RUNNER_TEMP/prerelease/release-manifest.json" | awk '{print $1}')
+          
           node tools/release-prerelease.mjs promote-manifest \
             --input "$RUNNER_TEMP/prerelease/release-manifest.json" \
             --version "$STABLE_VERSION" \
             --milestone "$MILESTONE" \
             --output "$RUNNER_TEMP/prerelease/stable-manifest.json"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "prerelease_manifest_hash=$prerelease_manifest_hash" >> "$GITHUB_OUTPUT"
+      
+      - name: Upload validated prerelease artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: validated-prerelease-artifacts
+          path: ${{ runner.temp }}/prerelease/
+          if-no-files-found: error
+          retention-days: 1
 
   promote:
     name: Publish stable milestone release
@@ -97,7 +119,13 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ inputs.prerelease_tag }}
+          ref: ${{ needs.verify.outputs.sha }}
+
+      - name: Download validated prerelease artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: validated-prerelease-artifacts
+          path: ${{ runner.temp }}/prerelease-validated
 
       - name: Prepare stable assets
         env:
@@ -105,20 +133,37 @@ jobs:
           PRERELEASE_TAG: ${{ inputs.prerelease_tag }}
           STABLE_VERSION: ${{ inputs.stable_version }}
           MILESTONE: ${{ inputs.milestone }}
+          EXPECTED_MANIFEST_HASH: ${{ needs.verify.outputs.prerelease_manifest_hash }}
         run: |
           set -euo pipefail
+          
+          # Re-validate the manifest hash to ensure artifact integrity
+          actual_manifest_hash=$(sha256sum "$RUNNER_TEMP/prerelease-validated/release-manifest.json" | awk '{print $1}')
+          if test "$actual_manifest_hash" != "$EXPECTED_MANIFEST_HASH"; then
+            echo "ERROR: prerelease manifest hash mismatch (expected: $EXPECTED_MANIFEST_HASH, got: $actual_manifest_hash)" >&2
+            exit 1
+          fi
+          
+          # Re-verify manifest.sha256 to ensure cryptographic binding
+          (cd "$RUNNER_TEMP/prerelease-validated" && sha256sum -c manifest.sha256)
+          
           mkdir -p "$RUNNER_TEMP/prerelease" "$RUNNER_TEMP/stable"
+          
+          # Download the binary artifacts by immutable SHA-tagged prerelease
+          # These must match the validated manifest from the verify job
           gh release download "$PRERELEASE_TAG" \
             --pattern "hank-${PRERELEASE_TAG}.tar.gz" \
             --pattern "hank-${PRERELEASE_TAG}-setup.exe" \
             --pattern RELEASE_NOTES.md \
-            --pattern release-manifest.json \
             --dir "$RUNNER_TEMP/prerelease"
+          
           stable_tag="v$STABLE_VERSION"
           mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}.tar.gz" "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz"
           mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}-setup.exe" "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe"
+          
+          # Use the validated manifest from verify job, not a re-downloaded one
           node tools/release-prerelease.mjs promote-manifest \
-            --input "$RUNNER_TEMP/prerelease/release-manifest.json" \
+            --input "$RUNNER_TEMP/prerelease-validated/release-manifest.json" \
             --version "$STABLE_VERSION" \
             --milestone "$MILESTONE" \
             --output "$RUNNER_TEMP/stable/release-manifest.json"
