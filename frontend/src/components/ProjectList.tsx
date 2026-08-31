@@ -9,12 +9,14 @@ export interface ProjectListProps {
   apiClient?: ProjectApiClient;
   statusFilter?: ProjectStatus;
   pageSize?: number;
+  onProjectOpen?: (project: ProjectSummary) => void;
 }
 
 export const ProjectList: React.FC<ProjectListProps> = ({
   apiClient = defaultProjectApi,
   statusFilter,
   pageSize = 10,
+  onProjectOpen,
 }) => {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [total, setTotal] = useState<number>(0);
@@ -72,6 +74,14 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     setProjects((prev) =>
       prev.map((p) => (p.id === archived.id ? archived : p)),
     );
+  };
+
+  const openProject = (project: ProjectSummary) => {
+    if (onProjectOpen) {
+      onProjectOpen(project);
+      return;
+    }
+    setSelectedProjectId(project.id);
   };
 
   if (selectedProjectId) {
@@ -154,11 +164,11 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                 key={project.id}
                 className="project-card clickable"
                 role="listitem"
-                onClick={() => setSelectedProjectId(project.id)}
+                onClick={() => openProject(project)}
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
-                    setSelectedProjectId(project.id);
+                    openProject(project);
                   }
                 }}
                 aria-label={`Ver detalhes de ${project.name}`}

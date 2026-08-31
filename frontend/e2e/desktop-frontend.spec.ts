@@ -75,7 +75,8 @@ test('desktop frontend opens a project session in the read-only workbench', asyn
 
   await page.goto('/');
   await page.getByRole('listitem', { name: 'Ver detalhes de Session Open Project' }).click();
-  await page.getByRole('tab', { name: 'Agents' }).click();
+  await page.getByLabel('Navegação principal').getByRole('button', { name: 'Agents' }).click();
+  await expect(page.getByLabel('Navegação principal').getByRole('button', { name: 'Agents' })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByText('session-agent')).toBeVisible();
   await page.getByRole('button', { name: 'Abrir conversas de session-agent' }).click();
   await page.getByRole('button', { name: 'Abrir conversa' }).click();
