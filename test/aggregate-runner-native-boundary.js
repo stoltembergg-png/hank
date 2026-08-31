@@ -7,6 +7,10 @@ const workflow = readFileSync(
   new URL('../.github/workflows/onp-sdd-evidence.yml', import.meta.url),
   'utf8',
 );
+const nativeCorpusSpec = readFileSync(
+  new URL('../.spec/features/native-evaluation-corpus/spec.md', import.meta.url),
+  'utf8',
+);
 
 test('aggregate runner exposes an explicit native-test boundary', () => {
   assert.match(runner, /HANK_SKIP_TAURI/);
@@ -38,6 +42,11 @@ test('ONP workflow runs native evaluation corpus verification explicitly', () =>
     workflow,
     /Verify native evaluation corpus[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify native-evaluation-corpus/,
   );
+});
+
+test('native evaluation corpus spec declares mandatory ONP audit sections', () => {
+  assert.match(nativeCorpusSpec, /## Suposições\r?\n\r?\nNenhuma\./);
+  assert.match(nativeCorpusSpec, /## Perguntas em aberto\r?\n\r?\nNenhuma\./);
 });
 
 test('ONP workflow runs Git worktree verification explicitly', () => {

@@ -87,6 +87,14 @@ seja rejeitada.
 - repositórios reais, providers, rede, filesystem de produção, UI e secrets;
 - corpus de Failure Memory, skill selection, delegation e tool misuse (PR-395).
 
+## Suposições
+
+Nenhuma.
+
+## Perguntas em aberto
+
+Nenhuma.
+
 ## Definition of Done
 
 Os seis cases são construídos e materializados deterministicamente, todos têm
