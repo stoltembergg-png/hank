@@ -191,6 +191,10 @@ test('ONP workflow runs PR generation workflow verification explicitly', () => {
     workflow,
     /Verify plugin permissions[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify plugin-permissions/,
   );
+  assert.match(
+    workflow,
+    /Verify provider plugins[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify provider-plugins/,
+  );
 });
 
 test('ONP workflow runs coding agent profile verification explicitly', () => {

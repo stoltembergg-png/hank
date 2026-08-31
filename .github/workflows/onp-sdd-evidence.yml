@@ -423,6 +423,9 @@ jobs:
       - name: Verify plugin permissions
         run: node tools/ci/run-onp-spec.mjs verify plugin-permissions
 
+      - name: Verify provider plugins
+        run: node tools/ci/run-onp-spec.mjs verify provider-plugins
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 
