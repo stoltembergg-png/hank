@@ -17,6 +17,7 @@ pub mod automatic_skill_rollout;
 pub mod autonomy;
 pub mod budget;
 pub mod ci_status_integration;
+pub mod claim_evidence;
 pub mod coding_profile;
 pub mod config;
 pub mod cycle_detection;
@@ -79,6 +80,14 @@ pub use agent_protocol::{
 };
 pub use autonomy::*;
 pub use budget::*;
+pub use claim_evidence::EvidenceStatus as ClaimEvidenceStatus;
+pub use claim_evidence::{
+    Claim, ClaimClass, ClaimError, ClaimEvidenceError, ClaimEvidenceKind, ClaimResolution,
+    ClaimState, EvidenceRecord, EvidenceScope, FactState, ResolutionOutcome,
+    CLAIM_EVIDENCE_SCHEMA_VERSION, MAX_CLAIM_EVIDENCE_REFERENCES, MAX_CLAIM_ID_LEN,
+    MAX_EVIDENCE_RECORDS, MAX_REASON_LEN, MAX_REQUIRED_EVIDENCE, MAX_RESOLVER_ID_LEN,
+    MAX_REVISION_LEN,
+};
 pub use cycle_detection::*;
 pub use dedupe::*;
 pub use depth_limit::*;
