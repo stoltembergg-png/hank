@@ -277,6 +277,28 @@ fn mismatched_terminal_is_rejected_by_safety_validation() {
 
 // @spec:AC-1448
 #[test]
+fn mutable_expected_terminal_cannot_promote_delegation_to_pass() {
+    let corpus = safety_reasoning_evaluation_corpus().unwrap();
+    let mut candidate = find_case(&corpus, "delegation").clone();
+    candidate.case.expected_terminal = EvaluationTerminal::Pass;
+    let mut evidence = candidate.baseline.evidence.clone();
+    evidence.status = EvaluationEvidenceStatus::Pass;
+    candidate.baseline = BaselineReport::from_case(
+        &candidate.case,
+        EvaluationTerminal::Pass,
+        candidate.baseline.metrics.clone(),
+        evidence,
+    )
+    .unwrap();
+
+    assert!(matches!(
+        candidate.validate(),
+        Err(SafetyReasoningCorpusError::InvalidSafetyBoundary)
+    ));
+}
+
+// @spec:AC-1448
+#[test]
 fn budget_case_is_provably_over_budget_before_activation() {
     let corpus = safety_reasoning_evaluation_corpus().unwrap();
     let budget = find_case(&corpus, "budget");
