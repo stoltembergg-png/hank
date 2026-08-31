@@ -166,6 +166,8 @@ fn fixture_data() -> EvaluationFixture {
 fn request(data: &EvaluationFixture) -> SkillEvaluationRequest {
     let capability =
         Capability::new(Resource::Skill, Action::Read).with_scope(data.project_id.to_string());
+    let validation_capability =
+        Capability::new(Resource::Skill, Action::Create).with_scope(data.project_id.to_string());
     SkillEvaluationRequest {
         project_id: data.project_id,
         actor_id: "evaluator-agent".into(),
@@ -184,6 +186,10 @@ fn request(data: &EvaluationFixture) -> SkillEvaluationRequest {
         baseline: data.baseline.clone(),
         candidate: data.candidate.clone(),
         validation: data.validation.clone(),
+        validation_policy: SkillValidationPolicy {
+            allowed_capabilities: CapabilitySet::new().insert(validation_capability),
+        },
+        validation_budget: BudgetLimits::default(),
         baseline_fixture: data.baseline_fixture.clone(),
         candidate_fixture: data.candidate_fixture.clone(),
         baseline_report: data.baseline_report.clone(),

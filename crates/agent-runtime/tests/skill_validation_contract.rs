@@ -229,6 +229,8 @@ fn lifecycle_evidence_rejects_tampering_or_a_different_candidate() {
         parsed.manifest.id,
         &parsed.manifest.version,
         &validation,
+        &request.policy,
+        &request.budget,
     ));
 
     let mut tampered = validation.clone();
@@ -239,5 +241,60 @@ fn lifecycle_evidence_rejects_tampering_or_a_different_candidate() {
         parsed.manifest.id,
         &parsed.manifest.version,
         &tampered,
+        &request.policy,
+        &request.budget,
+    ));
+}
+
+#[test]
+// Security test: Verify that forged policy/budget digests are rejected
+fn lifecycle_evidence_rejects_forged_policy_and_budget() {
+    let project_id = ProjectId::new();
+    let (parsed, fixture) = parsed_skill(project_id);
+    let request = request(&parsed, project_id);
+    let test_report = report(&parsed, &fixture);
+    let validation = SkillValidationService::validate(&parsed, &request, Some(&test_report));
+
+    // Validation should pass with correct policy and budget
+    assert!(SkillValidationService::report_is_approved(
+        &parsed,
+        project_id,
+        parsed.manifest.id,
+        &parsed.manifest.version,
+        &validation,
+        &request.policy,
+        &request.budget,
+    ));
+
+    // Create a different policy with more permissive capabilities
+    let attacker_capability = Capability::new(Resource::File, Action::Create);
+    let attacker_policy = SkillValidationPolicy {
+        allowed_capabilities: CapabilitySet::new().insert(attacker_capability),
+    };
+
+    // Validation should fail when verified against a different policy
+    assert!(!SkillValidationService::report_is_approved(
+        &parsed,
+        project_id,
+        parsed.manifest.id,
+        &parsed.manifest.version,
+        &validation,
+        &attacker_policy,
+        &request.budget,
+    ));
+
+    // Create a different budget with higher limits
+    let mut attacker_budget = BudgetLimits::default();
+    attacker_budget.max_tokens = request.budget.max_tokens + 1000;
+
+    // Validation should fail when verified against a different budget
+    assert!(!SkillValidationService::report_is_approved(
+        &parsed,
+        project_id,
+        parsed.manifest.id,
+        &parsed.manifest.version,
+        &validation,
+        &request.policy,
+        &attacker_budget,
     ));
 }

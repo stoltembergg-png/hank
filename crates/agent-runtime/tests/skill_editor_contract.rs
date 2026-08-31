@@ -94,6 +94,18 @@ fn validation_report(
     validation
 }
 
+fn validation_policy(project_id: ProjectId) -> SkillValidationPolicy {
+    let capability =
+        Capability::new(Resource::Skill, Action::Read).with_scope(project_id.to_string());
+    SkillValidationPolicy {
+        allowed_capabilities: CapabilitySet::new().insert(capability),
+    }
+}
+
+fn validation_budget() -> BudgetLimits {
+    BudgetLimits::default()
+}
+
 fn save_request(
     project: ProjectId,
     skill_id: agent_core::SkillId,
@@ -148,6 +160,8 @@ async fn saving_draft_parses_and_keeps_active_head_unchanged() {
             "1.0.0",
             1,
             &validation_report(&parsed, project),
+            &validation_policy(project),
+            &validation_budget(),
         )
         .await
         .unwrap();
@@ -184,6 +198,8 @@ async fn invalid_or_quarantined_draft_is_rejected_before_persistence() {
             "1.0.0",
             1,
             &validation_report(&parsed, project),
+            &validation_policy(project),
+            &validation_budget(),
         )
         .await
         .unwrap();
@@ -226,6 +242,8 @@ async fn duplicate_draft_is_idempotent_and_discard_is_explicit() {
             "1.0.0",
             1,
             &validation_report(&parsed, project),
+            &validation_policy(project),
+            &validation_budget(),
         )
         .await
         .unwrap();
