@@ -5,6 +5,8 @@
 //! receive an explicit allow/deny result.
 
 pub mod mcp_permission;
+pub mod plugin_permission;
+
 pub mod security_profile;
 pub use security_profile::{
     SecurityAgentProfile, SecurityEvidence, SecurityEvidenceStatus, SecurityFinding,
