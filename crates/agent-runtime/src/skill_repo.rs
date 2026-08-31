@@ -469,6 +469,7 @@ impl SqliteSkillRepository {
     /// Promotes the current immutable version through an explicit lifecycle
     /// operation. The method never rewrites the artifact or moves the head to
     /// an unrequested version.
+    #[allow(clippy::too_many_arguments)]
     pub async fn promote(
         &self,
         scope: SkillScope,
@@ -627,6 +628,7 @@ impl SqliteSkillRepository {
         Ok(record)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn rollback(
         &self,
         scope: SkillScope,

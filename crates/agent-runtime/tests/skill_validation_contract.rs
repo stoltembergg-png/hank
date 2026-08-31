@@ -284,8 +284,10 @@ fn lifecycle_evidence_rejects_forged_policy_and_budget() {
     ));
 
     // Create a different budget with higher limits
-    let mut attacker_budget = BudgetLimits::default();
-    attacker_budget.max_tokens = request.budget.max_tokens + 1000;
+    let attacker_budget = BudgetLimits {
+        max_tokens: request.budget.max_tokens + 1000,
+        ..BudgetLimits::default()
+    };
 
     // Validation should fail when verified against a different budget
     assert!(!SkillValidationService::report_is_approved(
