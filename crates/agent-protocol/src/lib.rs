@@ -15,6 +15,7 @@ pub mod ids;
 pub mod invocation;
 pub mod json_rpc;
 pub mod policy;
+pub mod remote_protocol;
 pub mod runtime_transport;
 pub mod version;
 pub mod worker;
