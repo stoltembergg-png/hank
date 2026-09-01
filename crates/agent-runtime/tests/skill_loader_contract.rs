@@ -113,6 +113,18 @@ fn validation_report(
     validation
 }
 
+fn validation_policy(project_id: ProjectId) -> SkillValidationPolicy {
+    let capability =
+        Capability::new(Resource::Skill, Action::Read).with_scope(project_id.to_string());
+    SkillValidationPolicy {
+        allowed_capabilities: CapabilitySet::new().insert(capability),
+    }
+}
+
+fn validation_budget() -> BudgetLimits {
+    BudgetLimits::default()
+}
+
 fn parsed_skill(
     manifest: SkillManifest,
     project_id: Option<ProjectId>,
@@ -317,6 +329,8 @@ async fn cache_key_changes_after_update_and_rollback() {
         "1.1.0",
         updated.revision,
         &validation_report(&updated.parsed, project),
+        &validation_policy(project),
+        &validation_budget(),
     )
     .await
     .unwrap();
@@ -348,6 +362,8 @@ async fn cache_key_changes_after_update_and_rollback() {
                 .parsed,
             project,
         ),
+        &validation_policy(project),
+        &validation_budget(),
     )
     .await
     .unwrap();
