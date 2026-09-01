@@ -1,19 +1,20 @@
 name: Resolve review threads on green checks
 
 on:
-  check_run:
-    types: [completed]
-  status:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
   pull-requests: write
 
 concurrency:
-  group: resolve-review-threads-${{ github.event.pull_request.number || github.event.check_run.head_sha || github.event.sha }}
-  cancel-in-progress: true
+  group: resolve-review-threads
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
 
 jobs:
   resolve:
@@ -21,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Resolve review threads when checks are green
+      - name: Resolve review threads on open PRs with all checks green
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           github-token: ${{ github.token }}
@@ -29,91 +30,123 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
-            // Resolve the pull request number: from the pull_request event, or
-            // by looking up open PRs that contain the check_run/status commit.
-            let prNumber;
-            if (context.payload.pull_request) {
-              prNumber = context.payload.pull_request.number;
-            } else if (context.payload.check_run) {
-              const sha = context.payload.check_run.head_sha;
-              const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
-                owner, repo, commit_sha: sha,
+            // Required checks declared in branch protection AND rulesets.
+            // A check only gates thread resolution if it is actually required
+            // for merging; non-required skips/failures are ignored.
+            let requiredContexts = [];
+            try {
+              const { data: protection } = await github.rest.repos.getBranchProtection({
+                owner, repo, branch: 'main',
               });
-              prNumber = prs.find((p) => p.state === 'open')?.number;
-            } else if (context.payload.sha) {
-              // `status` event: sha of the commit whose status changed
-              const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
-                owner, repo, commit_sha: context.payload.sha,
-              });
-              prNumber = prs.find((p) => p.state === 'open')?.number;
+              requiredContexts = protection.required_status_checks?.contexts ?? [];
+            } catch (e) {
+              core.warning(`Could not fetch branch protection: ${e.message}`);
             }
-            if (!prNumber) {
-              console.log('No open pull request associated — skipping');
-              return;
-            }
-            console.log(`Evaluating PR #${prNumber}`);
-
-            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-            if (pr.state !== 'open') {
-              console.log(`PR #${prNumber} is ${pr.state} — skipping`);
-              return;
-            }
-            const headSha = pr.head.sha;
-
-            // Gather every check run and commit status on the exact head SHA.
-            const runs = await github.paginate(github.rest.checks.listForRef, {
-              owner, repo, ref: headSha,
-            });
-            const { data: status } = await github.rest.repos.getCombinedStatusForRef({
-              owner, repo, ref: headSha,
-            });
-
-            const notGreen = [];
-            for (const run of runs) {
-              if (run.status !== 'completed' ||
-                  ['failure', 'cancelled', 'timed_out', 'action_required'].includes(run.conclusion)) {
-                notGreen.push(`check ${run.name}: ${run.conclusion || run.status}`);
-              }
-            }
-            for (const s of status.statuses || []) {
-              if (['pending', 'failure', 'error'].includes(s.state)) {
-                notGreen.push(`status ${s.context}: ${s.state}`);
-              }
-            }
-            if (['pending', 'failure'].includes(status.state)) {
-              notGreen.push(`combined: ${status.state}`);
-            }
-
-            if (notGreen.length > 0) {
-              console.log('Checks are not all green yet — skipping resolve:');
-              notGreen.forEach((x) => console.log(`  ${x}`));
-              return;
-            }
-            console.log(`All checks are green for PR #${prNumber} — resolving review threads`);
-
-            const threadsQuery = `
-              query($owner: String!, $repo: String!, $pr: Int!) {
-                repository(owner: $owner, name: $repo) {
-                  pullRequest(number: $pr) {
-                    reviewThreads(first: 100) {
-                      nodes { id isResolved }
+            try {
+              const { data: rulesets } = await github.rest.repos.getRepoRulesets({ owner, repo });
+              for (const rs of rulesets) {
+                const { data: rsDetail } = await github.rest.repos.getRepoRuleset({
+                  owner, repo, ruleset_id: rs.id,
+                });
+                for (const rule of rsDetail.rules ?? []) {
+                  if (rule.type === 'required_status_checks') {
+                    for (const ctx of rule.parameters?.required_status_checks ?? []) {
+                      if (!requiredContexts.includes(ctx.context)) {
+                        requiredContexts.push(ctx.context);
+                      }
                     }
                   }
                 }
-              }`;
-            const { repository: { pullRequest: { reviewThreads } } } = await github.graphql(threadsQuery, {
-              owner, repo, pr: prNumber,
-            });
-            const open = reviewThreads.nodes.filter((t) => !t.isResolved);
-            console.log(`${open.length} unresolved review thread(s)`);
+              }
+            } catch (e) {
+              core.warning(`Could not fetch rulesets: ${e.message}`);
+            }
+            core.info(`Declared required checks (${requiredContexts.length}): ${requiredContexts.join(', ') || 'none'}`);
 
-            const resolveMutation = `
-              mutation($id: ID!) {
-                resolveReviewThread(input: { threadId: $id }) {
-                  thread { id isResolved }
+            // All open PRs.
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'open', per_page: 100,
+            });
+            core.info(`Found ${prs.length} open pull request(s)`);
+
+            for (const pr of prs) {
+              const num = pr.number;
+              // Live state: re-fetch so we never act on a stale head.
+              const { data: live } = await github.rest.pulls.get({ owner, repo, pull_number: num });
+              if (live.state !== 'open' || live.draft) {
+                core.info(`PR #${num}: ${live.state}${live.draft ? ' (draft)' : ''} — skipping`);
+                continue;
+              }
+              const headSha = live.head.sha;
+              core.info(`PR #${num}: head ${headSha.slice(0, 7)}`);
+
+              // Every check run and commit status on the exact head SHA.
+              const [runs, status] = await Promise.all([
+                github.paginate(github.rest.checks.listForRef, { owner, repo, ref: headSha }),
+                github.rest.repos.getCombinedStatusForRef({ owner, repo, ref: headSha }),
+              ]);
+
+              const statuses = status.data.statuses ?? [];
+
+              // Only required checks gate resolution. For each declared
+              // required context, we need a green signal (completed+success
+              // check run, or success commit status) on the head SHA.
+              // Non-required checks (skips, informational runs) are ignored.
+              const greenNames = new Set([
+                ...runs.filter((r) => r.status === 'completed' && r.conclusion === 'success').map((r) => r.name),
+                ...statuses.filter((s) => s.state === 'success').map((s) => s.context),
+              ]);
+
+              if (requiredContexts.length === 0) {
+                core.warning(`PR #${num}: no required checks declared — refusing to resolve without a gate`);
+                continue;
+              }
+
+              const notGreen = [];
+              for (const ctx of requiredContexts) {
+                if (!greenNames.has(ctx)) {
+                  notGreen.push(`required ${ctx}: missing or not green`);
                 }
-              }`;
-            for (const thread of open) {
-              await github.graphql(resolveMutation, { id: thread.id });
-              console.log(`resolved ${thread.id}`);
+              }
+
+              if (notGreen.length > 0) {
+                core.info(`PR #${num}: ${notGreen.length} required check(s) not green — skipping`);
+                notGreen.slice(0, 10).forEach((x) => core.info(`  ${x}`));
+                continue;
+              }
+
+              core.info(`PR #${num}: all checks green — resolving review threads`);
+              const threadsQuery = `
+                query($owner: String!, $repo: String!, $pr: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $pr) {
+                      reviewThreads(first: 100) {
+                        nodes { id isResolved }
+                      }
+                    }
+                  }
+                }`;
+              const { repository: { pullRequest: { reviewThreads } } } = await github.graphql(threadsQuery, {
+                owner, repo, pr: num,
+              });
+              const open = reviewThreads.nodes.filter((t) => !t.isResolved);
+              core.info(`PR #${num}: ${open.length} unresolved review thread(s)`);
+
+              const resolveMutation = `
+                mutation($id: ID!) {
+                  resolveReviewThread(input: { threadId: $id }) {
+                    thread { id isResolved }
+                  }
+                }`;
+              let resolvedCount = 0;
+              for (const thread of open) {
+                try {
+                  await github.graphql(resolveMutation, { id: thread.id });
+                  resolvedCount += 1;
+                  core.info(`PR #${num}: resolved ${thread.id.slice(0, 24)}...`);
+                } catch (e) {
+                  core.warning(`PR #${num}: failed to resolve ${thread.id.slice(0, 24)}...: ${e.message}`);
+                }
+              }
+              core.info(`PR #${num}: resolved ${resolvedCount}/${open.length} thread(s)`);
             }
