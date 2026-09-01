@@ -12,13 +12,15 @@ const codeqlWorkflow = read('.github/workflows/codeql.yml');
 const qualityIntegrityWorkflow = read('.github/workflows/quality-integrity.yml');
 
 function assertCommand(workflow, command, file) {
-  assert.match(workflow, new RegExp(command.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')), `${file}: missing ${command}`);
+  const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  assert.match(workflow, new RegExp(escaped), `${file}: missing ${command}`);
 }
 
 function assertJobStepRun(workflow, jobName, expectedRunSubstring, file) {
   const escaped = expectedRunSubstring.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Match from step name to its run, without crossing another step boundary
   const stepRegex = new RegExp(
-    '- name: ' + jobName + '[\\s\\S]*?run:\\s*' + escaped + '(?=\\n\\s*- name:|\\n\\s*$)'
+    '- name: ' + jobName + '(?:(?!\\n\\s*- name:)[\\s\\S])*?run:\\s*' + escaped + '(?=\\n\\s*- name:|\\n\\s*$)'
   );
   assert.match(workflow, stepRegex, `${file}: job ${jobName} missing run containing "${expectedRunSubstring}"`);
 }
@@ -63,4 +65,36 @@ test('quality integrity validates the hardened automated reviewer policy', () =>
     'node --test tools/reviewer-policy-check.spec.mjs',
     'quality-integrity.yml',
   );
+});
+
+// Negative test: assertJobStepRun should NOT match when the named step
+// lacks the run field but a later step contains the command
+test('assertJobStepRun rejects workflow where named step lacks run but later step has it', () => {
+  const maliciousWorkflow = `name: Quality integrity
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  integrity:
+    name: Quality integrity
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate automated reviewer policy
+        # Missing run field
+        run: echo "no checker here"
+
+      - name: Validate quality gate contract
+        run: node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assert.throws(() => {
+    assertJobStepRun(
+      maliciousWorkflow,
+      'Validate automated reviewer policy',
+      'node --test tools/reviewer-policy-check.spec.mjs',
+      'quality-integrity.yml',
+    );
+  }, /job Validate automated reviewer policy missing run containing/);
 });
