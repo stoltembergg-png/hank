@@ -6,11 +6,11 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{self, Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 const MAX_FIXTURE_ID_BYTES: usize = 128;
 const MAX_PAYLOAD_BYTES: usize = 64 * 1024;
-const MAX_SERIALIZED_FIXTURE_BYTES: usize = 128 * 1024;
+const MAX_SERIALIZED_FIXTURE_BYTES: usize = 256 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FixtureCase {
@@ -83,6 +83,12 @@ impl FixtureWorkspace {
         let hash = case.manifest_hash()?;
         let encoded = serde_json::to_vec_pretty(case)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        if encoded.len() > MAX_SERIALIZED_FIXTURE_BYTES {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "fixture file exceeds serialized size limit",
+            ));
+        }
         self.write_fixture_file(&path, &encoded)?;
         Ok(hash)
     }
@@ -115,6 +121,16 @@ impl FixtureWorkspace {
         validate_fixture_id(id)?;
         let root = fs::canonicalize(&self.root)?;
         let path = root.join(format!("{id}.json"));
+        if path.parent() != Some(root.as_path())
+            || path
+                .components()
+                .any(|component| component == Component::ParentDir)
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "fixture path must remain inside workspace",
+            ));
+        }
 
         if fs::symlink_metadata(&path).is_ok() {
             let target = fs::canonicalize(&path)?;
@@ -224,6 +240,20 @@ mod tests {
         let error = workspace.read("oversized").unwrap_err();
 
         assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn workspace_roundtrips_escape_heavy_fixture_with_serialized_bound() {
+        let directory = tempdir().unwrap();
+        let workspace = FixtureWorkspace::create(directory.path().join("fixtures")).unwrap();
+        let case =
+            FixtureCase::synthetic("escape-heavy", 1, 7, "\"\\".repeat(MAX_PAYLOAD_BYTES / 2))
+                .unwrap();
+
+        let hash = workspace.write(&case).unwrap();
+
+        assert_eq!(workspace.read("escape-heavy").unwrap(), case);
+        assert_eq!(hash, case.manifest_hash().unwrap());
     }
 
     #[test]

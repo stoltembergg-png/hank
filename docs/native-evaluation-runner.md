@@ -8,12 +8,16 @@ de ambiente explícita e um `FixtureWorkspace` temporário do chamador.
 ## Garantias
 
 - exige correspondência exata de `head_sha`, `tree_sha`, policy, schema e
-  ambiente com os baselines do corpus;
+  ambiente com os baselines canônicos do corpus;
+- aceita somente as seis entradas canônicas do corpus core, na ordem e com
+  seus fingerprints exatos;
 - valida todos os cases antes da primeira materialização;
 - rejeita fixture não determinística, `ExternalWrite`, terminal inesperado,
-  artifact ausente, idempotency key duplicada e ambiente incomparável;
+  artifact ausente, case/idempotency key duplicado, definição de fixture
+  conflitante e ambiente incomparável;
 - materializa apenas arquivos sintéticos no workspace controlado pelo teste;
 - reusa fixture idêntica já existente sem sobrescrever conteúdo;
+- limita o tamanho serializado antes de ler ou escrever fixtures existentes;
 - executa replay sequencial e limitado para manter o digest determinístico;
 - reconstrói `BaselineReport` com identidade, fixture, artifacts, terminal,
   métricas e evidência bounded.

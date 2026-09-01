@@ -9,7 +9,7 @@ use crate::evaluation::{
     BaselineReport, EvaluationContractError, EvaluationEvidence, EvaluationEvidenceStatus,
 };
 use crate::evaluation_corpus::{
-    CoreEvaluationFixture, EvaluationCorpusError, CORE_ENVIRONMENT_DIGEST,
+    core_evaluation_corpus, CoreEvaluationFixture, EvaluationCorpusError, CORE_ENVIRONMENT_DIGEST,
     CORE_EVALUATION_CORPUS_SCHEMA_VERSION, CORE_HEAD_SHA, CORE_POLICY_DIGEST, CORE_SCHEMA_DIGEST,
     CORE_TREE_SHA,
 };
@@ -151,8 +151,14 @@ pub enum NativeEvaluationRunnerError {
     InconsistentSuite { case_id: String },
     #[error("fixture id `{fixture_id}` has conflicting corpus definitions")]
     ConflictingFixtureDefinitions { fixture_id: String },
+    #[error("case id `{case_id}` appears more than once in the corpus")]
+    DuplicateCaseId { case_id: String },
     #[error("idempotency key `{key}` appears more than once in the corpus")]
     DuplicateIdempotencyKey { key: String },
+    #[error("native evaluation corpus does not match the canonical core corpus")]
+    NonCanonicalCorpus,
+    #[error("canonical native evaluation corpus could not be built: {0}")]
+    CanonicalCorpus(#[source] EvaluationCorpusError),
     #[error("case `{case_id}` expected terminal does not match its baseline")]
     UnexpectedTerminal { case_id: String },
     #[error("fixture for case `{case_id}` is not bound to its case descriptor")]
@@ -234,11 +240,17 @@ impl NativeEvaluationRunner {
         }
 
         let suite_id = corpus[0].case.holdout.suite_id.clone();
+        let mut case_ids = BTreeSet::new();
         let mut idempotency_keys = BTreeSet::new();
         let mut fixture_definitions = BTreeMap::<String, FixtureCase>::new();
         let mut prepared_reports = Vec::with_capacity(corpus.len());
         for entry in corpus {
             let report = self.validate_entry(entry, environment, &suite_id, workspace)?;
+            if !case_ids.insert(entry.case.case_id.clone()) {
+                return Err(NativeEvaluationRunnerError::DuplicateCaseId {
+                    case_id: entry.case.case_id.clone(),
+                });
+            }
             if let Some(existing) = fixture_definitions.get(&entry.fixture.id) {
                 if existing != &entry.fixture {
                     return Err(NativeEvaluationRunnerError::ConflictingFixtureDefinitions {
@@ -255,6 +267,7 @@ impl NativeEvaluationRunner {
                 });
             }
         }
+        Self::validate_canonical_corpus(corpus)?;
 
         // Sequential replay is deliberate for deterministic baseline output;
         // max_parallelism remains a bounded configuration for later executors.
@@ -276,6 +289,29 @@ impl NativeEvaluationRunner {
             }
         }
         Ok(run)
+    }
+
+    fn validate_canonical_corpus(
+        corpus: &[CoreEvaluationFixture],
+    ) -> Result<(), NativeEvaluationRunnerError> {
+        let canonical =
+            core_evaluation_corpus().map_err(NativeEvaluationRunnerError::CanonicalCorpus)?;
+        if corpus.len() != canonical.len() {
+            return Err(NativeEvaluationRunnerError::NonCanonicalCorpus);
+        }
+
+        for (actual, expected) in corpus.iter().zip(canonical.iter()) {
+            let actual_encoded =
+                serde_json::to_vec(&(&actual.case, &actual.fixture, &actual.baseline))
+                    .map_err(NativeEvaluationRunnerError::Serialization)?;
+            let expected_encoded =
+                serde_json::to_vec(&(&expected.case, &expected.fixture, &expected.baseline))
+                    .map_err(NativeEvaluationRunnerError::Serialization)?;
+            if actual_encoded != expected_encoded {
+                return Err(NativeEvaluationRunnerError::NonCanonicalCorpus);
+            }
+        }
+        Ok(())
     }
 
     fn validate_entry(

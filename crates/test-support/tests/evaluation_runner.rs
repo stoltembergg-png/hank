@@ -137,6 +137,11 @@ fn caller_rewritten_core_identity_is_rejected_before_materialization() {
         entry.baseline.evidence.policy_digest = "policy-forged-v1".into();
         entry.baseline.evidence.schema_digest = "schema-forged-v1".into();
         entry.baseline.evidence.environment_digest = "environment-forged-v1".into();
+        let terminal = entry.baseline.terminal;
+        let metrics = entry.baseline.metrics.clone();
+        let evidence = entry.baseline.evidence.clone();
+        entry.baseline =
+            BaselineReport::from_case(&entry.case, terminal, metrics, evidence).unwrap();
     }
     let environment =
         NativeEvaluationEnvironment::from_evidence(&corpus[0].baseline.evidence).unwrap();
@@ -149,6 +154,54 @@ fn caller_rewritten_core_identity_is_rejected_before_materialization() {
     assert!(matches!(
         error,
         NativeEvaluationRunnerError::IncomparableEnvironment { .. }
+    ));
+    assert_eq!(
+        std::fs::read_dir(directory.path().join("native-runner"))
+            .unwrap()
+            .count(),
+        0
+    );
+}
+
+// @spec:AC-1454
+#[test]
+fn truncated_core_corpus_is_rejected_before_materialization() {
+    let corpus = core_evaluation_corpus().unwrap();
+    let truncated = corpus[..1].to_vec();
+    let environment = core_environment(&corpus);
+    let (directory, fixture_workspace) = workspace();
+
+    let error = NativeEvaluationRunner::default()
+        .run(&truncated, &environment, &fixture_workspace)
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        NativeEvaluationRunnerError::NonCanonicalCorpus
+    ));
+    assert_eq!(
+        std::fs::read_dir(directory.path().join("native-runner"))
+            .unwrap()
+            .count(),
+        0
+    );
+}
+
+// @spec:AC-1454
+#[test]
+fn contract_valid_but_noncanonical_corpus_is_rejected_before_materialization() {
+    let mut corpus = core_evaluation_corpus().unwrap();
+    corpus[0].case.scenario_id = "rewritten-scenario".into();
+    let environment = core_environment(&corpus);
+    let (directory, fixture_workspace) = workspace();
+
+    let error = NativeEvaluationRunner::default()
+        .run(&corpus, &environment, &fixture_workspace)
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        NativeEvaluationRunnerError::NonCanonicalCorpus
     ));
     assert_eq!(
         std::fs::read_dir(directory.path().join("native-runner"))
@@ -264,6 +317,32 @@ fn later_existing_fixture_conflict_is_rejected_before_earlier_writes() {
             .unwrap()
             .count(),
         1
+    );
+}
+
+// @spec:AC-1455
+#[test]
+fn duplicate_case_ids_are_rejected_before_writes() {
+    let mut corpus = core_evaluation_corpus().unwrap();
+    let mut duplicate = corpus[0].clone();
+    duplicate.case.idempotency_key = "core-eval-duplicate-v1".into();
+    corpus.push(duplicate);
+    let environment = core_environment(&corpus);
+    let (directory, fixture_workspace) = workspace();
+
+    let error = NativeEvaluationRunner::default()
+        .run(&corpus, &environment, &fixture_workspace)
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        NativeEvaluationRunnerError::DuplicateCaseId { .. }
+    ));
+    assert_eq!(
+        std::fs::read_dir(directory.path().join("native-runner"))
+            .unwrap()
+            .count(),
+        0
     );
 }
 
