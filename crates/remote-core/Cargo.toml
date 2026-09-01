@@ -1,0 +1,13 @@
+[package]
+name = "remote-core"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+description = "Bounded authenticated remote daemon control-plane contracts"
+
+[dependencies]
+agent-protocol = { path = "../agent-protocol" }
+provider-core = { path = "../provider-core" }
+thiserror = { workspace = true }
