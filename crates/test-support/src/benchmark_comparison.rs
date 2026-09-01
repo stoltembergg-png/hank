@@ -953,6 +953,11 @@ fn validate_partition_shape(
         return Err(BenchmarkComparisonError::InvalidInput);
     }
 
+    let success_losses = summary
+        .deltas
+        .iter()
+        .filter(|delta| delta.metric == MetricName::Success && delta.delta.is_sign_negative())
+        .count();
     let mut seen = BTreeSet::new();
     for delta in &summary.deltas {
         let entry = entries
@@ -985,7 +990,11 @@ fn validate_partition_shape(
             delta.candidate.clone(),
             policy,
         )?;
-        if expected.delta != delta.delta || expected.regressed != delta.regressed {
+        let expected_regressed = expected.regressed
+            || (delta.metric == MetricName::Success
+                && delta.delta.is_sign_negative()
+                && success_losses > policy.max_success_regression as usize);
+        if expected.delta != delta.delta || expected_regressed != delta.regressed {
             return Err(BenchmarkComparisonError::InvalidInput);
         }
     }
