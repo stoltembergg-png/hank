@@ -2264,6 +2264,7 @@ dependencies = [
  "agent-core",
  "agent-protocol",
  "cargo_metadata",
+ "libc",
  "petgraph",
  "serde",
  "serde_json",

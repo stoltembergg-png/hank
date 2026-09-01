@@ -3,6 +3,7 @@
 //! This module is dev-only support: it creates synthetic bounded data, records a
 //! manifest hash, and owns cleanup. It never reads production state or secrets.
 
+use crate::digest::fnv1a64;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{self, Read, Write};
@@ -95,7 +96,7 @@ impl FixtureWorkspace {
 
     pub fn read(&self, id: &str) -> io::Result<FixtureCase> {
         let path = self.fixture_path(id)?;
-        let file = fs::File::open(path)?;
+        let file = open_fixture_file(&path)?;
         if file.metadata()?.len() > MAX_SERIALIZED_FIXTURE_BYTES as u64 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -160,13 +161,38 @@ impl Drop for FixtureWorkspace {
     }
 }
 
-fn fnv1a64(bytes: &[u8]) -> u64 {
-    let mut hash = 0xcbf29ce484222325;
-    for byte in bytes {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(0x100000001b3);
+fn open_fixture_file(path: &Path) -> io::Result<fs::File> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+
+        return fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(path);
     }
-    hash
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0000_0400;
+        const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+            .open(path)?;
+        if file.metadata()?.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "fixture path is a reparse point",
+            ));
+        }
+        Ok(file)
+    }
+
+    #[cfg(not(any(unix, windows)))]
+    fs::File::open(path)
 }
 
 fn validate_fixture_id(id: &str) -> io::Result<()> {
@@ -290,6 +316,26 @@ mod tests {
         let error = workspace.write_fixture_file(&path, &encoded).unwrap_err();
 
         assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read_to_string(outside_path).unwrap(), "sentinel");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn workspace_read_does_not_follow_a_symlink() {
+        let directory = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let outside_path = outside.path().join("outside.json");
+        fs::write(&outside_path, "sentinel").unwrap();
+        let workspace = FixtureWorkspace::create(directory.path().join("fixtures")).unwrap();
+        let path = workspace.fixture_path("race-read").unwrap();
+        std::os::unix::fs::symlink(&outside_path, &path).unwrap();
+
+        let error = open_fixture_file(&path).unwrap_err();
+
+        assert!(matches!(
+            error.kind(),
+            io::ErrorKind::Other | io::ErrorKind::PermissionDenied
+        ));
         assert_eq!(fs::read_to_string(outside_path).unwrap(), "sentinel");
     }
 

@@ -20,6 +20,23 @@ const safetyReasoningCorpusSpec = readFileSync(
   'utf8',
 );
 
+function workflowStepRun(stepName) {
+  const lines = workflow.split(/\r?\n/);
+  const nameLine = `- name: ${stepName}`;
+  const start = lines.findIndex((line) => line.trim() === nameLine);
+  assert.notEqual(start, -1, `workflow step not found: ${stepName}`);
+  const indentation = lines[start].match(/^\s*/u)[0].length;
+  const nextStep = lines.findIndex(
+    (line, index) =>
+      index > start &&
+      new RegExp(`^\\s{${indentation}}- name:`).test(line),
+  );
+  const block = lines.slice(start, nextStep === -1 ? lines.length : nextStep);
+  const runLines = block.filter((line) => /^\s*run:\s*/u.test(line));
+  assert.equal(runLines.length, 1, `workflow step must have one run key: ${stepName}`);
+  return runLines[0].replace(/^\s*run:\s*/u, '').trim();
+}
+
 test('aggregate runner exposes an explicit native-test boundary', () => {
   assert.match(runner, /HANK_SKIP_TAURI/);
   assert.match(runner, /Tauri acceptance tests/);
@@ -53,9 +70,9 @@ test('ONP workflow runs native evaluation corpus verification explicitly', () =>
 });
 
 test('ONP workflow runs native evaluation runner verification explicitly', () => {
-  assert.match(
-    workflow,
-    /Verify native evaluation runner[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify native-evaluation-runner/,
+  assert.equal(
+    workflowStepRun('Verify native evaluation runner'),
+    'node tools/ci/run-onp-spec.mjs verify native-evaluation-runner',
   );
 });
 

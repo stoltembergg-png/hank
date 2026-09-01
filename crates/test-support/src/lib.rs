@@ -7,6 +7,7 @@
 #[cfg(test)]
 pub mod arch_fixtures_test;
 
+mod digest;
 pub mod evaluation;
 pub mod evaluation_corpus;
 pub mod evaluation_runner;
