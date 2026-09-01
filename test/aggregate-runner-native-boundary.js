@@ -19,6 +19,10 @@ const safetyReasoningCorpusSpec = readFileSync(
   new URL('../.spec/features/safety-reasoning-evaluation-corpus/spec.md', import.meta.url),
   'utf8',
 );
+const benchmarkComparisonSpec = readFileSync(
+  new URL('../.spec/features/benchmark-comparison/spec.md', import.meta.url),
+  'utf8',
+);
 
 function workflowStepRun(stepName) {
   const lines = workflow.split(/\r?\n/);
@@ -96,6 +100,18 @@ test('native evaluation corpus spec declares mandatory ONP audit sections', () =
 test('safety and reasoning corpus spec declares mandatory ONP audit sections', () => {
   assert.match(safetyReasoningCorpusSpec, /## Suposições\r?\n\r?\nNenhuma\./);
   assert.match(safetyReasoningCorpusSpec, /## Perguntas em aberto\r?\n\r?\nNenhuma\./);
+});
+
+test('ONP workflow runs benchmark comparison verification explicitly', () => {
+  assert.equal(
+    workflowStepRun('Verify benchmark comparison'),
+    'node tools/ci/run-onp-spec.mjs verify benchmark-comparison',
+  );
+});
+
+test('benchmark comparison spec declares mandatory ONP audit sections', () => {
+  assert.match(benchmarkComparisonSpec, /## Suposições\r?\n\r?\nNenhuma\./);
+  assert.match(benchmarkComparisonSpec, /## Perguntas em aberto\r?\n\r?\nNenhuma\./);
 });
 
 test('ONP workflow runs Git worktree verification explicitly', () => {

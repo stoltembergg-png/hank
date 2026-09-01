@@ -32,5 +32,7 @@ IDs de fixture são limitados a um componente de caminho seguro; o workspace
 também rejeita alvos existentes que resolvam fora da sua raiz. As métricas de
 contagem têm teto explícito de 32 eventos, enquanto tokens e custo respeitam
 os limites do budget core de 100.000 e 1.000.000 micros, respectivamente.
-O runner de benchmark, a comparação candidate/baseline e o corpus de
-segurança/reasoning ficam para cards posteriores.
+O comparador candidate/baseline da suíte nativa está documentado em
+[`benchmark-comparison.md`](benchmark-comparison.md). O runner de benchmark
+completo, adapters externos e o corpus de segurança/reasoning ficam para
+cards posteriores.
