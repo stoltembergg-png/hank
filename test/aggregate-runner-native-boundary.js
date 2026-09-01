@@ -266,6 +266,10 @@ test('ONP workflow runs PR generation workflow verification explicitly', () => {
     workflow,
     /Verify authenticated remote daemon[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify authenticated-remote-daemon/,
   );
+  assert.match(
+    workflow,
+    /Verify websocket event stream[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify websocket-event-stream/,
+  );
 });
 
 test('ONP workflow runs coding agent profile verification explicitly', () => {

@@ -12,6 +12,8 @@ use std::collections::{BTreeSet, VecDeque};
 use std::sync::Mutex;
 use thiserror::Error;
 
+pub mod event_stream;
+
 /// Maximum retained redacted lifecycle events. Older events rotate out.
 pub const MAX_AUDIT_EVENTS: usize = 256;
 

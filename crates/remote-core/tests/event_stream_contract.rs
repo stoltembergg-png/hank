@@ -1,0 +1,190 @@
+//! Contract tests for the bounded authenticated event stream (PR-247).
+
+use agent_protocol::ids::ProjectId;
+use agent_protocol::remote_protocol::{Handshake, NodeId, PeerId, ProtocolRevision};
+use provider_core::CredentialRef;
+use remote_core::event_stream::{EventStream, EventStreamError, EventStreamPolicy};
+use remote_core::{
+    AuthenticatedDaemon, DaemonError, DaemonLease, DaemonPolicy, DaemonSessionState,
+    PeerAuthenticator,
+};
+use std::str::FromStr;
+
+struct AcceptedAuthenticator;
+
+impl PeerAuthenticator for AcceptedAuthenticator {
+    fn authenticate(
+        &self,
+        _credential: &CredentialRef,
+    ) -> Result<remote_core::AuthenticatedPeer, DaemonError> {
+        Ok(remote_core::AuthenticatedPeer::new("peer-a", "node-1").unwrap())
+    }
+}
+
+fn project() -> ProjectId {
+    ProjectId::from_str("proj-11111111-1111-4111-8111-111111111111").unwrap()
+}
+
+fn policy(project: ProjectId) -> DaemonPolicy {
+    DaemonPolicy::exact("peer-a", "node-1", project, 60_000).unwrap()
+}
+
+fn credential() -> CredentialRef {
+    CredentialRef::parse("cred_remote_1").unwrap()
+}
+
+fn handshake(project: ProjectId) -> Handshake {
+    Handshake {
+        protocol: ProtocolRevision::V1_0,
+        api: ProtocolRevision::V1_0,
+        peer: PeerId::new("peer-a").unwrap(),
+        node: NodeId::new("node-1").unwrap(),
+        project,
+        capabilities: [String::from("observe")].into_iter().collect(),
+    }
+}
+
+fn bounded_daemon() -> AuthenticatedDaemon<AcceptedAuthenticator> {
+    AuthenticatedDaemon::new(AcceptedAuthenticator, policy(project()))
+}
+
+fn active_lease(daemon: &AuthenticatedDaemon<AcceptedAuthenticator>) -> DaemonLease {
+    daemon
+        .bootstrap(Some(credential()), handshake(project()), 1_000)
+        .unwrap()
+}
+
+fn small_policy() -> EventStreamPolicy {
+    EventStreamPolicy::bounded(4, 64, 2).unwrap()
+}
+
+#[test]
+// @spec:AC-1461
+fn stream_rejects_without_valid_lease() {
+    let daemon = bounded_daemon();
+    let stream = EventStream::new(&daemon, small_policy());
+    let lease = active_lease(&daemon);
+
+    // Unbound stream refuses to push.
+    assert_eq!(
+        stream.push(1_000, b"event".to_vec()),
+        Err(EventStreamError::NoActiveLease)
+    );
+
+    // Binding to an active lease succeeds.
+    assert_eq!(stream.bind(&lease, 1_000), Ok(()));
+    assert_eq!(
+        stream.bind(&lease, 1_000),
+        Err(EventStreamError::StaleLease)
+    );
+
+    // Push succeeds while lease is active.
+    assert_eq!(stream.push(1_000, b"ok".to_vec()), Ok(1));
+
+    // After the lease is revoked the stream refuses new events.
+    assert_eq!(daemon.revoke(lease.id), Ok(DaemonSessionState::Closed));
+    assert_eq!(
+        stream.push(1_000, b"x".to_vec()),
+        Err(EventStreamError::NoActiveLease)
+    );
+    // Resume also fails closed on a revoked lease.
+    assert_eq!(
+        stream.resume(1_000, 0),
+        Err(EventStreamError::NoActiveLease)
+    );
+}
+
+#[test]
+// @spec:AC-1462
+fn sequence_rejects_duplicates_and_out_of_window_replays() {
+    let daemon = bounded_daemon();
+    let stream = EventStream::new(&daemon, small_policy());
+    let lease = active_lease(&daemon);
+    stream.bind(&lease, 1_000).unwrap();
+
+    assert_eq!(stream.push(1_000, b"a".to_vec()), Ok(1));
+    assert_eq!(stream.push(1_000, b"b".to_vec()), Ok(2));
+    assert_eq!(stream.push(1_000, b"c".to_vec()), Ok(3));
+    assert_eq!(stream.push(1_000, b"d".to_vec()), Ok(4));
+    assert_eq!(stream.ack(4), Ok(()));
+
+    // Ack beyond the last emitted sequence fails closed.
+    assert_eq!(stream.ack(99), Err(EventStreamError::UnknownAck));
+
+    // Replay outside the bounded window fails closed (window_start = 4-2 = 2).
+    assert_eq!(
+        stream.resume(1_000, 1),
+        Err(EventStreamError::ReplayOutOfWindow)
+    );
+    // Replay from within the window succeeds (all events are acked, none returned).
+    assert_eq!(stream.resume(1_000, 4), Ok(vec![]));
+    // Replay beyond the last emitted sequence fails closed.
+    assert_eq!(
+        stream.resume(1_000, 5),
+        Err(EventStreamError::ReplayOutOfWindow)
+    );
+}
+
+#[test]
+// @spec:AC-1463
+fn buffer_is_bounded_and_rejects_oversized_payloads() {
+    let daemon = bounded_daemon();
+    let stream = EventStream::new(&daemon, small_policy());
+    let lease = active_lease(&daemon);
+    stream.bind(&lease, 1_000).unwrap();
+
+    // max_event_payload = 64
+    assert_eq!(
+        stream.push(1_000, vec![0u8; 65]),
+        Err(EventStreamError::PayloadTooLarge)
+    );
+    // max_buffered_events = 4
+    assert_eq!(stream.push(1_000, b"1".to_vec()), Ok(1));
+    assert_eq!(stream.push(1_000, b"2".to_vec()), Ok(2));
+    assert_eq!(stream.push(1_000, b"3".to_vec()), Ok(3));
+    assert_eq!(stream.push(1_000, b"4".to_vec()), Ok(4));
+    assert_eq!(
+        stream.push(1_000, b"5".to_vec()),
+        Err(EventStreamError::BufferFull)
+    );
+    // Acking evicts and frees buffer capacity.
+    assert_eq!(stream.ack(2), Ok(()));
+    assert_eq!(stream.push(1_000, b"6".to_vec()), Ok(5));
+    assert_eq!(stream.buffered_len(), 3);
+}
+
+#[test]
+// @spec:AC-1464
+fn reconnect_resumes_only_within_window() {
+    let daemon = bounded_daemon();
+    let stream = EventStream::new(&daemon, small_policy());
+    let lease = active_lease(&daemon);
+    stream.bind(&lease, 1_000).unwrap();
+
+    for i in 0..3 {
+        assert_eq!(stream.push(1_000, vec![i as u8]), Ok(i as u64 + 1));
+    }
+    assert_eq!(stream.ack(3), Ok(()));
+    // Window = 2, acked = 3 => window_start = 1; resume from 0 is outside.
+    assert_eq!(
+        stream.resume(1_000, 0),
+        Err(EventStreamError::ReplayOutOfWindow)
+    );
+    // Resume from acked point returns no unacknowledged events.
+    assert_eq!(stream.resume(1_000, 3), Ok(vec![]));
+}
+
+#[test]
+// @spec:AC-1465
+fn events_never_contain_credential_material() {
+    let daemon = bounded_daemon();
+    let stream = EventStream::new(&daemon, small_policy());
+    let lease = active_lease(&daemon);
+    stream.bind(&lease, 1_000).unwrap();
+
+    assert_eq!(stream.push(1_000, b"cred_remote_1".to_vec()), Ok(1));
+
+    // Audit trail must never expose the credential string.
+    let audit = daemon.audit();
+    assert!(!format!("{audit:?}").contains("cred_remote_1"));
+}
