@@ -19,7 +19,7 @@ fn workspace() -> (tempfile::TempDir, FixtureWorkspace) {
     (directory, workspace)
 }
 
-// @spec:AC-1453
+// @spec:AC-1471
 #[test]
 fn core_corpus_replays_to_exact_sha_baseline_reports() {
     let corpus = core_evaluation_corpus().unwrap();
@@ -79,7 +79,7 @@ fn core_corpus_replays_to_exact_sha_baseline_reports() {
     }
 }
 
-// @spec:AC-1454
+// @spec:AC-1472
 #[test]
 fn incomparable_environment_is_rejected_before_materialization() {
     let corpus = core_evaluation_corpus().unwrap();
@@ -103,7 +103,7 @@ fn incomparable_environment_is_rejected_before_materialization() {
     );
 }
 
-// @spec:AC-1454
+// @spec:AC-1472
 #[test]
 fn fixture_seed_mismatch_is_rejected_before_materialization() {
     let mut corpus = core_evaluation_corpus().unwrap();
@@ -127,7 +127,7 @@ fn fixture_seed_mismatch_is_rejected_before_materialization() {
     );
 }
 
-// @spec:AC-1454
+// @spec:AC-1472
 #[test]
 fn caller_rewritten_core_identity_is_rejected_before_materialization() {
     let mut corpus = core_evaluation_corpus().unwrap();
@@ -163,7 +163,7 @@ fn caller_rewritten_core_identity_is_rejected_before_materialization() {
     );
 }
 
-// @spec:AC-1454
+// @spec:AC-1472
 #[test]
 fn truncated_core_corpus_is_rejected_before_materialization() {
     let corpus = core_evaluation_corpus().unwrap();
@@ -187,7 +187,7 @@ fn truncated_core_corpus_is_rejected_before_materialization() {
     );
 }
 
-// @spec:AC-1454
+// @spec:AC-1472
 #[test]
 fn contract_valid_but_noncanonical_corpus_is_rejected_before_materialization() {
     let mut corpus = core_evaluation_corpus().unwrap();
@@ -211,7 +211,7 @@ fn contract_valid_but_noncanonical_corpus_is_rejected_before_materialization() {
     );
 }
 
-// @spec:AC-1455
+// @spec:AC-1473
 #[test]
 fn missing_artifact_is_rejected_without_replaying_the_fixture() {
     let mut corpus = core_evaluation_corpus().unwrap();
@@ -235,7 +235,7 @@ fn missing_artifact_is_rejected_without_replaying_the_fixture() {
     );
 }
 
-// @spec:AC-1455
+// @spec:AC-1473
 #[test]
 fn nondeterministic_fixture_and_external_effect_fail_closed() {
     let mut nondeterministic = core_evaluation_corpus().unwrap();
@@ -259,7 +259,7 @@ fn nondeterministic_fixture_and_external_effect_fail_closed() {
     ));
 }
 
-// @spec:AC-1455
+// @spec:AC-1473
 #[test]
 fn output_bound_is_checked_before_any_fixture_is_materialized() {
     let mut corpus = core_evaluation_corpus().unwrap();
@@ -283,7 +283,7 @@ fn output_bound_is_checked_before_any_fixture_is_materialized() {
     );
 }
 
-// @spec:AC-1455
+// @spec:AC-1473
 #[test]
 fn later_existing_fixture_conflict_is_rejected_before_earlier_writes() {
     let corpus = core_evaluation_corpus().unwrap();
@@ -320,7 +320,7 @@ fn later_existing_fixture_conflict_is_rejected_before_earlier_writes() {
     );
 }
 
-// @spec:AC-1455
+// @spec:AC-1473
 #[test]
 fn duplicate_case_ids_are_rejected_before_writes() {
     let mut corpus = core_evaluation_corpus().unwrap();
@@ -346,7 +346,7 @@ fn duplicate_case_ids_are_rejected_before_writes() {
     );
 }
 
-// @spec:AC-1455
+// @spec:AC-1473
 #[test]
 fn divergent_duplicate_fixture_definitions_are_rejected_before_writes() {
     let mut corpus = core_evaluation_corpus().unwrap();
@@ -383,7 +383,7 @@ fn divergent_duplicate_fixture_definitions_are_rejected_before_writes() {
     );
 }
 
-// @spec:AC-1456
+// @spec:AC-1474
 #[test]
 fn replay_is_idempotent_bounded_and_does_not_overwrite_fixtures() {
     let corpus = core_evaluation_corpus().unwrap();

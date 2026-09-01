@@ -1,28 +1,28 @@
 {
   "feature": "native-evaluation-runner",
-  "timestamp": "2026-09-01T08:23:03.517Z",
-  "gitRev": "443ac27",
+  "timestamp": "2026-09-01T08:39:47.786Z",
+  "gitRev": "9a122fe",
   "command": "node tools/run-feature-tests.mjs native-evaluation-runner",
   "reporter": "exitcode",
   "exitCode": 0,
   "testsParsed": 0,
   "results": {
-    "AC-1453": {
+    "AC-1471": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-1454": {
+    "AC-1472": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-1455": {
+    "AC-1473": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-1456": {
+    "AC-1474": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
