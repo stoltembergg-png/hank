@@ -127,7 +127,7 @@ fn sequence_rejects_duplicates_and_out_of_window_replays() {
 
 #[test]
 // @spec:AC-1463
-fn buffer_is_bounded_and_rejects_oversized_payloads() {
+fn buffer_is_bounded_by_items_and_total_bytes() {
     let daemon = bounded_daemon();
     let stream = EventStream::new(&daemon, small_policy());
     let lease = active_lease(&daemon);
@@ -151,6 +151,30 @@ fn buffer_is_bounded_and_rejects_oversized_payloads() {
     assert_eq!(stream.ack(2), Ok(()));
     assert_eq!(stream.push(1_000, b"6".to_vec()), Ok(5));
     assert_eq!(stream.buffered_len(), 3);
+}
+
+#[test]
+// @spec:AC-1463
+fn buffer_enforces_total_byte_budget() {
+    let daemon = bounded_daemon();
+    // 4 events × 64 bytes each → total budget = 256 bytes.
+    let stream = EventStream::new(&daemon, small_policy());
+    let lease = active_lease(&daemon);
+    stream.bind(&lease, 1_000).unwrap();
+
+    // Fill exactly 256 bytes with 4 events of 64 bytes each.
+    assert_eq!(stream.push(1_000, vec![0u8; 64]), Ok(1));
+    assert_eq!(stream.push(1_000, vec![0u8; 64]), Ok(2));
+    assert_eq!(stream.push(1_000, vec![0u8; 64]), Ok(3));
+    assert_eq!(stream.push(1_000, vec![0u8; 64]), Ok(4));
+    assert_eq!(
+        stream.push(1_000, vec![0u8; 1]),
+        Err(EventStreamError::BufferFull)
+    );
+
+    // Acking 2 events frees 128 bytes; admission of a 1-byte event succeeds.
+    assert_eq!(stream.ack(2), Ok(()));
+    assert_eq!(stream.push(1_000, vec![0u8; 1]), Ok(5));
 }
 
 #[test]

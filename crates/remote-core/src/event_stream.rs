@@ -21,14 +21,18 @@ pub const ABSOLUTE_MAX_BUFFERED_EVENTS: usize = 4096;
 pub const ABSOLUTE_MAX_EVENT_PAYLOAD: usize = 4 * 1024 * 1024;
 /// Absolute ceiling for the replay window.
 pub const ABSOLUTE_MAX_REPLAY_WINDOW: usize = 4096;
+/// Absolute ceiling for the total buffered byte budget.
+pub const ABSOLUTE_MAX_TOTAL_BYTES: usize = 64 * 1024 * 1024;
 
 /// Bounded event-stream policy. Fields are private and validated: values above
-/// the absolute ceilings are rejected, so construction can never request an
-/// oversized allocation.
+/// the absolute ceilings are rejected, and the total buffered-byte budget is
+/// derived and capped, so construction can never request an oversized
+/// allocation and admission can never exceed the byte budget.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EventStreamPolicy {
     max_buffered_events: usize,
     max_event_payload: usize,
+    max_total_bytes: usize,
     replay_window: usize,
 }
 
@@ -48,9 +52,16 @@ impl EventStreamPolicy {
         {
             return Err(EventStreamError::InvalidPolicy);
         }
+        // Total byte budget is bounded by the product of the per-item limits,
+        // capped at an absolute ceiling so an item-count × per-event product
+        // can never allow a multi-gigabyte buffer (AC-1463).
+        let max_total_bytes = max_buffered_events
+            .saturating_mul(max_event_payload)
+            .min(ABSOLUTE_MAX_TOTAL_BYTES);
         Ok(Self {
             max_buffered_events,
             max_event_payload,
+            max_total_bytes,
             replay_window,
         })
     }
@@ -63,6 +74,10 @@ impl EventStreamPolicy {
         self.max_event_payload
     }
 
+    pub fn max_total_bytes(&self) -> usize {
+        self.max_total_bytes
+    }
+
     pub fn replay_window(&self) -> usize {
         self.replay_window
     }
@@ -70,9 +85,15 @@ impl EventStreamPolicy {
 
 impl Default for EventStreamPolicy {
     fn default() -> Self {
+        let max_buffered_events = DEFAULT_MAX_BUFFERED_EVENTS;
+        let max_event_payload = DEFAULT_MAX_EVENT_PAYLOAD;
+        let max_total_bytes = max_buffered_events
+            .saturating_mul(max_event_payload)
+            .min(ABSOLUTE_MAX_TOTAL_BYTES);
         Self {
-            max_buffered_events: DEFAULT_MAX_BUFFERED_EVENTS,
-            max_event_payload: DEFAULT_MAX_EVENT_PAYLOAD,
+            max_buffered_events,
+            max_event_payload,
+            max_total_bytes,
             replay_window: DEFAULT_REPLAY_WINDOW,
         }
     }
@@ -126,6 +147,7 @@ struct StreamState {
     last_sequence: u64,
     acked_sequence: u64,
     buffer: Vec<StreamEvent>,
+    total_bytes: usize,
     closed: bool,
 }
 
@@ -151,6 +173,7 @@ impl<'a, A: PeerAuthenticator> EventStream<'a, A> {
                 // Defensive: never pre-allocate from a caller-supplied capacity,
                 // so constructing a stream cannot trigger an OOM panic.
                 buffer: Vec::new(),
+                total_bytes: 0,
                 closed: false,
             }),
         }
@@ -209,11 +232,15 @@ impl<'a, A: PeerAuthenticator> EventStream<'a, A> {
         if state.buffer.len() >= self.policy.max_buffered_events() {
             return Err(EventStreamError::BufferFull);
         }
+        if state.total_bytes.saturating_add(payload.len()) > self.policy.max_total_bytes() {
+            return Err(EventStreamError::BufferFull);
+        }
         let sequence = state
             .last_sequence
             .checked_add(1)
             .ok_or(EventStreamError::StateUnavailable)?;
         state.last_sequence = sequence;
+        state.total_bytes = state.total_bytes.saturating_add(payload.len());
         state.buffer.push(StreamEvent { sequence, payload });
         Ok(sequence)
     }
@@ -232,7 +259,16 @@ impl<'a, A: PeerAuthenticator> EventStream<'a, A> {
             state.acked_sequence = sequence;
         }
         let acked = state.acked_sequence;
-        state.buffer.retain(|e| e.sequence > acked);
+        let mut evicted_bytes = 0usize;
+        state.buffer.retain(|e| {
+            if e.sequence > acked {
+                true
+            } else {
+                evicted_bytes += e.payload.len();
+                false
+            }
+        });
+        state.total_bytes = state.total_bytes.saturating_sub(evicted_bytes);
         Ok(())
     }
 
@@ -282,6 +318,7 @@ impl<'a, A: PeerAuthenticator> EventStream<'a, A> {
             Some(bound) if bound.id == lease_id => {
                 state.closed = true;
                 state.buffer.clear();
+                state.total_bytes = 0;
                 Ok(())
             }
             Some(_) => Err(EventStreamError::StaleLease),
