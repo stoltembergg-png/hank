@@ -1,141 +1,95 @@
 # AGENTS.md — Hank
 
-Este arquivo orienta agentes de coding, revisão e QA que trabalham neste repositório.
-Ele é um mapa operacional, não substitui as fontes normativas abaixo. Em conflito,
-a fonte canônica vence.
+Guia de entrada para agentes de coding, revisão e QA. Este arquivo não substitui as
+políticas do projeto: em caso de conflito, as fontes canônicas abaixo vencem.
 
-## Fontes de verdade
+## Leia antes de trabalhar
 
-Leia antes de alterar código ou workflows:
+- `AI_AGENT_GOVERNANCE.md` — autonomia, segurança, efeitos externos e evidência.
+- `CONTRIBUTING.md` — fluxo de contribuição, testes e requisitos de PR.
+- `.planning/master/agent-development-policy.md` — política normativa de agentes.
+- `.planning/master/sdd-master.md` — decisões, escopo e non-goals do produto.
+- `ARCHITECTURE.md` — explicação das fronteiras arquiteturais.
+- `.planning/contracts/architecture-graph.json` — contrato arquitetural executável;
+  seu schema e fixtures inválidas também fazem parte da autoridade.
+- `.planning/master/dependency-dag.md` e `.planning/queue/queue-*.md` — predecessores,
+  cards e condições de desbloqueio.
+- `.github/required-checks.json` — manifesto dos required checks de `main`.
 
-1. `AI_AGENT_GOVERNANCE.md` — regras mínimas de autonomia, efeitos externos,
-   evidência e blockers.
-2. `CONTRIBUTING.md` — ciclo de desenvolvimento, requisitos de PR e traceabilidade.
-3. `.planning/master/agent-development-policy.md` — política normativa completa
-   para agentes: preflight, escopo, segurança, testes, handoff e critérios de parada.
-4. `.planning/master/sdd-master.md` — decisões de produto/arquitetura e non-goals.
-5. `ARCHITECTURE.md` e `.planning/contracts/architecture-graph.json` — fronteiras
-   arquiteturais e contrato executável.
-6. `.planning/queue/queue-*.md`, `.planning/master/dependency-dag.md` e o card
-   aplicável — escopo, predecessores e condição de desbloqueio.
+Não copie essas políticas para este arquivo. Aponte para a fonte original quando uma
+regra já estiver documentada nela.
 
-Não duplique, reinterprete ou enfraqueça essas políticas neste arquivo. Se a tarefa
-contradiz uma fonte normativa, pare e registre o blocker.
+## Mapa mínimo
 
-## Mapa do repositório
-
-- `crates/` — workspace Rust; core, runtime, protocolos, segurança, providers,
+- `crates/` — workspace Rust: core, runtime, protocolos, segurança, providers,
   workflows e suporte de testes.
-- `apps/desktop/` — shell Tauri.
-- `frontend/` — React/TypeScript/Vite.
-- `.spec/features/<feature>/` — `spec.md` e `tasks.md` por feature.
-- `.spec/verification/` — evidência produzida pelo ONP; não a trate como prova
-  atual sem verificar o SHA.
-- `.planning/` — SDD, queue, DAG, ADRs, contratos e revisões.
-- `.github/workflows/` — CI/CD; `.github/required-checks.json` é o manifesto de
-  checks requerido para `main`.
-- `tools/ci/run-onp-spec.mjs` — bootstrap checksum-pinned do ONP.
+- `apps/desktop/` — shell Tauri; `frontend/` — React/TypeScript/Vite.
+- `.spec/features/<feature>/` — `spec.md` e `tasks.md` de cada feature.
+- `.planning/` — SDD, DAG, queue, contratos e revisões.
+- `.github/workflows/` — CI/CD; `tools/ci/` e `tools/` — validadores e runners.
 - `test/`, `crates/*/tests/`, `frontend/tests/`, `desktop-e2e/` — testes e contratos.
+- `.spec/verification/` — artefatos regeneráveis; nunca são prova atual sem conferir
+  SHA, tree e policy.
 
-## Arquitetura: fronteiras que não podem ser furadas
+## Regras específicas do repositório
 
-A arquitetura normativamente verificável está em
-`.planning/contracts/architecture-graph.json`; valide-a com:
+- A arquitetura deve ser conferida pelo contrato, não por este resumo:
+  `node tools/w0-contract-validator.mjs architecture`.
+- `agent-core` permanece portátil; Tauri, Tokio, SQLx, rede e providers concretos
+  ficam fora dele. `agent-runtime` chama `application-api`, e não `agent-core`
+  diretamente; adapters não podem contornar a API.
+- Entradas passam por schema, identidade/ownership, capability, lifecycle, quota e
+  policy. Efeitos de tool, processo, filesystem, rede, Python, plugin, MCP ou remoto
+  usam as fronteiras de permissão/sandbox definidas nas fontes canônicas.
+- Secrets não devem aparecer em código, logs, traces, fixtures, artifacts, `.env`,
+  clipboard ou comentários. Redija qualquer valor sensível como `[REDACTED]`.
+- Use branch e worktree isolados. Não altere `main`, branch de outro agente ou
+  arquivos fora do escopo do card. Reconcile o estado vivo de Git/GitHub antes de
+  editar; evidência de outro SHA é stale.
+- Não marque planejamento, `pending`, `blocked`, `partial`, `stale`, timeout ou
+  ausência de execução como `PASS`. Diferencie implementado, validado localmente,
+  validado em CI e integrado.
+- Não desabilite checks, reduza proteção, suprima findings ou faça merge prematuro.
+  Auto-merge só pode integrar após required checks verdes no SHA atual e threads
+  legítimas resolvidas.
 
-```bash
-node tools/w0-contract-validator.mjs architecture
-```
+## SDD/ONP
 
-Resumo de camadas:
-
-```text
-Presentation (React / Tauri / CLI / fake)
-        -> Application API -> Domain/Core
-Execution/Runtime -> Application API
-Infrastructure adapters -> Domain/Core
-```
-
-- `agent-core` contém regras de domínio, invariantes, tipos e ports. Não depende de
-  Tauri, Tokio, SQLx, rede ou providers concretos.
-- `agent-runtime` chama somente `application-api`; não crie uma dependência direta
-  de runtime para `agent-core` que contorne autorização e envelopes da API.
-- Frontend/Tauri não acessam SQLite, filesystem, providers, tools ou secrets
-  diretamente.
-- Efeitos de tool, processo, filesystem, rede, Python, plugin, MCP ou remoto passam
-  por Permission Engine e Sandbox/Execution Broker; default é deny/fail-closed.
-- Nunca exponha secrets em código, logs, traces, fixtures, artifacts, `.env`,
-  clipboard ou comentários. Use referências/handles redigidos.
-
-Mudanças em schema, API/evento/trace, trust boundary, permission, workflow,
-dependência, migration ou release exigem testes e atualização da documentação/ADR
-aplicável, com impacto e rollback explícitos.
-
-## Antes de editar
-
-1. Reconcilie o estado vivo: `git status`, branch/base SHA, PRs/checks e card da
-   queue. Não use resumos antigos como fonte de verdade.
-2. Trabalhe em branch e worktree exclusivos. Não altere `main`, a branch de outro
-   agente ou arquivos fora do card.
-3. Confirme predecessores integrados e evidência no SHA correto. `planned`,
-   `NO_PROOF`, `blocked`, `partial`, `stale`, timeout ou SHA/tree divergente não
-   satisfazem dependência.
-4. Declare objetivo, non-goals, acceptance criteria, arquivos/crates esperados,
-   risco de segurança, testes e rollback antes da implementação.
-5. Use RED → GREEN → REFACTOR: primeiro um teste/fixture focado que falha, depois a
-   menor mudança compatível, então limpeza sem ampliar o escopo.
-
-Pare em vez de improvisar quando faltar credencial/permissão, houver decisão de
-produto/arquitetura, migration sem rollback comprovado, dependência sem evidência,
-CI/security/architecture falhando, ou informação indispensável indisponível.
-
-## Spec-driven development e ONP
-
-Para cada feature, mantenha:
+Para uma feature, preserve o conjunto correspondente de spec, tasks, documentação e
+contratos/testes. O parser exige headings completos:
 
 ```text
-.spec/features/<feature>/spec.md
-.spec/features/<feature>/tasks.md
-docs/<feature>.md                 # quando a feature tiver documentação de uso/contrato
-crates/<crate>/tests/...           # testes de contrato quando aplicável
+### US-001 — Título da história
+#### AC-001 — Título do critério
 ```
 
-Convenções observadas pelo parser ONP:
+Use `Dado`, `Quando`, `Então`; mantenha IDs globais únicos; e use `@spec:AC-<id>`
+quando a feature adotar tags. Uma task `[concluida]` precisa de evidência `PASS`.
+Não edite a fila histórica para “corrigir” inconsistências: registre o problema no
+DAG/contrato conforme a política normativa.
 
-- Use `### US-<id>` para user stories e `#### AC-<id>` para critérios de aceite.
-- Critérios devem ter `Dado`, `Quando`, `Então` e testes rastreáveis por `@spec:AC-<id>`
-  quando o padrão da feature usar tags.
-- Mantenha IDs globais únicos; não recicle IDs já usados por outra feature.
-- Uma tarefa `[concluida]` precisa de prova `PASS`; caso contrário mantenha-a pendente
-  ou trate como blocker.
-
-Verificação local da feature:
+Verificação de uma feature:
 
 ```bash
 node tools/ci/run-onp-spec.mjs verify <feature>
 ```
 
-O ONP falha fechado se o bootstrap/manifests tiverem checksum incompatível. A CI
-executa os verifies antes do audit e regenera artefatos de verificação no SHA exato;
-não edite ou use um JSON de verificação stale como prova de sucesso.
+O bootstrap do ONP é checksum-pinned e falha fechado. Rode `audit --ci` somente como
+parte do fluxo definido pela CI; não use JSON de verificação stale como prova.
 
-## Comandos locais usuais
+## Gates locais focados
 
-Use gates focados no escopo. Não substitua resultados por intenção.
+Escolha os gates exigidos pelo card e pelo impacto do diff; não execute builds globais
+pesados sem necessidade. Nesta VPS, use `CARGO_BUILD_JOBS=1` e não rode
+`cargo test --workspace` (o workspace já causou OOM).
 
 ```bash
 # Rust
-cargo fmt --all -- --check
-cargo clippy --package <crate> --all-targets --locked -- -D warnings
-cargo test --package <crate> --locked
+CARGO_BUILD_JOBS=1 cargo fmt --all -- --check
+CARGO_BUILD_JOBS=1 cargo clippy --package <crate> --all-targets --locked -- -D warnings
+CARGO_BUILD_JOBS=1 cargo test --package <crate> --locked
 
-# Arquitetura
-node tools/w0-contract-validator.mjs architecture
-
-# ONP
-node tools/ci/run-onp-spec.mjs verify <feature>
-node tools/ci/run-onp-spec.mjs audit --ci
-
-# Frontend (em frontend/)
+# Frontend, a partir de frontend/
 npm ci --no-fund
 npm run lint
 npm run typecheck
@@ -143,36 +97,14 @@ npm test
 npm run build
 ```
 
-Não rode suites globais pesadas apenas por hábito; selecione os gates exigidos pelo
-card e pelo impacto do diff. Nunca desabilite, afrouxe ou marque como opcional um
-gate para obter verde.
+## Git, PR e handoff
 
-## Git, PR e CI
-
-- Commits seguem `.commitlintrc.json`: tipos permitidos
-  `build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test`; subject tem no
-  máximo 72 caracteres.
-- PRs devem ser pequenas, rastreáveis a um único card e declarar escopo, non-goals,
-  critérios, testes reais, riscos e rollback.
-- Inclua na descrição exatamente uma linha de rastreabilidade:
-  `Plan card: PR-###` ou `Plan card: none`.
-- Revalide depois de rebase, push, CI tardio ou mudança de base; evidência anterior
-  fica stale quando o SHA/tree muda.
-- Não afirme `PASS` para check pendente, falho, skipped inesperado ou executado em
-  SHA diferente. Diferencie: implementado, validado localmente, validado em CI e
-  integrado.
-- Auto-merge depende de todos os required checks no SHA atual e de conversas de
-  review resolvidas. Não force merge, não contorne proteção de branch e não resolva
-  finding sem corrigir/justificar tecnicamente o código afetado.
-
-## Relatório/handoff obrigatório
-
-Reporte fatos verificáveis:
-
-- o que mudou e o que deliberadamente não mudou;
-- arquivos/crates, schema/migration/ADR/documentação impactados;
-- comandos literais executados e resultado real, vinculados ao SHA/tree;
-- CI/required checks e threads de revisão: `PASS`, `FAIL`, `BLOCKED` ou `NO_PROOF`;
-- riscos, rollback, dependências desbloqueadas e blockers remanescentes.
-
-Não inclua secrets ou dados sensíveis no handoff.
+- Commits seguem `.commitlintrc.json`: tipos permitidos e subject de até 72 caracteres.
+- Use RED → GREEN → REFACTOR quando houver comportamento/teste novo.
+- Uma PR deve ser pequena, rastreável a um card, declarar escopo/non-goals, testes,
+  riscos e rollback, e conter exatamente `Plan card: PR-###` ou `Plan card: none`.
+- Após rebase, push, mudança de base ou conclusão tardia de CI, revalide tudo no novo
+  SHA/tree; invalide evidência anterior.
+- O handoff deve listar mudança, arquivos impactados, comandos e resultados reais,
+  SHA/tree, status dos required checks/threads (`PASS`, `FAIL`, `BLOCKED` ou `NO_PROOF`),
+  riscos, rollback e blockers. Nunca inclua secrets.
