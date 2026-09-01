@@ -48,13 +48,7 @@ export const DEFAULT_CONFIG = {
 };
 
 export function loadConfig(rootDir) {
-  const base = path.resolve(rootDir);
-  const target = path.resolve(base, 'onpspec.config.json');
-  const relative = path.relative(base, target);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error('Invalid configuration path');
-  }
-  const configPath = target;
+  const configPath = path.join(rootDir, 'onpspec.config.json');
   if (!existsSync(configPath)) {
     return { ...DEFAULT_CONFIG, rootDir, configPath: null };
   }

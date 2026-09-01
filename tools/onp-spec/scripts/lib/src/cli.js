@@ -53,12 +53,7 @@ const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
 // anunciando sucesso.
 function skillAgentMarker(dir) {
   try {
-    const resolvedPath = path.resolve(dir, 'SKILL.md');
-    const relativePath = path.relative(dir, resolvedPath);
-    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-      return null;
-    }
-    const conteudo = readFileSync(resolvedPath, 'utf-8');
+    const conteudo = readFileSync(path.join(dir, 'SKILL.md'), 'utf-8');
     const frontmatter = conteudo.split(/^---\s*$/m)[1] || '';
     const m = frontmatter.match(/^\s*agent:\s*(\S+)/m);
     return m ? m[1] : null;
@@ -199,13 +194,7 @@ function parseFlags(args) {
 }
 
 function template(name) {
-  const base = path.resolve(TEMPLATES_DIR);
-  const target = path.resolve(base, name);
-  const relative = path.relative(base, target);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error('Invalid file path');
-  }
-  return readFileSync(target, 'utf-8');
+  return readFileSync(path.join(TEMPLATES_DIR, name), 'utf-8');
 }
 
 function fill(text, vars) {
@@ -215,10 +204,7 @@ function fill(text, vars) {
 function cmdInit(rootDir, flags) {
   const preset = flags.preset || 'base';
   const presetFile = `constituicao-${preset}.md`;
-  const resolvedBase = path.resolve(TEMPLATES_DIR);
-  const resolvedTarget = path.resolve(resolvedBase, presetFile);
-  const relativePath = path.relative(resolvedBase, resolvedTarget);
-  if (relativePath.startsWith('..') || path.isAbsolute(relativePath) || !existsSync(resolvedTarget)) {
+  if (!existsSync(path.join(TEMPLATES_DIR, presetFile))) {
     console.error(`preset desconhecido: ${preset} (use: base, lgpd-educacao)`);
     return 2;
   }
@@ -391,13 +377,7 @@ function detectarAgente(rootDir, flag) {
   const temClaude = existsSync(path.join(rootDir, '.claude', 'skills', 'onp-spec-driven'));
   const marcadorProjeto = skillAgentMarker(path.join(rootDir, '.agents', 'skills', 'onp-spec-driven'));
   if (AGENTES.includes(marcadorProjeto) && !temClaude) return { agent: marcadorProjeto };
-  const resolvedBase = path.resolve(rootDir);
-  const targetPath = path.resolve(resolvedBase, '.cursor', 'skills', 'onp-spec-driven');
-  const relativePath = path.relative(resolvedBase, targetPath);
-  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-    throw new Error('Invalid path');
-  }
-  const marcadorCursor = skillAgentMarker(targetPath);
+  const marcadorCursor = skillAgentMarker(path.join(rootDir, '.cursor', 'skills', 'onp-spec-driven'));
   if (AGENTES.includes(marcadorCursor) && !temClaude) return { agent: marcadorCursor };
   const temAg = existsSync(path.join(rootDir, '.agents', 'skills', 'onp-spec-driven'));
   if (temAg && !temClaude) return { agent: 'antigravity' };
@@ -414,12 +394,7 @@ function gerarArtefatosPlano(project, featureName, agent, { sequencial = false, 
     enginePath: process.argv[1],
   });
   if (plan.erro) return plan;
-  const base = path.resolve(project.config.rootDir);
-  const dir = path.resolve(base, plan.baseDir);
-  const relativeDir = path.relative(base, dir);
-  if (relativeDir.startsWith('..') || path.isAbsolute(relativeDir)) {
-    return { erro: 'Invalid directory path' };
-  }
+  const dir = path.join(project.config.rootDir, plan.baseDir);
   writeFileSync(path.join(dir, 'plano-execucao.md'), renderPlanoMd(plan));
   const planoJson = renderPlanoJson(plan);
   writeFileSync(path.join(dir, 'plano.json'), planoJson);
@@ -709,14 +684,7 @@ function cmdTarefa(config, positional, flags = {}) {
     console.error(`esforço inválido: "${esforcoRaw}" (use: baixo|medio|alto|xalto|max)`);
     return 2;
   }
-  const base = path.resolve(config.rootDir, config.specDir, 'features');
-  const target = path.resolve(base, featureName, 'tasks.md');
-  const relative = path.relative(base, target);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    console.error(`não achei ${config.specDir}/features/${featureName}/tasks.md`);
-    return 2;
-  }
-  const tasksPath = target;
+  const tasksPath = path.join(config.rootDir, config.specDir, 'features', featureName, 'tasks.md');
   if (!existsSync(tasksPath)) {
     console.error(`não achei ${config.specDir}/features/${featureName}/tasks.md`);
     return 2;
@@ -840,14 +808,7 @@ function linhaLicao(l) {
 }
 
 function cmdLicoes(config, positional, flags) {
-  const base = path.resolve(config.rootDir);
-  const target = path.resolve(base, config.specDir);
-  const relative = path.relative(base, target);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    console.error('caminho inválido');
-    return 2;
-  }
-  const specRoot = target;
+  const specRoot = path.join(config.rootDir, config.specDir);
   if (!existsSync(specRoot)) {
     console.error(`diretório ${config.specDir}/ não encontrado — rode \`onp-spec init\` primeiro`);
     return 2;
@@ -1021,13 +982,7 @@ export async function run(argv) {
     }
     if (flags.md) {
       const outPath = typeof flags.md === 'string' ? flags.md : '.spec/AUDITORIA.md';
-      const base = path.resolve(rootDir);
-      const target = path.resolve(base, outPath);
-      const relative = path.relative(base, target);
-      if (relative.startsWith('..') || path.isAbsolute(relative)) {
-        throw new Error('Invalid file path');
-      }
-      writeFileSync(target, renderMarkdown(audit));
+      writeFileSync(path.join(rootDir, outPath), renderMarkdown(audit));
       console.log(`relatório salvo em ${outPath}`);
     }
     const registrados = registrarAchados(project.specRoot, audit.findings, {

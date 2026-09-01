@@ -9,13 +9,7 @@ const allowed = new Set(['proposed', 'accepted', 'superseded', 'rejected']);
 const required = ['id', 'status', 'owner', 'date'];
 
 function parse(file) {
-  const base = path.resolve(dir);
-  const target = path.resolve(file);
-  const relative = path.relative(base, target);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error(`${file}: invalid file path`);
-  }
-  const raw = fs.readFileSync(target, 'utf8');
+  const raw = fs.readFileSync(file, 'utf8');
   const text = raw.replace(/\r\n/g, '\n');
   if (!text.startsWith('---\n')) throw new Error(`${file}: missing frontmatter`);
   const end = text.indexOf('\n---\n', 4);
