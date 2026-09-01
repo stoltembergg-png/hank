@@ -384,6 +384,9 @@ jobs:
       - name: Verify native evaluation corpus
         run: node tools/ci/run-onp-spec.mjs verify native-evaluation-corpus
 
+      - name: Verify safety and reasoning evaluation corpus
+        run: node tools/ci/run-onp-spec.mjs verify safety-reasoning-evaluation-corpus
+
       - name: Verify agent configuration proposal
         run: node tools/ci/run-onp-spec.mjs verify agent-configuration-proposal
 

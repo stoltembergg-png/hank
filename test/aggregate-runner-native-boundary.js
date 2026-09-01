@@ -11,6 +11,10 @@ const nativeCorpusSpec = readFileSync(
   new URL('../.spec/features/native-evaluation-corpus/spec.md', import.meta.url),
   'utf8',
 );
+const safetyReasoningCorpusSpec = readFileSync(
+  new URL('../.spec/features/safety-reasoning-evaluation-corpus/spec.md', import.meta.url),
+  'utf8',
+);
 
 test('aggregate runner exposes an explicit native-test boundary', () => {
   assert.match(runner, /HANK_SKIP_TAURI/);
@@ -44,9 +48,21 @@ test('ONP workflow runs native evaluation corpus verification explicitly', () =>
   );
 });
 
+test('ONP workflow runs safety and reasoning corpus verification explicitly', () => {
+  assert.match(
+    workflow,
+    /Verify safety and reasoning evaluation corpus[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify safety-reasoning-evaluation-corpus/,
+  );
+});
+
 test('native evaluation corpus spec declares mandatory ONP audit sections', () => {
   assert.match(nativeCorpusSpec, /## Suposições\r?\n\r?\nNenhuma\./);
   assert.match(nativeCorpusSpec, /## Perguntas em aberto\r?\n\r?\nNenhuma\./);
+});
+
+test('safety and reasoning corpus spec declares mandatory ONP audit sections', () => {
+  assert.match(safetyReasoningCorpusSpec, /## Suposições\r?\n\r?\nNenhuma\./);
+  assert.match(safetyReasoningCorpusSpec, /## Perguntas em aberto\r?\n\r?\nNenhuma\./);
 });
 
 test('ONP workflow runs Git worktree verification explicitly', () => {
