@@ -155,6 +155,32 @@ fn buffer_is_bounded_by_items_and_total_bytes() {
 
 #[test]
 // @spec:AC-1463
+fn buffer_normalizes_over_capacity_payload_vectors() {
+    let daemon = bounded_daemon();
+    let stream = EventStream::new(&daemon, small_policy());
+    let lease = active_lease(&daemon);
+    stream.bind(&lease, 1_000).unwrap();
+
+    // A caller-owned Vec with huge capacity but tiny length must not inflate
+    // the accounted byte budget (AC-1463). Four 1-byte payloads fit well
+    // under the 256-byte budget only if capacity is normalized on admission.
+    for i in 0..4 {
+        let mut over_cap = Vec::with_capacity(1 << 20);
+        over_cap.push(i as u8);
+        assert_eq!(stream.push(1_000, over_cap), Ok(i as u64 + 1));
+    }
+    assert_eq!(stream.buffered_len(), 4);
+
+    // Replayed payloads are bounded to the admitted logical bytes.
+    let replayed = stream.resume(1_000, 0).unwrap();
+    for (i, event) in replayed.iter().enumerate() {
+        assert_eq!(event.sequence, i as u64 + 1);
+        assert_eq!(event.payload(), &[i as u8]);
+    }
+}
+
+#[test]
+// @spec:AC-1463
 fn buffer_enforces_total_byte_budget() {
     let daemon = bounded_daemon();
     // 4 events × 64 bytes each → total budget = 256 bytes.

@@ -235,6 +235,11 @@ impl<'a, A: PeerAuthenticator> EventStream<'a, A> {
         if state.total_bytes.saturating_add(payload.len()) > self.policy.max_total_bytes() {
             return Err(EventStreamError::BufferFull);
         }
+        // Normalize ownership: a caller-owned Vec may carry far more capacity
+        // than its length (e.g. `Vec::with_capacity(1<<30)` + 1 byte). Retain
+        // only the admitted bytes so the accounted byte budget matches the
+        // allocation actually held by the stream (AC-1463).
+        let payload: Vec<u8> = payload.into_boxed_slice().into_vec();
         let sequence = state
             .last_sequence
             .checked_add(1)
