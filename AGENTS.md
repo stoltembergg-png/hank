@@ -57,6 +57,8 @@ Infrastructure adapters -> Domain/Core
 
 - `agent-core` contém regras de domínio, invariantes, tipos e ports. Não depende de
   Tauri, Tokio, SQLx, rede ou providers concretos.
+- `agent-runtime` chama somente `application-api`; não crie uma dependência direta
+  de runtime para `agent-core` que contorne autorização e envelopes da API.
 - Frontend/Tauri não acessam SQLite, filesystem, providers, tools ou secrets
   diretamente.
 - Efeitos de tool, processo, filesystem, rede, Python, plugin, MCP ou remoto passam
