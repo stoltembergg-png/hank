@@ -98,6 +98,7 @@ pub enum DaemonAuditReason {
     AuthenticationDenied,
     AuthorizationDenied,
     ProtocolNegotiationDenied,
+    SessionActive,
     Expired,
     Revoked,
     Stopped,
@@ -229,7 +230,7 @@ impl<A: PeerAuthenticator> AuthenticatedDaemon<A> {
         if state.active.is_some() {
             push_audit(
                 &mut state,
-                event_from_handshake(&handshake, DaemonAuditReason::AuthorizationDenied, true),
+                event_from_handshake(&handshake, DaemonAuditReason::SessionActive, true),
             );
             return Err(DaemonError::SessionActive);
         }
@@ -273,7 +274,10 @@ impl<A: PeerAuthenticator> AuthenticatedDaemon<A> {
             .state
             .lock()
             .map_err(|_| DaemonError::StateUnavailable)?;
-        let active = state.active.as_ref().ok_or(DaemonError::StaleLease)?;
+        let Some(active) = state.active.as_ref() else {
+            // Already closed — idempotent per AC-1459.
+            return Ok(DaemonSessionState::Closed);
+        };
         if active.id != lease_id {
             return Err(DaemonError::StaleLease);
         }
@@ -311,7 +315,10 @@ impl<A: PeerAuthenticator> AuthenticatedDaemon<A> {
             .state
             .lock()
             .map_err(|_| DaemonError::StateUnavailable)?;
-        let active = state.active.as_ref().ok_or(DaemonError::StaleLease)?;
+        let Some(active) = state.active.as_ref() else {
+            // Already closed — idempotent per AC-1459.
+            return Ok(DaemonSessionState::Closed);
+        };
         if active.id != lease_id {
             return Err(DaemonError::StaleLease);
         }
@@ -378,8 +385,8 @@ fn event_from_handshake(
     authenticated: bool,
 ) -> DaemonAuditEvent {
     DaemonAuditEvent {
-        peer: Some(handshake.peer.clone()),
-        node: Some(handshake.node.clone()),
+        peer: PeerId::new(&handshake.peer.0).ok(),
+        node: NodeId::new(&handshake.node.0).ok(),
         project: handshake.project,
         revision: handshake.protocol,
         reason,

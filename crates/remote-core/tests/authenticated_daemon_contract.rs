@@ -139,10 +139,16 @@ fn expired_leases_reopen_safely_and_stale_cleanup_cannot_close_replacement() {
     assert_ne!(first.id, second.id);
     assert_eq!(daemon.session_state(61_000), DaemonSessionState::Ready);
 
+    // Stale cleanup for a superseded lease cannot close the replacement.
     assert_eq!(daemon.stop(first.id), Err(DaemonError::StaleLease));
     assert_eq!(daemon.session_state(61_000), DaemonSessionState::Ready);
+    // Repeated cleanup of an already-closed lease stays Closed (AC-1459).
     assert_eq!(daemon.revoke(second.id), Ok(DaemonSessionState::Closed));
-    assert_eq!(daemon.stop(second.id), Err(DaemonError::StaleLease));
+    assert_eq!(daemon.stop(second.id), Ok(DaemonSessionState::Closed));
+    assert_eq!(
+        daemon.expire(second.id, 61_000),
+        Ok(DaemonSessionState::Closed)
+    );
     assert_eq!(daemon.session_state(61_000), DaemonSessionState::Closed);
 }
 
