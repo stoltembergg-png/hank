@@ -9,6 +9,7 @@ pub mod arch_fixtures_test;
 
 pub mod evaluation;
 pub mod evaluation_corpus;
+pub mod evaluation_runner;
 pub mod fixtures;
 pub mod ids;
 pub mod safety_reasoning_corpus;

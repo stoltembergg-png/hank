@@ -5,11 +5,12 @@
 
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 const MAX_FIXTURE_ID_BYTES: usize = 128;
 const MAX_PAYLOAD_BYTES: usize = 64 * 1024;
+const MAX_SERIALIZED_FIXTURE_BYTES: usize = 128 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FixtureCase {
@@ -88,7 +89,23 @@ impl FixtureWorkspace {
 
     pub fn read(&self, id: &str) -> io::Result<FixtureCase> {
         let path = self.fixture_path(id)?;
-        let case: FixtureCase = serde_json::from_slice(&fs::read(path)?)
+        let file = fs::File::open(path)?;
+        if file.metadata()?.len() > MAX_SERIALIZED_FIXTURE_BYTES as u64 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "fixture file exceeds serialized size limit",
+            ));
+        }
+        let mut encoded = Vec::with_capacity(MAX_SERIALIZED_FIXTURE_BYTES.min(4096));
+        file.take((MAX_SERIALIZED_FIXTURE_BYTES + 1) as u64)
+            .read_to_end(&mut encoded)?;
+        if encoded.len() > MAX_SERIALIZED_FIXTURE_BYTES {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "fixture file exceeds serialized size limit",
+            ));
+        }
+        let case: FixtureCase = serde_json::from_slice(&encoded)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
         case.validate()?;
         Ok(case)
@@ -195,6 +212,18 @@ mod tests {
                 "path-like fixture id was accepted: {id}"
             );
         }
+    }
+
+    #[test]
+    fn workspace_read_rejects_oversized_serialized_fixture() {
+        let directory = tempdir().unwrap();
+        let workspace = FixtureWorkspace::create(directory.path().join("fixtures")).unwrap();
+        let path = workspace.fixture_path("oversized").unwrap();
+        fs::write(&path, vec![b'x'; MAX_SERIALIZED_FIXTURE_BYTES + 1]).unwrap();
+
+        let error = workspace.read("oversized").unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
     }
 
     #[test]

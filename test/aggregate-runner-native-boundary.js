@@ -11,6 +11,10 @@ const nativeCorpusSpec = readFileSync(
   new URL('../.spec/features/native-evaluation-corpus/spec.md', import.meta.url),
   'utf8',
 );
+const nativeRunnerSpec = readFileSync(
+  new URL('../.spec/features/native-evaluation-runner/spec.md', import.meta.url),
+  'utf8',
+);
 const safetyReasoningCorpusSpec = readFileSync(
   new URL('../.spec/features/safety-reasoning-evaluation-corpus/spec.md', import.meta.url),
   'utf8',
@@ -48,11 +52,23 @@ test('ONP workflow runs native evaluation corpus verification explicitly', () =>
   );
 });
 
+test('ONP workflow runs native evaluation runner verification explicitly', () => {
+  assert.match(
+    workflow,
+    /Verify native evaluation runner[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify native-evaluation-runner/,
+  );
+});
+
 test('ONP workflow runs safety and reasoning corpus verification explicitly', () => {
   assert.match(
     workflow,
     /Verify safety and reasoning evaluation corpus[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify safety-reasoning-evaluation-corpus/,
   );
+});
+
+test('native evaluation runner spec declares mandatory ONP audit sections', () => {
+  assert.match(nativeRunnerSpec, /## Suposições\r?\n\r?\nNenhuma\./);
+  assert.match(nativeRunnerSpec, /## Perguntas em aberto\r?\n\r?\nNenhuma\./);
 });
 
 test('native evaluation corpus spec declares mandatory ONP audit sections', () => {
