@@ -1,7 +1,7 @@
 {
   "feature": "native-evaluation-runner",
-  "timestamp": "2026-09-01T08:39:47.786Z",
-  "gitRev": "9a122fe",
+  "timestamp": "2026-09-01T08:42:59.460Z",
+  "gitRev": "b05103c",
   "command": "node tools/run-feature-tests.mjs native-evaluation-runner",
   "reporter": "exitcode",
   "exitCode": 0,
