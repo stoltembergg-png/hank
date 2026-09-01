@@ -514,6 +514,41 @@ pub struct NativeEvaluationRun {
 }
 
 impl NativeEvaluationRun {
+    /// Builds a bounded run from reports produced by another evaluator.
+    ///
+    /// The native runner itself always creates the canonical baseline run. A
+    /// candidate evaluator can use this constructor to hand its reports to a
+    /// later comparison stage; the comparator remains responsible for
+    /// validating the reports against the frozen corpus before treating them
+    /// as comparable evidence.
+    pub fn from_reports(
+        suite_id: impl Into<String>,
+        corpus_schema_version: u32,
+        environment: NativeEvaluationEnvironment,
+        reports: Vec<BaselineReport>,
+    ) -> Result<Self, NativeEvaluationRunnerError> {
+        if reports.is_empty() {
+            return Err(NativeEvaluationRunnerError::EmptyCorpus);
+        }
+        if reports.len() > MAX_NATIVE_EVALUATION_CASES {
+            return Err(NativeEvaluationRunnerError::CorpusTooLarge);
+        }
+        environment
+            .validate()
+            .map_err(NativeEvaluationRunnerError::InvalidEnvironment)?;
+        for report in &reports {
+            let output_size = serde_json::to_vec(report)
+                .map_err(NativeEvaluationRunnerError::Serialization)?
+                .len();
+            if output_size > 32 * 1024 {
+                return Err(NativeEvaluationRunnerError::OutputBoundExceeded {
+                    case_id: report.case_id.clone(),
+                });
+            }
+        }
+        Self::new(suite_id.into(), corpus_schema_version, environment, reports)
+    }
+
     fn new(
         suite_id: String,
         corpus_schema_version: u32,
