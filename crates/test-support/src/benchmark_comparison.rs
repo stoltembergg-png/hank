@@ -16,6 +16,7 @@ use crate::evaluation_runner::{
     NativeEvaluationEnvironment, NativeEvaluationRun, NativeEvaluationRunnerError,
     MAX_NATIVE_EVALUATION_CASES, NATIVE_EVALUATION_RUN_SCHEMA_VERSION,
 };
+use ring::digest::{digest as sha256_digest, SHA256};
 use ring::signature::{Ed25519KeyPair, KeyPair, UnparsedPublicKey, ED25519};
 use serde::de::Error as DeError;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -178,7 +179,7 @@ impl BenchmarkComparisonPolicy {
     /// digest so thresholds cannot be changed after review.
     pub fn digest(&self) -> String {
         let encoded = serde_json::to_vec(self).expect("benchmark policy is serializable");
-        format!("{:016x}", fnv1a64(&encoded))
+        sha256_hex(&encoded)
     }
 }
 
@@ -1288,6 +1289,10 @@ fn hex_encode(bytes: &[u8]) -> String {
         encoded.push(HEX[(byte & 0x0f) as usize] as char);
     }
     encoded
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    hex_encode(sha256_digest(&SHA256, bytes).as_ref())
 }
 
 fn decode_hex(value: &str, expected_bytes: usize) -> Result<Vec<u8>, BenchmarkComparisonError> {

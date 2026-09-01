@@ -117,6 +117,16 @@ fn review_for_policy(
     }
 }
 
+#[test]
+fn policy_digest_uses_a_bounded_sha256_encoding() {
+    let digest = BenchmarkComparisonPolicy::default().digest();
+
+    assert_eq!(
+        digest,
+        "475902cdd3892d28e854acb1de67e7d5b9f093d331e0b8ca661b4bc1bc85ca65"
+    );
+}
+
 fn set_count(metrics: &mut [MetricObservation], name: MetricName, value: u64) {
     let metric = metrics
         .iter_mut()
