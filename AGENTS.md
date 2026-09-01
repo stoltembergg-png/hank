@@ -50,9 +50,9 @@ Resumo de camadas:
 
 ```text
 Presentation (React / Tauri / CLI / fake)
-        -> Application API
-        -> Domain/Core (agent-core)
-        <- Execution/Runtime e Infrastructure adapters
+        -> Application API -> Domain/Core
+Execution/Runtime -> Application API
+Infrastructure adapters -> Domain/Core
 ```
 
 - `agent-core` contém regras de domínio, invariantes, tipos e ports. Não depende de
