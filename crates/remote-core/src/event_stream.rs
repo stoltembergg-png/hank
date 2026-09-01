@@ -15,13 +15,21 @@ pub const DEFAULT_MAX_BUFFERED_EVENTS: usize = 256;
 pub const DEFAULT_MAX_EVENT_PAYLOAD: usize = 64 * 1024;
 /// Maximum replay window (events behind the acked watermark that can be resumed).
 pub const DEFAULT_REPLAY_WINDOW: usize = 64;
+/// Absolute ceiling for buffered events (defends construction against OOM).
+pub const ABSOLUTE_MAX_BUFFERED_EVENTS: usize = 4096;
+/// Absolute ceiling for a single event payload (defends construction against OOM).
+pub const ABSOLUTE_MAX_EVENT_PAYLOAD: usize = 4 * 1024 * 1024;
+/// Absolute ceiling for the replay window.
+pub const ABSOLUTE_MAX_REPLAY_WINDOW: usize = 4096;
 
-/// Bounded event-stream policy.
+/// Bounded event-stream policy. Fields are private and validated: values above
+/// the absolute ceilings are rejected, so construction can never request an
+/// oversized allocation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EventStreamPolicy {
-    pub max_buffered_events: usize,
-    pub max_event_payload: usize,
-    pub replay_window: usize,
+    max_buffered_events: usize,
+    max_event_payload: usize,
+    replay_window: usize,
 }
 
 impl EventStreamPolicy {
@@ -34,6 +42,9 @@ impl EventStreamPolicy {
             || max_event_payload == 0
             || replay_window == 0
             || replay_window > max_buffered_events
+            || max_buffered_events > ABSOLUTE_MAX_BUFFERED_EVENTS
+            || max_event_payload > ABSOLUTE_MAX_EVENT_PAYLOAD
+            || replay_window > ABSOLUTE_MAX_REPLAY_WINDOW
         {
             return Err(EventStreamError::InvalidPolicy);
         }
@@ -42,6 +53,18 @@ impl EventStreamPolicy {
             max_event_payload,
             replay_window,
         })
+    }
+
+    pub fn max_buffered_events(&self) -> usize {
+        self.max_buffered_events
+    }
+
+    pub fn max_event_payload(&self) -> usize {
+        self.max_event_payload
+    }
+
+    pub fn replay_window(&self) -> usize {
+        self.replay_window
     }
 }
 
@@ -59,7 +82,14 @@ impl Default for EventStreamPolicy {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StreamEvent {
     pub sequence: u64,
-    pub payload: Vec<u8>,
+    payload: Vec<u8>,
+}
+
+impl StreamEvent {
+    /// The raw payload bytes. Prefer redacted access for sensitive contexts.
+    pub fn payload(&self) -> &[u8] {
+        &self.payload
+    }
 }
 
 /// Errors of the bounded event stream.
@@ -73,6 +103,8 @@ pub enum EventStreamError {
     StaleLease,
     #[error("event payload exceeds maximum size")]
     PayloadTooLarge,
+    #[error("event payload contains sensitive content")]
+    SensitiveContent,
     #[error("event buffer is full")]
     BufferFull,
     #[error("event sequence out of order")]
@@ -116,7 +148,9 @@ impl<'a, A: PeerAuthenticator> EventStream<'a, A> {
                 bound: None,
                 last_sequence: 0,
                 acked_sequence: 0,
-                buffer: Vec::with_capacity(policy.max_buffered_events),
+                // Defensive: never pre-allocate from a caller-supplied capacity,
+                // so constructing a stream cannot trigger an OOM panic.
+                buffer: Vec::new(),
                 closed: false,
             }),
         }
@@ -146,12 +180,18 @@ impl<'a, A: PeerAuthenticator> EventStream<'a, A> {
         )
     }
 
-    /// Pushes an event, assigning the next monotonic sequence. Applies payload
-    /// and buffer bounds fail-closed. The bound lease must still be active at
-    /// `now_ms`; revoked, expired or unknown leases reject with NoActiveLease.
+    /// Pushes an event, assigning the next monotonic sequence. Applies payload,
+    /// sensitive-content and buffer bounds fail-closed. The bound lease must
+    /// still be active at `now_ms`; revoked, expired or unknown leases reject
+    /// with NoActiveLease.
     pub fn push(&self, now_ms: u64, payload: Vec<u8>) -> Result<u64, EventStreamError> {
-        if payload.len() > self.policy.max_event_payload {
+        if payload.len() > self.policy.max_event_payload() {
             return Err(EventStreamError::PayloadTooLarge);
+        }
+        // Deterministic redaction boundary: never buffer credential, token,
+        // secret or raw page content (AC-1465). Fail closed.
+        if contains_sensitive_material(&payload) {
+            return Err(EventStreamError::SensitiveContent);
         }
         let mut state = self
             .state
@@ -166,7 +206,7 @@ impl<'a, A: PeerAuthenticator> EventStream<'a, A> {
         if !self.lease_active(bound.id, now_ms) {
             return Err(EventStreamError::NoActiveLease);
         }
-        if state.buffer.len() >= self.policy.max_buffered_events {
+        if state.buffer.len() >= self.policy.max_buffered_events() {
             return Err(EventStreamError::BufferFull);
         }
         let sequence = state
@@ -219,7 +259,7 @@ impl<'a, A: PeerAuthenticator> EventStream<'a, A> {
         }
         let window_start = state
             .acked_sequence
-            .saturating_sub(self.policy.replay_window as u64);
+            .saturating_sub(self.policy.replay_window() as u64);
         if from_sequence < window_start || from_sequence > state.last_sequence {
             return Err(EventStreamError::ReplayOutOfWindow);
         }
@@ -272,4 +312,31 @@ impl<'a, A: PeerAuthenticator> EventStream<'a, A> {
             .map(|s| s.buffer.len())
             .unwrap_or_default()
     }
+}
+
+/// Deterministic sensitive-material markers. Any payload containing one of
+/// these is rejected before buffering (fail-closed redaction boundary).
+const SENSITIVE_MARKERS: &[&str] = &[
+    "cred_",
+    "credential",
+    "authorization: bearer ",
+    "bearer ",
+    "api_key",
+    "apikey",
+    "x-api-key",
+    "secret",
+    "password",
+    "token",
+];
+
+/// Returns true if the payload contains any sensitive-content marker.
+///
+/// ASCII case-insensitive scanning so an adapter cannot evade the boundary by
+/// changing case. This is a deterministic admission check, not a general
+/// secret scanner; the stream contract guarantees that buffered events never
+/// carry credential/token material.
+fn contains_sensitive_material(payload: &[u8]) -> bool {
+    let lower = payload.to_ascii_lowercase();
+    let text = String::from_utf8_lossy(&lower);
+    SENSITIVE_MARKERS.iter().any(|marker| text.contains(marker))
 }

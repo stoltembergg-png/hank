@@ -182,9 +182,59 @@ fn events_never_contain_credential_material() {
     let lease = active_lease(&daemon);
     stream.bind(&lease, 1_000).unwrap();
 
-    assert_eq!(stream.push(1_000, b"cred_remote_1".to_vec()), Ok(1));
+    // Deterministic redaction boundary: sensitive material is rejected
+    // before buffering, so it can never be delivered or replayed.
+    assert_eq!(
+        stream.push(1_000, b"cred_remote_1".to_vec()),
+        Err(EventStreamError::SensitiveContent)
+    );
+    assert_eq!(
+        stream.push(1_000, b"Bearer abc123".to_vec()),
+        Err(EventStreamError::SensitiveContent)
+    );
+    assert_eq!(
+        stream.push(1_000, b"api_key=secret-value".to_vec()),
+        Err(EventStreamError::SensitiveContent)
+    );
+    assert_eq!(stream.buffered_len(), 0);
 
-    // Audit trail must never expose the credential string.
+    // Non-sensitive payload is admitted.
+    assert_eq!(stream.push(1_000, b"ok".to_vec()), Ok(1));
+    let replayed = stream.resume(1_000, 0).unwrap();
+    assert_eq!(replayed.len(), 1);
+    assert_eq!(replayed[0].sequence, 1);
+    assert_eq!(replayed[0].payload(), b"ok");
+
+    // Audit trail never exposes the credential string.
     let audit = daemon.audit();
     assert!(!format!("{audit:?}").contains("cred_remote_1"));
+}
+
+#[test]
+// @spec:AC-1462
+fn policy_rejects_unbounded_values() {
+    // Absolute ceilings defend construction against OOM panics.
+    assert_eq!(
+        EventStreamPolicy::bounded(usize::MAX, 64, 2),
+        Err(EventStreamError::InvalidPolicy)
+    );
+    assert_eq!(
+        EventStreamPolicy::bounded(4, usize::MAX, 2),
+        Err(EventStreamError::InvalidPolicy)
+    );
+    assert_eq!(
+        EventStreamPolicy::bounded(4, 64, usize::MAX),
+        Err(EventStreamError::InvalidPolicy)
+    );
+    assert_eq!(
+        EventStreamPolicy::bounded(0, 64, 2),
+        Err(EventStreamError::InvalidPolicy)
+    );
+    // replay_window cannot exceed max_buffered_events.
+    assert_eq!(
+        EventStreamPolicy::bounded(2, 64, 4),
+        Err(EventStreamError::InvalidPolicy)
+    );
+    // Valid small policy still constructs.
+    assert!(EventStreamPolicy::bounded(4, 64, 2).is_ok());
 }
