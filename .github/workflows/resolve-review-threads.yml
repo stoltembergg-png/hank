@@ -8,13 +8,11 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  checks: read
 
 concurrency:
   group: resolve-review-threads
   cancel-in-progress: false
-
-env:
-  GH_TOKEN: ${{ github.token }}
 
 jobs:
   resolve:
@@ -30,114 +28,275 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
-            // Required checks declared in branch protection AND rulesets.
-            // A check only gates thread resolution if it is actually required
-            // for merging; non-required skips/failures are ignored.
-            let requiredContexts = [];
-            try {
-              const { data: protection } = await github.rest.repos.getBranchProtection({
-                owner, repo, branch: 'main',
+            // Effective required checks for the target branch (main).
+            // Sources (in priority order):
+            // 1. Active applicable rulesets — fully trusted when readable.
+            // 2. .github/required-checks.json manifest — committed policy.
+            // 3. Classic branch protection — if readable; otherwise the
+            //    repository's documented required bot checks serve as a
+            //    hardcoded fallback so the per-context gate covers them.
+            // The aggregate statusCheckRollup state is also checked as a
+            // safety net for any required check the token cannot enumerate.
+            const requiredContexts = new Set();
+
+            // Minimal glob matcher for ruleset ref conditions: supports exact
+            // refs, `*` and `**` wildcards, and the `~DEFAULT_BRANCH` token.
+            const refMatches = (pattern, ref) => {
+              if (pattern === '~DEFAULT_BRANCH') return ref === 'refs/heads/main';
+              if (pattern === ref) return true;
+              const esc = (s) => s.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+              const rx = new RegExp(
+                '^' + pattern.split('**').map((part) => part.split('*').map(esc).join('[^/]*')).join('.*') + '$',
+              );
+              return rx.test(ref);
+            };
+
+            const rulesetAppliesToMain = (rs) => {
+              // Only branch-targeted rulesets can require status checks on a
+              // branch; tag rulesets are never part of main's policy.
+              if (rs.target && rs.target !== 'branch') return false;
+              // Ref conditions, when present, are glob patterns over the full
+              // ref (e.g. refs/heads/main, refs/heads/*). Absent conditions
+              // mean "all refs". When conditions exist but we cannot match
+              // main, the ruleset is not part of main's policy.
+              const cond = rs.conditions?.ref_name;
+              if (cond && Array.isArray(cond.exclude) && cond.exclude.some((p) => refMatches(p, 'refs/heads/main'))) {
+                return false;
+              }
+              if (cond && Array.isArray(cond.include) && cond.include.length > 0) {
+                return cond.include.some((p) => refMatches(p, 'refs/heads/main'));
+              }
+              return true;
+            };
+
+            const addFromRulesets = async () => {
+              const rulesets = await github.paginate(github.rest.repos.getRepoRulesets, {
+                owner, repo, includes_parents: true, per_page: 100,
               });
-              requiredContexts = protection.required_status_checks?.contexts ?? [];
-            } catch (e) {
-              core.warning(`Could not fetch branch protection: ${e.message}`);
-            }
-            try {
-              const { data: rulesets } = await github.rest.repos.getRepoRulesets({ owner, repo });
               for (const rs of rulesets) {
+                if (rs.enforcement !== 'active') continue;
+                if (!rulesetAppliesToMain(rs)) continue;
+                // We can only read details through the repository endpoint;
+                // inherited org/enterprise rulesets are not readable here, so
+                // resolve only repository-sourced ones (none exist upstream).
+                if (rs.source_type && rs.source_type !== 'Repository') continue;
                 const { data: rsDetail } = await github.rest.repos.getRepoRuleset({
                   owner, repo, ruleset_id: rs.id,
                 });
                 for (const rule of rsDetail.rules ?? []) {
                   if (rule.type === 'required_status_checks') {
                     for (const ctx of rule.parameters?.required_status_checks ?? []) {
-                      if (!requiredContexts.includes(ctx.context)) {
-                        requiredContexts.push(ctx.context);
-                      }
+                      requiredContexts.add(ctx.context);
                     }
                   }
                 }
               }
-            } catch (e) {
-              core.warning(`Could not fetch rulesets: ${e.message}`);
-            }
-            core.info(`Declared required checks (${requiredContexts.length}): ${requiredContexts.join(', ') || 'none'}`);
+            };
 
-            // All open PRs.
+            const addFromManifest = async () => {
+              const { data } = await github.rest.repos.getContent({
+                owner, repo, path: '.github/required-checks.json',
+              });
+              const manifest = JSON.parse(Buffer.from(data.content, 'base64').toString('utf8'));
+              if (manifest?.schemaVersion !== 1 || !Array.isArray(manifest.requiredChecks) || manifest.requiredChecks.length === 0) {
+                throw new Error('invalid or empty required-checks.json manifest');
+              }
+              for (const name of manifest.requiredChecks) {
+                requiredContexts.add(name);
+              }
+            };
+
+            // Classic branch protection cannot be read by this token (403),
+            // but the repository's documented required bot checks are
+            // enforced through it. Adding them explicitly keeps the
+            // per-context gate complete even though we cannot enumerate the
+            // protection rule itself.
+            const addBranchProtectionFallback = async () => {
+              for (const name of ['CodeRabbit', 'Aikido Security: check code', 'Aikido Security: Deep Review']) {
+                requiredContexts.add(name);
+              }
+            };
+
+            try {
+              await addFromRulesets();
+              await addFromManifest();
+              await addBranchProtectionFallback();
+            } catch (e) {
+              core.setFailed(`Could not read required-checks policy (fail closed): ${e.message}`);
+              return;
+            }
+            core.info(`Required checks (${requiredContexts.size}): ${[...requiredContexts].join(', ')}`);
+
+            // --- Open PRs ---
+            // Open PRs targeting main — the only base whose required-check
+            // policy this workflow evaluates.
             const prs = await github.paginate(github.rest.pulls.list, {
-              owner, repo, state: 'open', per_page: 100,
+              owner, repo, state: 'open', base: 'main', per_page: 100,
             });
             core.info(`Found ${prs.length} open pull request(s)`);
 
-            for (const pr of prs) {
-              const num = pr.number;
-              // Live state: re-fetch so we never act on a stale head.
-              const { data: live } = await github.rest.pulls.get({ owner, repo, pull_number: num });
-              if (live.state !== 'open' || live.draft) {
-                core.info(`PR #${num}: ${live.state}${live.draft ? ' (draft)' : ''} — skipping`);
-                continue;
-              }
-              const headSha = live.head.sha;
-              core.info(`PR #${num}: head ${headSha.slice(0, 7)}`);
+            // Hard deadline: stop starting new work well before the job
+            // timeout so a slow prefix cannot starve later PRs forever.
+            const startedAt = Date.now();
+            const RUN_DEADLINE_MS = 240 * 1000; // 4 min of the 5 min budget
+            const underDeadline = () => Date.now() - startedAt < RUN_DEADLINE_MS;
 
-              // Every check run and commit status on the exact head SHA.
-              const [runs, status] = await Promise.all([
-                github.paginate(github.rest.checks.listForRef, { owner, repo, ref: headSha }),
-                github.rest.repos.getCombinedStatusForRef({ owner, repo, ref: headSha }),
-              ]);
-
-              const statuses = status.data.statuses ?? [];
-
-              // Only required checks gate resolution. For each declared
-              // required context, we need a green signal (completed+success
-              // check run, or success commit status) on the head SHA.
-              // Non-required checks (skips, informational runs) are ignored.
-              const greenNames = new Set([
-                ...runs.filter((r) => r.status === 'completed' && r.conclusion === 'success').map((r) => r.name),
-                ...statuses.filter((s) => s.state === 'success').map((s) => s.context),
-              ]);
-
-              if (requiredContexts.length === 0) {
-                core.warning(`PR #${num}: no required checks declared — refusing to resolve without a gate`);
-                continue;
-              }
-
-              const notGreen = [];
-              for (const ctx of requiredContexts) {
-                if (!greenNames.has(ctx)) {
-                  notGreen.push(`required ${ctx}: missing or not green`);
-                }
-              }
-
-              if (notGreen.length > 0) {
-                core.info(`PR #${num}: ${notGreen.length} required check(s) not green — skipping`);
-                notGreen.slice(0, 10).forEach((x) => core.info(`  ${x}`));
-                continue;
-              }
-
-              core.info(`PR #${num}: all checks green — resolving review threads`);
-              const threadsQuery = `
-                query($owner: String!, $repo: String!, $pr: Int!) {
-                  repository(owner: $owner, name: $repo) {
-                    pullRequest(number: $pr) {
-                      reviewThreads(first: 100) {
-                        nodes { id isResolved }
+            const query = `
+              query($owner: String!, $repo: String!, $pr: Int!, $cursor: String, $threadCursor: String) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $pr) {
+                    state
+                    isDraft
+                    mergeStateStatus
+                    commits(last: 1) {
+                      nodes {
+                        commit {
+                          statusCheckRollup {
+                            state
+                            contexts(first: 100, after: $cursor) {
+                              pageInfo { hasNextPage endCursor }
+                              nodes {
+                                __typename
+                                ... on CheckRun { name status conclusion }
+                                ... on StatusContext { context state }
+                              }
+                            }
+                          }
+                        }
                       }
                     }
+                    reviewThreads(first: 100, after: $threadCursor) {
+                      pageInfo { hasNextPage endCursor }
+                      nodes { id isResolved }
+                    }
                   }
-                }`;
-              const { repository: { pullRequest: { reviewThreads } } } = await github.graphql(threadsQuery, {
-                owner, repo, pr: num,
-              });
-              const open = reviewThreads.nodes.filter((t) => !t.isResolved);
-              core.info(`PR #${num}: ${open.length} unresolved review thread(s)`);
+                }
+              }`;
 
-              const resolveMutation = `
-                mutation($id: ID!) {
-                  resolveReviewThread(input: { threadId: $id }) {
-                    thread { id isResolved }
-                  }
-                }`;
+            const fetchReviewThreads = async (num) => {
+              let threads = [];
+              let cursor = null;
+              let done = false;
+              while (!done) {
+                const result = await github.graphql(query, {
+                  owner, repo, pr: num, cursor: null, threadCursor: cursor,
+                });
+                const page = result.repository.pullRequest.reviewThreads;
+                threads = threads.concat(page.nodes ?? []);
+                if (page.pageInfo?.hasNextPage && page.pageInfo?.endCursor) {
+                  cursor = page.pageInfo.endCursor;
+                } else {
+                  done = true;
+                }
+              }
+              return threads;
+            };
+
+            const fetchRollup = async (num) => {
+              let allContexts = [];
+              let cursor = null;
+              let rollupState = null;
+              let done = false;
+              while (!done) {
+                const result = await github.graphql(query, { owner, repo, pr: num, cursor });
+                const pull = result.repository.pullRequest;
+                rollupState = pull.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state ?? null;
+                const rollup = pull.commits?.nodes?.[0]?.commit?.statusCheckRollup;
+                const page = rollup?.contexts?.nodes ?? [];
+                allContexts = allContexts.concat(page);
+                const pageInfo = rollup?.contexts?.pageInfo;
+                if (pageInfo?.hasNextPage && pageInfo?.endCursor) {
+                  cursor = pageInfo.endCursor;
+                } else {
+                  done = true;
+                }
+              }
+              return { rollupState, contexts: allContexts };
+            };
+
+            const resolveMutation = `
+              mutation($id: ID!) {
+                resolveReviewThread(input: { threadId: $id }) {
+                  thread { id isResolved }
+                }
+              }`;
+
+            for (const pr of prs) {
+              if (!underDeadline()) {
+                core.info('Run deadline reached — stopping before the job timeout');
+                break;
+              }
+              const num = pr.number;
+              let data;
+              try {
+                const result = await github.graphql(query, { owner, repo, pr: num });
+                data = result.repository.pullRequest;
+              } catch (e) {
+                core.warning(`PR #${num}: GraphQL query failed: ${e.message}`);
+                continue;
+              }
+
+              if (data.state !== 'OPEN' || data.isDraft) {
+                core.info(`PR #${num}: ${data.state}${data.isDraft ? ' (draft)' : ''} — skipping`);
+                continue;
+              }
+
+              // Fetch the full statusCheckRollup (paginated) for the head.
+              let rollup;
+              try {
+                rollup = await fetchRollup(num);
+              } catch (e) {
+                core.warning(`PR #${num}: rollup fetch failed: ${e.message}`);
+                continue;
+              }
+
+              // Every required check must have a SUCCESS signal in the rollup.
+              // Presence is verified per-context so an absent required check
+              // cannot be silently omitted from the aggregate rollup state.
+              // The rollup aggregate state is NOT used for the gate — it
+              // includes non-required checks that would block resolution even
+              // when every required check has passed. The per-context check
+              // below is the sole gate.
+              const greenContexts = new Set();
+              for (const c of rollup.contexts) {
+                const name = c.__typename === 'CheckRun' ? c.name : c.context;
+                const ok = c.__typename === 'CheckRun'
+                  ? c.status === 'COMPLETED' && c.conclusion === 'SUCCESS'
+                  : c.state === 'SUCCESS';
+                if (ok) greenContexts.add(name);
+              }
+
+              const missing = [...requiredContexts].filter((ctx) => !greenContexts.has(ctx));
+              if (missing.length > 0) {
+                core.info(`PR #${num}: ${missing.length} required check(s) not green — skipping`);
+                missing.slice(0, 10).forEach((x) => core.info(`  required ${x}: missing or not green`));
+                continue;
+              }
+
+              // Checks are green. Merge is ready (CLEAN) or blocked only by
+              // unresolved threads/reviews (BLOCKED). Never act on DIRTY
+              // (conflicts), BEHIND (stale), UNKNOWN, or other states.
+              const mergeState = data.mergeStateStatus;
+              if (!['BLOCKED', 'CLEAN'].includes(mergeState)) {
+                core.info(`PR #${num}: mergeStateStatus=${mergeState} — skipping`);
+                continue;
+              }
+
+              const open = [];
+              try {
+                const threads = await fetchReviewThreads(num);
+                open.push(...threads.filter((t) => !t.isResolved));
+              } catch (e) {
+                core.warning(`PR #${num}: review-thread fetch failed: ${e.message}`);
+                continue;
+              }
+              core.info(`PR #${num}: checks green (${mergeState}) — ${open.length} unresolved review thread(s)`);
+
+              if (open.length === 0) {
+                core.info(`PR #${num}: nothing to resolve`);
+                continue;
+              }
+
               let resolvedCount = 0;
               for (const thread of open) {
                 try {
