@@ -1,0 +1,32 @@
+{
+  "feature": "authenticated-remote-daemon",
+  "timestamp": "2026-09-01T06:01:58.179Z",
+  "gitRev": "0765fc6",
+  "command": "node tools/run-feature-tests.mjs authenticated-remote-daemon",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-1457": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-1458": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-1459": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-1460": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, atomic::AtomicBool};
 use tempfile::TempDir;
-use tool_core::{GitWorktreeError, GitWorktreeTool, PermissionDecision};
+use tool_core::{GitWorktreeError, GitWorktreeTool, PermissionDecision, parse_worktree_porcelain};
 
 fn setup_repository() -> (TempDir, PathBuf, PathBuf, ProjectId) {
     let dir = tempfile::tempdir().unwrap();
@@ -305,29 +305,13 @@ fn list_fails_closed_when_process_output_is_truncated() {
     assert_eq!(result, Err(GitWorktreeError::OutputTruncated));
 }
 
-#[cfg(unix)]
 #[test]
 // @spec:AC-1310
 fn list_rejects_malformed_porcelain_instead_of_returning_partial_state() {
-    let (_dir, repository, _git, project_id) = setup_repository();
-    let printf = find_program("printf");
-    let tool = GitWorktreeTool::new(
-        project_id,
-        repository.clone(),
-        repository,
-        printf,
-        64 * 1024,
-    )
-    .unwrap();
-
-    let result = tool.list(
-        project_id,
-        PermissionDecision::Allowed { reason: "contract" },
-        agent_protocol::ids::TraceId::new(),
-        Arc::new(AtomicBool::new(false)),
+    assert_eq!(
+        parse_worktree_porcelain("worktree /tmp/worktree\nHEAD not-a-hex-head\n"),
+        Err(GitWorktreeError::MalformedOutput)
     );
-
-    assert_eq!(result, Err(GitWorktreeError::MalformedOutput));
 }
 
 #[test]

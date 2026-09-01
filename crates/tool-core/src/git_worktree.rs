@@ -149,7 +149,7 @@ impl GitWorktreeTool {
         }
         Ok(GitWorktreeListResult {
             trace_id,
-            entries: parse_porcelain(&process.stdout)?,
+            entries: parse_worktree_porcelain(&process.stdout)?,
         })
     }
 
@@ -250,7 +250,10 @@ impl GitWorktreeTool {
     }
 }
 
-fn parse_porcelain(output: &str) -> Result<Vec<GitWorktreeListEntry>, GitWorktreeError> {
+/// Parses bounded `git worktree list --porcelain` output fail-closed.
+pub fn parse_worktree_porcelain(
+    output: &str,
+) -> Result<Vec<GitWorktreeListEntry>, GitWorktreeError> {
     let mut entries = Vec::new();
     let mut current: Option<GitWorktreeListEntry> = None;
 

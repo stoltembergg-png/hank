@@ -6,13 +6,16 @@ remoto antes de qualquer adapter de socket ou listener.
 ## Fluxo
 
 1. O adapter entrega uma `CredentialRef` opaca a um `PeerAuthenticator` injetado.
-2. A identidade autenticada precisa corresponder exatamente a peer/node no
+2. O protocol revision do `Handshake` é negociado contra as capacidades da policy;
+   versão desconhecida é rejeitada com `ProtocolNegotiationDenied`.
+3. A identidade autenticada precisa corresponder exatamente a peer/node no
    `Handshake` e ao binding peer/node/project da `DaemonPolicy`.
-3. Apenas então o daemon cria uma lease `Ready` bounded.
-4. Expiração, revogação e stop encerram a lease; chamadas repetidas permanecem
-   `Closed`.
-5. A auditoria registra peer/node/project, protocol revision e reason — nunca
-   segredo, token ou material de credencial.
+4. Apenas então o daemon cria uma lease `Ready` bounded com ID único.
+5. Expiração, revogação e stop encerram a lease exata pelo ID;
+   stale cleanup não pode fechar uma sessão substituta (retorna `StaleLease`).
+6. A auditoria bounded (max 256 eventos) registra peer/node/project, protocol revision,
+   reason e flag `authenticated` — nunca segredo, token ou material de credencial.
+   Tentativas de bootstrap rejeitadas também são registradas.
 
 ## Limites de segurança
 
