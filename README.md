@@ -30,12 +30,12 @@
 <!-- HANK_PLAN_PROGRESS:START -->
 ## Progresso do plano
 
-**Cobertura observada:** 375/414 IDs do plano têm PR mergeada · 91%
+**Cobertura observada:** 392/414 IDs do plano têm PR mergeada · 95%
 
-`██████████████████░░`
+`███████████████████░`
 
-- Última PR de trabalho mergeada: `#389 · 2026-08-31T07:52:25Z`
-- IDs do plano sem PR correspondente: `39 · primeira PR-010`
+- Última PR de trabalho mergeada: `#411 · 2026-09-01T21:57:36Z`
+- IDs do plano sem PR correspondente: `22 · primeira PR-010`
 - Próximo card sem correspondência: `PR-010`
 - PRs mergeadas sem card correspondente: `0`
 - Fonte: `.planning/queue/queue-*.md` e PRs mergeadas no GitHub.
