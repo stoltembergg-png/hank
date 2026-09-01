@@ -31,6 +31,9 @@ jobs:
       - name: Validate workflow integrity
         run: node --test tools/workflow-integrity.spec.mjs
 
+      - name: Validate automated reviewer policy
+        run: node --test tools/reviewer-policy-check.spec.mjs
+
       - name: Validate Dependabot configuration
         run: node --test tools/dependabot-config.spec.mjs
 

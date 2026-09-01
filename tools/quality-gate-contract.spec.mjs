@@ -9,6 +9,7 @@ const rustWorkflow = read('.github/workflows/build-rust.yml');
 const frontendWorkflow = read('.github/workflows/build-frontend.yml');
 const tauriWorkflow = read('.github/workflows/build-tauri.yml');
 const codeqlWorkflow = read('.github/workflows/codeql.yml');
+const qualityIntegrityWorkflow = read('.github/workflows/quality-integrity.yml');
 
 function assertCommand(workflow, command, file) {
   assert.match(workflow, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${file}: missing ${command}`);
@@ -45,4 +46,12 @@ test('CodeQL workflow is pinned, scoped, and fail-closed', () => {
   assert.match(codeqlWorkflow, /github\/codeql-action\/analyze@[0-9a-f]{40}/);
   assert.match(codeqlWorkflow, /matrix\.language == 'rust'/);
   assert.doesNotMatch(codeqlWorkflow, /continue-on-error\s*:\s*true/);
+});
+
+test('quality integrity validates the hardened automated reviewer policy', () => {
+  assertCommand(
+    qualityIntegrityWorkflow,
+    'node --test tools/reviewer-policy-check.spec.mjs',
+    'quality-integrity.yml',
+  );
 });
