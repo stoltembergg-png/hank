@@ -46,5 +46,8 @@ jobs:
       - name: Validate ADR structure
         run: node --test tools/adr-lint.spec.mjs && node tools/adr-lint.mjs
 
+      - name: Validate automated reviewer policy
+        run: node --test tools/reviewer-policy-check.spec.mjs
+
       - name: Validate quality gate contract
         run: node --test tools/quality-gate-contract.spec.mjs
