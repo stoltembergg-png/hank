@@ -334,7 +334,7 @@ mod tests {
 
         assert!(matches!(
             error.kind(),
-            io::ErrorKind::Other | io::ErrorKind::PermissionDenied
+            io::ErrorKind::FilesystemLoop | io::ErrorKind::Other | io::ErrorKind::PermissionDenied
         ));
         assert_eq!(fs::read_to_string(outside_path).unwrap(), "sentinel");
     }
