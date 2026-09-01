@@ -89,7 +89,13 @@ class WebDriverSession {
   async bodyText() { return this.text(await this.find('body')); }
   async screenshot(name) {
     const value = await this.request('GET', `/session/${this.sessionId}/screenshot`);
-    await fs.writeFile(path.join(diagnostics, `${name}.png`), Buffer.from(value, 'base64'));
+    const base = path.resolve(diagnostics);
+    const target = path.resolve(base, `${name}.png`);
+    const relative = path.relative(base, target);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new Error('Invalid file path');
+    }
+    await fs.writeFile(target, Buffer.from(value, 'base64'));
   }
   async waitForText(expected, timeout = 30_000) {
     const deadline = Date.now() + timeout;
