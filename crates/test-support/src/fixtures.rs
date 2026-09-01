@@ -3,13 +3,15 @@
 //! This module is dev-only support: it creates synthetic bounded data, records a
 //! manifest hash, and owns cleanup. It never reads production state or secrets.
 
+use crate::digest::fnv1a64;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::io::{self, Read, Write};
+use std::path::{Component, Path, PathBuf};
 
 const MAX_FIXTURE_ID_BYTES: usize = 128;
 const MAX_PAYLOAD_BYTES: usize = 64 * 1024;
+const MAX_SERIALIZED_FIXTURE_BYTES: usize = 256 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FixtureCase {
@@ -82,13 +84,35 @@ impl FixtureWorkspace {
         let hash = case.manifest_hash()?;
         let encoded = serde_json::to_vec_pretty(case)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        if encoded.len() > MAX_SERIALIZED_FIXTURE_BYTES {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "fixture file exceeds serialized size limit",
+            ));
+        }
         self.write_fixture_file(&path, &encoded)?;
         Ok(hash)
     }
 
     pub fn read(&self, id: &str) -> io::Result<FixtureCase> {
         let path = self.fixture_path(id)?;
-        let case: FixtureCase = serde_json::from_slice(&fs::read(path)?)
+        let file = open_fixture_file(&path)?;
+        if file.metadata()?.len() > MAX_SERIALIZED_FIXTURE_BYTES as u64 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "fixture file exceeds serialized size limit",
+            ));
+        }
+        let mut encoded = Vec::with_capacity(MAX_SERIALIZED_FIXTURE_BYTES.min(4096));
+        file.take((MAX_SERIALIZED_FIXTURE_BYTES + 1) as u64)
+            .read_to_end(&mut encoded)?;
+        if encoded.len() > MAX_SERIALIZED_FIXTURE_BYTES {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "fixture file exceeds serialized size limit",
+            ));
+        }
+        let case: FixtureCase = serde_json::from_slice(&encoded)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
         case.validate()?;
         Ok(case)
@@ -98,6 +122,16 @@ impl FixtureWorkspace {
         validate_fixture_id(id)?;
         let root = fs::canonicalize(&self.root)?;
         let path = root.join(format!("{id}.json"));
+        if path.parent() != Some(root.as_path())
+            || path
+                .components()
+                .any(|component| component == Component::ParentDir)
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "fixture path must remain inside workspace",
+            ));
+        }
 
         if fs::symlink_metadata(&path).is_ok() {
             let target = fs::canonicalize(&path)?;
@@ -127,13 +161,52 @@ impl Drop for FixtureWorkspace {
     }
 }
 
-fn fnv1a64(bytes: &[u8]) -> u64 {
-    let mut hash = 0xcbf29ce484222325;
-    for byte in bytes {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(0x100000001b3);
+fn open_fixture_file(path: &Path) -> io::Result<fs::File> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+
+        let result = fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(path);
+
+        // ELOOP is the correct per-spec error when O_NOFOLLOW rejects a
+        // symlink, but the ErrorKind stable mapping varies between Rust
+        // versions (FilesystemLoop in ≥1.83, Other in earlier).  Map it to
+        // a deterministic PermissionDenied so the contract test is stable.
+        if let Err(ref e) = result {
+            if e.raw_os_error() == Some(libc::ELOOP) {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "fixture path is a symlink",
+                ));
+            }
+        }
+        result
     }
-    hash
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0000_0400;
+        const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+            .open(path)?;
+        if file.metadata()?.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "fixture path is a reparse point",
+            ));
+        }
+        Ok(file)
+    }
+
+    #[cfg(not(any(unix, windows)))]
+    fs::File::open(path)
 }
 
 fn validate_fixture_id(id: &str) -> io::Result<()> {
@@ -198,6 +271,32 @@ mod tests {
     }
 
     #[test]
+    fn workspace_read_rejects_oversized_serialized_fixture() {
+        let directory = tempdir().unwrap();
+        let workspace = FixtureWorkspace::create(directory.path().join("fixtures")).unwrap();
+        let path = workspace.fixture_path("oversized").unwrap();
+        fs::write(&path, vec![b'x'; MAX_SERIALIZED_FIXTURE_BYTES + 1]).unwrap();
+
+        let error = workspace.read("oversized").unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn workspace_roundtrips_escape_heavy_fixture_with_serialized_bound() {
+        let directory = tempdir().unwrap();
+        let workspace = FixtureWorkspace::create(directory.path().join("fixtures")).unwrap();
+        let case =
+            FixtureCase::synthetic("escape-heavy", 1, 7, "\"\\".repeat(MAX_PAYLOAD_BYTES / 2))
+                .unwrap();
+
+        let hash = workspace.write(&case).unwrap();
+
+        assert_eq!(workspace.read("escape-heavy").unwrap(), case);
+        assert_eq!(hash, case.manifest_hash().unwrap());
+    }
+
+    #[test]
     fn workspace_open_does_not_truncate_existing_fixture() {
         let directory = tempdir().unwrap();
         let workspace = FixtureWorkspace::create(directory.path().join("fixtures")).unwrap();
@@ -231,6 +330,26 @@ mod tests {
         let error = workspace.write_fixture_file(&path, &encoded).unwrap_err();
 
         assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read_to_string(outside_path).unwrap(), "sentinel");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn workspace_read_does_not_follow_a_symlink() {
+        let directory = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let outside_path = outside.path().join("outside.json");
+        fs::write(&outside_path, "sentinel").unwrap();
+        let workspace = FixtureWorkspace::create(directory.path().join("fixtures")).unwrap();
+        let path = workspace.fixture_path("race-read").unwrap();
+        std::os::unix::fs::symlink(&outside_path, &path).unwrap();
+
+        let error = open_fixture_file(&path).unwrap_err();
+
+        assert!(matches!(
+            error.kind(),
+            io::ErrorKind::Other | io::ErrorKind::PermissionDenied
+        ));
         assert_eq!(fs::read_to_string(outside_path).unwrap(), "sentinel");
     }
 

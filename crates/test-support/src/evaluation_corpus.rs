@@ -25,6 +25,11 @@ const CORE_TRACE_SEED: u64 = 39_420;
 const CORE_SCORER_DIGEST: &str = "native-core-scorer-digest-v1";
 const CORE_POLICY_REVISION: &str = "native-eval-policy-v1";
 const CORE_SCHEMA_REVISION: &str = "native-eval-core-v1";
+pub const CORE_HEAD_SHA: &str = "sha-core-v1";
+pub const CORE_TREE_SHA: &str = "tree-core-v1";
+pub const CORE_POLICY_DIGEST: &str = "policy-digest-core-v1";
+pub const CORE_SCHEMA_DIGEST: &str = "schema-digest-core-v1";
+pub const CORE_ENVIRONMENT_DIGEST: &str = "environment-digest-core-offline-v1";
 const CORE_SUITE_ID: &str = "harness-core-v1";
 const CORE_PARTITION_REVISION: &str = "partition-v1";
 const CORE_MAX_EVENT_COUNT: u64 = 32;
@@ -61,6 +66,7 @@ impl CoreEvaluationFixture {
         self.fixture.validate()?;
         if self.case.fixture.fixture_id != self.fixture.id
             || self.case.fixture.fixture_revision != self.fixture.version.to_string()
+            || self.case.fixture.seed != self.fixture.seed
         {
             return Err(EvaluationCorpusError::InvalidFixtureBinding);
         }
@@ -391,12 +397,12 @@ fn evidence_for(
         .map(|requirement| requirement.digest.clone())
         .collect();
     EvaluationEvidence::new(
-        format!("sha-{}-v1", case.case_id),
-        format!("tree-{}-v1", case.case_id),
-        "policy-digest-core-v1",
-        "schema-digest-core-v1",
+        CORE_HEAD_SHA,
+        CORE_TREE_SHA,
+        CORE_POLICY_DIGEST,
+        CORE_SCHEMA_DIGEST,
         case.fixture.fixture_digest.clone(),
-        "environment-digest-core-offline-v1",
+        CORE_ENVIRONMENT_DIGEST,
         artifact_digests,
         status,
     )

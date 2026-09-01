@@ -41,3 +41,4 @@ venv/
 
 # Local linked worktrees
 .worktrees/
+.spec/verification/native-evaluation-runner.json
