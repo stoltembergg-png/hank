@@ -24,7 +24,15 @@ holdout, relabelar partições ou escolher somente os cenários favoráveis.
 - perdas de sucesso no training continuam sujeitas exclusivamente ao
   threshold de sucesso configurado;
 - o artifact requer revisão independente vinculada aos IDs e digests dos dois
-  runs. Reviewer e candidata não podem ser a mesma identidade;
+  runs e ao digest exato da policy. Reviewer e candidata não podem ser a
+  mesma identidade, e a revisão precisa de assinatura Ed25519 verificada por
+  uma chave pública injetada pelo Harness confiável;
+- `BenchmarkComparisonReport::validate()` verifica somente shape, corpus e
+  digest do payload. Um relatório desserializado só é evidência após
+  `BenchmarkComparison::verify_report()` recomputar o resultado contra os
+  runs exatos e verificar a assinatura;
+- thresholds têm limites bounded derivados dos limites do corpus; ainda
+  assim, a policy exata precisa estar coberta pela revisão assinada;
 - o relatório é versionado, bounded, redigido e protegido por digest
   determinístico.
 
@@ -40,11 +48,21 @@ let report = BenchmarkComparison::compare(
     "skill-candidate-v2",
     &baseline_run,
     &candidate_run,
-    &BenchmarkComparisonPolicy::default(),
+    &policy,
     Some(&independent_review),
+    &trusted_reviewer_verifier,
 )?;
-assert!(report.validate().is_ok());
+BenchmarkComparison::verify_report(
+    &report,
+    &baseline_run,
+    &candidate_run,
+    &trusted_reviewer_verifier,
+)?;
 ```
+
+`independent_review` deve ser emitida pelo serviço revisor com a chave
+privada correspondente ao `trusted_reviewer_verifier`; a chave privada não é
+armazenada no report nem no repositório.
 
 Runs candidatos são criados com `NativeEvaluationRun::from_reports`; a
 validação final continua sendo responsabilidade do comparador contra a suíte

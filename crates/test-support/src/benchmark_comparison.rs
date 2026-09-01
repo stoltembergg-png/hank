@@ -16,6 +16,7 @@ use crate::evaluation_runner::{
     NativeEvaluationEnvironment, NativeEvaluationRun, NativeEvaluationRunnerError,
     MAX_NATIVE_EVALUATION_CASES, NATIVE_EVALUATION_RUN_SCHEMA_VERSION,
 };
+use ring::signature::{Ed25519KeyPair, KeyPair, UnparsedPublicKey, ED25519};
 use serde::de::Error as DeError;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -26,6 +27,12 @@ pub const INDEPENDENT_REVIEW_SCHEMA_VERSION: u32 = 1;
 
 const MAX_IDENTIFIER_BYTES: usize = 128;
 const MAX_REVIEW_VERSION_BYTES: usize = 128;
+const ED25519_PUBLIC_KEY_BYTES: usize = 32;
+const ED25519_SIGNATURE_BYTES: usize = 64;
+const MAX_POLICY_VIOLATIONS_INCREASE: u64 = 32;
+const MAX_COST_INCREASE: u64 = 1_000_000;
+const MAX_LATENCY_INCREASE: u64 = 60_000;
+const MAX_FAILED_TOOL_CALLS_INCREASE: u64 = 32;
 const COMPARED_METRICS: [MetricName; 17] = [
     MetricName::Success,
     MetricName::TerminalState,
@@ -155,12 +162,23 @@ impl BenchmarkComparisonPolicy {
     fn validate(&self) -> Result<(), BenchmarkComparisonError> {
         validate_text(&self.revision, MAX_IDENTIFIER_BYTES)?;
         if self.max_success_regression as usize > MAX_NATIVE_EVALUATION_CASES
+            || self.max_policy_violations_increase > MAX_POLICY_VIOLATIONS_INCREASE
             || !self.max_evidence_quality_regression.is_finite()
             || !(0.0..=1.0).contains(&self.max_evidence_quality_regression)
+            || self.max_cost_increase > MAX_COST_INCREASE
+            || self.max_latency_increase > MAX_LATENCY_INCREASE
+            || self.max_failed_tool_calls_increase > MAX_FAILED_TOOL_CALLS_INCREASE
         {
             return Err(BenchmarkComparisonError::InvalidPolicy);
         }
         Ok(())
+    }
+
+    /// Stable identity of the exact policy contents. Reviewers sign this
+    /// digest so thresholds cannot be changed after review.
+    pub fn digest(&self) -> String {
+        let encoded = serde_json::to_vec(self).expect("benchmark policy is serializable");
+        format!("{:016x}", fnv1a64(&encoded))
     }
 }
 
@@ -181,38 +199,143 @@ pub struct IndependentReviewArtifact {
     pub candidate_id: String,
     pub baseline_run_digest: String,
     pub candidate_run_digest: String,
+    pub policy_digest: String,
     pub disposition: IndependentReviewDisposition,
+    pub signature: String,
     pub artifact_digest: String,
 }
 
-impl IndependentReviewArtifact {
-    pub fn new(
+/// Trusted review signer. Its private key must stay in the independent review
+/// service; consumers should pass only [`IndependentReviewVerifier`] to the
+/// comparison gate.
+pub struct IndependentReviewSigner {
+    reviewer_id: String,
+    reviewer_version: String,
+    key_pair: Ed25519KeyPair,
+}
+
+impl IndependentReviewSigner {
+    /// Creates a signer from an Ed25519 seed held by the trusted reviewer.
+    ///
+    /// The seed is never serialized into a review artifact.
+    pub fn from_seed(
         reviewer_id: impl Into<String>,
         reviewer_version: impl Into<String>,
+        seed: impl AsRef<[u8]>,
+    ) -> Result<Self, BenchmarkComparisonError> {
+        let reviewer_id = reviewer_id.into();
+        let reviewer_version = reviewer_version.into();
+        validate_reviewer_identity(&reviewer_id, &reviewer_version)?;
+        let key_pair = Ed25519KeyPair::from_seed_unchecked(seed.as_ref())
+            .map_err(|_| BenchmarkComparisonError::InvalidReview)?;
+        Ok(Self {
+            reviewer_id,
+            reviewer_version,
+            key_pair,
+        })
+    }
+
+    pub fn verifier(&self) -> IndependentReviewVerifier {
+        IndependentReviewVerifier {
+            reviewer_id: self.reviewer_id.clone(),
+            reviewer_version: self.reviewer_version.clone(),
+            public_key: self.key_pair.public_key().as_ref().to_vec(),
+        }
+    }
+
+    pub fn issue(
+        &self,
         baseline_id: impl Into<String>,
         candidate_id: impl Into<String>,
         baseline_run_digest: impl AsRef<str>,
         candidate_run_digest: impl AsRef<str>,
+        policy_digest: impl AsRef<str>,
         disposition: IndependentReviewDisposition,
-    ) -> Result<Self, BenchmarkComparisonError> {
-        let mut artifact = Self {
+    ) -> Result<IndependentReviewArtifact, BenchmarkComparisonError> {
+        let mut artifact = IndependentReviewArtifact {
             schema_version: INDEPENDENT_REVIEW_SCHEMA_VERSION,
-            reviewer_id: reviewer_id.into(),
-            reviewer_version: reviewer_version.into(),
+            reviewer_id: self.reviewer_id.clone(),
+            reviewer_version: self.reviewer_version.clone(),
             baseline_id: baseline_id.into(),
             candidate_id: candidate_id.into(),
             baseline_run_digest: baseline_run_digest.as_ref().to_owned(),
             candidate_run_digest: candidate_run_digest.as_ref().to_owned(),
+            policy_digest: policy_digest.as_ref().to_owned(),
             disposition,
+            signature: String::new(),
             artifact_digest: String::new(),
         };
         artifact.validate_identity()?;
+        artifact.signature = hex_encode(self.key_pair.sign(&artifact.signing_payload()).as_ref());
         artifact.artifact_digest = artifact.content_digest();
+        artifact.validate()?;
         Ok(artifact)
     }
+}
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndependentReviewVerifier {
+    reviewer_id: String,
+    reviewer_version: String,
+    public_key: Vec<u8>,
+}
+
+impl IndependentReviewVerifier {
+    pub fn new(
+        reviewer_id: impl Into<String>,
+        reviewer_version: impl Into<String>,
+        public_key: impl AsRef<[u8]>,
+    ) -> Result<Self, BenchmarkComparisonError> {
+        let reviewer_id = reviewer_id.into();
+        let reviewer_version = reviewer_version.into();
+        validate_reviewer_identity(&reviewer_id, &reviewer_version)?;
+        if public_key.as_ref().len() != ED25519_PUBLIC_KEY_BYTES {
+            return Err(BenchmarkComparisonError::InvalidReview);
+        }
+        Ok(Self {
+            reviewer_id,
+            reviewer_version,
+            public_key: public_key.as_ref().to_vec(),
+        })
+    }
+
+    fn verify_for(
+        &self,
+        artifact: &IndependentReviewArtifact,
+        baseline_id: &str,
+        candidate_id: &str,
+        baseline_run_digest: &str,
+        candidate_run_digest: &str,
+        policy_digest: &str,
+    ) -> Result<(), BenchmarkComparisonError> {
+        artifact.validate()?;
+        if artifact.reviewer_id != self.reviewer_id
+            || artifact.reviewer_version != self.reviewer_version
+        {
+            return Err(BenchmarkComparisonError::InvalidReview);
+        }
+        if artifact.baseline_id != baseline_id
+            || artifact.candidate_id != candidate_id
+            || artifact.baseline_run_digest != baseline_run_digest
+            || artifact.candidate_run_digest != candidate_run_digest
+            || artifact.policy_digest != policy_digest
+        {
+            return Err(BenchmarkComparisonError::ReviewTargetMismatch);
+        }
+        if artifact.disposition == IndependentReviewDisposition::Rejected {
+            return Err(BenchmarkComparisonError::ReviewRejected);
+        }
+        let signature = decode_hex(&artifact.signature, ED25519_SIGNATURE_BYTES)?;
+        UnparsedPublicKey::new(&ED25519, self.public_key.as_slice())
+            .verify(&artifact.signing_payload(), &signature)
+            .map_err(|_| BenchmarkComparisonError::InvalidReview)
+    }
+}
+
+impl IndependentReviewArtifact {
     pub fn validate(&self) -> Result<(), BenchmarkComparisonError> {
         self.validate_identity()?;
+        decode_hex(&self.signature, ED25519_SIGNATURE_BYTES)?;
         if self.artifact_digest.is_empty() || self.artifact_digest != self.content_digest() {
             return Err(BenchmarkComparisonError::InvalidDigest);
         }
@@ -229,6 +352,7 @@ impl IndependentReviewArtifact {
         validate_text(&self.candidate_id, MAX_IDENTIFIER_BYTES)?;
         validate_text(&self.baseline_run_digest, MAX_IDENTIFIER_BYTES)?;
         validate_text(&self.candidate_run_digest, MAX_IDENTIFIER_BYTES)?;
+        validate_text(&self.policy_digest, MAX_IDENTIFIER_BYTES)?;
         if self.baseline_id == self.candidate_id {
             return Err(BenchmarkComparisonError::InvalidInput);
         }
@@ -238,25 +362,11 @@ impl IndependentReviewArtifact {
         Ok(())
     }
 
-    fn validate_for(
-        &self,
-        baseline_id: &str,
-        candidate_id: &str,
-        baseline_run_digest: &str,
-        candidate_run_digest: &str,
-    ) -> Result<(), BenchmarkComparisonError> {
-        self.validate()?;
-        if self.baseline_id != baseline_id
-            || self.candidate_id != candidate_id
-            || self.baseline_run_digest != baseline_run_digest
-            || self.candidate_run_digest != candidate_run_digest
-        {
-            return Err(BenchmarkComparisonError::ReviewTargetMismatch);
-        }
-        if self.disposition == IndependentReviewDisposition::Rejected {
-            return Err(BenchmarkComparisonError::ReviewRejected);
-        }
-        Ok(())
+    fn signing_payload(&self) -> Vec<u8> {
+        let mut content = self.clone();
+        content.signature.clear();
+        content.artifact_digest.clear();
+        serde_json::to_vec(&content).expect("review artifact is serializable")
     }
 
     fn content_digest(&self) -> String {
@@ -265,6 +375,14 @@ impl IndependentReviewArtifact {
         let encoded = serde_json::to_vec(&content).expect("review artifact is serializable");
         format!("{:016x}", fnv1a64(&encoded))
     }
+}
+
+fn validate_reviewer_identity(
+    reviewer_id: &str,
+    reviewer_version: &str,
+) -> Result<(), BenchmarkComparisonError> {
+    validate_text(reviewer_id, MAX_IDENTIFIER_BYTES)?;
+    validate_text(reviewer_version, MAX_REVIEW_VERSION_BYTES)
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -390,7 +508,7 @@ pub enum BenchmarkComparisonStatus {
     Blocked,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct BenchmarkComparisonReport {
     pub schema_version: u32,
@@ -462,6 +580,12 @@ impl<'de> Deserialize<'de> for BenchmarkComparisonReport {
 }
 
 impl BenchmarkComparisonReport {
+    /// Validates the bounded, canonical shape and the report's own digest.
+    ///
+    /// This does not authenticate the reviewer or prove that the candidate
+    /// values came from the referenced runs. Call
+    /// [`BenchmarkComparison::verify_report`] before treating a deserialized
+    /// report as comparison evidence.
     pub fn validate(&self) -> Result<(), BenchmarkComparisonError> {
         self.validate_shape()?;
         if self.report_digest.is_empty() || self.report_digest != self.content_digest() {
@@ -488,6 +612,23 @@ impl BenchmarkComparisonReport {
         self.policy.validate()?;
         validate_environment(&self.baseline_environment)?;
         validate_environment(&self.candidate_environment)?;
+        if self.baseline_environment.policy_digest != self.candidate_environment.policy_digest
+            || self.baseline_environment.schema_digest != self.candidate_environment.schema_digest
+            || self.baseline_environment.environment_digest
+                != self.candidate_environment.environment_digest
+        {
+            return Err(BenchmarkComparisonError::IncomparableEnvironment);
+        }
+        let corpus = core_evaluation_corpus().map_err(BenchmarkComparisonError::CanonicalCorpus)?;
+        if self.suite_id != corpus[0].case.holdout.suite_id {
+            return Err(BenchmarkComparisonError::SuiteMismatch);
+        }
+        let canonical_environment =
+            NativeEvaluationEnvironment::from_evidence(&corpus[0].baseline.evidence)
+                .map_err(|_| BenchmarkComparisonError::IncomparableEnvironment)?;
+        if self.baseline_environment != canonical_environment {
+            return Err(BenchmarkComparisonError::IncomparableEnvironment);
+        }
         self.training.validate()?;
         self.holdout.validate()?;
         if self.training.partition != HoldoutPartition::Training
@@ -527,11 +668,21 @@ impl BenchmarkComparisonReport {
         if self.status != expected_status {
             return Err(BenchmarkComparisonError::InvalidInput);
         }
-        self.independent_review.validate_for(
-            &self.baseline_id,
-            &self.candidate_id,
-            &self.baseline_run_digest,
-            &self.candidate_run_digest,
+        self.independent_review.validate()?;
+        if self.independent_review.policy_digest != self.policy.digest() {
+            return Err(BenchmarkComparisonError::ReviewTargetMismatch);
+        }
+        validate_partition_shape(
+            &self.training,
+            HoldoutPartition::Training,
+            &corpus,
+            &self.policy,
+        )?;
+        validate_partition_shape(
+            &self.holdout,
+            HoldoutPartition::Holdout,
+            &corpus,
+            &self.policy,
         )?;
         Ok(())
     }
@@ -547,6 +698,30 @@ impl BenchmarkComparisonReport {
 pub struct BenchmarkComparison;
 
 impl BenchmarkComparison {
+    /// Recomputes a serialized report from the exact source runs and verifies
+    /// its independent review signature before accepting it as evidence.
+    pub fn verify_report(
+        report: &BenchmarkComparisonReport,
+        baseline: &NativeEvaluationRun,
+        candidate: &NativeEvaluationRun,
+        review_verifier: &IndependentReviewVerifier,
+    ) -> Result<(), BenchmarkComparisonError> {
+        report.validate()?;
+        let expected = Self::compare(
+            &report.baseline_id,
+            &report.candidate_id,
+            baseline,
+            candidate,
+            &report.policy,
+            Some(&report.independent_review),
+            review_verifier,
+        )?;
+        if expected != *report {
+            return Err(BenchmarkComparisonError::InvalidInput);
+        }
+        Ok(())
+    }
+
     pub fn compare(
         baseline_id: impl Into<String>,
         candidate_id: impl Into<String>,
@@ -554,6 +729,7 @@ impl BenchmarkComparison {
         candidate: &NativeEvaluationRun,
         policy: &BenchmarkComparisonPolicy,
         independent_review: Option<&IndependentReviewArtifact>,
+        review_verifier: &IndependentReviewVerifier,
     ) -> Result<BenchmarkComparisonReport, BenchmarkComparisonError> {
         let baseline_id = baseline_id.into();
         let candidate_id = candidate_id.into();
@@ -602,11 +778,13 @@ impl BenchmarkComparison {
         let candidate_reports = index_reports(candidate, "candidate", &corpus)?;
         validate_run_digest(baseline)?;
         validate_run_digest(candidate)?;
-        review.validate_for(
+        review_verifier.verify_for(
+            review,
             &baseline_id,
             &candidate_id,
             &baseline.run_digest,
             &candidate.run_digest,
+            &policy.digest(),
         )?;
 
         for entry in &corpus {
@@ -759,6 +937,89 @@ fn index_reports<'a>(
     Ok(indexed)
 }
 
+fn validate_partition_shape(
+    summary: &BenchmarkPartitionSummary,
+    partition: HoldoutPartition,
+    corpus: &[CoreEvaluationFixture],
+    policy: &BenchmarkComparisonPolicy,
+) -> Result<(), BenchmarkComparisonError> {
+    let entries = corpus
+        .iter()
+        .filter(|entry| entry.case.holdout.partition == partition)
+        .collect::<Vec<_>>();
+    if summary.case_count as usize != entries.len()
+        || summary.deltas.len() != entries.len() * COMPARED_METRICS.len()
+    {
+        return Err(BenchmarkComparisonError::InvalidInput);
+    }
+
+    let mut seen = BTreeSet::new();
+    for delta in &summary.deltas {
+        let entry = entries
+            .iter()
+            .find(|entry| entry.case.case_id == delta.case_id)
+            .ok_or_else(|| BenchmarkComparisonError::UnknownCase {
+                side: "report".into(),
+                case_id: delta.case_id.clone(),
+            })?;
+        let key = (delta.case_id.clone(), delta.metric);
+        if !seen.insert(key) {
+            return Err(BenchmarkComparisonError::InvalidInput);
+        }
+        let expected_baseline = metric_value(&entry.baseline, delta.metric).ok_or_else(|| {
+            BenchmarkComparisonError::InconsistentMetric {
+                side: "canonical-baseline".into(),
+                case_id: delta.case_id.clone(),
+            }
+        })?;
+        if delta.baseline != expected_baseline {
+            return Err(BenchmarkComparisonError::BaselineMismatch {
+                case_id: delta.case_id.clone(),
+            });
+        }
+        let expected = build_delta_from_values(
+            &delta.case_id,
+            partition,
+            delta.metric,
+            delta.baseline.clone(),
+            delta.candidate.clone(),
+            policy,
+        )?;
+        if expected.delta != delta.delta || expected.regressed != delta.regressed {
+            return Err(BenchmarkComparisonError::InvalidInput);
+        }
+    }
+
+    for entry in entries {
+        for metric in COMPARED_METRICS {
+            if !seen.contains(&(entry.case.case_id.clone(), metric)) {
+                return Err(BenchmarkComparisonError::InvalidInput);
+            }
+        }
+    }
+
+    let baseline_successes = summary
+        .deltas
+        .iter()
+        .filter(|delta| {
+            delta.metric == MetricName::Success && delta.baseline == MetricValue::Boolean(true)
+        })
+        .count() as u32;
+    let candidate_successes = summary
+        .deltas
+        .iter()
+        .filter(|delta| {
+            delta.metric == MetricName::Success && delta.candidate == MetricValue::Boolean(true)
+        })
+        .count() as u32;
+    if summary.baseline_successes != baseline_successes
+        || summary.candidate_successes != candidate_successes
+    {
+        return Err(BenchmarkComparisonError::InvalidInput);
+    }
+    Ok(())
+}
+
 fn validate_report(
     report: &BaselineReport,
     case: &crate::evaluation::EvaluationCase,
@@ -883,6 +1144,24 @@ fn build_delta(
             case_id: case_id.into(),
         }
     })?;
+    build_delta_from_values(
+        case_id,
+        partition,
+        metric,
+        baseline_value,
+        candidate_value,
+        policy,
+    )
+}
+
+fn build_delta_from_values(
+    case_id: &str,
+    partition: HoldoutPartition,
+    metric: MetricName,
+    baseline_value: MetricValue,
+    candidate_value: MetricValue,
+    policy: &BenchmarkComparisonPolicy,
+) -> Result<BenchmarkMetricDelta, BenchmarkComparisonError> {
     let (delta, regressed) = match (&baseline_value, &candidate_value, metric) {
         (MetricValue::Boolean(base), MetricValue::Boolean(next), MetricName::Success) => {
             (i32::from(*next) as f64 - i32::from(*base) as f64, false)
@@ -990,4 +1269,38 @@ fn validate_text(value: &str, max_bytes: usize) -> Result<(), BenchmarkCompariso
         return Err(BenchmarkComparisonError::InvalidInput);
     }
     Ok(())
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        encoded.push(HEX[(byte >> 4) as usize] as char);
+        encoded.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    encoded
+}
+
+fn decode_hex(value: &str, expected_bytes: usize) -> Result<Vec<u8>, BenchmarkComparisonError> {
+    if value.len() != expected_bytes * 2 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(BenchmarkComparisonError::InvalidReview);
+    }
+    value
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            let high = hex_digit(pair[0]).ok_or(BenchmarkComparisonError::InvalidReview)?;
+            let low = hex_digit(pair[1]).ok_or(BenchmarkComparisonError::InvalidReview)?;
+            Ok((high << 4) | low)
+        })
+        .collect()
+}
+
+fn hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
 }

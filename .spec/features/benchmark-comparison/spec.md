@@ -57,9 +57,13 @@ revisão independente e a um schema versionado.
 #### AC-1494 — Revisão ausente, autoaprovação ou schema desconhecido não passam
 
 - **Dado** revisão ausente, reviewer igual à candidata ou payload com campo
-  desconhecido/digest adulterado.
+  desconhecido/digest adulterado, assinatura inválida ou policy diferente da
+  policy revisada.
 - **Quando** o artifact é validado.
-- **Então** a validação rejeita o artifact sem conceder autoridade.
+- **Então** a validação rejeita o artifact sem conceder autoridade; a
+  assinatura Ed25519 deve ser verificada por uma chave pública confiável e um
+  report desserializado só passa como evidência depois de ser recomputado
+  contra os runs exatos.
 
 ## Fora de escopo
 
@@ -81,5 +85,6 @@ Nenhuma.
 O comparador nativo aceita somente runs bounded e canônicos, deriva o split
 training/holdout, valida identidade compartilhada, reporta deltas e
 regressões por métrica, exige revisão independente, rejeita subset/drift/
-autoaprovação/schema desconhecido e passa nos testes focais e no verify/audit
-ONP sem ativar qualquer candidata.
+autoaprovação/schema desconhecido, limita thresholds, exige revisão assinada,
+revalida reports contra os runs-fonte exatos e passa nos testes focais e no
+verify/audit ONP sem ativar qualquer candidata.

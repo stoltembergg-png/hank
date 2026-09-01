@@ -9,7 +9,8 @@
   `crates/test-support/src/evaluation_runner.rs`,
   `crates/test-support/tests/benchmark_comparison.rs`
 - Resultado: comparator canônico com deltas training/holdout, thresholds,
-  identidade de runs e artifact de revisão independente.
+  identidade de runs, policy bounded e artifact de revisão independente
+  assinado/verificável.
 
 ## T-1492 — Integrar contrato ONP e runbook [concluida]
 
@@ -18,3 +19,5 @@
   `test/aggregate-runner-native-boundary.js`,
   `docs/benchmark-comparison.md`
 - Resultado: verify/audit da feature e documentação operacional bounded.
+  Reports desserializados permanecem não confiáveis até a verificação contra
+  runs-fonte exatos.

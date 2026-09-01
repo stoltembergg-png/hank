@@ -2275,6 +2275,7 @@ dependencies = [
  "cargo_metadata",
  "libc",
  "petgraph",
+ "ring",
  "serde",
  "serde_json",
  "tempfile",

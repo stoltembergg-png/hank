@@ -2,6 +2,7 @@ use tempfile::tempdir;
 use test_support::benchmark_comparison::{
     BenchmarkComparison, BenchmarkComparisonError, BenchmarkComparisonPolicy,
     BenchmarkComparisonStatus, IndependentReviewArtifact, IndependentReviewDisposition,
+    IndependentReviewSigner, IndependentReviewVerifier,
 };
 use test_support::evaluation::{
     BaselineReport, EvaluationEvidence, EvaluationEvidenceStatus, EvaluationTerminal, MetricName,
@@ -15,6 +16,12 @@ use test_support::fixtures::FixtureWorkspace;
 
 const BASELINE_ID: &str = "skill-baseline-v1";
 const CANDIDATE_ID: &str = "skill-candidate-v2";
+const REVIEWER_SEED: [u8; 32] = [7; 32];
+
+struct ReviewFixture {
+    artifact: IndependentReviewArtifact,
+    verifier: IndependentReviewVerifier,
+}
 
 fn baseline_run() -> (NativeEvaluationRun, Vec<CoreEvaluationFixture>) {
     let corpus = core_evaluation_corpus().unwrap();
@@ -79,20 +86,35 @@ fn candidate_run(
     .unwrap()
 }
 
-fn review(
+fn review(baseline: &NativeEvaluationRun, candidate: &NativeEvaluationRun) -> ReviewFixture {
+    review_for_policy(baseline, candidate, &BenchmarkComparisonPolicy::default())
+}
+
+fn review_for_policy(
     baseline: &NativeEvaluationRun,
     candidate: &NativeEvaluationRun,
-) -> IndependentReviewArtifact {
-    IndependentReviewArtifact::new(
+    policy: &BenchmarkComparisonPolicy,
+) -> ReviewFixture {
+    let signer = IndependentReviewSigner::from_seed(
         "reviewer-independent-v1",
         "reviewer-tool-v1",
-        BASELINE_ID,
-        CANDIDATE_ID,
-        &baseline.run_digest,
-        &candidate.run_digest,
-        IndependentReviewDisposition::Reviewed,
+        REVIEWER_SEED,
     )
-    .unwrap()
+    .unwrap();
+    let artifact = signer
+        .issue(
+            BASELINE_ID,
+            CANDIDATE_ID,
+            &baseline.run_digest,
+            &candidate.run_digest,
+            policy.digest(),
+            IndependentReviewDisposition::Reviewed,
+        )
+        .unwrap();
+    ReviewFixture {
+        artifact,
+        verifier: signer.verifier(),
+    }
 }
 
 fn set_count(metrics: &mut [MetricObservation], name: MetricName, value: u64) {
@@ -137,6 +159,7 @@ fn set_terminal(metrics: &mut [MetricObservation], terminal: EvaluationTerminal)
 fn comparable_baseline_and_candidate_produce_training_holdout_deltas() {
     let (baseline, corpus) = baseline_run();
     let candidate = candidate_run(&baseline, &corpus, |_case_id, _metrics, _terminal| {});
+    let policy = BenchmarkComparisonPolicy::default();
     let review = review(&baseline, &candidate);
 
     let report = BenchmarkComparison::compare(
@@ -144,8 +167,9 @@ fn comparable_baseline_and_candidate_produce_training_holdout_deltas() {
         CANDIDATE_ID,
         &baseline,
         &candidate,
-        &BenchmarkComparisonPolicy::default(),
-        Some(&review),
+        &policy,
+        Some(&review.artifact),
+        &review.verifier,
     )
     .unwrap();
 
@@ -172,6 +196,7 @@ fn holdout_regression_blocks_even_when_training_improves() {
             set_terminal(metrics, EvaluationTerminal::Pass);
         }
     });
+    let policy = BenchmarkComparisonPolicy::default();
     let review = review(&baseline, &candidate);
 
     let report = BenchmarkComparison::compare(
@@ -179,8 +204,9 @@ fn holdout_regression_blocks_even_when_training_improves() {
         CANDIDATE_ID,
         &baseline,
         &candidate,
-        &BenchmarkComparisonPolicy::default(),
-        Some(&review),
+        &policy,
+        Some(&review.artifact),
+        &review.verifier,
     )
     .unwrap();
 
@@ -203,9 +229,9 @@ fn training_success_regression_within_threshold_is_allowed() {
             set_terminal(metrics, EvaluationTerminal::Fail);
         }
     });
-    let review = review(&baseline, &candidate);
     let policy =
         BenchmarkComparisonPolicy::new("benchmark-policy-success-v1", 1, 0, 0.0, 0, 0, 0).unwrap();
+    let review = review_for_policy(&baseline, &candidate, &policy);
 
     let report = BenchmarkComparison::compare(
         BASELINE_ID,
@@ -213,7 +239,8 @@ fn training_success_regression_within_threshold_is_allowed() {
         &baseline,
         &candidate,
         &policy,
-        Some(&review),
+        Some(&review.artifact),
+        &review.verifier,
     )
     .unwrap();
 
@@ -232,6 +259,7 @@ fn declared_tool_and_resource_metrics_are_compared() {
             set_count(metrics, MetricName::ExternalSideEffectAttempts, 1);
         }
     });
+    let policy = BenchmarkComparisonPolicy::default();
     let review = review(&baseline, &candidate);
 
     let report = BenchmarkComparison::compare(
@@ -239,8 +267,9 @@ fn declared_tool_and_resource_metrics_are_compared() {
         CANDIDATE_ID,
         &baseline,
         &candidate,
-        &BenchmarkComparisonPolicy::default(),
-        Some(&review),
+        &policy,
+        Some(&review.artifact),
+        &review.verifier,
     )
     .unwrap();
 
@@ -263,30 +292,32 @@ fn configured_cost_threshold_is_applied_without_hiding_other_deltas() {
             set_count(metrics, MetricName::Cost, 1_050);
         }
     });
-    let review = review(&baseline, &candidate);
-
     let permissive =
         BenchmarkComparisonPolicy::new("benchmark-policy-cost-v1", 0, 0, 0.0, 100, 0, 0).unwrap();
+    let permissive_review = review_for_policy(&baseline, &candidate, &permissive);
     let report = BenchmarkComparison::compare(
         BASELINE_ID,
         CANDIDATE_ID,
         &baseline,
         &candidate,
         &permissive,
-        Some(&review),
+        Some(&permissive_review.artifact),
+        &permissive_review.verifier,
     )
     .unwrap();
     assert_eq!(report.status, BenchmarkComparisonStatus::Pass);
 
     let strict =
         BenchmarkComparisonPolicy::new("benchmark-policy-cost-v1", 0, 0, 0.0, 49, 0, 0).unwrap();
+    let strict_review = review_for_policy(&baseline, &candidate, &strict);
     let report = BenchmarkComparison::compare(
         BASELINE_ID,
         CANDIDATE_ID,
         &baseline,
         &candidate,
         &strict,
-        Some(&review),
+        Some(&strict_review.artifact),
+        &strict_review.verifier,
     )
     .unwrap();
     assert_eq!(report.status, BenchmarkComparisonStatus::Regression);
@@ -302,6 +333,7 @@ fn partial_or_self_selected_benchmark_is_rejected() {
     let (baseline, corpus) = baseline_run();
     let mut candidate = candidate_run(&baseline, &corpus, |_case_id, _metrics, _terminal| {});
     candidate.reports.pop();
+    let policy = BenchmarkComparisonPolicy::default();
     let review = review(&baseline, &candidate);
 
     let error = BenchmarkComparison::compare(
@@ -309,8 +341,9 @@ fn partial_or_self_selected_benchmark_is_rejected() {
         CANDIDATE_ID,
         &baseline,
         &candidate,
-        &BenchmarkComparisonPolicy::default(),
-        Some(&review),
+        &policy,
+        Some(&review.artifact),
+        &review.verifier,
     )
     .unwrap_err();
 
@@ -326,6 +359,7 @@ fn policy_or_environment_drift_is_incomparable() {
     let (baseline, corpus) = baseline_run();
     let mut candidate = candidate_run(&baseline, &corpus, |_case_id, _metrics, _terminal| {});
     candidate.environment.policy_digest = "policy-digest-different-v1".into();
+    let policy = BenchmarkComparisonPolicy::default();
     let review = review(&baseline, &candidate);
 
     let error = BenchmarkComparison::compare(
@@ -333,8 +367,9 @@ fn policy_or_environment_drift_is_incomparable() {
         CANDIDATE_ID,
         &baseline,
         &candidate,
-        &BenchmarkComparisonPolicy::default(),
-        Some(&review),
+        &policy,
+        Some(&review.artifact),
+        &review.verifier,
     )
     .unwrap_err();
 
@@ -349,14 +384,17 @@ fn policy_or_environment_drift_is_incomparable() {
 fn missing_review_and_unknown_schema_fail_closed() {
     let (baseline, corpus) = baseline_run();
     let candidate = candidate_run(&baseline, &corpus, |_case_id, _metrics, _terminal| {});
+    let policy = BenchmarkComparisonPolicy::default();
+    let review = review(&baseline, &candidate);
 
     let error = BenchmarkComparison::compare(
         BASELINE_ID,
         CANDIDATE_ID,
         &baseline,
         &candidate,
-        &BenchmarkComparisonPolicy::default(),
+        &policy,
         None,
+        &review.verifier,
     )
     .unwrap_err();
     assert!(matches!(
@@ -364,14 +402,14 @@ fn missing_review_and_unknown_schema_fail_closed() {
         BenchmarkComparisonError::MissingIndependentReview
     ));
 
-    let review = review(&baseline, &candidate);
     let report = BenchmarkComparison::compare(
         BASELINE_ID,
         CANDIDATE_ID,
         &baseline,
         &candidate,
-        &BenchmarkComparisonPolicy::default(),
-        Some(&review),
+        &policy,
+        Some(&review.artifact),
+        &review.verifier,
     )
     .unwrap();
     let mut encoded = serde_json::to_value(&report).unwrap();
@@ -392,18 +430,122 @@ fn missing_review_and_unknown_schema_fail_closed() {
         .is_err()
     );
 
-    let self_review = IndependentReviewArtifact::new(
-        CANDIDATE_ID,
-        "reviewer-tool-v1",
+    let self_signer =
+        IndependentReviewSigner::from_seed(CANDIDATE_ID, "reviewer-tool-v1", [8; 32]).unwrap();
+    let self_error = self_signer
+        .issue(
+            BASELINE_ID,
+            CANDIDATE_ID,
+            &baseline.run_digest,
+            &candidate.run_digest,
+            policy.digest(),
+            IndependentReviewDisposition::Reviewed,
+        )
+        .unwrap_err();
+    assert!(matches!(self_error, BenchmarkComparisonError::SelfApproval));
+}
+
+// @spec:AC-1494
+#[test]
+fn review_must_be_authenticated_by_the_trusted_verifier() {
+    let (baseline, corpus) = baseline_run();
+    let candidate = candidate_run(&baseline, &corpus, |_case_id, _metrics, _terminal| {});
+    let policy = BenchmarkComparisonPolicy::default();
+    let review = review_for_policy(&baseline, &candidate, &policy);
+    let other_signer =
+        IndependentReviewSigner::from_seed("reviewer-other-v1", "reviewer-tool-v1", [9; 32])
+            .unwrap();
+
+    let error = BenchmarkComparison::compare(
         BASELINE_ID,
         CANDIDATE_ID,
-        &baseline.run_digest,
-        &candidate.run_digest,
-        IndependentReviewDisposition::Reviewed,
+        &baseline,
+        &candidate,
+        &policy,
+        Some(&review.artifact),
+        &other_signer.verifier(),
+    )
+    .unwrap_err();
+
+    assert!(matches!(error, BenchmarkComparisonError::InvalidReview));
+}
+
+// @spec:AC-1492
+#[test]
+fn policy_thresholds_are_bounded_and_bound_to_the_review() {
+    let error = BenchmarkComparisonPolicy::new(
+        "benchmark-policy-unbounded-v1",
+        u32::MAX,
+        u64::MAX,
+        1.0,
+        u64::MAX,
+        u64::MAX,
+        u64::MAX,
+    )
+    .unwrap_err();
+    assert!(matches!(error, BenchmarkComparisonError::InvalidPolicy));
+
+    let (baseline, corpus) = baseline_run();
+    let candidate = candidate_run(&baseline, &corpus, |_case_id, _metrics, _terminal| {});
+    let reviewed_policy = BenchmarkComparisonPolicy::default();
+    let review = review_for_policy(&baseline, &candidate, &reviewed_policy);
+    let unreviewed_policy =
+        BenchmarkComparisonPolicy::new("benchmark-policy-unreviewed-v1", 0, 0, 0.0, 1, 0, 0)
+            .unwrap();
+
+    let error = BenchmarkComparison::compare(
+        BASELINE_ID,
+        CANDIDATE_ID,
+        &baseline,
+        &candidate,
+        &unreviewed_policy,
+        Some(&review.artifact),
+        &review.verifier,
     )
     .unwrap_err();
     assert!(matches!(
-        self_review,
-        BenchmarkComparisonError::SelfApproval
+        error,
+        BenchmarkComparisonError::ReviewTargetMismatch
     ));
+}
+
+// @spec:AC-1491
+#[test]
+fn serialized_report_requires_exact_source_runs_for_trust() {
+    let (baseline, corpus) = baseline_run();
+    let candidate = candidate_run(&baseline, &corpus, |_case_id, _metrics, _terminal| {});
+    let policy = BenchmarkComparisonPolicy::default();
+    let review = review_for_policy(&baseline, &candidate, &policy);
+    let report = BenchmarkComparison::compare(
+        BASELINE_ID,
+        CANDIDATE_ID,
+        &baseline,
+        &candidate,
+        &policy,
+        Some(&review.artifact),
+        &review.verifier,
+    )
+    .unwrap();
+    let decoded = serde_json::from_value::<
+        test_support::benchmark_comparison::BenchmarkComparisonReport,
+    >(serde_json::to_value(&report).unwrap())
+    .unwrap();
+    assert!(decoded.validate().is_ok());
+
+    let altered_candidate = candidate_run(&baseline, &corpus, |case_id, metrics, _terminal| {
+        if case_id == "core-rust_bug" {
+            set_count(metrics, MetricName::Tokens, 513);
+        }
+    });
+    assert!(BenchmarkComparison::verify_report(
+        &decoded,
+        &baseline,
+        &altered_candidate,
+        &review.verifier,
+    )
+    .is_err());
+    assert!(
+        BenchmarkComparison::verify_report(&decoded, &baseline, &candidate, &review.verifier,)
+            .is_ok()
+    );
 }
