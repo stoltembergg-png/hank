@@ -298,13 +298,25 @@ impl SkillValidationService {
 
     /// Verifies that a previously generated passing report still describes
     /// this exact candidate before a lifecycle mutation is allowed.
+    ///
+    /// This function authenticates the validation report by verifying that:
+    /// 1. The report's policy_digest matches the authoritative policy
+    /// 2. The report's budget_digest matches the authoritative budget
+    /// 3. The report's content_digest matches the candidate
+    /// 4. The report_digest is correctly computed from all fields
+    ///
+    /// This prevents an attacker from forging a validation report with
+    /// arbitrary policy and budget values.
     pub fn report_is_approved(
         candidate: &ParsedSkill,
         project_id: ProjectId,
         skill_id: SkillId,
         version: &str,
         report: &SkillValidationReport,
+        authoritative_policy: &SkillValidationPolicy,
+        authoritative_budget: &BudgetLimits,
     ) -> bool {
+        // Verify basic report structure and identity
         if report.schema_version != SKILL_VALIDATION_SCHEMA_VERSION
             || report.status != SkillValidationStatus::Passed
             || !report.quarantine_reasons.is_empty()
@@ -318,13 +330,31 @@ impl SkillValidationService {
             || candidate.provenance.trace_id != report.trace_id
             || report.trace_id.as_uuid().is_nil()
             || report.rules.len() != 10
-            || report.content_digest != digest_json(candidate)
             || !is_digest(&report.policy_digest)
             || !is_digest(&report.budget_digest)
             || !report.test_digest.as_deref().is_some_and(is_digest)
         {
             return false;
         }
+
+        // Verify the report was validated against the authoritative policy and budget
+        // by comparing the digests. This prevents an attacker from forging a report
+        // with arbitrary policy/budget values.
+        let authoritative_policy_digest = digest_json(authoritative_policy);
+        let authoritative_budget_digest = digest_json(authoritative_budget);
+        if report.policy_digest != authoritative_policy_digest
+            || report.budget_digest != authoritative_budget_digest
+        {
+            return false;
+        }
+
+        // Verify the content digest matches the candidate
+        let candidate_content_digest = digest_json(candidate);
+        if report.content_digest != candidate_content_digest {
+            return false;
+        }
+
+        // Verify the report_digest is correctly computed from all fields
         let expected_digest = digest_json(&ReportFingerprint {
             schema_version: report.schema_version,
             project_id: report.project_id,

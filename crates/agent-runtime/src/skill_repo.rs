@@ -469,6 +469,7 @@ impl SqliteSkillRepository {
     /// Promotes the current immutable version through an explicit lifecycle
     /// operation. The method never rewrites the artifact or moves the head to
     /// an unrequested version.
+    #[allow(clippy::too_many_arguments)]
     pub async fn promote(
         &self,
         scope: SkillScope,
@@ -477,6 +478,8 @@ impl SqliteSkillRepository {
         version: &str,
         expected_revision: u64,
         validation: &SkillValidationReport,
+        authoritative_policy: &crate::skill_validation::SkillValidationPolicy,
+        authoritative_budget: &agent_core::BudgetLimits,
     ) -> Result<SkillRecord, DomainError> {
         let namespace = namespace(scope, project_id)?;
         let Some(current) = self.get_current_by_namespace(&namespace, skill_id).await? else {
@@ -502,6 +505,8 @@ impl SqliteSkillRepository {
             *skill_id,
             version,
             validation,
+            authoritative_policy,
+            authoritative_budget,
         ) {
             return Err(DomainError::PermissionDenied {
                 capability: "skill.activate".into(),
@@ -623,6 +628,7 @@ impl SqliteSkillRepository {
         Ok(record)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn rollback(
         &self,
         scope: SkillScope,
@@ -631,6 +637,8 @@ impl SqliteSkillRepository {
         target_version: &str,
         expected_revision: u64,
         validation: &SkillValidationReport,
+        authoritative_policy: &crate::skill_validation::SkillValidationPolicy,
+        authoritative_budget: &agent_core::BudgetLimits,
     ) -> Result<SkillRecord, DomainError> {
         let namespace = namespace(scope, project_id)?;
         let Some(current) = self.get_current_by_namespace(&namespace, skill_id).await? else {
@@ -668,6 +676,8 @@ impl SqliteSkillRepository {
             *skill_id,
             target_version,
             validation,
+            authoritative_policy,
+            authoritative_budget,
         ) {
             return Err(DomainError::PermissionDenied {
                 capability: "skill.activate".into(),

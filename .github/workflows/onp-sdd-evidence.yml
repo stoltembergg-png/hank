@@ -456,6 +456,9 @@ jobs:
       - name: Verify runtime transport
         run: node tools/ci/run-onp-spec.mjs verify runtime-transport
 
+      - name: Verify remote protocol
+        run: node tools/ci/run-onp-spec.mjs verify remote-protocol
+
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node
 

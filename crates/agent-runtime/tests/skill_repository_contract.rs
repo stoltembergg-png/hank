@@ -102,6 +102,18 @@ fn validation_report(parsed: &ParsedSkill, project_id: ProjectId) -> SkillValida
     validation
 }
 
+fn validation_policy(project_id: ProjectId) -> SkillValidationPolicy {
+    let capability =
+        Capability::new(Resource::Skill, Action::Read).with_scope(project_id.to_string());
+    SkillValidationPolicy {
+        allowed_capabilities: CapabilitySet::new().insert(capability),
+    }
+}
+
+fn validation_budget() -> BudgetLimits {
+    BudgetLimits::default()
+}
+
 #[tokio::test]
 async fn migration_is_idempotent_and_repository_is_project_scoped() {
     let (repo, project, other_project) = repository().await;
@@ -246,6 +258,8 @@ async fn archive_and_rollback_change_head_state_but_preserve_history() {
             "1.1.0",
             updated.revision,
             &validation_report(&updated.parsed, second_project),
+            &validation_policy(second_project),
+            &validation_budget(),
         )
         .await
         .unwrap();
@@ -270,6 +284,8 @@ async fn archive_and_rollback_change_head_state_but_preserve_history() {
                     .parsed,
                 second_project,
             ),
+            &validation_policy(second_project),
+            &validation_budget(),
         )
         .await
         .unwrap();

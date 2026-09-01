@@ -93,6 +93,18 @@ fn validation_report(parsed: &ParsedSkill, project_id: ProjectId) -> SkillValida
     validation
 }
 
+fn validation_policy(project_id: ProjectId) -> SkillValidationPolicy {
+    let capability =
+        Capability::new(Resource::Skill, Action::Read).with_scope(project_id.to_string());
+    SkillValidationPolicy {
+        allowed_capabilities: CapabilitySet::new().insert(capability),
+    }
+}
+
+fn validation_budget() -> BudgetLimits {
+    BudgetLimits::default()
+}
+
 #[tokio::test]
 async fn versions_expose_immutable_identity_parent_and_compatibility() {
     let (repo, project) = repository().await;
@@ -177,6 +189,8 @@ async fn incompatible_versions_cannot_be_activated_and_promotion_is_explicit() {
             "1.1.0",
             testing.revision,
             &validation_report(&testing.parsed, project),
+            &validation_policy(project),
+            &validation_budget(),
         )
         .await
         .unwrap();
@@ -220,6 +234,8 @@ async fn incompatible_versions_cannot_be_activated_and_promotion_is_explicit() {
             "2.0.0",
             incompatible_record.revision,
             &validation_report(&incompatible_record.parsed, project),
+            &validation_policy(project),
+            &validation_budget(),
         )
         .await
         .is_err());
@@ -243,6 +259,8 @@ async fn rollback_restores_pinned_version_without_rewriting_history() {
             "1.1.0",
             second_record.revision,
             &validation_report(&second_record.parsed, project),
+            &validation_policy(project),
+            &validation_budget(),
         )
         .await
         .unwrap();
@@ -267,6 +285,8 @@ async fn rollback_restores_pinned_version_without_rewriting_history() {
                     .parsed,
                 project,
             ),
+            &validation_policy(project),
+            &validation_budget(),
         )
         .await
         .unwrap();
