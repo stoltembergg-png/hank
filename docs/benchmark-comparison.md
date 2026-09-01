@@ -14,10 +14,15 @@ holdout, relabelar partições ou escolher somente os cenários favoráveis.
 - todos os reports são validados contra os mesmos cases canônicos, fixtures,
   scorer, modelo, orçamento, timeout, autoridade e efeitos permitidos;
 - a baseline precisa ser byte-equivalente ao baseline congelado do corpus;
-- `success`, `terminal_state`, `policy_violations`, `evidence_quality`,
-  `cost`, `latency_ms` e `failed_tool_calls` geram deltas por case e partição;
-- thresholds excedidos, terminal alterado, subset ausente ou identidade
-  incomparável falham fechado ou produzem `Regression` explícita;
+- todas as 17 métricas declaradas pelo schema (`success`, estado terminal,
+  qualidade, ferramentas, segurança, custo, latência, memória e seleção)
+  geram deltas por case e partição; thresholds específicos continuam sendo
+  aplicados a sucesso, violações de policy, evidência, custo, latência e
+  falhas de ferramenta;
+- thresholds excedidos e mudanças de terminal no holdout, subset ausente ou
+  identidade incomparável falham fechado ou produzem `Regression` explícita;
+- perdas de sucesso no training continuam sujeitas exclusivamente ao
+  threshold de sucesso configurado;
 - o artifact requer revisão independente vinculada aos IDs e digests dos dois
   runs. Reviewer e candidata não podem ser a mesma identidade;
 - o relatório é versionado, bounded, redigido e protegido por digest

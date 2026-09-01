@@ -23,19 +23,31 @@ use thiserror::Error;
 
 pub const BENCHMARK_COMPARISON_SCHEMA_VERSION: u32 = 1;
 pub const INDEPENDENT_REVIEW_SCHEMA_VERSION: u32 = 1;
-pub const MAX_BENCHMARK_COMPARISON_DELTAS: usize = MAX_NATIVE_EVALUATION_CASES * 8;
 
 const MAX_IDENTIFIER_BYTES: usize = 128;
 const MAX_REVIEW_VERSION_BYTES: usize = 128;
-const COMPARED_METRICS: [MetricName; 7] = [
+const COMPARED_METRICS: [MetricName; 17] = [
     MetricName::Success,
     MetricName::TerminalState,
-    MetricName::PolicyViolations,
-    MetricName::EvidenceQuality,
+    MetricName::TestsPassing,
+    MetricName::ToolCalls,
+    MetricName::FailedToolCalls,
+    MetricName::Retries,
+    MetricName::Tokens,
     MetricName::Cost,
     MetricName::LatencyMs,
-    MetricName::FailedToolCalls,
+    MetricName::HumanIntervention,
+    MetricName::EvidenceQuality,
+    MetricName::PolicyViolations,
+    MetricName::ContextMisses,
+    MetricName::MemoryHits,
+    MetricName::EvidenceConflicts,
+    MetricName::SkillSelection,
+    MetricName::ExternalSideEffectAttempts,
 ];
+
+pub const MAX_BENCHMARK_COMPARISON_DELTAS: usize =
+    MAX_NATIVE_EVALUATION_CASES * COMPARED_METRICS.len();
 
 #[derive(Debug, Error)]
 pub enum BenchmarkComparisonError {
@@ -274,7 +286,7 @@ impl BenchmarkMetricDelta {
             return Err(BenchmarkComparisonError::InvalidInput);
         }
         match self.metric {
-            MetricName::Success => {
+            MetricName::Success | MetricName::HumanIntervention => {
                 if !matches!(
                     (&self.baseline, &self.candidate),
                     (MetricValue::Boolean(_), MetricValue::Boolean(_))
@@ -282,7 +294,7 @@ impl BenchmarkMetricDelta {
                     return Err(BenchmarkComparisonError::InvalidInput);
                 }
             }
-            MetricName::TerminalState => {
+            MetricName::TerminalState | MetricName::SkillSelection => {
                 if !matches!(
                     (&self.baseline, &self.candidate),
                     (MetricValue::Category(_), MetricValue::Category(_))
@@ -306,7 +318,17 @@ impl BenchmarkMetricDelta {
                     return Err(BenchmarkComparisonError::InvalidInput);
                 }
             }
-            MetricName::PolicyViolations | MetricName::Cost | MetricName::FailedToolCalls => {
+            MetricName::TestsPassing
+            | MetricName::ToolCalls
+            | MetricName::FailedToolCalls
+            | MetricName::Retries
+            | MetricName::Tokens
+            | MetricName::Cost
+            | MetricName::PolicyViolations
+            | MetricName::ContextMisses
+            | MetricName::MemoryHits
+            | MetricName::EvidenceConflicts
+            | MetricName::ExternalSideEffectAttempts => {
                 if !matches!(
                     (&self.baseline, &self.candidate),
                     (MetricValue::Count(_), MetricValue::Count(_))
@@ -314,7 +336,6 @@ impl BenchmarkMetricDelta {
                     return Err(BenchmarkComparisonError::InvalidInput);
                 }
             }
-            _ => return Err(BenchmarkComparisonError::InvalidInput),
         }
         Ok(())
     }
@@ -866,9 +887,32 @@ fn build_delta(
         (MetricValue::Boolean(base), MetricValue::Boolean(next), MetricName::Success) => {
             (i32::from(*next) as f64 - i32::from(*base) as f64, false)
         }
+        (MetricValue::Boolean(base), MetricValue::Boolean(next), MetricName::HumanIntervention) => {
+            (
+                i32::from(*next) as f64 - i32::from(*base) as f64,
+                base != next,
+            )
+        }
         (MetricValue::Category(base), MetricValue::Category(next), MetricName::TerminalState) => {
+            (0.0, partition == HoldoutPartition::Holdout && base != next)
+        }
+        (MetricValue::Category(base), MetricValue::Category(next), MetricName::SkillSelection) => {
             (0.0, base != next)
         }
+        (MetricValue::Count(base), MetricValue::Count(next), MetricName::TestsPassing)
+        | (MetricValue::Count(base), MetricValue::Count(next), MetricName::MemoryHits) => {
+            (*next as f64 - *base as f64, next < base)
+        }
+        (
+            MetricValue::Count(base),
+            MetricValue::Count(next),
+            MetricName::ToolCalls
+            | MetricName::Retries
+            | MetricName::Tokens
+            | MetricName::ContextMisses
+            | MetricName::EvidenceConflicts
+            | MetricName::ExternalSideEffectAttempts,
+        ) => (*next as f64 - *base as f64, next > base),
         (MetricValue::Count(base), MetricValue::Count(next), MetricName::PolicyViolations) => (
             *next as f64 - *base as f64,
             *next > base.saturating_add(policy.max_policy_violations_increase),

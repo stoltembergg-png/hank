@@ -153,8 +153,8 @@ fn comparable_baseline_and_candidate_produce_training_holdout_deltas() {
     assert_eq!(report.training.case_count, 4);
     assert_eq!(report.holdout.case_count, 2);
     assert_eq!(report.regressions.len(), 0);
-    assert_eq!(report.training.deltas.len(), 28);
-    assert_eq!(report.holdout.deltas.len(), 14);
+    assert_eq!(report.training.deltas.len(), 68);
+    assert_eq!(report.holdout.deltas.len(), 34);
     assert!(!report.report_digest.is_empty());
 }
 
@@ -190,6 +190,68 @@ fn holdout_regression_blocks_even_when_training_improves() {
         .regressions
         .iter()
         .any(|delta| delta.case_id == "core-unsafe_operation"));
+}
+
+// @spec:AC-1492
+#[test]
+fn training_success_regression_within_threshold_is_allowed() {
+    let (baseline, corpus) = baseline_run();
+    let candidate = candidate_run(&baseline, &corpus, |case_id, metrics, terminal| {
+        if case_id == "core-rust_bug" {
+            *terminal = EvaluationTerminal::Fail;
+            set_success(metrics, false);
+            set_terminal(metrics, EvaluationTerminal::Fail);
+        }
+    });
+    let review = review(&baseline, &candidate);
+    let policy =
+        BenchmarkComparisonPolicy::new("benchmark-policy-success-v1", 1, 0, 0.0, 0, 0, 0).unwrap();
+
+    let report = BenchmarkComparison::compare(
+        BASELINE_ID,
+        CANDIDATE_ID,
+        &baseline,
+        &candidate,
+        &policy,
+        Some(&review),
+    )
+    .unwrap();
+
+    assert_eq!(report.status, BenchmarkComparisonStatus::Pass);
+    assert_eq!(report.training.regression_count, 0);
+    assert_eq!(report.holdout.regression_count, 0);
+}
+
+// @spec:AC-1492
+#[test]
+fn declared_tool_and_resource_metrics_are_compared() {
+    let (baseline, corpus) = baseline_run();
+    let candidate = candidate_run(&baseline, &corpus, |case_id, metrics, _terminal| {
+        if case_id == "core-rust_bug" {
+            set_count(metrics, MetricName::Tokens, 513);
+            set_count(metrics, MetricName::ExternalSideEffectAttempts, 1);
+        }
+    });
+    let review = review(&baseline, &candidate);
+
+    let report = BenchmarkComparison::compare(
+        BASELINE_ID,
+        CANDIDATE_ID,
+        &baseline,
+        &candidate,
+        &BenchmarkComparisonPolicy::default(),
+        Some(&review),
+    )
+    .unwrap();
+
+    assert_eq!(report.status, BenchmarkComparisonStatus::Regression);
+    assert!(report
+        .regressions
+        .iter()
+        .any(|delta| { delta.case_id == "core-rust_bug" && delta.metric == MetricName::Tokens }));
+    assert!(report.regressions.iter().any(|delta| {
+        delta.case_id == "core-rust_bug" && delta.metric == MetricName::ExternalSideEffectAttempts
+    }));
 }
 
 // @spec:AC-1492
