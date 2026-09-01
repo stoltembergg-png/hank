@@ -1,0 +1,119 @@
+name: Resolve review threads on green checks
+
+on:
+  check_run:
+    types: [completed]
+  status:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: resolve-review-threads-${{ github.event.pull_request.number || github.event.check_run.head_sha || github.event.sha }}
+  cancel-in-progress: true
+
+jobs:
+  resolve:
+    name: Resolve review threads
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Resolve review threads when checks are green
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Resolve the pull request number: from the pull_request event, or
+            // by looking up open PRs that contain the check_run/status commit.
+            let prNumber;
+            if (context.payload.pull_request) {
+              prNumber = context.payload.pull_request.number;
+            } else if (context.payload.check_run) {
+              const sha = context.payload.check_run.head_sha;
+              const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                owner, repo, commit_sha: sha,
+              });
+              prNumber = prs.find((p) => p.state === 'open')?.number;
+            } else if (context.payload.sha) {
+              // `status` event: sha of the commit whose status changed
+              const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                owner, repo, commit_sha: context.payload.sha,
+              });
+              prNumber = prs.find((p) => p.state === 'open')?.number;
+            }
+            if (!prNumber) {
+              console.log('No open pull request associated — skipping');
+              return;
+            }
+            console.log(`Evaluating PR #${prNumber}`);
+
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            if (pr.state !== 'open') {
+              console.log(`PR #${prNumber} is ${pr.state} — skipping`);
+              return;
+            }
+            const headSha = pr.head.sha;
+
+            // Gather every check run and commit status on the exact head SHA.
+            const runs = await github.paginate(github.rest.checks.listForRef, {
+              owner, repo, ref: headSha,
+            });
+            const { data: status } = await github.rest.repos.getCombinedStatusForRef({
+              owner, repo, ref: headSha,
+            });
+
+            const notGreen = [];
+            for (const run of runs) {
+              if (run.status !== 'completed' ||
+                  ['failure', 'cancelled', 'timed_out', 'action_required'].includes(run.conclusion)) {
+                notGreen.push(`check ${run.name}: ${run.conclusion || run.status}`);
+              }
+            }
+            for (const s of status.statuses || []) {
+              if (['pending', 'failure', 'error'].includes(s.state)) {
+                notGreen.push(`status ${s.context}: ${s.state}`);
+              }
+            }
+            if (['pending', 'failure'].includes(status.state)) {
+              notGreen.push(`combined: ${status.state}`);
+            }
+
+            if (notGreen.length > 0) {
+              console.log('Checks are not all green yet — skipping resolve:');
+              notGreen.forEach((x) => console.log(`  ${x}`));
+              return;
+            }
+            console.log(`All checks are green for PR #${prNumber} — resolving review threads`);
+
+            const threadsQuery = `
+              query($owner: String!, $repo: String!, $pr: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $pr) {
+                    reviewThreads(first: 100) {
+                      nodes { id isResolved }
+                    }
+                  }
+                }
+              }`;
+            const { repository: { pullRequest: { reviewThreads } } } = await github.graphql(threadsQuery, {
+              owner, repo, pr: prNumber,
+            });
+            const open = reviewThreads.nodes.filter((t) => !t.isResolved);
+            console.log(`${open.length} unresolved review thread(s)`);
+
+            const resolveMutation = `
+              mutation($id: ID!) {
+                resolveReviewThread(input: { threadId: $id }) {
+                  thread { id isResolved }
+                }
+              }`;
+            for (const thread of open) {
+              await github.graphql(resolveMutation, { id: thread.id });
+              console.log(`resolved ${thread.id}`);
+            }
