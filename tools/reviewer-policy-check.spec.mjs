@@ -50,15 +50,11 @@ test('accepts the hardened CodeRabbit reviewer configuration', () => {
 });
 
 test('accepts the repository CodeRabbit reviewer configuration', () => {
-  try {
-    const result = spawnSync(process.execPath, [checker, repositoryConfig], {
-      encoding: 'utf8',
-    });
-    assert.equal(result.status, 0, result.stderr);
-  } catch (error) {
-    // Repository config may not exist on base branch; this is acceptable
-    console.log('Repository .coderabbit.yaml not found, skipping');
-  }
+  const result = spawnSync(process.execPath, [checker, repositoryConfig], {
+    encoding: 'utf8',
+  });
+  // The repository MUST have a valid .coderabbit.yaml at the protected branch
+  assert.equal(result.status, 0, `Repository .coderabbit.yaml validation failed: ${result.stderr}`);
 });
 
 test('rejects a configuration that disables automatic CodeRabbit review', () => {

@@ -18,7 +18,7 @@ function assertCommand(workflow, command, file) {
 function assertJobStepRun(workflow, jobName, expectedRunSubstring, file) {
   const escaped = expectedRunSubstring.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const stepRegex = new RegExp(
-    '- name: ' + jobName + '[\\s\\S]*?run:\\s*' + escaped
+    '- name: ' + jobName + '[\\s\\S]*?run:\\s*' + escaped + '(?=\\n\\s*- name:|\\n\\s*$)'
   );
   assert.match(workflow, stepRegex, `${file}: job ${jobName} missing run containing "${expectedRunSubstring}"`);
 }

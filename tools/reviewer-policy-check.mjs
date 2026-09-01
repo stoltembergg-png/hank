@@ -51,26 +51,22 @@ function parseYaml(source) {
     // or a block scalar indicator
     if (value === '' || value === '|') {
       // Look ahead to see if next non-empty, non-comment line has greater indent
-      let isBlockScalar = false;
+      let isBlockScalar = value === '|';
       let isMapping = false;
 
-      for (let j = i + 1; j < lines.length; j++) {
-        const nextRaw = lines[j];
-        const nextTrimmed = nextRaw.trim();
-        const nextIndent = nextRaw.length - nextRaw.trimStart().length;
+      if (value !== '|') {
+        for (let j = i + 1; j < lines.length; j++) {
+          const nextRaw = lines[j];
+          const nextTrimmed = nextRaw.trim();
+          const nextIndent = nextRaw.length - nextRaw.trimStart().length;
 
-        if (nextTrimmed === '' || nextTrimmed.startsWith('#')) continue;
+          if (nextTrimmed === '' || nextTrimmed.startsWith('#')) continue;
 
-        if (nextIndent > indent) {
-          // Could be mapping or block scalar
-          // If it contains a colon, it's a mapping
-          if (nextTrimmed.includes(':')) {
+          if (nextIndent > indent && nextTrimmed.includes(':')) {
             isMapping = true;
-          } else if (value === '|') {
-            isBlockScalar = true;
           }
+          break;
         }
-        break;
       }
 
       if (isBlockScalar) {
@@ -108,7 +104,8 @@ function getAtPath(obj, path) {
   const parts = path.split('.');
   let current = obj;
   for (const part of parts) {
-    if (current === null || current === undefined || typeof current !== 'object') {
+    if (current === null || current === undefined || typeof current !== 'object' ||
+        !Object.prototype.hasOwnProperty.call(current, part)) {
       return undefined;
     }
     current = current[part];
