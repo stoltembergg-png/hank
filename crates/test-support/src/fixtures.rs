@@ -166,10 +166,24 @@ fn open_fixture_file(path: &Path) -> io::Result<fs::File> {
     {
         use std::os::unix::fs::OpenOptionsExt;
 
-        return fs::OpenOptions::new()
+        let result = fs::OpenOptions::new()
             .read(true)
             .custom_flags(libc::O_NOFOLLOW)
             .open(path);
+
+        // ELOOP is the correct per-spec error when O_NOFOLLOW rejects a
+        // symlink, but the ErrorKind stable mapping varies between Rust
+        // versions (FilesystemLoop in ≥1.83, Other in earlier).  Map it to
+        // a deterministic PermissionDenied so the contract test is stable.
+        if let Err(ref e) = result {
+            if e.raw_os_error() == Some(libc::ELOOP) {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "fixture path is a symlink",
+                ));
+            }
+        }
+        result
     }
 
     #[cfg(windows)]
