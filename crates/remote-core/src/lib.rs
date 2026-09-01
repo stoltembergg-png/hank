@@ -149,6 +149,7 @@ struct ActiveSession {
 struct DaemonState {
     active: Option<ActiveSession>,
     next_lease_id: u64,
+    last_closed_lease_id: Option<u64>,
     audit: VecDeque<DaemonAuditEvent>,
 }
 
@@ -167,6 +168,7 @@ impl<A: PeerAuthenticator> AuthenticatedDaemon<A> {
             state: Mutex::new(DaemonState {
                 active: None,
                 next_lease_id: 1,
+                last_closed_lease_id: None,
                 audit: VecDeque::with_capacity(MAX_AUDIT_EVENTS),
             }),
         }
@@ -275,8 +277,11 @@ impl<A: PeerAuthenticator> AuthenticatedDaemon<A> {
             .lock()
             .map_err(|_| DaemonError::StateUnavailable)?;
         let Some(active) = state.active.as_ref() else {
-            // Already closed — idempotent per AC-1459.
-            return Ok(DaemonSessionState::Closed);
+            // Idempotent only for the lease that was actually closed.
+            if state.last_closed_lease_id == Some(lease_id) {
+                return Ok(DaemonSessionState::Closed);
+            }
+            return Err(DaemonError::StaleLease);
         };
         if active.id != lease_id {
             return Err(DaemonError::StaleLease);
@@ -316,8 +321,11 @@ impl<A: PeerAuthenticator> AuthenticatedDaemon<A> {
             .lock()
             .map_err(|_| DaemonError::StateUnavailable)?;
         let Some(active) = state.active.as_ref() else {
-            // Already closed — idempotent per AC-1459.
-            return Ok(DaemonSessionState::Closed);
+            // Idempotent only for the lease that was actually closed.
+            if state.last_closed_lease_id == Some(lease_id) {
+                return Ok(DaemonSessionState::Closed);
+            }
+            return Err(DaemonError::StaleLease);
         };
         if active.id != lease_id {
             return Err(DaemonError::StaleLease);
@@ -364,6 +372,7 @@ fn close_expired(state: &mut DaemonState, now_ms: u64) {
 
 fn close_active(state: &mut DaemonState, reason: DaemonAuditReason) {
     if let Some(active) = state.active.take() {
+        state.last_closed_lease_id = Some(active.id);
         push_audit(state, event_from_active(&active, reason));
     }
 }
