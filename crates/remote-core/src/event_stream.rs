@@ -354,6 +354,16 @@ impl<'a, A: PeerAuthenticator> EventStream<'a, A> {
             .map(|s| s.buffer.len())
             .unwrap_or_default()
     }
+
+    /// Total retained byte capacity of all buffered payloads (observability).
+    /// After capacity normalization this equals the total logical bytes, making
+    /// it a reliable memory-bound metric.
+    pub fn retained_capacity(&self) -> usize {
+        self.state
+            .lock()
+            .map(|s| s.buffer.iter().map(|e| e.payload.capacity()).sum::<usize>())
+            .unwrap_or_default()
+    }
 }
 
 /// Deterministic sensitive-material markers. Any payload containing one of
