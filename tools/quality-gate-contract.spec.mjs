@@ -72,6 +72,8 @@ function runBody(lines, runEntry, end) {
     body.push(line.trim());
   }
 
+  if (runEntry.value.startsWith('>')) return [body.join(' ').trim()];
+
   const executable = [];
   let heredocDelimiter;
   for (const line of body) {
@@ -113,22 +115,31 @@ function executableRunCommands(workflow, workflowJobName, stepName) {
     const runIndentation = stepIndentation + 2;
     let inStep = false;
     let currentStepName;
+    let currentStepRuns = [];
     const commands = [];
+    const flushStep = () => {
+      if (stepName === undefined || currentStepName === stepName) {
+        for (const runEntry of currentStepRuns) commands.push(...runBody(lines, runEntry, steps.end));
+      }
+      currentStepName = undefined;
+      currentStepRuns = [];
+    };
 
     for (let index = steps.start; index < steps.end; index += 1) {
       const line = lines[index];
       const indentation = line.length - line.trimStart().length;
       if (indentation === stepIndentation && /^\s*-(?:\s|$)/.test(line)) {
+        if (inStep) flushStep();
         inStep = true;
         const inlineName = new RegExp(`^\\s*-\\s+name:\\s*(.*)$`).exec(line);
         currentStepName = inlineName?.[1].trim().replace(/^(['"])(.*)\1$/, '$2');
         const inlineRun = new RegExp(`^\\s*-\\s+run:\\s*(.*)$`).exec(line);
-        if (inlineRun && (stepName === undefined || currentStepName === stepName)) {
-          commands.push(...runBody(lines, {
+        if (inlineRun) {
+          currentStepRuns.push({
             index,
             indentation: runIndentation,
             value: inlineRun[1].trim(),
-          }, steps.end));
+          });
         }
         continue;
       }
@@ -139,11 +150,9 @@ function executableRunCommands(workflow, workflowJobName, stepName) {
         currentStepName = entry.value.replace(/^(['"])(.*)\1$/, '$2');
         continue;
       }
-      if (entry?.indentation === runIndentation && entry.name === 'run' &&
-          (stepName === undefined || currentStepName === stepName)) {
-        commands.push(...runBody(lines, entry, steps.end));
-      }
+      if (entry?.indentation === runIndentation && entry.name === 'run') currentStepRuns.push(entry);
     }
+    if (inStep) flushStep();
 
     return commands;
   });
@@ -270,7 +279,7 @@ test('workflow contract recognizes block-scalar indicators with inline comments'
       - run: | # preserve the multiline command
           node --test tools/reviewer-policy-check.spec.mjs
       - run: >2 # preserve the folded command
-          node --test tools/reviewer-policy-check.spec.mjs
+          node --test tools/quality-gate-contract.spec.mjs
 `;
 
   assertCommand(
@@ -278,6 +287,50 @@ test('workflow contract recognizes block-scalar indicators with inline comments'
     'node --test tools/reviewer-policy-check.spec.mjs',
     'fixture.yml',
     'integrity',
+  );
+  assertCommand(
+    commentedIndicatorWorkflow,
+    'node --test tools/quality-gate-contract.spec.mjs',
+    'fixture.yml',
+    'integrity',
+  );
+});
+
+test('workflow contract does not treat folded run lines as independent commands', () => {
+  const foldedCommandWorkflow = `jobs:
+  integrity:
+    steps:
+      - name: Validate automated reviewer policy
+        run: >
+          echo disabled
+          node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assert.throws(
+    () => assertJobStepRun(
+      foldedCommandWorkflow,
+      'Validate automated reviewer policy',
+      'node --test tools/reviewer-policy-check.spec.mjs',
+      'fixture.yml',
+    ),
+    /fixture\.yml: job Validate automated reviewer policy missing run containing/,
+  );
+});
+
+test('workflow contract associates run commands when run appears before name', () => {
+  const runBeforeNameWorkflow = `jobs:
+  integrity:
+    steps:
+      - id: reviewer
+        run: node --test tools/reviewer-policy-check.spec.mjs
+        name: Validate automated reviewer policy
+`;
+
+  assertJobStepRun(
+    runBeforeNameWorkflow,
+    'Validate automated reviewer policy',
+    'node --test tools/reviewer-policy-check.spec.mjs',
+    'fixture.yml',
   );
 });
 

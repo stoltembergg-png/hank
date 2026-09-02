@@ -24,6 +24,18 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify checked revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          expected_tree="$(git ls-tree "$EXPECTED_SHA")"
+          actual_tree="$(git ls-tree HEAD)"
+          test "$actual_sha" = "$EXPECTED_SHA"
+          test "$actual_tree" = "$expected_tree"
 
       - name: Run Actionlint
         run: bash tools/ci/run-actionlint.sh

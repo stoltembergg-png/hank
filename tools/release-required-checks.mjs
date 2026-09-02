@@ -90,7 +90,8 @@ export function readRulesetRequiredChecks(snapshot, expectedIdentity) {
   const checks = parameters.required_status_checks;
   if (!Array.isArray(checks) || !checks.length) throw new Error('ruleset has no required checks');
   if (checks.some((check) => typeof check?.context !== 'string' || !check.context.trim() ||
-      !Number.isInteger(check.integration_id) || check.integration_id <= 0)) {
+      (check.integration_id !== null &&
+       (!Number.isInteger(check.integration_id) || check.integration_id <= 0)))) {
     throw new Error('ruleset required checks contain incomplete entries');
   }
   const names = checks.map((check) => check.context);
