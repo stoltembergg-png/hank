@@ -72,7 +72,10 @@ test('AC-626: prerelease derives required checks from manifest and active rulese
   const manifest = JSON.parse(readFileSync('.github/required-checks.json', 'utf8'));
   const activeRules = JSON.parse(readFileSync('.github/required-checks.json', 'utf8'));
   const names = readRequiredChecks(manifest);
-  assert.equal(names.length, 11);
+    assert.equal(names.length, 14);
+    assert.ok(names.includes('CodeRabbit'));
+    assert.ok(names.includes('Aikido Security: check code'));
+    assert.ok(names.includes('Aikido Security: Deep Review'));
   assert.match(workflow, /rules\/branches\/main/);
   assert.match(workflow, /\.github\/required-checks\.json/);
   assert.match(workflow, /release-required-checks\.mjs validate/);
