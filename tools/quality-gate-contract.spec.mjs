@@ -9,9 +9,20 @@ const rustWorkflow = read('.github/workflows/build-rust.yml');
 const frontendWorkflow = read('.github/workflows/build-frontend.yml');
 const tauriWorkflow = read('.github/workflows/build-tauri.yml');
 const codeqlWorkflow = read('.github/workflows/codeql.yml');
+const qualityIntegrityWorkflow = read('.github/workflows/quality-integrity.yml');
 
 function assertCommand(workflow, command, file) {
-  assert.match(workflow, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${file}: missing ${command}`);
+  const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  assert.match(workflow, new RegExp(escaped), `${file}: missing ${command}`);
+}
+
+function assertJobStepRun(workflow, jobName, expectedRunSubstring, file) {
+  const escaped = expectedRunSubstring.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Match from step name to its run, without crossing another step boundary
+  const stepRegex = new RegExp(
+    '- name: ' + jobName + '(?:(?!\\n\\s*- name:)[\\s\\S])*?run:\\s*' + escaped + '(?=\\n\\s*- name:|\\n\\s*$)'
+  );
+  assert.match(workflow, stepRegex, `${file}: job ${jobName} missing run containing "${expectedRunSubstring}"`);
 }
 
 test('Rust workflow has fail-closed quality commands', () => {
@@ -39,10 +50,51 @@ test('Tauri workflow retains native check, format, and acceptance gates', () => 
 
 test('CodeQL workflow is pinned, scoped, and fail-closed', () => {
   assert.match(codeqlWorkflow, /security-events:\s*write/);
-  assert.match(codeqlWorkflow, /languages:\s*\$\{\{ matrix\.language \}\}/);
+  assert.match(codeqlWorkflow, /languages:\s*\$\{\{\s*matrix\.language\s*\}\}/);
   assert.match(codeqlWorkflow, /github\/codeql-action\/init@[0-9a-f]{40}/);
   assert.match(codeqlWorkflow, /github\/codeql-action\/autobuild@[0-9a-f]{40}/);
   assert.match(codeqlWorkflow, /github\/codeql-action\/analyze@[0-9a-f]{40}/);
   assert.match(codeqlWorkflow, /matrix\.language == 'rust'/);
   assert.doesNotMatch(codeqlWorkflow, /continue-on-error\s*:\s*true/);
+});
+
+test('quality integrity validates the hardened automated reviewer policy', () => {
+  assertJobStepRun(
+    qualityIntegrityWorkflow,
+    'Validate automated reviewer policy',
+    'node --test tools/reviewer-policy-check.spec.mjs',
+    'quality-integrity.yml',
+  );
+});
+
+// Negative test: assertJobStepRun should NOT match when the named step
+// lacks the run field but a later step contains the command
+test('assertJobStepRun rejects workflow where named step lacks run but later step has it', () => {
+  const maliciousWorkflow = `name: Quality integrity
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  integrity:
+    name: Quality integrity
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate automated reviewer policy
+        # Missing run field
+        run: echo "no checker here"
+
+      - name: Validate quality gate contract
+        run: node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assert.throws(() => {
+    assertJobStepRun(
+      maliciousWorkflow,
+      'Validate automated reviewer policy',
+      'node --test tools/reviewer-policy-check.spec.mjs',
+      'quality-integrity.yml',
+    );
+  }, /job Validate automated reviewer policy missing run containing/);
 });
