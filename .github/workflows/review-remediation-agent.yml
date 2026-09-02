@@ -427,16 +427,29 @@ jobs:
           branch="$(node -e "const value=require('./publish.json'); process.stdout.write(String(value.branch || ''))")"
           base="$(node -e "const value=require('./publish.json'); process.stdout.write(String(value.base || ''))")"
           pull_request="$(node -e "const value=require('./publish.json'); process.stdout.write(String(value.pullRequest || ''))")"
-          existing_pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$GITHUB_REPOSITORY_OWNER:$branch" --state open --json number --jq '.[0].number // empty')"
+          find_existing_pr() {
+            local open_prs invalid_pr
+            open_prs="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$GITHUB_REPOSITORY_OWNER:$branch" --state open --json number,headRefName,baseRefName,isDraft)"
+            invalid_pr="$(jq -r --arg branch "$branch" --arg base "$base" '[.[] | select(.headRefName == $branch and (.baseRefName != $base or .isDraft != true))] | .[0].number // empty' <<< "$open_prs")"
+            if [[ -n "$invalid_pr" ]]; then
+              echo "existing remediation PR has an unexpected base or draft state: #$invalid_pr" >&2
+              return 1
+            fi
+            jq -r --arg branch "$branch" --arg base "$base" '[.[] | select(.headRefName == $branch and .baseRefName == $base and .isDraft == true)] | .[0].number // empty' <<< "$open_prs"
+          }
+          existing_pr="$(find_existing_pr)"
           if [[ -n "$existing_pr" ]]; then
             exit 0
           fi
-          gh pr create --draft \
-            --repo "$GITHUB_REPOSITORY" \
-            --head "$branch" \
-            --base "$base" \
-            --title "fix: reviewer remediation #$pull_request" \
-            --body-file publish-body.md
+          if ! gh pr create --draft \
+              --repo "$GITHUB_REPOSITORY" \
+              --head "$branch" \
+              --base "$base" \
+              --title "fix: reviewer remediation #$pull_request" \
+              --body-file publish-body.md; then
+            existing_pr_after="$(find_existing_pr)"
+            test -n "$existing_pr_after"
+          fi
 
       - name: Upload publication evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

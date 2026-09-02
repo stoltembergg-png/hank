@@ -51,12 +51,16 @@ para revisão humana.
 Os artefatos carregam apenas descriptors, digests, patch bounded e evidência redigida.
 Reasoning do provedor, tokens e respostas HTTP brutas não são persistidos.
 
-Cada evento usa seu próprio grupo de concorrência, sem cancelamento, para não depender
-do único slot pendente do GitHub Actions nem descartar findings em uma rajada.
+Cada execução usa um grupo único e não cancelável; um grupo compartilhado por PR seria
+inseguro porque o GitHub Actions mantém apenas uma execução pendente e poderia descartar
+findings em uma rajada.
 Antes do commit, o agente relê os marcadores do publisher confiável e a branch
 determinística. O push sem force é a reivindicação concorrente; se outra execução
 já criou a branch, a árvore e o pai do commit são comparados antes da recuperação
-da PR, sem force-push.
+já criou a branch, a árvore e o pai do commit são comparados antes da recuperação
+da PR, sem force-push. A criação da PR valida que a branch aponta para a base original
+e que a PR existente continua em rascunho; uma corrida de criação é reconsultada
+antes de ser considerada concluída.
 
 ## Configuração, rotação e rollback
 

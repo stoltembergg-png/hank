@@ -2,7 +2,11 @@ import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
 import {
+  closeSync,
+  constants,
+  fstatSync,
   lstatSync,
+  openSync,
   readFileSync,
   readlinkSync,
   readdirSync,
@@ -144,6 +148,31 @@ function pathWithin(root, candidate) {
   return relativePath === '' || (!relativePath.startsWith('..') && !isAbsolute(relativePath));
 }
 
+function readBoundedFile(filePath, maxBytes, tooLargeCode, invalidCode) {
+  let descriptor;
+  try {
+    const noFollow = constants.O_NOFOLLOW ?? 0;
+    descriptor = openSync(filePath, constants.O_RDONLY | noFollow);
+    const stat = fstatSync(descriptor);
+    if (!stat.isFile()) throw error(invalidCode);
+    if (stat.size > maxBytes) throw error(tooLargeCode);
+    const content = readFileSync(descriptor);
+    if (content.byteLength > maxBytes) throw error(tooLargeCode);
+    return content;
+  } catch (caught) {
+    if (caught instanceof PatchGuardError) throw caught;
+    throw error(invalidCode);
+  } finally {
+    if (descriptor !== undefined) {
+      try {
+        closeSync(descriptor);
+      } catch {
+        // Preserve the original validation result.
+      }
+    }
+  }
+}
+
 function trustedWorkspaceBase() {
   const base = resolve(process.env.GITHUB_WORKSPACE ?? process.cwd());
   let stat;
@@ -194,7 +223,7 @@ export function readPatchFile({ workspace, patchFile }) {
     const stat = lstatSync(patchPath);
     if (!stat.isFile() || stat.isSymbolicLink()) throw error('PATCH_INPUT_INVALID');
     if (stat.size > MAX_PATCH_BYTES) throw error('PATCH_TOO_LARGE');
-    return readFileSync(patchPath, 'utf8');
+    return readBoundedFile(patchPath, MAX_PATCH_BYTES, 'PATCH_TOO_LARGE', 'PATCH_INPUT_INVALID').toString('utf8');
   } catch (caught) {
     if (caught instanceof PatchGuardError) throw caught;
     throw error('PATCH_INPUT_INVALID');
@@ -230,8 +259,12 @@ function snapshotWorkspace(workspace, allowlistedPaths = [], resolvedRoot) {
         continue;
       }
       const bytes = stat.size;
-      if (allowlisted.has(relativePath) && bytes > MAX_RESULT_FILE_BYTES) throw error('PATCH_RESULT_TOO_LARGE');
-      const digest = bytes <= MAX_RESULT_FILE_BYTES ? sha256(readFileSync(validatedPath)) : `size:${bytes}`;
+      if (allowlisted.has(relativePath)) {
+        const content = readBoundedFile(validatedPath, MAX_RESULT_FILE_BYTES, 'PATCH_RESULT_TOO_LARGE', 'PATCH_RESULT_PATH_INVALID');
+        snapshot.set(relativePath, { kind: 'file', value: sha256(content), bytes: content.byteLength });
+        continue;
+      }
+      const digest = `size:${bytes}`;
       snapshot.set(relativePath, { kind: 'file', value: digest, bytes });
     }
   }

@@ -112,6 +112,11 @@ test('does not execute source-controlled build or package scripts during validat
   assert.match(publish, /git -C target fetch --no-tags --depth=2/);
   assert.match(publish, /refs\/remotes\/origin\/\$branch/);
   assert.match(publish, /gh pr list [^\n]*--head/);
+  assert.match(publish, /--json number,headRefName,baseRefName,isDraft/);
+  assert.match(publish, /baseRefName/);
+  assert.match(publish, /isDraft/);
+  assert.match(publish, /if ! gh pr create --draft/);
+  assert.match(publish, /existing_pr_after/);
   assert.match(publish, /git -C target diff --exit-code/);
   assert.match(publish, /expected_files/);
 });

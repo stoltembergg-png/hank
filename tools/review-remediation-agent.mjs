@@ -1,4 +1,4 @@
-import { lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 
 import { createGithubApi } from './review-remediation/github-api.mjs';
@@ -87,13 +87,36 @@ function resolveCliOutputPath(path) {
   return candidate;
 }
 
+function readBoundedFile(filePath) {
+  let descriptor;
+  try {
+    const noFollow = constants.O_NOFOLLOW ?? 0;
+    descriptor = openSync(filePath, constants.O_RDONLY | noFollow);
+    const stat = fstatSync(descriptor);
+    if (!stat.isFile()) throw error('CLI_INPUT_INVALID');
+    if (stat.size > MAX_JSON_BYTES) throw error('CLI_INPUT_TOO_LARGE');
+    const content = readFileSync(descriptor);
+    if (content.byteLength > MAX_JSON_BYTES) throw error('CLI_INPUT_TOO_LARGE');
+    return content.toString('utf8');
+  } catch (caught) {
+    if (caught instanceof CliError) throw caught;
+    throw error('CLI_INPUT_INVALID');
+  } finally {
+    if (descriptor !== undefined) {
+      try {
+        closeSync(descriptor);
+      } catch {
+        // Preserve the original CLI validation result.
+      }
+    }
+  }
+}
+
 function readJson(path, options) {
   try {
     const inputPath = resolveCliPath(path, options);
     if (!lstatSync(inputPath).isFile()) throw error('CLI_INPUT_INVALID');
-    const text = readFileSync(inputPath, 'utf8');
-    if (Buffer.byteLength(text, 'utf8') > MAX_JSON_BYTES) throw error('CLI_INPUT_TOO_LARGE');
-    return JSON.parse(text);
+    return JSON.parse(readBoundedFile(inputPath));
   } catch (caught) {
     if (caught instanceof CliError) throw caught;
     throw error('CLI_INPUT_INVALID');
