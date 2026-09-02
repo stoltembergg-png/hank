@@ -139,6 +139,21 @@ test('AC-626: ruleset snapshot is complete and bound to the exact release identi
   };
 
   assert.doesNotThrow(() => readRulesetRequiredChecks(snapshot, identity));
+  const unboundCheckSnapshot = {
+    ...snapshot,
+    rules: [{ ...snapshot.rules[0], parameters: {
+      ...snapshot.rules[0].parameters,
+      required_status_checks: [{ context: 'Build Frontend', integration_id: null }],
+    } }],
+  };
+  assert.deepEqual(readRulesetRequiredChecks(unboundCheckSnapshot, identity), ['Build Frontend']);
+  assert.throws(() => readRulesetRequiredChecks({
+    ...snapshot,
+    rules: [{ ...snapshot.rules[0], parameters: {
+      ...snapshot.rules[0].parameters,
+      required_status_checks: [{ context: 'Build Frontend', integration_id: 0 }],
+    } }],
+  }, identity), /incomplete entries/);
   assert.throws(() => readRulesetRequiredChecks({ ...snapshot, complete: false }, identity), /complete/);
   for (const [field, value] of [
     ['repository', 'other/repository'],
