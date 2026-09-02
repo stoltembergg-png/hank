@@ -142,6 +142,45 @@ test('applies a valid patch only after git applicability and whitespace checks',
     assert.deepEqual(result.files, ['src/value.txt']);
     assert.equal(readFileSync(join(workspace, 'src', 'value.txt'), 'utf8').replaceAll('\r\n', '\n'), 'after\n');
     assert.match(result.treeDigest, /^[0-9a-f]{64}$/);
+    assert.deepEqual(result.gates.map((gate) => gate.name), [
+      'patch-applicability',
+      'patch-boundaries',
+      'whitespace',
+      'semantic-syntax',
+    ]);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test('rejects syntax-invalid JavaScript and rolls the workspace back', async () => {
+  const workspace = mkdtempSync(join(process.cwd(), '.hank-review-guard-syntax-'));
+  try {
+    mkdirSync(join(workspace, 'src'));
+    writeFileSync(join(workspace, 'src', 'value.mjs'), 'const before = true;\n');
+    git(workspace, ['init', '-q']);
+    git(workspace, ['config', 'core.autocrlf', 'false']);
+    git(workspace, ['config', 'user.email', 'test@example.invalid']);
+    git(workspace, ['config', 'user.name', 'Test Fixture']);
+    git(workspace, ['add', 'src/value.mjs']);
+    git(workspace, ['commit', '-qm', 'fixture']);
+    const patchFile = join(workspace, 'remediation.patch');
+    writeFileSync(patchFile, [
+      'diff --git a/src/value.mjs b/src/value.mjs',
+      '--- a/src/value.mjs',
+      '+++ b/src/value.mjs',
+      '@@ -1,1 +1,1 @@',
+      '-const before = true;',
+      '+const = invalid;',
+      '',
+    ].join('\n'));
+
+    await assert.rejects(
+      applyAndValidatePatch({ workspace: workspaceInput(workspace), patchFile: patchInput(patchFile) }),
+      (error) => error.code === 'PATCH_SEMANTIC_CHECK_FAILED',
+    );
+    assert.equal(readFileSync(join(workspace, 'src', 'value.mjs'), 'utf8'), 'const before = true;\n');
+    assert.equal(git(workspace, ['status', '--porcelain', '--untracked-files=no']), '');
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }

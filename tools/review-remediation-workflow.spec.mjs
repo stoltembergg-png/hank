@@ -27,7 +27,7 @@ test('declares only the supported review events and four bounded jobs', () => {
   assert.doesNotMatch(workflow, /^  (?:push|pull_request|workflow_dispatch|schedule):/m);
   assert.match(workflow, /^permissions:\s*$/m);
   assert.match(workflow, /^concurrency:\s*$/m);
-  assert.match(workflow, /group:\s*review-remediation-\$\{\{\s*github\.repository\s*\}\}-\$\{\{\s*github\.event\.pull_request\.number\s*\|\|\s*github\.event\.check_run\.pull_requests\[0\]\.number\s*\|\|\s*github\.event\.check_run\.id\s*\}\}/);
+  assert.match(workflow, /group:\s*review-remediation-\$\{\{\s*github\.repository\s*\}\}-\$\{\{\s*github\.event\.pull_request\.number\s*\|\|\s*github\.event\.check_run\.pull_requests\[0\]\.number\s*\|\|\s*github\.event\.check_run\.id\s*\}\}-\$\{\{\s*github\.event_name\s*\}\}-\$\{\{\s*github\.event\.review\.user\.login\s*\|\|\s*github\.event\.check_run\.name\s*\|\|\s*'event'\s*\}\}/);
   assert.doesNotMatch(workflow, /group:[^\n]*github\.run_id/);
   for (const job of ['collect', 'propose', 'validate', 'publish']) {
     const block = jobBlock(workflow, job);
@@ -93,7 +93,8 @@ test('does not execute source-controlled build or package scripts during validat
   const publish = jobBlock(workflow, 'publish');
   assert.match(validate, /git diff --check/);
   assert.match(validate, /Array\.isArray\(value\.gates\)/);
-  assert.match(validate, /value\.gates\.length === 4/);
+  assert.match(validate, /value\.gates\.length === 5/);
+  assert.match(validate, /semantic-syntax/);
   assert.match(validate, /gate\?\.status === 'PASS'/);
   assert.doesNotMatch(validate, /cargo test|cargo clippy|npm (?:ci|run|test|exec)|pnpm |yarn /i);
   assert.match(validate, /proposal\/proposal\.json/);
@@ -118,7 +119,7 @@ test('documents operations without embedding a credential', () => {
   assert.match(guide, /mimo-v2\.5/);
   assert.match(guide, /https:\/\/api\.xiaomimimo\.com\/v1/);
   assert.match(guide, /fork/i);
-  assert.match(guide, /draft/i);
+  assert.match(guide, /rascunho/i);
   assert.match(guide, /(?:não|nao)[ -]?(?:aprova|faz merge)|no auto-merge/i);
   assert.match(guide, /rota(?:ção|cao)|rotate/i);
   assert.match(guide, /rollback/i);

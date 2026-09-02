@@ -268,6 +268,48 @@ function isIgnoredResultPath(workspace, path) {
   }
 }
 
+function semanticFilePath(workspace, path) {
+  const candidate = resolve(workspace, path);
+  const relativePath = relative(workspace, candidate);
+  if (relativePath.startsWith('..') || isAbsolute(relativePath)) throw error('PATCH_RESULT_PATH_INVALID');
+  try {
+    const stat = lstatSync(candidate);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw error('PATCH_RESULT_SPECIAL_FILE');
+  } catch (caught) {
+    if (caught instanceof PatchGuardError) throw caught;
+    throw error('PATCH_RESULT_PATH_INVALID');
+  }
+  return candidate;
+}
+
+async function runSemanticSyntaxChecks(workspace, files) {
+  for (const path of files) {
+    const extension = path.slice(path.lastIndexOf('.')).toLowerCase();
+    if (!['.cjs', '.js', '.mjs', '.rs'].includes(extension)) continue;
+    const target = semanticFilePath(workspace, path);
+    try {
+      if (extension === '.rs') {
+        await execFileAsync('rustfmt', ['--check', '--edition', '2021', target], {
+          cwd: workspace,
+          windowsHide: true,
+          shell: false,
+          maxBuffer: 64 * 1024,
+        });
+      } else {
+        await execFileAsync(process.execPath, ['--check', target], {
+          cwd: workspace,
+          windowsHide: true,
+          shell: false,
+          maxBuffer: 64 * 1024,
+        });
+      }
+    } catch {
+      throw error('PATCH_SEMANTIC_CHECK_FAILED');
+    }
+  }
+  return { name: 'semantic-syntax', status: 'PASS' };
+}
+
 export function validateResultTree({ workspace, beforeFiles, afterFiles }) {
   const allowed = assertAllowedPatchPaths(beforeFiles);
   const actual = Array.isArray(afterFiles) ? [...new Set(afterFiles)].sort() : Object.keys(afterFiles ?? {}).sort();
@@ -322,11 +364,13 @@ export async function applyAndValidatePatch({ workspace, patchFile, expectedHead
     const after = snapshotWorkspace(workspace, metadata.files, root);
     const changed = changedPaths(before, after);
     const tree = validateResultTree({ workspace, beforeFiles: metadata.files, afterFiles: changed });
+    const semanticGate = await runSemanticSyntaxChecks(root, tree.files);
     const gates = [
       ...(workspaceHead ? [{ name: 'source-head', status: 'PASS' }] : []),
       { name: 'patch-applicability', status: 'PASS' },
       { name: 'patch-boundaries', status: 'PASS' },
       { name: 'whitespace', status: 'PASS' },
+      semanticGate,
     ];
     return { ...metadata, ...tree, ...(workspaceHead ? { workspaceHead } : {}), gates };
   } catch (caught) {

@@ -16,7 +16,7 @@ const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 const TEXT_CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
 const FORBIDDEN_PATH_PREFIX = /^(?:\.github\/(?:workflows|actions)(?:\/|$)|\.git(?:\/|$)|\.env(?:\.|$))/i;
 const FORBIDDEN_PATH_COMPONENT = /(?:^|\/)(?:\.env(?:\.[^/]*)?|credentials?(?:\.[^/]*)?|secrets?(?:\.[^/]*)?|tokens?(?:\.[^/]*)?|keys?(?:\.[^/]*)?|CODEOWNERS|branch-protection|rulesets?)(?:\/|$)/i;
-const SECRET_ASSIGNMENT_NAME = '(?:api[_-]?(?:key|token)|access[_-]?token|auth[_-]?(?:orization|token)|client[_-]?secret|refresh[_-]?token|password|passwd|private[_-]?key|secret|token)';
+const SECRET_ASSIGNMENT_NAME = '(?:api[_-]?(?:key|token)|access[_-]?token|auth(?:[_-]?(?:orization|token))?|client[_-]?secret|refresh[_-]?token|password|passwd|private[_-]?key|secret|token)';
 const PEM_BLOCK = /-----BEGIN [A-Z0-9 ]+-----[\s\S]*?-----END [A-Z0-9 ]+-----/gi;
 const DOUBLE_QUOTED_SECRET_ASSIGNMENT = new RegExp(`(["']?${SECRET_ASSIGNMENT_NAME}["']?\\s*[:=]\\s*)"(?:\\\\.|[^"\\\\\\r\\n])*"`, 'gi');
 const SINGLE_QUOTED_SECRET_ASSIGNMENT = new RegExp(`(["']?${SECRET_ASSIGNMENT_NAME}["']?\\s*[:=]\\s*)'(?:\\\\.|[^'\\\\\\r\\n])*'`, 'gi');

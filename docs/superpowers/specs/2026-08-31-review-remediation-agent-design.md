@@ -69,7 +69,7 @@ The workflow is divided into four jobs so that no job both holds the MiMo secret
 
 1. **Collect** — read-only GitHub API access. Resolve the pull request and exact head SHA, accept only a known reviewer source, normalize one concrete finding, redact secret-like text, and compute a deterministic fingerprint.
 2. **Propose** — trusted workflow code only. Read the bounded finding and bounded source diff through the GitHub API, call MiMo with `XIAOMI_MIMO_API_KEY`, and emit a patch artifact. The job never checks out or runs pull-request code.
-3. **Validate** — no MiMo credential and no write token. Check out the source head into an isolated worktree, apply the patch, enforce path/diff/symlink/binary guards, and run only deterministic patch checks such as `git diff --check`. It never executes source-controlled build, test, package, or task scripts. Any failure produces no branch or PR.
+3. **Validate** — no MiMo credential and no write token. Check out the source head into an isolated worktree, apply the patch, enforce path/diff/symlink/binary guards, and run deterministic patch checks plus the trusted `semantic-syntax` gate. The latter only parses JavaScript/Rust files with fixed runtime tools; it never executes source-controlled build, test, package, or task scripts. Any failure produces no branch or PR.
 4. **Publish** — write access only after validation. Recreate the validated worktree, re-fetch the original PR and source branch identity at the exact collected SHA, commit only the verified files with hooks disabled, verify the staged file list and clean worktree/index boundary, push a uniquely fingerprinted branch, and create a draft PR against the original source branch. The body contains bounded evidence metadata, tests, rollback instructions, and an explicit no-approval statement.
 
 The workflow uses `persist-credentials: false` for every checkout. Pull-request code is never executed while `XIAOMI_MIMO_API_KEY` or a write-capable GitHub token is present.
@@ -140,8 +140,9 @@ Validation occurs in a clean detached worktree at the exact source head:
 1. `git apply --check` verifies patch applicability.
 2. The patch guard compares the resulting tree to the allowlist and limits.
 3. `git diff --check` rejects whitespace errors.
-4. The remediation workflow does not execute source-controlled build, test, package, or task scripts. The resulting draft PR's normal required CI is the authority for Rust, frontend, Tauri, and E2E checks.
-5. The full required checks remain authoritative on the resulting draft PR; the agent's deterministic patch check cannot mark a PR ready or override a failed gate.
+4. The trusted `semantic-syntax` gate parses changed JavaScript/Rust files without executing source-controlled code.
+5. The remediation workflow does not execute source-controlled build, test, package, or task scripts. The resulting draft PR's normal required CI is the authority for Rust, frontend, Tauri, and E2E checks.
+6. The full required checks remain authoritative on the resulting draft PR; the agent's deterministic patch check cannot mark a PR ready or override a failed gate.
 
 The publish step re-applies the exact validated patch, verifies its SHA-256 and tree digests, checks that only the validated file list is staged, and requires the original open PR and source branch to still point to the collected head SHA and base branch immediately before commit. It creates:
 
@@ -175,7 +176,7 @@ All tests are offline and deterministic:
 - MiMo client: request shape, endpoint/model allowlist, timeout, status mapping, malformed JSON, oversized response, and response-reasoning discard using an in-memory fake transport;
 - patch guard: traversal, absolute path, forbidden workflow/policy/secret path, binary/symlink/submodule, oversized diff, invalid patch, and valid source/test patch;
 - identity/idempotency: exact SHA/tree/repository binding, live publication revalidation, staged file-list binding, and one branch/PR per fingerprint;
-- workflow execution boundary: validation does not run source-controlled build/test/package scripts; the generated draft's existing CI remains authoritative;
+- workflow execution boundary: validation runs only trusted syntax parsing and does not run source-controlled build/test/package scripts; the generated draft's existing CI remains authoritative;
 - workflow contract: top-level permissions, concurrency, timeouts, fork rejection, no `pull_request_target`, SHA-pinned actions, checkout credential policy, no auto-merge, and secret scoping;
 - integration fixture: successful collect→propose→validate→draft descriptor and failure matrix with no external network.
 

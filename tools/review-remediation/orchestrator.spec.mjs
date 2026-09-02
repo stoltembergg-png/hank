@@ -301,12 +301,37 @@ test('builds a bounded proposal input and redacted evidence descriptor', () => {
         { name: 'patch-applicability', status: 'PASS' },
         { name: 'patch-boundaries', status: 'PASS' },
         { name: 'whitespace', status: 'PASS' },
+        { name: 'semantic-syntax', status: 'PASS' },
       ],
     },
   });
   assert.equal(evidence.status, 'VALIDATED');
   assert.doesNotMatch(JSON.stringify(evidence), /secret-value/);
   assert.equal(evidence.sourceSha, headSha);
+});
+
+test('rejects validation evidence without the trusted semantic gate', () => {
+  const finding = {
+    source: 'coderabbit', repository, pullRequest: 401, sourceBranch: 'feature/fix-review', baseBranch: 'main', headSha,
+    reviewer: 'coderabbitai[bot]', title: 'Fix error', detail: 'The value is stale.', path: findingPath, line: 42,
+  };
+  assert.throws(
+    () => buildEvidenceDescriptor({
+      finding,
+      patch: 'patch',
+      tree: {
+        files: [findingPath],
+        treeDigest: 'd'.repeat(64),
+        gates: [
+          { name: 'source-head', status: 'PASS' },
+          { name: 'patch-applicability', status: 'PASS' },
+          { name: 'patch-boundaries', status: 'PASS' },
+          { name: 'whitespace', status: 'PASS' },
+        ],
+      },
+    }),
+    (error) => error.code === 'EVIDENCE_GATES_INVALID',
+  );
 });
 
 test('GitHub adapter uses bounded read-only requests and redacts errors', async () => {
@@ -434,7 +459,7 @@ test('runs collect-to-propose-to-validate-to-publish with no provider network de
     assert.equal(validated.status, 'VALIDATED');
     assert.equal(validated.finding.pullRequest, 401);
     assert.equal(validated.sourceSha, sourceSha);
-    assert.deepEqual(validated.gates.map((gate) => gate.status), ['PASS', 'PASS', 'PASS', 'PASS']);
+    assert.deepEqual(validated.gates.map((gate) => gate.status), ['PASS', 'PASS', 'PASS', 'PASS', 'PASS']);
     assert.equal(readFileSync(join(workspace, 'src', 'value.txt'), 'utf8'), 'after\n');
 
     const publishWorkspace = fixtureWorkspace('hank-review-publish-');

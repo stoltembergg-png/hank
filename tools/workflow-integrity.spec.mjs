@@ -156,7 +156,7 @@ test('review remediation keeps MiMo and publication boundaries explicit', () => 
   assert.doesNotMatch(text, /pull_request_target/);
   assert.match(text, /ref:\s*\$\{\{\s*needs\.collect\.outputs\.source_sha\s*\}\}/);
   assert.match(text, /git -C target rev-parse HEAD/);
-  assert.match(text, /group:\s*review-remediation-\$\{\{\s*github\.repository\s*\}\}-\$\{\{\s*github\.event\.pull_request\.number\s*\|\|\s*github\.event\.check_run\.pull_requests\[0\]\.number\s*\|\|\s*github\.event\.check_run\.id\s*\}\}/);
+  assert.match(text, /group:\s*review-remediation-\$\{\{\s*github\.repository\s*\}\}-\$\{\{\s*github\.event\.pull_request\.number\s*\|\|\s*github\.event\.check_run\.pull_requests\[0\]\.number\s*\|\|\s*github\.event\.check_run\.id\s*\}\}-\$\{\{\s*github\.event_name\s*\}\}-\$\{\{\s*github\.event\.review\.user\.login\s*\|\|\s*github\.event\.check_run\.name\s*\|\|\s*'event'\s*\}\}/);
   assert.doesNotMatch(text, /awk '\{print \\$1\}'/);
   const exactTreeBlocks = [...text.matchAll(/- name: Verify exact source tree[\s\S]*?(?=\n      - name:|\n  [a-zA-Z0-9_-]+:|$)/g)].map((match) => match[0]);
   assert.equal(exactTreeBlocks.length, 2);

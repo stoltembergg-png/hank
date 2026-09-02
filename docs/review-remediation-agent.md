@@ -33,13 +33,15 @@ para revisão humana.
 2. `propose` é o único job que recebe `XIAOMI_MIMO_API_KEY`; o modelo retorna um
    patch ou `NO_PATCH`.
 3. `validate` aplica o patch em um target detached no SHA exato, sem credencial MiMo
-   e sem permissão de escrita, e executa apenas `git diff --check`. Esse job nunca
-   executa scripts de build, teste ou pacote controlados pela PR.
+   e sem permissão de escrita. O helper confiável executa o gate `semantic-syntax`
+   apenas com parsers de sintaxe para arquivos JavaScript/Rust, além de
+   `git diff --check`; nenhum script de build, teste ou pacote controlado pela PR
+   é executado.
 4. `publish` revalida digest/tree, identidade da PR e branch de origem, e cria somente
-  uma draft PR para a branch de origem. Os quatro gates determinísticos (`source-head`,
-  aplicabilidade, limites da árvore e whitespace) precisam estar em `PASS`; os checks
-  obrigatórios dessa draft continuam sendo a autoridade final para código Rust,
-  frontend, Tauri e E2E.
+  uma PR em rascunho para a branch de origem. Os cinco gates determinísticos
+  (`source-head`, aplicabilidade, limites da árvore, whitespace e `semantic-syntax`)
+  precisam estar em `PASS`; os checks obrigatórios desta PR em rascunho continuam
+  sendo a autoridade final para código Rust, frontend, Tauri e E2E.
 
 Os artefatos carregam apenas descriptors, digests, patch bounded e evidência redigida.
 Reasoning do provedor, tokens e respostas HTTP brutas não são persistidos.
@@ -52,11 +54,11 @@ tenha sido colada em chat, depois grave somente o novo valor em
 deve entrar no repositório, prompt, log, comentário, artefato ou linha de comando.
 
 Para interromper a automação, remova o secret ou reverta/desabilite o workflow. Se uma
-draft PR for indesejada, feche-a e remova somente a branch
+PR em rascunho indesejada, feche-a e remova somente a branch
 `review-remediation/pr-<number>/...`; a PR de origem permanece inalterada. Em suspeita
 de exposição, desabilite primeiro, revogue/rote o secret e investigue os logs e
 artefatos retidos.
 
 Os testes locais e de CI usam transporte falso e não exigem acesso ao provedor. O
-Actionlint, Quality Integrity e os checks obrigatórios da draft PR devem passar antes
+Actionlint, Quality Integrity e os checks obrigatórios da PR em rascunho devem passar antes
 de qualquer decisão humana de merge.

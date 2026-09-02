@@ -28,7 +28,7 @@
 - Count duplicate and cycle markers only when authored by the fixed `github-actions[bot]` publisher.
 - The first version performs no live MiMo call in tests and does not change the desktop runtime or provider registry.
 - The source PR remains unchanged; the only publication is a draft PR from a fingerprinted remediation branch targeting the source branch.
-- The remediation workflow never executes source-controlled build, test, package, or task scripts; the generated draft PR's normal required CI remains authoritative for those checks.
+- The remediation workflow runs only trusted syntax parsing for changed JavaScript/Rust files and never executes source-controlled build, test, package, or task scripts; the generated draft PR's normal required CI remains authoritative for those checks.
 
 ---
 
@@ -174,7 +174,7 @@ Commit: `git add tools/review-remediation/prompt.mjs tools/review-remediation/mi
 **Interfaces:**
 - `validatePatchText(patch)` returns `{ digest, files, addedLines, deletedLines }` or a classified rejection.
 - `assertAllowedPatchPaths(files)` rejects workflow/action, Git metadata, secret/config, policy/gate, binary, symlink, and submodule paths.
-- `applyAndValidatePatch({ workspace, patchFile })` invokes `git apply --check`, applies only the validated patch, runs `git diff --check`, and returns a bounded tree descriptor.
+- `applyAndValidatePatch({ workspace, patchFile })` invokes `git apply --check`, applies only the validated patch, runs `git diff --check` and trusted syntax parsing for changed JavaScript/Rust files, and returns a bounded tree descriptor with validation gates.
 - `validateResultTree({ workspace, beforeFiles, afterFiles })` rejects changes outside the allowlist and resulting files over 256 KiB.
 
 - [ ] **Step 1: Write failing patch guard tests**
@@ -272,7 +272,7 @@ Use `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1` with the reposit
 
 - [ ] **Step 4: Implement deterministic credential-free validation and write-scoped publication jobs**
 
-Download the patch artifact, check out the exact PR head into a separate target directory with credentials disabled, run the trusted helper against that directory, and execute only deterministic patch checks (`git diff --check`) without `GITHUB_TOKEN` or MiMo credentials in the environment. The publish job repeats patch/digest/tree validation, re-fetches the original PR and source branch identity immediately before publication, verifies the staged file list and clean worktree/index boundary, uses `git -c core.hooksPath=/dev/null`, pushes only the generated branch, and calls `gh pr create --draft` with a bounded body containing the evidence marker, source SHA, tests, and rollback. It never runs a script from `target/`; the generated draft's normal required CI is authoritative for repository checks.
+Download the patch artifact, check out the exact PR head into a separate target directory with credentials disabled, run the trusted helper against that directory, and execute deterministic patch checks plus trusted syntax parsing for changed JavaScript/Rust files without `GITHUB_TOKEN` or MiMo credentials in the environment. The publish job repeats patch/digest/tree validation, re-fetches the original PR and source branch identity immediately before publication, verifies the staged file list and clean worktree/index boundary, uses `git -c core.hooksPath=/dev/null`, pushes only the generated branch, and calls `gh pr create --draft` with a bounded body containing the evidence marker, source SHA, tests, and rollback. It never runs a script from `target/`; the generated draft's normal required CI is authoritative for repository checks.
 
 - [ ] **Step 5: Run Actionlint and workflow integrity tests**
 

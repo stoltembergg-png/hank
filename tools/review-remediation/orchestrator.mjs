@@ -20,7 +20,7 @@ import { applyAndValidatePatch, readPatchFile, validatePatchText } from './patch
 export const MAX_REMEDIATION_CYCLES = 2;
 export const MAX_REVIEW_COMMENTS = 100;
 export const MAX_FILES_FOR_PROPOSAL = 100;
-const REQUIRED_VALIDATION_GATES = ['source-head', 'patch-applicability', 'patch-boundaries', 'whitespace'];
+const REQUIRED_VALIDATION_GATES = ['source-head', 'patch-applicability', 'patch-boundaries', 'whitespace', 'semantic-syntax'];
 
 const CODE_RABBIT_LOGINS = new Set(['coderabbitai[bot]', 'coderabbit[bot]', 'coderabbit']);
 const AIKIDO_CHECK_NAMES = new Set(['aikido security: check code', 'aikido security: deep review']);

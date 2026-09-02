@@ -112,6 +112,7 @@ test('redacts compound credential assignment names without flagging the redacted
   const value = redactSecrets([
     'api_token=api-secret',
     'auth_token=auth-secret',
+    'auth=auth-secret',
     'refresh_token=refresh-secret',
     "client_secret: '[REDACTED]'",
   ].join('\n'));
@@ -119,6 +120,7 @@ test('redacts compound credential assignment names without flagging the redacted
   assert.doesNotMatch(value, /api-secret|auth-secret|refresh-secret/);
   assert.equal(hasUnredactedSecret(value), false);
   assert.equal(hasUnredactedSecret('refresh_token=still-secret'), true);
+  assert.equal(hasUnredactedSecret('auth=still-secret'), true);
 });
 
 test('bounds and redacts title and detail', () => {
