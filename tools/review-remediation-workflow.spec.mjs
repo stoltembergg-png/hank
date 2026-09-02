@@ -48,9 +48,13 @@ test('keeps trust boundaries between collect/propose/validate/publish', () => {
   const publish = jobBlock(workflow, 'publish');
 
   assert.doesNotMatch(collect, /XIAOMI_MIMO_API_KEY/);
-  assert.match(propose, /XIAOMI_MIMO_API_KEY:\s*\$\{\{\s*secrets\.XIAOMI_MIMO_API_KEY\s*\}\}/);
+  assert.doesNotMatch(collect, /HANK_REVIEW_REMEDIATION_MIMO_API_KEY/);
+  assert.match(propose, /HANK_REVIEW_REMEDIATION_MIMO_API_KEY:\s*\$\{\{\s*secrets\.HANK_REVIEW_REMEDIATION_MIMO_API_KEY\s*\}\}/);
+  assert.doesNotMatch(propose, /\$\{\{\s*secrets\.XIAOMI_MIMO_API_KEY\s*\}\}/);
   assert.doesNotMatch(validate, /XIAOMI_MIMO_API_KEY/);
+  assert.doesNotMatch(validate, /HANK_REVIEW_REMEDIATION_MIMO_API_KEY/);
   assert.doesNotMatch(publish, /XIAOMI_MIMO_API_KEY/);
+  assert.doesNotMatch(publish, /HANK_REVIEW_REMEDIATION_MIMO_API_KEY/);
   assert.match(collect, /contents:\s*read/);
   assert.match(validate, /contents:\s*read/);
   assert.match(publish, /contents:\s*write/);
@@ -61,6 +65,34 @@ test('keeps trust boundaries between collect/propose/validate/publish', () => {
   assert.match(publish, /gh pr create --draft/);
   assert.doesNotMatch(workflow, /gh pr (?:merge|review|approve)/i);
   assert.doesNotMatch(workflow, /--force(?:-with-lease)?\b/);
+});
+
+test('binds the MiMo secret environment only to the proposal job', () => {
+  const workflow = readWorkflow();
+  const collect = jobBlock(workflow, 'collect');
+  const propose = jobBlock(workflow, 'propose');
+  const validate = jobBlock(workflow, 'validate');
+  const publish = jobBlock(workflow, 'publish');
+
+  assert.match(propose, /^    environment:\s*XIAOMI_MIMO_API_KEY\s*$/m);
+  assert.doesNotMatch(collect, /^    environment:/m);
+  assert.doesNotMatch(validate, /^    environment:/m);
+  assert.doesNotMatch(publish, /^    environment:/m);
+});
+
+test('fails closed when the dedicated MiMo environment secret is absent', () => {
+  const propose = jobBlock(readWorkflow(), 'propose');
+
+  assert.match(propose, /Require MiMo environment secret/);
+  assert.match(propose, /HANK_REVIEW_REMEDIATION_MIMO_API_KEY/);
+  const guardStart = propose.indexOf('      - name: Require MiMo environment secret');
+  const callStart = propose.indexOf('      - name: Call MiMo for bounded viability judgment');
+  assert.ok(guardStart >= 0, 'secret guard step is missing');
+  assert.ok(callStart > guardStart, 'secret guard must run before the provider call');
+  const guard = propose.slice(guardStart, callStart);
+  assert.match(guard, /-z\s+"\$\{HANK_REVIEW_REMEDIATION_MIMO_API_KEY:-\}"/);
+  assert.match(guard, /exit 1/);
+  assert.doesNotMatch(propose, /gh api[^\n]*environments\//);
 });
 
 test('pins actions and source identity, and prevents pull-request code from using credentials', () => {
@@ -142,8 +174,10 @@ test('fixes the MiMo model and endpoint in trusted workflow code', () => {
 test('documents operations without embedding a credential', () => {
   const guide = readFileSync(guidePath, 'utf8');
   assert.match(guide, /XIAOMI_MIMO_API_KEY/);
+  assert.match(guide, /HANK_REVIEW_REMEDIATION_MIMO_API_KEY/);
   assert.match(guide, /mimo-v2\.5/);
   assert.match(guide, /https:\/\/api\.xiaomimimo\.com\/v1/);
+  assert.match(guide, /Environment.*XIAOMI_MIMO_API_KEY/i);
   assert.match(guide, /fork/i);
   assert.match(guide, /rascunho/i);
   assert.match(guide, /(?:não|nao)[ -]?(?:aprova|faz merge)|no auto-merge/i);

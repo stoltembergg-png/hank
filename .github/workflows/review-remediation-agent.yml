@@ -94,6 +94,7 @@ jobs:
     needs: collect
     if: ${{ needs.collect.outputs.status == 'READY' }}
     runs-on: ubuntu-24.04
+    environment: XIAOMI_MIMO_API_KEY
     timeout-minutes: 15
     permissions:
       contents: read
@@ -120,10 +121,20 @@ jobs:
         with:
           name: review-remediation-collect-${{ github.event.review.id || github.event.check_run.id || 'none' }}
 
+      - name: Require MiMo environment secret
+        env:
+          HANK_REVIEW_REMEDIATION_MIMO_API_KEY: ${{ secrets.HANK_REVIEW_REMEDIATION_MIMO_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${HANK_REVIEW_REMEDIATION_MIMO_API_KEY:-}" ]]; then
+            echo 'HANK_REVIEW_REMEDIATION_MIMO_API_KEY is missing from the protected environment' >&2
+            exit 1
+          fi
+
       - name: Call MiMo for bounded viability judgment
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          XIAOMI_MIMO_API_KEY: ${{ secrets.XIAOMI_MIMO_API_KEY }}
+          XIAOMI_MIMO_API_KEY: ${{ secrets.HANK_REVIEW_REMEDIATION_MIMO_API_KEY }}
           MIMO_ENDPOINT: https://api.xiaomimimo.com/v1
           MIMO_MODEL: mimo-v2.5
         run: |
