@@ -14,6 +14,14 @@ function isDecoratedScalar(value) {
   return /^(?:(?:![^\s]*|&[^\s]+)\s*)+/.test(value) || /^\*[^\s]+(?:\s|$)/.test(value);
 }
 
+function isFlowCollection(value) {
+  return /^[\[{]/.test(value.trim());
+}
+
+function hasYamlEscape(value) {
+  return value.trimStart().startsWith('"') && value.includes('\\');
+}
+
 function containsEmoji(value) {
   return /\p{Extended_Pictographic}/u.test(value);
 }
@@ -200,8 +208,10 @@ function validate(source) {
   }
 
   const tone = rootValue(lines, 'tone_instructions');
-  if (tone === undefined || tone === '' || isDecoratedScalar(tone) || isBlockScalar(tone)) {
+  if (tone === undefined || tone === '' || isDecoratedScalar(tone) || isBlockScalar(tone) || isFlowCollection(tone)) {
     errors.push('tone_instructions must be an inline scalar');
+  } else if (hasYamlEscape(tone)) {
+    errors.push('tone_instructions must not contain YAML escape sequences');
   } else {
     const toneText = scalarText(tone);
     if (toneText.length > 250) errors.push('tone_instructions must be at most 250 characters');
@@ -235,8 +245,10 @@ function validate(source) {
   if (summary !== undefined) {
     if (isDecoratedScalar(summary)) {
       errors.push('reviewer configuration must use untagged, unanchored scalars');
-    } else if (isBlockScalar(summary)) {
+    } else if (isBlockScalar(summary) || isFlowCollection(summary)) {
       errors.push('reviews.high_level_summary_instructions must use an inline scalar');
+    } else if (hasYamlEscape(summary)) {
+      errors.push('reviews.high_level_summary_instructions must not contain YAML escape sequences');
     } else {
       const unquoted = scalarText(summary);
       if (unquoted.length > 100) errors.push('reviews.high_level_summary_instructions must be at most 100 characters');

@@ -71,6 +71,44 @@ test('rejects a reviewer tone that includes emoji', () => {
   assert.match(result.stderr, /tone_instructions must not contain emoji/);
 });
 
+test('rejects encoded emoji escapes in reviewer text', () => {
+  for (const encodedEmoji of [String.raw`"\U0001F642"`, String.raw`"\u263A"`]) {
+    const toneResult = runChecker(validConfig.replace(
+      /tone_instructions:.*\n/,
+      `tone_instructions: ${encodedEmoji}\n`,
+    ));
+    const summaryResult = runChecker(validConfig.replace(
+      '  high_level_summary_instructions: "Liste impacto, risco e testes em até 3 bullets. Sem emojis."\n',
+      `  high_level_summary_instructions: ${encodedEmoji}\n`,
+    ));
+
+    assert.equal(toneResult.status, 1);
+    assert.match(toneResult.stderr, /tone_instructions must not contain YAML escape sequences/);
+    assert.equal(summaryResult.status, 1);
+    assert.match(summaryResult.stderr, /reviews\.high_level_summary_instructions must not contain YAML escape sequences/);
+  }
+});
+
+test('rejects flow collections in reviewer text settings', () => {
+  const flowValues = ['[]', '{}', '[text, {nested: value}]'];
+
+  for (const flowValue of flowValues) {
+    const toneResult = runChecker(validConfig.replace(
+      /tone_instructions:.*\n/,
+      `tone_instructions: ${flowValue}\n`,
+    ));
+    const summaryResult = runChecker(validConfig.replace(
+      '  high_level_summary_instructions: "Liste impacto, risco e testes em até 3 bullets. Sem emojis."\n',
+      `  high_level_summary_instructions: ${flowValue}\n`,
+    ));
+
+    assert.equal(toneResult.status, 1);
+    assert.match(toneResult.stderr, /tone_instructions must be an inline scalar/);
+    assert.equal(summaryResult.status, 1);
+    assert.match(summaryResult.stderr, /reviews\.high_level_summary_instructions must use an inline scalar/);
+  }
+});
+
 test('rejects a missing concise reviewer tone', () => {
   const result = runChecker(validConfig.replace(/tone_instructions:.*\n/, ''));
 
