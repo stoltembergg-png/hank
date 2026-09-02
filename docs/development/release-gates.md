@@ -23,11 +23,16 @@ Para verificar localmente com uma resposta salva da API:
 node tools/release-required-checks.mjs validate \
   --manifest .github/required-checks.json \
   --rules /tmp/active-rules.json \
+  --repository stoltembergg-png/hank \
+  --ref refs/heads/main \
+  --sha <commit-sha> \
+  --tree <tree-sha> \
   --output /tmp/required-checks.txt
 ```
 
 A verificação falha quando um gate versionado não está no Ruleset, aparece
 duplicado ou quando a política strict não está ativa. Checks adicionais do
 Ruleset são permitidos para proteção de PR e não são incluídos no polling de
-release. A proteção clássica de branch permanece ativa durante a migração e
-continua sendo administrada separadamente.
+release. O snapshot também precisa ser completo e corresponder ao repositório,
+ref, commit e árvore informados. A proteção clássica de branch permanece ativa
+durante a migração e continua sendo administrada separadamente.

@@ -83,8 +83,13 @@ test('AC-626: prerelease derives required checks from manifest and active rulese
   ]);
   assert.deepEqual(protectedNames, [...names, ...reviewerNames]);
   assert.match(workflow, /rules\/branches\/main/);
+  assert.match(workflow, /rules\/branches\/main.*active-rules-pages/s);
   assert.match(workflow, /\.github\/required-checks\.json/);
   assert.match(workflow, /release-required-checks\.mjs validate/);
+  assert.match(workflow, /--repository "\$REPOSITORY"/);
+  assert.match(workflow, /--ref refs\/heads\/main/);
+  assert.match(workflow, /--sha "\$SHA"/);
+  assert.match(workflow, /--tree "\$TREE"/);
   assert.match(workflow, /--required \"\$required\"/);
   assert.doesNotMatch(workflow, /branches\/main\/protection\/required_status_checks/);
   const ruleset = [{ type: 'required_status_checks', parameters: {
@@ -94,7 +99,17 @@ test('AC-626: prerelease derives required checks from manifest and active rulese
       integration_id: reviewerNames.includes(context) ? (context === 'CodeRabbit' ? 347564 : 898896) : 15368,
     })),
   } }];
-  assert.deepEqual(readRulesetRequiredChecks(ruleset), protectedNames);
+  const rulesSnapshot = {
+    schemaVersion: 1,
+    repository: 'stoltembergg-png/hank',
+    ref: 'refs/heads/main',
+    sha,
+    tree,
+    complete: true,
+    rules: ruleset,
+  };
+  const releaseIdentity = { repository: rulesSnapshot.repository, ref: rulesSnapshot.ref, sha, tree };
+  assert.deepEqual(readRulesetRequiredChecks(rulesSnapshot, releaseIdentity), protectedNames);
   assert.equal(assertManifestMatchesRuleset({ manifestNames: protectedNames, rulesetNames: protectedNames }), true);
   assert.equal(assertManifestMatchesRuleset({ manifestNames: names, rulesetNames: protectedNames }), true);
   assert.throws(() => assertManifestMatchesRuleset({ manifestNames: names, rulesetNames: names.slice(0, -1) }), /mismatch/);
@@ -106,6 +121,40 @@ test('AC-626: prerelease derives required checks from manifest and active rulese
   const postMergeChecks = names.map((name) => ({ name, status: 'completed', conclusion: 'success' }));
   assert.doesNotThrow(() => assertPostMergeChecks({ checks: postMergeChecks, required: names }));
   assert.throws(() => assertPostMergeChecks({ checks: postMergeChecks, required: protectedNames }), /missing/);
+});
+
+test('AC-626: ruleset snapshot is complete and bound to the exact release identity', () => {
+  const identity = { repository: 'stoltembergg-png/hank', ref: 'refs/heads/main', sha, tree };
+  const snapshot = {
+    schemaVersion: 1,
+    ...identity,
+    complete: true,
+    rules: [{
+      type: 'required_status_checks',
+      parameters: {
+        strict_required_status_checks_policy: true,
+        required_status_checks: [{ context: 'Build Frontend', integration_id: 15368 }],
+      },
+    }],
+  };
+
+  assert.doesNotThrow(() => readRulesetRequiredChecks(snapshot, identity));
+  assert.throws(() => readRulesetRequiredChecks({ ...snapshot, complete: false }, identity), /complete/);
+  for (const [field, value] of [
+    ['repository', 'other/repository'],
+    ['ref', 'refs/heads/release'],
+    ['sha', 'c'.repeat(40)],
+    ['tree', 'c'.repeat(40)],
+  ]) {
+    assert.throws(() => readRulesetRequiredChecks({ ...snapshot, [field]: value }, identity), /identity/);
+  }
+  assert.throws(() => readRulesetRequiredChecks({
+    ...snapshot,
+    rules: [{ ...snapshot.rules[0], parameters: {
+      ...snapshot.rules[0].parameters,
+      required_status_checks: [{}],
+    } }],
+  }, identity), /incomplete entries/);
 });
 
 test('AC-626: release gates cannot be reclassified as pull-request checks', () => {

@@ -20,6 +20,8 @@ const PULL_REQUEST_CHECKS = Object.freeze([
   'Aikido Security: check code',
   'Aikido Security: Deep Review',
 ]);
+const HEX_SHA = /^[0-9a-f]{40}$/;
+const REPOSITORY = /^[^/\s]+\/[^/\s]+$/;
 
 function parseArgs(argv) {
   const args = {};
@@ -69,15 +71,29 @@ export function readProtectedChecks(manifest) {
   return names;
 }
 
-export function readRulesetRequiredChecks(rules) {
-  if (!Array.isArray(rules)) throw new Error('active rules response must be an array');
-  const required = rules.filter((rule) => rule?.type === 'required_status_checks');
+export function readRulesetRequiredChecks(snapshot, expectedIdentity) {
+  if (snapshot?.schemaVersion !== 1 || snapshot.complete !== true || !Array.isArray(snapshot.rules)) {
+    throw new Error('active rules snapshot must be complete');
+  }
+  if (!expectedIdentity || snapshot.repository !== expectedIdentity.repository ||
+      snapshot.ref !== expectedIdentity.ref || snapshot.sha !== expectedIdentity.sha ||
+      snapshot.tree !== expectedIdentity.tree || snapshot.ref !== 'refs/heads/main' ||
+      !REPOSITORY.test(snapshot.repository ?? '') ||
+      !HEX_SHA.test(snapshot.sha ?? '') || !HEX_SHA.test(snapshot.tree ?? '')) {
+    throw new Error('active rules snapshot identity mismatch');
+  }
+
+  const required = snapshot.rules.filter((rule) => rule?.type === 'required_status_checks');
   if (required.length !== 1) throw new Error(`expected exactly one active required_status_checks rule, got ${required.length}`);
   const parameters = required[0].parameters;
   if (parameters?.strict_required_status_checks_policy !== true) throw new Error('ruleset required checks must use strict policy');
   const checks = parameters.required_status_checks;
   if (!Array.isArray(checks) || !checks.length) throw new Error('ruleset has no required checks');
-  const names = checks.map((check) => check?.context).filter(Boolean);
+  if (checks.some((check) => typeof check?.context !== 'string' || !check.context.trim() ||
+      !Number.isInteger(check.integration_id) || check.integration_id <= 0)) {
+    throw new Error('ruleset required checks contain incomplete entries');
+  }
+  const names = checks.map((check) => check.context);
   if (new Set(names).size !== names.length) throw new Error('ruleset required checks contain duplicates');
   return names;
 }
@@ -96,7 +112,16 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const manifest = JSON.parse(readFileSync(args.manifest, 'utf8'));
   const manifestNames = readProtectedChecks(manifest);
   const releaseNames = readRequiredChecks(manifest);
-  const rulesetNames = readRulesetRequiredChecks(JSON.parse(readFileSync(args.rules, 'utf8')));
+  const expectedIdentity = {
+    repository: args.repository,
+    ref: args.ref,
+    sha: args.sha,
+    tree: args.tree,
+  };
+  if (Object.values(expectedIdentity).some((value) => typeof value !== 'string' || !value)) {
+    throw new Error('validate requires repository, ref, sha, and tree identity');
+  }
+  const rulesetNames = readRulesetRequiredChecks(JSON.parse(readFileSync(args.rules, 'utf8')), expectedIdentity);
   assertManifestMatchesRuleset({ manifestNames, rulesetNames });
   writeFileSync(args.output, `${releaseNames.join(',')}\n`);
   console.log(`required checks covered by ruleset: ${manifestNames.length}; release checks emitted: ${releaseNames.length}`);

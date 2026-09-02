@@ -118,7 +118,7 @@ function executableRunCommands(workflow, workflowJobName, stepName) {
     for (let index = steps.start; index < steps.end; index += 1) {
       const line = lines[index];
       const indentation = line.length - line.trimStart().length;
-      if (indentation === stepIndentation && /^\s*-\s/.test(line)) {
+      if (indentation === stepIndentation && /^\s*-(?:\s|$)/.test(line)) {
         inStep = true;
         const inlineName = new RegExp(`^\\s*-\\s+name:\\s*(.*)$`).exec(line);
         currentStepName = inlineName?.[1].trim().replace(/^(['"])(.*)\1$/, '$2');
@@ -295,6 +295,28 @@ test('workflow contract derives indentation and captures standalone step names',
     'Validate automated reviewer policy',
     'node --test tools/reviewer-policy-check.spec.mjs',
     'fixture.yml',
+  );
+});
+
+test('workflow contract rejects a command inside a skipped bare step', () => {
+  const skippedStepWorkflow = `jobs:
+  integrity:
+    steps:
+    - name: Validate automated reviewer policy
+      run: echo "no checker here"
+    -
+      if: \${{ false }}
+      run: node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assert.throws(
+    () => assertJobStepRun(
+      skippedStepWorkflow,
+      'Validate automated reviewer policy',
+      'node --test tools/reviewer-policy-check.spec.mjs',
+      'fixture.yml',
+    ),
+    /fixture\.yml: job Validate automated reviewer policy missing run containing/,
   );
 });
 
