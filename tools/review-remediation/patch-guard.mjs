@@ -160,11 +160,16 @@ function readBoundedFile({ root, relativePath }, maxBytes, tooLargeCode, invalid
   }
   const filePath = resolve(root, relativePath);
   const relativeCheck = relative(root, filePath);
-  if (relativeCheck.startsWith('..') || isAbsolute(relativeCheck)) throw error(invalidCode);
+  if (!isAbsolute(filePath)
+    || hasParentSegment(filePath)
+    || hasParentSegment(relativeCheck)
+    || relativeCheck.startsWith('..')
+    || isAbsolute(relativeCheck)) throw error(invalidCode);
+  const safeFilePath = filePath;
   let descriptor;
   try {
     const noFollow = constants.O_NOFOLLOW ?? 0;
-    descriptor = openSync(filePath, constants.O_RDONLY | noFollow);
+    descriptor = openSync(safeFilePath, constants.O_RDONLY | noFollow);
     const stat = fstatSync(descriptor);
     if (!stat.isFile()) throw error(invalidCode);
     if (stat.size > maxBytes) throw error(tooLargeCode);

@@ -111,11 +111,16 @@ function readBoundedFile({ root, relativePath }) {
   }
   const filePath = resolve(root, relativePath);
   const relativeCheck = relative(root, filePath);
-  if (relativeCheck.startsWith('..') || isAbsolute(relativeCheck)) throw error('CLI_INPUT_INVALID');
+  if (!isAbsolute(filePath)
+    || hasParentSegment(filePath)
+    || hasParentSegment(relativeCheck)
+    || relativeCheck.startsWith('..')
+    || isAbsolute(relativeCheck)) throw error('CLI_INPUT_INVALID');
+  const safeFilePath = filePath;
   let descriptor;
   try {
     const noFollow = constants.O_NOFOLLOW ?? 0;
-    descriptor = openSync(filePath, constants.O_RDONLY | noFollow);
+    descriptor = openSync(safeFilePath, constants.O_RDONLY | noFollow);
     const stat = fstatSync(descriptor);
     if (!stat.isFile()) throw error('CLI_INPUT_INVALID');
     if (stat.size > MAX_JSON_BYTES) throw error('CLI_INPUT_TOO_LARGE');

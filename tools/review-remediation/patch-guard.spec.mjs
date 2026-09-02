@@ -161,6 +161,31 @@ test('applies a valid patch only after git applicability and whitespace checks',
   }
 });
 
+test('reads allowlisted files with double dots in the filename', async () => {
+  const workspace = mkdtempSync(join(process.cwd(), '.hank-review-guard-dotted-file-'));
+  try {
+    mkdirSync(join(workspace, 'src'));
+    writeFileSync(join(workspace, 'src', 'value..mjs'), 'const before = true;\n');
+    git(workspace, ['init', '-q']);
+    git(workspace, ['config', 'core.autocrlf', 'false']);
+    git(workspace, ['config', 'user.email', 'test@example.invalid']);
+    git(workspace, ['config', 'user.name', 'Test Fixture']);
+    git(workspace, ['add', 'src/value..mjs']);
+    git(workspace, ['commit', '-qm', 'fixture']);
+    const patchFile = join(workspace, 'remediation.patch');
+    writeFileSync(patchFile, validPatch.replaceAll('src/value.txt', 'src/value..mjs').replace('before', 'const before = true;'));
+
+    const result = await applyAndValidatePatch({
+      workspace: workspaceInput(workspace),
+      patchFile: patchInput(patchFile),
+    });
+    assert.deepEqual(result.files, ['src/value..mjs']);
+    assert.match(readFileSync(join(workspace, 'src', 'value..mjs'), 'utf8'), /after/);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
 test('rejects syntax-invalid JavaScript and rolls the workspace back', async () => {
   const workspace = mkdtempSync(join(process.cwd(), '.hank-review-guard-syntax-'));
   try {
