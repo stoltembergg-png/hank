@@ -108,7 +108,7 @@ test('applies a valid patch only after git applicability and whitespace checks',
     git(workspace, ['add', 'src/value.txt']);
     git(workspace, ['commit', '-qm', 'fixture']);
     const patchFile = join(workspace, 'remediation.patch');
-    writeFileSync(patchFile, validPatch.replace('-before', '-before').replace('+after', '+after\n'));
+    writeFileSync(patchFile, validPatch.replace('+after', '+after\n'));
 
     const result = await applyAndValidatePatch({ workspace, patchFile });
     assert.deepEqual(result.files, ['src/value.txt']);
