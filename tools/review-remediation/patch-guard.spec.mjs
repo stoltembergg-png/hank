@@ -35,6 +35,17 @@ test('accepts a bounded source patch and reports changed files and line counts',
   assert.match(result.digest, /^[0-9a-f]{64}$/);
 });
 
+test('preserves a real top-level directory named b in unified diff paths', () => {
+  const patch = validPatch.replaceAll('src/value.txt', 'b/src/value.txt');
+  const result = validatePatchText(patch);
+
+  assert.deepEqual(result.files, ['b/src/value.txt']);
+  assert.throws(
+    () => validatePatchText(patch.replace('+++ b/b/src/value.txt', '+++ a/b/src/value.txt')),
+    (error) => error.code === 'PATCH_INVALID_PATH',
+  );
+});
+
 test('rejects traversal, absolute, Windows, forbidden, and trusted-helper paths', () => {
   const paths = [
     '../secret.txt',
@@ -53,6 +64,9 @@ test('rejects traversal, absolute, Windows, forbidden, and trusted-helper paths'
     assert.throws(() => validatePatchText(patch), (error) => error.code.startsWith('PATCH_'), path);
   }
   assert.throws(() => assertAllowedPatchPaths(['src/value.txt', 'tools/review-remediation-agent.mjs']), (error) => error.code === 'PATCH_FORBIDDEN_PATH');
+  for (const path of ['Cargo.toml', 'Cargo.lock', 'package.json', 'package-lock.json', 'pnpm-lock.yaml']) {
+    assert.throws(() => assertAllowedPatchPaths([path]), (error) => error.code === 'PATCH_FORBIDDEN_PATH');
+  }
 });
 
 test('rejects binary, symlink, submodule, rename, and mode metadata', () => {
@@ -135,6 +149,8 @@ test('rejects whitespace errors during application', async () => {
     writeFileSync(patchFile, validPatch.replace('+after', '+after '));
 
     await assert.rejects(applyAndValidatePatch({ workspace, patchFile }), (error) => error.code === 'PATCH_APPLY_FAILED');
+    assert.equal(readFileSync(join(workspace, 'src', 'value.txt'), 'utf8'), 'before\n');
+    assert.equal(git(workspace, ['status', '--porcelain', '--untracked-files=no']), '');
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
@@ -159,6 +175,8 @@ test('rejects modified ignored files instead of validating an unpublishable resu
       applyAndValidatePatch({ workspace, patchFile }),
       (error) => error.code === 'PATCH_RESULT_IGNORED',
     );
+    assert.equal(readFileSync(join(workspace, 'ignored', 'value.txt'), 'utf8'), 'before\n');
+    assert.equal(git(workspace, ['status', '--porcelain', '--untracked-files=no']), '');
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }

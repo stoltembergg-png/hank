@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   DEFAULT_MIMO_ENDPOINT,
+  MAX_RESPONSE_BYTES,
   MIMO_MODEL,
   MimoRequestError,
   buildRemediationPrompt,
@@ -76,6 +77,7 @@ test('client sends the fixed model and never serializes the API key', async () =
   assert.equal(body.model, 'mimo-v2.5');
   assert.equal(body.temperature, 0);
   assert.equal(body.stream, false);
+  assert.equal(request.init.redirect, 'error');
   assert.doesNotMatch(request.init.body, /secret-fixture-value/);
   assert.equal(request.init.headers.Authorization, 'Bearer secret-fixture-value');
   assert.equal(result.patch, sourceDiff);
@@ -119,6 +121,19 @@ test('client rejects malformed, oversized, and reasoning-only responses', async 
     requestMimo({ apiKey: 'fixture', prompt: prompt(), fetchImpl: async () => new Response(JSON.stringify({ choices: [{ message: { content: 'NO_PATCH' } }] }), { status: 200 }) }),
     (error) => error.code === 'MIMO_NO_SAFE_PATCH',
   );
+  await assert.rejects(
+    requestMimo({
+      apiKey: 'fixture',
+      prompt: prompt(),
+      fetchImpl: async () => new Response(new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('x'.repeat(MAX_RESPONSE_BYTES + 1)));
+          controller.close();
+        },
+      }), { status: 200 }),
+    }),
+    (error) => error.code === 'MIMO_RESPONSE_TOO_LARGE',
+  );
 });
 
 test('client enforces a bounded timeout', async () => {
@@ -128,6 +143,20 @@ test('client enforces a bounded timeout', async () => {
       prompt: prompt(),
       timeoutMs: 5,
       fetchImpl: () => new Promise(() => {}),
+    }),
+    (error) => error.code === 'MIMO_TIMEOUT',
+  );
+
+  await assert.rejects(
+    requestMimo({
+      apiKey: 'fixture',
+      prompt: prompt(),
+      timeoutMs: 5,
+      fetchImpl: async () => new Response(new ReadableStream({
+        pull() {
+          return new Promise(() => {});
+        },
+      }), { status: 200 }),
     }),
     (error) => error.code === 'MIMO_TIMEOUT',
   );

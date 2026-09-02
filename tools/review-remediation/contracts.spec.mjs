@@ -6,6 +6,7 @@ import {
   MAX_FINDING_TITLE_BYTES,
   POLICY_REVISION,
   findingFingerprint,
+  findingLineage,
   hasUnredactedSecret,
   isDuplicateMarker,
   normalizeFinding,
@@ -139,6 +140,15 @@ test('fingerprints are deterministic and independent of object key order', () =>
   };
   assert.equal(findingFingerprint(first), findingFingerprint(second));
   assert.equal(firstResult.finding.fingerprint, findingFingerprint(first));
+});
+
+test('lineage remains stable when the pull request head changes', () => {
+  const first = validFinding({ headSha: 'a'.repeat(40) });
+  const second = validFinding({ headSha: 'b'.repeat(40) });
+
+  assert.notEqual(findingFingerprint(first), findingFingerprint(second));
+  assert.equal(findingLineage(first), findingLineage(second));
+  assert.match(findingLineage(first), /^[0-9a-f]{64}$/);
 });
 
 test('branch names use only identity fields and never reviewer text', () => {

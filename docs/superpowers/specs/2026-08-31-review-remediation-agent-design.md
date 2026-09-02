@@ -131,7 +131,7 @@ The prompt contains a structured, size-limited JSON envelope with the exact iden
 
 The parser accepts a single bounded diff from the assistant content. It rejects missing diff markers, multiple unrelated payloads, absolute paths, traversal, NUL/control characters, binary patches, oversized files/diffs, and patch metadata that targets forbidden paths.
 
-The first version limits each patch to 10 files, 500 added/deleted lines, 64 KiB total patch text, and 256 KiB per resulting text file. It allows source, test, documentation, and ordinary dependency manifest/lockfile changes, but denies `.github/workflows/**`, `.github/actions/**`, `.git/**`, `.env*`, credential/config secret paths, branch/ruleset policy files, and symlink/submodule changes.
+The first version limits each patch to 10 files, 500 added/deleted lines, 64 KiB total patch text, and 256 KiB per resulting text file. It allows source, test, and documentation changes, but denies dependency manifests/lockfiles, `.github/workflows/**`, `.github/actions/**`, `.git/**`, `.env*`, credential/config secret paths, branch/ruleset policy files, and symlink/submodule changes.
 
 ## Validation and publication
 

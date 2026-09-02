@@ -7,6 +7,7 @@ import {
   MAX_RESULT_FILE_BYTES,
   POLICY_REVISION,
   findingFingerprint,
+  findingLineage,
   hasUnredactedSecret,
   isDuplicateMarker,
   normalizeFinding,
@@ -114,11 +115,14 @@ function concreteAikidoAnnotation(annotations) {
   return matching.length === 1 ? matching[0] : undefined;
 }
 
-function cycleFromComments(comments, pullRequest) {
-  const pattern = new RegExp(`<!--\\s*hank-review-remediation:\\s*lineage=${pullRequest}\\s+cycle=(\\d+)\\s*-->`, 'gi');
+function cycleFromComments(comments, finding) {
+  const lineage = findingLineage(finding);
+  const stablePattern = new RegExp(`<!--\\s*hank-review-remediation:\\s*lineage=${lineage}\\s+cycle=(\\d+)\\s*-->`, 'gi');
+  const legacyPattern = new RegExp(`<!--\\s*hank-review-remediation:\\s*lineage=${finding.pullRequest}\\s+cycle=(\\d+)\\s*-->`, 'gi');
   return comments.reduce((max, comment) => {
     const body = typeof comment?.body === 'string' ? comment.body : '';
-    for (const match of body.matchAll(pattern)) max = Math.max(max, Number(match[1]));
+    for (const match of body.matchAll(stablePattern)) max = Math.max(max, Number(match[1]));
+    for (const match of body.matchAll(legacyPattern)) max = Math.max(max, Number(match[1]));
     return max;
   }, 0);
 }
@@ -146,8 +150,8 @@ async function currentPullRequest({ event, repository, api }) {
   return { status: 'READY', pullRequest };
 }
 
-async function finalizeFinding({ finding, api }) {
-  const normalized = normalizeFinding(finding, finding.repository);
+async function finalizeFinding({ finding, repository, api }) {
+  const normalized = normalizeFinding(finding, repository);
   if (normalized.status !== 'READY') return normalized;
   let issueComments;
   try {
@@ -157,7 +161,7 @@ async function finalizeFinding({ finding, api }) {
   }
   if (!Array.isArray(issueComments) || issueComments.length > MAX_REVIEW_COMMENTS) return result('HUMAN_REQUIRED', 'comment history is not bounded');
   if (issueComments.some((comment) => isDuplicateMarker(comment?.body, normalized.finding.fingerprint))) return result('NOOP', 'finding fingerprint is already published');
-  const previousCycle = cycleFromComments(issueComments, normalized.finding.pullRequest);
+  const previousCycle = cycleFromComments(issueComments, normalized.finding);
   if (previousCycle >= MAX_REMEDIATION_CYCLES) return result('HUMAN_REQUIRED', 'remediation cycle cap reached');
   let branch;
   try {
@@ -238,7 +242,7 @@ export async function collectFinding({ event, repository, api }) {
     return result('NOOP', 'event type is not supported');
   }
 
-  return finalizeFinding({ finding, api });
+  return finalizeFinding({ finding, repository, api });
 }
 
 export function buildProposalInput({ finding, files }) {
@@ -284,6 +288,9 @@ export async function proposeFinding({ collected, api, apiKey, endpoint = DEFAUL
     const prompt = buildRemediationPrompt({ finding: collected.finding, sourceDiff: proposalInput.patch });
     const response = await requestMimo({ apiKey, endpoint, model, prompt, fetchImpl });
     const patchMetadata = validatePatchText(response.patch);
+    if (patchMetadata.files.length !== 1 || patchMetadata.files[0] !== collected.finding.path) {
+      throw error('PROPOSAL_PATCH_PATH_MISMATCH');
+    }
     return {
       status: 'PROPOSED',
       viability: 'VIABLE_PATCH',
@@ -332,6 +339,7 @@ export function buildPublishDescriptor({ validated, finding, cycle = 1 }) {
   if (validated?.status !== 'VALIDATED' || !finding) throw error('PUBLISH_INPUT_INVALID');
   const fingerprint = finding.fingerprint ?? findingFingerprint(finding);
   const normalizedFinding = { ...finding, fingerprint };
+  const lineage = findingLineage(normalizedFinding);
   return {
     status: 'PUBLISH_READY',
     repository: normalizedFinding.repository,
@@ -340,12 +348,13 @@ export function buildPublishDescriptor({ validated, finding, cycle = 1 }) {
     baseBranch: normalizedFinding.baseBranch,
     sourceSha: normalizedFinding.headSha,
     fingerprint,
+    lineage,
     policyRevision: POLICY_REVISION,
     branch: remediationBranchName(normalizedFinding),
     base: normalizedFinding.sourceBranch,
     cycle,
     marker: `<!-- hank-review-remediation: fingerprint=${fingerprint} -->`,
-    lineageMarker: `<!-- hank-review-remediation: lineage=${normalizedFinding.pullRequest} cycle=${cycle} -->`,
+    lineageMarker: `<!-- hank-review-remediation: lineage=${lineage} cycle=${cycle} -->`,
     patchDigest: validated.patchDigest,
     treeDigest: validated.treeDigest,
     files: validated.files,

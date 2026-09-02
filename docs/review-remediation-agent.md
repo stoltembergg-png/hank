@@ -13,9 +13,10 @@ pelo check determinístico de whitespace no SHA exato da PR de origem.
 - Apenas findings CodeRabbit/Aikido do mesmo repositório são considerados.
 - PRs de fork, findings genéricas, SHA stale, duplicatas e ciclos esgotados terminam
   em `NOOP` ou `HUMAN_REQUIRED`.
-- O patch é limitado a 10 arquivos, 500 linhas alteradas e 64 KiB; workflows,
-  actions, políticas, secrets, credenciais, binários, symlinks e submodules são
-  proibidos.
+- O patch é limitado a 10 arquivos, 500 linhas alteradas e 64 KiB de diff; cada
+  arquivo textual resultante também é limitado a 256 KiB. Workflows, actions,
+  políticas, secrets, credenciais, binários, symlinks, submodules e manifests ou
+  lockfiles de dependências são proibidos.
 
 O agente não aprova, faz merge, rebase, force-push, publica release, altera proteção
 de branch ou resolve a conversa do reviewer. A conversa original permanece disponível

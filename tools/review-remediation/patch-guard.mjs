@@ -23,6 +23,7 @@ const execFileAsync = promisify(execFile);
 const CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
 const FORBIDDEN_METADATA = /^(?:old mode|new mode|new file mode|deleted file mode|similarity index|rename from|rename to|copy from|copy to)\s/m;
 const FORBIDDEN_PATH = /^(?:\.github\/(?:workflows|actions)(?:\/|$)|\.git(?:\/|$)|\.env(?:\.|$)|tools\/review-remediation(?:\/|$))/i;
+const FORBIDDEN_DEPENDENCY_PATH = /(?:^|\/)(?:Cargo\.toml|Cargo\.lock|package\.json|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lock(?:b)?|go\.mod|go\.sum|requirements(?:[-_.][^/]*)?\.txt|Pipfile(?:\.lock)?|poetry\.lock|pyproject\.toml|composer\.(?:json|lock)|Gemfile(?:\.lock)?|mix\.lock|pubspec\.lock|Package\.swift|Package\.resolved|Podfile\.lock)$/i;
 
 export class PatchGuardError extends Error {
   constructor(code) {
@@ -40,10 +41,12 @@ function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
-function normalizePatchPath(value) {
+function normalizePatchPath(value, side) {
   if (typeof value !== 'string' || value.length === 0 || value === '/dev/null') return null;
-  if (value.startsWith('a/')) value = value.slice(2);
-  if (value.startsWith('b/')) value = value.slice(2);
+  if (side !== undefined) {
+    if (!value.startsWith(`${side}/`)) return null;
+    value = value.slice(2);
+  }
   if (value.includes('\\') || value.startsWith('/') || value.includes('\u0000') || CONTROL_CHARACTERS.test(value)) return null;
   const segments = value.split('/');
   if (segments.some((segment) => segment.length === 0 || segment === '.' || segment === '..')) return null;
@@ -53,6 +56,7 @@ function normalizePatchPath(value) {
 function isForbiddenPath(path) {
   const basename = path.split('/').at(-1) ?? '';
   return FORBIDDEN_PATH.test(path)
+    || FORBIDDEN_DEPENDENCY_PATH.test(path)
     || path === 'tools/review-remediation-agent.mjs'
     || /(?:^|\/)(?:CODEOWNERS|branch-protection|rulesets?)(?:\.|\/|$)/i.test(path)
     || /^(?:credentials?|secrets?|tokens?|auth(?:entication)?|id_rsa|id_ed25519|\.npmrc|\.pypirc)$/i.test(basename)
@@ -83,17 +87,22 @@ function sectionData(patch) {
 }
 
 function parseSection(lines) {
-  const header = /^diff --git a\/(.+) b\/(.+)$/.exec(lines[0]);
+  const header = /^diff --git (a\/.+) (b\/.+)$/.exec(lines[0]);
   if (!header) throw error('PATCH_MALFORMED');
   const oldHeader = lines.find((line) => line.startsWith('--- '));
   const newHeader = lines.find((line) => line.startsWith('+++ '));
   if (!oldHeader || !newHeader || !lines.some((line) => line.startsWith('@@ '))) throw error('PATCH_MALFORMED');
 
-  const headerOldPath = normalizePatchPath(header[1]);
-  const headerNewPath = normalizePatchPath(header[2]);
-  const oldPath = oldHeader.slice(4).trim() === '/dev/null' ? null : normalizePatchPath(oldHeader.slice(4).trim());
-  const newPath = newHeader.slice(4).trim() === '/dev/null' ? null : normalizePatchPath(newHeader.slice(4).trim());
-  if (!headerOldPath || !headerNewPath || (!oldPath && !newPath) || (oldPath && oldPath !== headerOldPath) || (newPath && newPath !== headerNewPath)) {
+  const headerOldPath = normalizePatchPath(header[1], 'a');
+  const headerNewPath = normalizePatchPath(header[2], 'b');
+  const oldHeaderValue = oldHeader.slice(4).trim();
+  const newHeaderValue = newHeader.slice(4).trim();
+  const oldPath = oldHeaderValue === '/dev/null' ? null : normalizePatchPath(oldHeaderValue, 'a');
+  const newPath = newHeaderValue === '/dev/null' ? null : normalizePatchPath(newHeaderValue, 'b');
+  if (!headerOldPath || !headerNewPath || (!oldPath && !newPath)
+    || (oldHeaderValue !== '/dev/null' && !oldPath)
+    || (newHeaderValue !== '/dev/null' && !newPath)
+    || (oldPath && oldPath !== headerOldPath) || (newPath && newPath !== headerNewPath)) {
     throw error('PATCH_INVALID_PATH');
   }
   if (oldPath && newPath && oldPath !== newPath) throw error('PATCH_RENAME_FORBIDDEN');
@@ -271,11 +280,24 @@ export async function applyAndValidatePatch({ workspace, patchFile }) {
   const patch = readPatchFile({ workspace: root, patchFile: patchPath });
   const metadata = validatePatchText(patch);
   const before = snapshotWorkspace(root, metadata.files);
-  await runGit(root, ['apply', '--check', '--whitespace=error', '--', patchPath], 'PATCH_APPLY_FAILED');
-  await runGit(root, ['apply', '--whitespace=error', '--', patchPath], 'PATCH_APPLY_FAILED');
-  await runGit(root, ['diff', '--check'], 'PATCH_APPLY_FAILED');
-  const after = snapshotWorkspace(root, metadata.files);
-  const changed = changedPaths(before, after);
-  const tree = validateResultTree({ workspace: root, beforeFiles: metadata.files, afterFiles: changed });
-  return { ...metadata, ...tree };
+  let applied = false;
+  try {
+    await runGit(root, ['apply', '--check', '--whitespace=error', '--', patchPath], 'PATCH_APPLY_FAILED');
+    await runGit(root, ['apply', '--whitespace=error', '--', patchPath], 'PATCH_APPLY_FAILED');
+    applied = true;
+    await runGit(root, ['diff', '--check'], 'PATCH_APPLY_FAILED');
+    const after = snapshotWorkspace(root, metadata.files);
+    const changed = changedPaths(before, after);
+    const tree = validateResultTree({ workspace: root, beforeFiles: metadata.files, afterFiles: changed });
+    return { ...metadata, ...tree };
+  } catch (caught) {
+    if (applied) {
+      try {
+        await runGit(root, ['apply', '-R', '--whitespace=nowarn', '--', patchPath], 'PATCH_CLEANUP_FAILED');
+      } catch (cleanupError) {
+        throw cleanupError;
+      }
+    }
+    throw caught;
+  }
 }

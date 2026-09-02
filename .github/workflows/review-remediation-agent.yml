@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: review-remediation-${{ github.repository }}-${{ github.run_id }}
+  group: review-remediation-${{ github.repository }}-${{ github.event.pull_request.number || github.event.check_run.id }}
   cancel-in-progress: true
 
 jobs:
@@ -141,7 +141,7 @@ jobs:
           status="$(node -e "const value=require('./proposal.json'); process.stdout.write(String(value.status || ''))")"
           if [[ "$status" == "PROPOSED" ]]; then
             expected="$(node -e "const value=require('./proposal.json'); process.stdout.write(String(value.patchDigest || ''))")"
-            actual="$(sha256sum proposal.patch | awk '{print \$1}')"
+            actual="$(sha256sum proposal.patch | awk '{print $1}')"
             [[ "$expected" =~ ^[0-9a-f]{64}$ ]]
             test "$actual" = "$expected"
           elif [[ "$status" != "HUMAN_REQUIRED" && "$status" != "NOOP" ]]; then
@@ -343,7 +343,7 @@ jobs:
           status="$(node -e "const value=require('./publish.json'); process.stdout.write(String(value.status || ''))")"
           test "$status" = "PUBLISH_READY"
           expected="$(node -e "const value=require('./validation/validation.json'); process.stdout.write(String(value.patchDigest || ''))")"
-          actual="$(sha256sum proposal/proposal.patch | awk '{print \$1}')"
+          actual="$(sha256sum proposal/proposal.patch | awk '{print $1}')"
           test "$actual" = "$expected"
 
       - name: Create isolated commit

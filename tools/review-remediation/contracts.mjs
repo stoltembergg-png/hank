@@ -153,6 +153,23 @@ export function findingFingerprint(input) {
   return createHash('sha256').update(stableJson(fingerprintInput), 'utf8').digest('hex');
 }
 
+export function findingLineage(input) {
+  const lineageInput = {
+    source: readField(input, 'source'),
+    repository: readField(input, 'repository'),
+    pullRequest: readField(input, 'pullRequest', 'pull_request'),
+    sourceBranch: readField(input, 'sourceBranch', 'source_branch'),
+    baseBranch: readField(input, 'baseBranch', 'base_branch'),
+    reviewer: readField(input, 'reviewer'),
+    title: redactSecrets(readField(input, 'title') ?? ''),
+    detail: redactSecrets(readField(input, 'detail') ?? ''),
+    path: readField(input, 'path'),
+    line: readField(input, 'line'),
+    policyRevision: readField(input, 'policyRevision', 'policy_revision') ?? POLICY_REVISION,
+  };
+  return createHash('sha256').update(stableJson(lineageInput), 'utf8').digest('hex');
+}
+
 export function normalizeFinding(input, expectedRepository) {
   if (!input || typeof input !== 'object' || typeof expectedRepository !== 'string') return invalid('finding input is invalid');
 

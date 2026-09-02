@@ -15,7 +15,11 @@ function error(code) {
 }
 
 function assertRepository(repository) {
-  if (typeof repository !== 'string' || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) throw error('GITHUB_REPOSITORY_INVALID');
+  if (typeof repository !== 'string') throw error('GITHUB_REPOSITORY_INVALID');
+  const parts = repository.split('/');
+  if (parts.length !== 2 || parts.some((part) => part.length === 0 || part === '.' || part === '..' || !/^[A-Za-z0-9_.-]+$/.test(part))) {
+    throw error('GITHUB_REPOSITORY_INVALID');
+  }
 }
 
 function assertNumber(value, code) {
@@ -24,6 +28,7 @@ function assertNumber(value, code) {
 
 function assertArray(value, code) {
   if (!Array.isArray(value)) throw error(code);
+  if (value.length >= 100) throw error('GITHUB_PAGINATION_UNBOUNDED');
   return value;
 }
 
@@ -88,22 +93,22 @@ export function createGithubApi({ token, repository, fetchImpl = globalThis.fetc
 
   async function getReviewComments(number) {
     assertNumber(number, 'GITHUB_PULL_REQUEST_INVALID');
-    return assertArray(await request(`/repos/${repoPath}/pulls/${number}/comments?per_page=100&page=1`), 'GITHUB_REVIEW_COMMENTS_INVALID').slice(0, 100);
+    return assertArray(await request(`/repos/${repoPath}/pulls/${number}/comments?per_page=100&page=1`), 'GITHUB_REVIEW_COMMENTS_INVALID');
   }
 
   async function getIssueComments(number) {
     assertNumber(number, 'GITHUB_PULL_REQUEST_INVALID');
-    return assertArray(await request(`/repos/${repoPath}/issues/${number}/comments?per_page=100&page=1`), 'GITHUB_ISSUE_COMMENTS_INVALID').slice(0, 100);
+    return assertArray(await request(`/repos/${repoPath}/issues/${number}/comments?per_page=100&page=1`), 'GITHUB_ISSUE_COMMENTS_INVALID');
   }
 
   async function getPullRequestFiles(number) {
     assertNumber(number, 'GITHUB_PULL_REQUEST_INVALID');
-    return assertArray(await request(`/repos/${repoPath}/pulls/${number}/files?per_page=100&page=1`), 'GITHUB_PULL_REQUEST_FILES_INVALID').slice(0, 100);
+    return assertArray(await request(`/repos/${repoPath}/pulls/${number}/files?per_page=100&page=1`), 'GITHUB_PULL_REQUEST_FILES_INVALID');
   }
 
   async function getCheckAnnotations(checkRunId) {
     assertNumber(checkRunId, 'GITHUB_CHECK_RUN_INVALID');
-    return assertArray(await request(`/repos/${repoPath}/check-runs/${checkRunId}/annotations?per_page=100&page=1`), 'GITHUB_CHECK_ANNOTATIONS_INVALID').slice(0, 100);
+    return assertArray(await request(`/repos/${repoPath}/check-runs/${checkRunId}/annotations?per_page=100&page=1`), 'GITHUB_CHECK_ANNOTATIONS_INVALID');
   }
 
   async function getCheckRun(checkRunId) {

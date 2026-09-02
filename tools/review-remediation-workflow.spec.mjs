@@ -27,6 +27,8 @@ test('declares only the supported review events and four bounded jobs', () => {
   assert.doesNotMatch(workflow, /^  (?:push|pull_request|workflow_dispatch|schedule):/m);
   assert.match(workflow, /^permissions:\s*$/m);
   assert.match(workflow, /^concurrency:\s*$/m);
+  assert.match(workflow, /group:\s*review-remediation-\$\{\{\s*github\.repository\s*\}\}-\$\{\{\s*github\.event\.pull_request\.number\s*\|\|\s*github\.event\.check_run\.id\s*\}\}/);
+  assert.doesNotMatch(workflow, /group:[^\n]*github\.run_id/);
   for (const job of ['collect', 'propose', 'validate', 'publish']) {
     const block = jobBlock(workflow, job);
     assert.ok(block, `${job} job is missing`);
@@ -71,6 +73,7 @@ test('pins actions and source identity, and prevents pull-request code from usin
   assert.match(workflow, /repository:\s*\$\{\{\s*github\.repository\s*\}\}/);
   assert.match(workflow, /git -C target rev-parse HEAD/);
   assert.match(workflow, /sha256sum/);
+  assert.doesNotMatch(workflow, /awk '\{print \\$1\}'/);
   assert.match(workflow, /review-remediation\/pr-/);
   assert.match(workflow, /if:\s*\$\{\{\s*needs\.collect\.outputs\.status\s*==\s*'READY'/);
   assert.match(workflow, /if:\s*\$\{\{\s*needs\.propose\.outputs\.status\s*==\s*'PROPOSED'/);

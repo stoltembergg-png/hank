@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 import { createGithubApi, GithubApiError } from './github-api.mjs';
-import { findingFingerprint } from './contracts.mjs';
+import { findingFingerprint, findingLineage } from './contracts.mjs';
 import {
   MAX_REMEDIATION_CYCLES,
   buildEvidenceDescriptor,
@@ -204,6 +204,31 @@ test('does not create duplicate or remediation-branch work and enforces cycle ca
   assert.equal(MAX_REMEDIATION_CYCLES, 2);
 });
 
+test('keeps the remediation cycle cap across source head changes', async () => {
+  const first = await collectFinding({
+    event: codeRabbitEvent(),
+    repository,
+    api: fakeApi({ getReviewComments: async () => [codeRabbitComment()] }),
+  });
+  assert.equal(first.status, 'READY');
+  const lineage = findingLineage(first.finding);
+  const nextHead = 'b'.repeat(40);
+  const nextEvent = codeRabbitEvent({
+    pull_request: pullRequest({ head: { ref: 'feature/fix-review', sha: nextHead, repo: { full_name: repository } } }),
+    review: { ...codeRabbitEvent().review, commit_id: nextHead },
+  });
+  const capped = await collectFinding({
+    event: nextEvent,
+    repository,
+    api: fakeApi({
+      getReviewComments: async () => [codeRabbitComment({ commit_id: nextHead })],
+      getIssueComments: async () => [{ body: `<!-- hank-review-remediation: lineage=${lineage} cycle=2 -->` }],
+    }),
+  });
+
+  assert.equal(capped.status, 'HUMAN_REQUIRED');
+});
+
 test('rejects multiple CodeRabbit inline findings instead of selecting one silently', async () => {
   const result = await collectFinding({
     event: codeRabbitEvent(),
@@ -211,6 +236,24 @@ test('rejects multiple CodeRabbit inline findings instead of selecting one silen
     api: fakeApi({ getReviewComments: async () => [codeRabbitComment(), codeRabbitComment({ id: 89, path: 'src/other.rs' })] }),
   });
   assert.equal(result.status, 'HUMAN_REQUIRED');
+});
+
+test('rejects a model patch that targets a file outside the reviewer finding', async () => {
+  const collected = await collectFinding({
+    event: codeRabbitEvent(),
+    repository,
+    api: fakeApi({ getReviewComments: async () => [codeRabbitComment()] }),
+  });
+  const wrongPathPatch = remediationPatch.replaceAll('src/value.txt', 'src/other.txt');
+  const result = await proposeFinding({
+    collected,
+    api: { getPullRequestFiles: async () => [{ filename: findingPath, patch: 'source diff' }] },
+    apiKey: 'provider-secret-fixture',
+    fetchImpl: async () => new Response(JSON.stringify({ choices: [{ message: { content: wrongPathPatch } }] }), { status: 200 }),
+  });
+
+  assert.equal(result.status, 'HUMAN_REQUIRED');
+  assert.equal(result.reason, 'PROPOSAL_PATCH_PATH_MISMATCH');
 });
 
 test('builds a bounded proposal input and redacted evidence descriptor', () => {
@@ -245,6 +288,30 @@ test('GitHub adapter uses bounded read-only requests and redacts errors', async 
 
   const failingApi = createGithubApi({ token: 'github-secret-fixture', repository, fetchImpl: async () => new Response('token=github-secret-fixture', { status: 500 }) });
   await assert.rejects(failingApi.getPullRequest(401), (error) => error instanceof GithubApiError && !error.message.includes('github-secret-fixture'));
+});
+
+test('GitHub adapter rejects repository path segments and unbounded first pages', async () => {
+  for (const invalidRepository of ['../repo', 'owner/..', './repo', 'owner/.']) {
+    assert.throws(
+      () => createGithubApi({ token: 'fixture', repository: invalidRepository, fetchImpl: async () => new Response('[]', { status: 200 }) }),
+      (error) => error.code === 'GITHUB_REPOSITORY_INVALID',
+    );
+  }
+
+  const response = JSON.stringify(Array.from({ length: 100 }, (_, index) => ({ id: index + 1 })));
+  const api = createGithubApi({
+    token: 'fixture',
+    repository,
+    fetchImpl: async () => new Response(response, { status: 200 }),
+  });
+  for (const method of [
+    () => api.getReviewComments(401),
+    () => api.getIssueComments(401),
+    () => api.getPullRequestFiles(401),
+    () => api.getCheckAnnotations(99),
+  ]) {
+    await assert.rejects(method(), (error) => error.code === 'GITHUB_PAGINATION_UNBOUNDED');
+  }
 });
 
 function fixtureWorkspace(prefix) {
@@ -308,6 +375,8 @@ test('runs collect-to-propose-to-validate-to-publish with no provider network de
       assert.equal(published.base, 'feature/fix-review');
       assert.equal(published.baseBranch, 'main');
       assert.match(published.marker, /^<!-- hank-review-remediation: fingerprint=[0-9a-f]{64} -->$/);
+      assert.match(published.lineageMarker, /^<!-- hank-review-remediation: lineage=[0-9a-f]{64} cycle=1 -->$/);
+      assert.equal(published.lineage, findingLineage(collected.finding));
       assert.equal(published.noApproval, true);
       assert.equal(published.noMerge, true);
 

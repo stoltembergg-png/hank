@@ -146,6 +146,32 @@ function statusError(status) {
   return error('MIMO_PROVIDER_REJECTED');
 }
 
+async function readResponseTextBounded(response) {
+  if (response?.body && typeof response.body.getReader === 'function') {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let totalBytes = 0;
+    let result = '';
+    try {
+      while (true) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        const value = chunk.value instanceof Uint8Array ? chunk.value : new Uint8Array(chunk.value ?? []);
+        totalBytes += value.byteLength;
+        if (totalBytes > MAX_RESPONSE_BYTES) throw error('MIMO_RESPONSE_TOO_LARGE');
+        result += decoder.decode(value, { stream: true });
+      }
+      return result + decoder.decode();
+    } finally {
+      reader.releaseLock?.();
+    }
+  }
+  if (typeof response?.text !== 'function') throw error('MIMO_MALFORMED_RESPONSE');
+  const result = await response.text();
+  if (typeof result !== 'string' || Buffer.byteLength(result, 'utf8') > MAX_RESPONSE_BYTES) throw error('MIMO_RESPONSE_TOO_LARGE');
+  return result;
+}
+
 export async function requestMimo({
   apiKey,
   endpoint = DEFAULT_MIMO_ENDPOINT,
@@ -192,36 +218,36 @@ export async function requestMimo({
         },
         body,
         signal: controller.signal,
+        redirect: 'error',
       }),
       timeout,
     ]);
+    if (!response || typeof response.ok !== 'boolean') throw error('MIMO_MALFORMED_RESPONSE');
+    if (!response.ok) throw statusError(response.status);
+
+    let responseText;
+    try {
+      responseText = await Promise.race([readResponseTextBounded(response), timeout]);
+    } catch (caught) {
+      if (caught instanceof MimoRequestError) throw caught;
+      throw error('MIMO_MALFORMED_RESPONSE');
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(responseText);
+    } catch {
+      throw error('MIMO_MALFORMED_RESPONSE');
+    }
+    if (!Array.isArray(payload?.choices) || payload.choices.length !== 1 || typeof payload.choices[0]?.message?.content !== 'string') {
+      throw error('MIMO_MALFORMED_RESPONSE');
+    }
+    const patch = extractUnifiedDiff(payload.choices[0].message.content);
+    return { patch, responseDigest: sha256(responseText) };
   } catch (caught) {
     if (caught instanceof MimoRequestError) throw caught;
     throw error('MIMO_NETWORK_ERROR');
   } finally {
     clearTimeout(timer);
   }
-
-  if (!response || typeof response.ok !== 'boolean' || typeof response.text !== 'function') throw error('MIMO_MALFORMED_RESPONSE');
-  if (!response.ok) throw statusError(response.status);
-
-  let responseText;
-  try {
-    responseText = await response.text();
-  } catch {
-    throw error('MIMO_MALFORMED_RESPONSE');
-  }
-  if (typeof responseText !== 'string' || Buffer.byteLength(responseText, 'utf8') > MAX_RESPONSE_BYTES) throw error('MIMO_RESPONSE_TOO_LARGE');
-
-  let payload;
-  try {
-    payload = JSON.parse(responseText);
-  } catch {
-    throw error('MIMO_MALFORMED_RESPONSE');
-  }
-  if (!Array.isArray(payload?.choices) || payload.choices.length !== 1 || typeof payload.choices[0]?.message?.content !== 'string') {
-    throw error('MIMO_MALFORMED_RESPONSE');
-  }
-  const patch = extractUnifiedDiff(payload.choices[0].message.content);
-  return { patch, responseDigest: sha256(responseText) };
 }
