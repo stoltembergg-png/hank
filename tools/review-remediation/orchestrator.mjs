@@ -307,7 +307,7 @@ function readPatchForEvidence(patchFile) {
   try {
     const patch = readFileSync(patchFile, 'utf8');
     if (Buffer.byteLength(patch, 'utf8') > MAX_RESULT_FILE_BYTES) throw error('EVIDENCE_PATCH_TOO_LARGE');
-    return redactSecrets(patch);
+    return patch;
   } catch (caught) {
     if (caught instanceof OrchestratorError) throw caught;
     throw error('EVIDENCE_PATCH_UNREADABLE');
@@ -338,6 +338,30 @@ export function buildPublishDescriptor({ validated, finding, cycle = 1 }) {
     noApproval: true,
     noMerge: true,
   };
+}
+
+export function renderDraftBody(publish) {
+  if (!publish || publish.status !== 'PUBLISH_READY') throw error('PUBLISH_BODY_INPUT_INVALID');
+  const files = Array.isArray(publish.files) ? publish.files.slice(0, 10).map((path) => text(path, 1024)).join(', ') : 'not recorded';
+  const tests = Array.isArray(publish.tests) ? publish.tests.slice(0, 20).map((command) => `- ${text(command, 512)}`).join('\n') : '- not recorded';
+  return [
+    publish.marker,
+    publish.lineageMarker,
+    '',
+    '## Reviewer remediation draft',
+    '',
+    `Source pull request: #${publish.pullRequest}`,
+    `Source SHA: ${text(publish.sourceSha, 64)}`,
+    `Finding fingerprint: ${text(publish.fingerprint, 64)}`,
+    `Viability: validated bounded patch (${text(publish.patchDigest, 64)})`,
+    `Files: ${files}`,
+    '',
+    'Checks recorded by the validation job:',
+    tests,
+    '',
+    'This is a draft for human review. The agent did not approve, merge, rebase, or resolve the source reviewer conversation.',
+    'Rollback: close this draft and delete only its automation branch; the source pull request remains unchanged.',
+  ].join('\n');
 }
 
 export async function publishValidated({ validated, finding, patchFile, workspace, cycle = 1 }) {

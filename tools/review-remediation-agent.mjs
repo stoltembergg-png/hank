@@ -5,6 +5,7 @@ import {
   collectFinding,
   proposeFinding,
   publishValidated,
+  renderDraftBody,
   validateProposal,
 } from './review-remediation/orchestrator.mjs';
 
@@ -31,7 +32,7 @@ function parseArgs(argv) {
     const key = argv[index];
     if (!key.startsWith('--') || index + 1 >= argv.length || argv[index + 1].startsWith('--')) throw error('CLI_USAGE');
     const name = key.slice(2);
-    if (!['event', 'input', 'output', 'repository', 'patch', 'patch-out', 'workspace', 'tests'].includes(name)) throw error('CLI_USAGE');
+    if (!['event', 'input', 'output', 'repository', 'patch', 'patch-out', 'body-out', 'workspace', 'tests'].includes(name)) throw error('CLI_USAGE');
     if (args[name] !== undefined) throw error('CLI_USAGE');
     args[name] = argv[index + 1];
     index += 1;
@@ -99,6 +100,8 @@ async function run(args) {
       collected: input,
       api: githubApi(args),
       apiKey: process.env.XIAOMI_MIMO_API_KEY,
+      endpoint: process.env.MIMO_ENDPOINT,
+      model: process.env.MIMO_MODEL,
     });
     if (result?.status === 'PROPOSED') {
       const patchOutput = requireArg(args, 'patch-out');
@@ -131,6 +134,7 @@ async function run(args) {
     workspace,
     cycle: input.cycle,
   });
+  if (result?.status === 'PUBLISH_READY' && args['body-out']) writeFileSync(requireArg(args, 'body-out'), renderDraftBody(result), { encoding: 'utf8', mode: 0o600 });
   writeJson(output, result);
 }
 
