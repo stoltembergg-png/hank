@@ -53,6 +53,7 @@ function workflowStepRun(workflow, stepName) {
   const runLine = step.lines[runIndex];
   const runValue = runLine.slice(runLine.indexOf(':') + 1).trim();
   if (!/^[|>]/.test(runValue)) return runValue;
+  if (runValue.startsWith('>')) return undefined;
 
   const body = [];
   for (let index = runIndex + 1; index < step.lines.length; index += 1) {
@@ -131,6 +132,20 @@ test('quality integrity ignores revision fragments outside the named step', () =
   const verificationRun = workflowStepRun(decoyWorkflow, 'Verify checked revision');
   assert.equal(verificationRun, 'echo "verification omitted"');
   assert.doesNotMatch(verificationRun, /git rev-parse HEAD/);
+});
+
+test('quality integrity rejects folded revision verification blocks', () => {
+  const foldedWorkflow = `jobs:
+  integrity:
+    steps:
+      - name: Verify checked revision
+        run: >
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          test "$actual_sha" = "$EXPECTED_SHA"
+`;
+
+  assert.equal(workflowStepRun(foldedWorkflow, 'Verify checked revision'), undefined);
 });
 
 test('all external actions are pinned and checkout does not persist credentials', () => {
