@@ -1,5 +1,9 @@
 # Review Remediation Agent Implementation Plan
 
+> **Plan revision:** The implementation card is tracked as PR-416. The original draft
+> reference to PR-415 was superseded because PR-415 was merged for the plan-progress
+> workflow removal before this implementation started.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a fail-closed GitHub Actions agent that converts one concrete Aikido or CodeRabbit finding into a validated draft remediation pull request using Xiaomi MiMo v2.5.
@@ -31,7 +35,7 @@
 **Files:**
 - Create: `tools/review-remediation/contracts.mjs`
 - Create: `tools/review-remediation/contracts.spec.mjs`
-- Modify: `.planning/queue/queue-415.md`
+- Modify: `.planning/queue/queue-416.md`
 
 **Interfaces:**
 - `normalizeFinding(input, expectedRepository)` returns either `{ status: 'READY', finding }` or `{ status: 'HUMAN_REQUIRED', reason }`.
@@ -86,7 +90,7 @@ Expected: all contract, redaction, identity, duplicate-marker, and bounds tests 
 
 - [ ] **Step 5: Add the formal queue card and commit**
 
-Add `PR-415 — Bounded external reviewer remediation workflow` to `queue-415.md` with the approved scope, dependencies on the existing reviewer/fix-review contracts, exact security constraints, and the condition that no merge/release authority is granted.
+Add `PR-416 — Bounded external reviewer remediation workflow` to `queue-416.md` with the approved scope, dependencies on the existing reviewer/fix-review contracts, exact security constraints, and the condition that no merge/release authority is granted.
 
 Run: `git diff --check; git add tools/review-remediation/contracts.mjs tools/review-remediation/contracts.spec.mjs .planning/queue/queue-415.md; git commit -m "feat: define review remediation contract"`
 
@@ -283,7 +287,7 @@ Add `node --test tools/review-remediation-workflow.spec.mjs tools/review-remedia
 **Files:**
 - Create: `docs/review-remediation-agent.md`
 - Modify: `README.md`
-- Modify: `.planning/queue/queue-415.md`
+- Modify: `.planning/queue/queue-416.md`
 
 **Interfaces:**
 - The operations guide documents source filters, permissions, secret setup/rotation, model/endpoint, artifacts, statuses, draft-PR lifecycle, cycle cap, and rollback.
@@ -304,7 +308,7 @@ Run: `node --test tools/review-remediation-workflow.spec.mjs tools/workflow-inte
 
 Expected: documentation and workflow security assertions pass.
 
-Commit: `git add docs/review-remediation-agent.md README.md .planning/queue/queue-415.md; git commit -m "docs: document review remediation operations"`
+Commit: `git add docs/review-remediation-agent.md README.md .planning/queue/queue-416.md; git commit -m "docs: document review remediation operations"`
 
 ### Task 7: Run the complete quality gates and publish one isolated PR
 
