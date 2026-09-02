@@ -11,6 +11,10 @@ const tauriWorkflow = read('.github/workflows/build-tauri.yml');
 const codeqlWorkflow = read('.github/workflows/codeql.yml');
 const qualityIntegrityWorkflow = read('.github/workflows/quality-integrity.yml');
 
+function isBlockScalar(value) {
+  return /^(?:[|>](?:[1-9])?[-+]?|[|>][-+]?[1-9])(?:\s+#.*)?$/.test(value);
+}
+
 function yamlMapping(line, index) {
   const match = /^(\s*)([A-Za-z_][A-Za-z0-9_-]*):(?:\s*(.*))?$/.exec(line);
   if (!match) return undefined;
@@ -57,7 +61,7 @@ function findBlock(lines, start, end, parentIndentation, name) {
 }
 
 function runBody(lines, runEntry, end) {
-  if (!/^[|>][+-]?(?:\s+#.*)?$/.test(runEntry.value)) return [runEntry.value];
+  if (!isBlockScalar(runEntry.value)) return [runEntry.value];
 
   const body = [];
   for (let index = runEntry.index + 1; index < end; index += 1) {
@@ -221,6 +225,24 @@ test('workflow contract recognizes inline multiline run steps', () => {
 
   assertCommand(
     multilineWorkflow,
+    'node --test tools/reviewer-policy-check.spec.mjs',
+    'fixture.yml',
+    'integrity',
+  );
+});
+
+test('workflow contract recognizes explicit block-scalar indentation indicators', () => {
+  const explicitIndentationWorkflow = `jobs:
+  integrity:
+    steps:
+      - run: |2
+          node --test tools/reviewer-policy-check.spec.mjs
+      - run: >2
+          node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assertCommand(
+    explicitIndentationWorkflow,
     'node --test tools/reviewer-policy-check.spec.mjs',
     'fixture.yml',
     'integrity',

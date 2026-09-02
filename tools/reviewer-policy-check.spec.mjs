@@ -182,6 +182,33 @@ test('rejects an oversized CodeRabbit summary instruction', () => {
   assert.match(result.stderr, /reviews\.high_level_summary_instructions must be at most 100 characters/);
 });
 
+test('rejects a block-scalar CodeRabbit summary instruction', () => {
+  const result = runChecker(`reviews:
+  request_changes_workflow: false
+  fail_commit_status: true
+  high_level_summary_instructions: |-
+    ${'x'.repeat(101)}
+  auto_review:
+    enabled: true
+`);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviews\.high_level_summary_instructions must use an inline scalar/);
+});
+
+test('rejects an unclosed quoted scalar', () => {
+  const result = runChecker(`reviews:
+  request_changes_workflow: false
+  fail_commit_status: true
+  profile: "assertive
+  auto_review:
+    enabled: true
+`);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviewer configuration contains an unclosed quoted scalar/);
+});
+
 test('rejects a quoted or scalar reviews parent', () => {
   const quoted = runChecker(`"reviews":
   request_changes_workflow: false

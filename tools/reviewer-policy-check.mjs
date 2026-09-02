@@ -10,14 +10,49 @@ function isBlockScalar(value) {
   return /^(?:[|>](?:[1-9])?[-+]?|[|>][-+]?[1-9])$/.test(value);
 }
 
+function stripInlineComment(value) {
+  let quote;
+  let escaped = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (quote) {
+      if (character === quote && !escaped) quote = undefined;
+      escaped = character === '\\' && !escaped;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (character === '#' && (index === 0 || /\s/.test(value[index - 1]))) return value.slice(0, index);
+  }
+  return value;
+}
+
+function hasUnclosedQuote(value) {
+  const trimmed = value.trim();
+  const quote = trimmed[0];
+  if (quote !== '"' && quote !== "'") return false;
+
+  let escaped = false;
+  for (let index = 1; index < trimmed.length; index += 1) {
+    const character = trimmed[index];
+    if (character === quote && !escaped) return false;
+    escaped = character === '\\' && !escaped;
+  }
+  return true;
+}
+
 function mapping(line, index) {
   const match = /^(\s*)([A-Za-z_][A-Za-z0-9_-]*):(?:\s*(.*))?$/.exec(line);
   if (!match) return undefined;
+  const value = stripInlineComment(match[3] ?? '').trim();
   return {
     index,
     indentation: match[1].length,
     name: match[2],
-    value: (match[3] ?? '').replace(/(?:^|\s+)#.*$/, '').trim(),
+    value,
+    syntaxError: hasUnclosedQuote(value),
   };
 }
 
@@ -115,8 +150,16 @@ function validate(source) {
 
   const summary = value(reviews, 'high_level_summary_instructions');
   if (summary !== undefined) {
-    const unquoted = /^(['"])(.*)\1$/.exec(summary)?.[2] ?? summary;
-    if (unquoted.length > 100) errors.push('reviews.high_level_summary_instructions must be at most 100 characters');
+    if (isBlockScalar(summary)) {
+      errors.push('reviews.high_level_summary_instructions must use an inline scalar');
+    } else {
+      const unquoted = /^(['"])(.*)\1$/.exec(summary)?.[2] ?? summary;
+      if (unquoted.length > 100) errors.push('reviews.high_level_summary_instructions must be at most 100 characters');
+    }
+  }
+
+  if (structuralMappings(lines).some((entry) => entry.syntaxError)) {
+    errors.push('reviewer configuration contains an unclosed quoted scalar');
   }
 
   return errors;
