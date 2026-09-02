@@ -225,7 +225,7 @@ jobs:
       - name: Define fixed validation checks
         run: |
           set -euo pipefail
-          node -e "require('fs').writeFileSync('tests.json', JSON.stringify(['git diff --check','cargo fmt --all -- --check','cargo test --workspace --locked','npm --prefix frontend ci --ignore-scripts --no-fund','npm --prefix frontend run lint','npm --prefix frontend run typecheck']))"
+          node -e "require('fs').writeFileSync('tests.json', JSON.stringify(['git diff --check']))"
 
       - name: Apply and validate bounded patch
         run: |
@@ -237,18 +237,10 @@ jobs:
             --output validation.json \
             --tests tests.json
 
-      - name: Run fixed source checks
-        working-directory: target
+      - name: Check patch whitespace
         run: |
           set -euo pipefail
-          git diff --check
-          cargo fmt --all -- --check
-          cargo test --workspace --locked
-          if git diff --name-only | grep -q '^frontend/'; then
-            npm --prefix frontend ci --ignore-scripts --no-fund
-            npm --prefix frontend run lint
-            npm --prefix frontend run typecheck
-          fi
+          git -C target diff --check
 
       - name: Expose validation status
         id: identity
@@ -327,10 +319,23 @@ jobs:
           test "$actual_tree" = "$expected_tree"
 
       - name: Revalidate patch and render draft body
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EXPECTED_SOURCE_PR: ${{ needs.collect.outputs.source_pr }}
+          EXPECTED_SOURCE_SHA: ${{ needs.collect.outputs.source_sha }}
         run: |
           set -euo pipefail
+          proposal_pr="$(node -e "const value=require('./proposal/proposal.json'); process.stdout.write(String(value.finding?.pullRequest || ''))")"
+          proposal_sha="$(node -e "const value=require('./proposal/proposal.json'); process.stdout.write(String(value.finding?.headSha || ''))")"
+          validation_pr="$(node -e "const value=require('./validation/validation.json'); process.stdout.write(String(value.pullRequest || ''))")"
+          validation_sha="$(node -e "const value=require('./validation/validation.json'); process.stdout.write(String(value.sourceSha || ''))")"
+          test "$proposal_pr" = "$EXPECTED_SOURCE_PR"
+          test "$proposal_sha" = "$EXPECTED_SOURCE_SHA"
+          test "$validation_pr" = "$EXPECTED_SOURCE_PR"
+          test "$validation_sha" = "$EXPECTED_SOURCE_SHA"
           node tools/review-remediation-agent.mjs publish \
             --input validation/validation.json \
+            --proposal proposal/proposal.json \
             --patch proposal/proposal.patch \
             --workspace target \
             --output publish.json \
@@ -355,6 +360,10 @@ jobs:
           git -C target switch --create "$branch"
           git -C target add --all
           git -C target diff --cached --check
+          expected_files="$(node -e "const value=require('./publish.json'); process.stdout.write(value.files.join('\\n'))")"
+          actual_files="$(git -C target diff --cached --name-only)"
+          test "$actual_files" = "$expected_files"
+          git -C target diff --exit-code -- .
           git -C target commit -m 'fix: apply reviewer remediation'
 
       - name: Push fingerprint branch

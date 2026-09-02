@@ -1,13 +1,14 @@
 import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import {
   lstatSync,
   readFileSync,
   readlinkSync,
   readdirSync,
+  realpathSync,
 } from 'node:fs';
-import { relative, resolve } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 
 import {
   MAX_PATCH_BYTES,
@@ -127,14 +128,61 @@ function toPosixPath(value) {
   return value.replaceAll('\\', '/');
 }
 
-function snapshotWorkspace(workspace) {
+function pathWithin(root, candidate) {
+  const relativePath = relative(root, candidate);
+  return relativePath === '' || (!relativePath.startsWith('..') && !isAbsolute(relativePath));
+}
+
+function resolveWorkspaceRoot(workspace) {
+  if (typeof workspace !== 'string' || workspace.length === 0 || workspace.includes('\u0000')) throw error('PATCH_INPUT_INVALID');
   const root = resolve(workspace);
+  let stat;
+  let canonical;
+  try {
+    stat = lstatSync(root);
+    canonical = realpathSync(root);
+  } catch {
+    throw error('PATCH_INPUT_INVALID');
+  }
+  if (!stat.isDirectory() || stat.isSymbolicLink() || !pathWithin(root, canonical)) throw error('PATCH_INPUT_INVALID');
+  return canonical;
+}
+
+function resolvePatchPath(workspace, patchFile) {
+  if (typeof patchFile !== 'string' || patchFile.length === 0 || patchFile.includes('\u0000')) throw error('PATCH_INPUT_INVALID');
+  const segments = patchFile.replaceAll('\\', '/').split('/');
+  if (segments.includes('..')) throw error('PATCH_INPUT_INVALID');
+  const patchPath = resolve(patchFile);
+  const currentDirectory = resolve(process.cwd());
+  if (!pathWithin(workspace, patchPath) && !pathWithin(currentDirectory, patchPath)) throw error('PATCH_INPUT_INVALID');
+  return patchPath;
+}
+
+export function readPatchFile({ workspace, patchFile }) {
+  const root = resolveWorkspaceRoot(workspace);
+  const patchPath = resolvePatchPath(root, patchFile);
+  try {
+    const stat = lstatSync(patchPath);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw error('PATCH_INPUT_INVALID');
+    if (stat.size > MAX_PATCH_BYTES) throw error('PATCH_TOO_LARGE');
+    return readFileSync(patchPath, 'utf8');
+  } catch (caught) {
+    if (caught instanceof PatchGuardError) throw caught;
+    throw error('PATCH_INPUT_INVALID');
+  }
+}
+
+function snapshotWorkspace(workspace, allowlistedPaths = []) {
+  const root = resolveWorkspaceRoot(workspace);
+  const allowlisted = new Set(allowlistedPaths);
   const snapshot = new Map();
 
   function visit(directory) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const absolute = resolve(directory, entry.name);
-      const relativePath = toPosixPath(relative(root, absolute));
+      const relativeCheck = relative(root, absolute);
+      if (relativeCheck.startsWith('..') || isAbsolute(relativeCheck)) throw error('PATCH_RESULT_PATH_INVALID');
+      const relativePath = toPosixPath(relativeCheck);
       if (!relativePath || relativePath === '.git' || relativePath.startsWith('.git/')) continue;
       if (entry.isDirectory()) {
         visit(absolute);
@@ -150,6 +198,7 @@ function snapshotWorkspace(workspace) {
         continue;
       }
       const bytes = stat.size;
+      if (allowlisted.has(relativePath) && bytes > MAX_RESULT_FILE_BYTES) throw error('PATCH_RESULT_TOO_LARGE');
       const digest = bytes <= MAX_RESULT_FILE_BYTES ? sha256(readFileSync(absolute)) : `size:${bytes}`;
       snapshot.set(relativePath, { kind: 'file', value: digest, bytes });
     }
@@ -172,16 +221,32 @@ function treeDigest(snapshot, files) {
   return sha256(rows);
 }
 
+function isIgnoredResultPath(workspace, path) {
+  try {
+    execFileSync('git', ['check-ignore', '--quiet', '--', path], {
+      cwd: workspace,
+      windowsHide: true,
+      shell: false,
+      stdio: 'ignore',
+    });
+    return true;
+  } catch (caught) {
+    if (caught?.status === 1) return false;
+    throw error('PATCH_IGNORE_CHECK_FAILED');
+  }
+}
+
 export function validateResultTree({ workspace, beforeFiles, afterFiles }) {
   const allowed = assertAllowedPatchPaths(beforeFiles);
   const actual = Array.isArray(afterFiles) ? [...new Set(afterFiles)].sort() : Object.keys(afterFiles ?? {}).sort();
   if (actual.some((path) => !allowed.includes(path))) throw error('PATCH_RESULT_OUTSIDE_ALLOWLIST');
-  const snapshot = snapshotWorkspace(workspace);
+  const snapshot = snapshotWorkspace(workspace, allowed);
   for (const path of actual) {
     const entry = snapshot.get(path);
     if (!entry) continue;
     if (entry.kind !== 'file') throw error('PATCH_RESULT_SPECIAL_FILE');
     if (entry.bytes > MAX_RESULT_FILE_BYTES) throw error('PATCH_RESULT_TOO_LARGE');
+    if (isIgnoredResultPath(resolveWorkspaceRoot(workspace), path)) throw error('PATCH_RESULT_IGNORED');
   }
   return { files: actual, treeDigest: treeDigest(snapshot, actual) };
 }
@@ -201,22 +266,16 @@ async function runGit(workspace, args, code) {
 
 export async function applyAndValidatePatch({ workspace, patchFile }) {
   if (typeof workspace !== 'string' || typeof patchFile !== 'string') throw error('PATCH_INPUT_INVALID');
-  const patchPath = resolve(patchFile);
-  let patch;
-  try {
-    if (!lstatSync(patchPath).isFile()) throw error('PATCH_INPUT_INVALID');
-    patch = readFileSync(patchPath, 'utf8');
-  } catch (caught) {
-    if (caught instanceof PatchGuardError) throw caught;
-    throw error('PATCH_INPUT_INVALID');
-  }
+  const root = resolveWorkspaceRoot(workspace);
+  const patchPath = resolvePatchPath(root, patchFile);
+  const patch = readPatchFile({ workspace: root, patchFile: patchPath });
   const metadata = validatePatchText(patch);
-  const before = snapshotWorkspace(workspace);
-  await runGit(workspace, ['apply', '--check', '--whitespace=error', '--', patchPath], 'PATCH_APPLY_FAILED');
-  await runGit(workspace, ['apply', '--whitespace=error', '--', patchPath], 'PATCH_APPLY_FAILED');
-  await runGit(workspace, ['diff', '--check'], 'PATCH_APPLY_FAILED');
-  const after = snapshotWorkspace(workspace);
+  const before = snapshotWorkspace(root, metadata.files);
+  await runGit(root, ['apply', '--check', '--whitespace=error', '--', patchPath], 'PATCH_APPLY_FAILED');
+  await runGit(root, ['apply', '--whitespace=error', '--', patchPath], 'PATCH_APPLY_FAILED');
+  await runGit(root, ['diff', '--check'], 'PATCH_APPLY_FAILED');
+  const after = snapshotWorkspace(root, metadata.files);
   const changed = changedPaths(before, after);
-  const tree = validateResultTree({ workspace, beforeFiles: metadata.files, afterFiles: changed });
+  const tree = validateResultTree({ workspace: root, beforeFiles: metadata.files, afterFiles: changed });
   return { ...metadata, ...tree };
 }

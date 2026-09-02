@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 
 import {
   MAX_FINDING_DETAIL_BYTES,
@@ -8,13 +7,14 @@ import {
   MAX_RESULT_FILE_BYTES,
   POLICY_REVISION,
   findingFingerprint,
+  hasUnredactedSecret,
   isDuplicateMarker,
   normalizeFinding,
   redactSecrets,
   remediationBranchName,
 } from './contracts.mjs';
 import { requestMimo, buildRemediationPrompt, DEFAULT_MIMO_ENDPOINT, MIMO_MODEL } from './mimo-client.mjs';
-import { applyAndValidatePatch, validatePatchText } from './patch-guard.mjs';
+import { applyAndValidatePatch, readPatchFile, validatePatchText } from './patch-guard.mjs';
 
 export const MAX_REMEDIATION_CYCLES = 2;
 export const MAX_REVIEW_COMMENTS = 100;
@@ -77,6 +77,10 @@ function currentSourceBranch(pullRequest) {
   return pullRequest?.head?.ref;
 }
 
+function currentBaseBranch(pullRequest) {
+  return pullRequest?.base?.ref;
+}
+
 function isSameRepository(repo, repository) {
   return typeof repo?.full_name === 'string' && repo.full_name === repository;
 }
@@ -133,7 +137,8 @@ async function currentPullRequest({ event, repository, api }) {
   }
   if (pullRequest?.state !== 'open') return result('NOOP', 'source pull request is not open');
   if (!isSameRepository(pullRequest.head?.repo, repository)) return result('HUMAN_REQUIRED', 'fork pull requests are not supported');
-  if (typeof currentSourceBranch(pullRequest) !== 'string' || typeof currentHeadSha(pullRequest) !== 'string') return result('HUMAN_REQUIRED', 'pull request identity is incomplete');
+  if (!isSameRepository(pullRequest.base?.repo, repository)) return result('HUMAN_REQUIRED', 'pull request base repository is foreign');
+  if (typeof currentSourceBranch(pullRequest) !== 'string' || typeof currentBaseBranch(pullRequest) !== 'string' || typeof currentHeadSha(pullRequest) !== 'string') return result('HUMAN_REQUIRED', 'pull request identity is incomplete');
   if (currentSourceBranch(pullRequest).startsWith('review-remediation/')) return result('NOOP', 'remediation branches do not retrigger remediation');
   if (event?.pull_request?.head?.sha && event.pull_request.head.sha !== currentHeadSha(pullRequest)) return result('HUMAN_REQUIRED', 'event pull request SHA is stale');
   const observedSha = eventHeadSha(event);
@@ -192,6 +197,7 @@ export async function collectFinding({ event, repository, api }) {
       repository,
       pullRequest: number,
       sourceBranch: currentSourceBranch(pullRequest),
+      baseBranch: currentBaseBranch(pullRequest),
       headSha: currentHeadSha(pullRequest),
       reviewer: login,
       title: firstLine(comment.body, 'CodeRabbit finding'),
@@ -219,6 +225,7 @@ export async function collectFinding({ event, repository, api }) {
       repository,
       pullRequest: number,
       sourceBranch: currentSourceBranch(pullRequest),
+      baseBranch: currentBaseBranch(pullRequest),
       headSha: currentHeadSha(pullRequest),
       reviewer: 'Aikido Security',
       title: firstLine(annotation.title ?? annotation.message, 'Aikido finding'),
@@ -240,6 +247,7 @@ export function buildProposalInput({ finding, files }) {
   if (matches.length !== 1 || typeof matches[0].patch !== 'string' || matches[0].patch.length === 0) throw error('PROPOSAL_SOURCE_DIFF_MISSING');
   const patch = redactSecrets(matches[0].patch);
   if (Buffer.byteLength(patch, 'utf8') > MAX_PATCH_BYTES) throw error('PROPOSAL_SOURCE_DIFF_TOO_LARGE');
+  if (hasUnredactedSecret(patch)) throw error('PROPOSAL_SOURCE_DIFF_SECRET_UNREDACTED');
   return {
     path: finding.path,
     sourceSha: finding.headSha,
@@ -257,6 +265,7 @@ export function buildEvidenceDescriptor({ finding, patch, tests = [], tree = {} 
     repository: text(finding.repository, 256),
     pullRequest: finding.pullRequest,
     sourceBranch: text(finding.sourceBranch, 256),
+    baseBranch: text(finding.baseBranch, 256),
     sourceSha: text(finding.headSha, 64),
     fingerprint: text(finding.fingerprint ?? findingFingerprint(finding), 64),
     policyRevision: POLICY_REVISION,
@@ -297,7 +306,7 @@ export async function validateProposal({ proposed, patchFile, workspace, tests =
     if (applied.digest !== proposed.patchDigest) return result('HUMAN_REQUIRED', 'patch digest changed before validation');
     const evidence = buildEvidenceDescriptor({
       finding: proposed.finding,
-      patch: readPatchForEvidence(patchFile),
+      patch: readPatchForEvidence({ workspace, patchFile }),
       tests,
       tree: applied,
     });
@@ -307,10 +316,11 @@ export async function validateProposal({ proposed, patchFile, workspace, tests =
   }
 }
 
-function readPatchForEvidence(patchFile) {
+function readPatchForEvidence({ workspace, patchFile }) {
   try {
-    const patch = readFileSync(patchFile, 'utf8');
+    const patch = readPatchFile({ workspace, patchFile });
     if (Buffer.byteLength(patch, 'utf8') > MAX_RESULT_FILE_BYTES) throw error('EVIDENCE_PATCH_TOO_LARGE');
+    if (hasUnredactedSecret(patch)) throw error('EVIDENCE_PATCH_SECRET_UNREDACTED');
     return patch;
   } catch (caught) {
     if (caught instanceof OrchestratorError) throw caught;
@@ -327,6 +337,7 @@ export function buildPublishDescriptor({ validated, finding, cycle = 1 }) {
     repository: normalizedFinding.repository,
     pullRequest: normalizedFinding.pullRequest,
     sourceBranch: normalizedFinding.sourceBranch,
+    baseBranch: normalizedFinding.baseBranch,
     sourceSha: normalizedFinding.headSha,
     fingerprint,
     policyRevision: POLICY_REVISION,
@@ -368,12 +379,51 @@ export function renderDraftBody(publish) {
   ].join('\n');
 }
 
-export async function publishValidated({ validated, finding, patchFile, workspace, cycle = 1 }) {
+function sameFindingIdentity(left, right) {
+  return ['source', 'repository', 'pullRequest', 'sourceBranch', 'baseBranch', 'headSha', 'fingerprint', 'policyRevision']
+    .every((field) => left?.[field] === right?.[field]);
+}
+
+async function verifyPublicationIdentity({ finding, api }) {
+  if (!api || typeof api.getPullRequest !== 'function' || typeof api.getBranch !== 'function') {
+    return result('HUMAN_REQUIRED', 'publication identity adapter is missing');
+  }
+  let pullRequest;
+  let sourceBranch;
+  try {
+    pullRequest = await api.getPullRequest(finding.pullRequest);
+    sourceBranch = await api.getBranch(finding.sourceBranch);
+  } catch {
+    return result('HUMAN_REQUIRED', 'publication source identity could not be read');
+  }
+  if (pullRequest?.state !== 'open') return result('NOOP', 'source pull request is not open');
+  if (pullRequest.number !== finding.pullRequest) return result('HUMAN_REQUIRED', 'publication pull request identity changed');
+  if (!isSameRepository(pullRequest.head?.repo, finding.repository) || !isSameRepository(pullRequest.base?.repo, finding.repository)) {
+    return result('HUMAN_REQUIRED', 'publication repository identity changed');
+  }
+  if (pullRequest.head?.ref !== finding.sourceBranch || pullRequest.head?.sha !== finding.headSha) {
+    return result('HUMAN_REQUIRED', 'publication source branch or SHA changed');
+  }
+  if (pullRequest.base?.ref !== finding.baseBranch) return result('HUMAN_REQUIRED', 'publication base branch changed');
+  if (!sourceBranch || sourceBranch.name !== finding.sourceBranch || sourceBranch.commit?.sha !== finding.headSha) {
+    return result('HUMAN_REQUIRED', 'publication source branch no longer points to the collected SHA');
+  }
+  return { status: 'READY', finding };
+}
+
+export async function publishValidated({ validated, proposal, finding, patchFile, workspace, api, cycle = 1 }) {
   if (validated?.status !== 'VALIDATED') return validated;
+  if (proposal?.status !== 'PROPOSED' || proposal.patchDigest !== validated.patchDigest || !sameFindingIdentity(proposal.finding, finding) || !sameFindingIdentity(validated.finding, finding)) {
+    return result('HUMAN_REQUIRED', 'publication descriptors are not bound to one finding');
+  }
+  const normalized = normalizeFinding(finding, validated.repository);
+  if (normalized.status !== 'READY' || !sameFindingIdentity(normalized.finding, finding)) return result('HUMAN_REQUIRED', 'publication finding is invalid');
   try {
     const reapplied = await applyAndValidatePatch({ workspace, patchFile });
     if (reapplied.digest !== validated.patchDigest || reapplied.treeDigest !== validated.treeDigest) return result('HUMAN_REQUIRED', 'publish revalidation identity changed');
-    return buildPublishDescriptor({ validated, finding, cycle });
+    const current = await verifyPublicationIdentity({ finding: normalized.finding, api });
+    if (current.status !== 'READY') return current;
+    return buildPublishDescriptor({ validated, finding: current.finding, cycle });
   } catch (caught) {
     return result('HUMAN_REQUIRED', caught?.code ?? 'publish validation failed');
   }

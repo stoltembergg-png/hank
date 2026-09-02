@@ -27,7 +27,8 @@ implemented only after predecessor PR-397 is verified as merged.
   idempotência; logs e artefatos redigidos.
 - **Critérios de aceite verificáveis:** Foreign/fork/stale/duplicate/oversized/
   forbidden-path/prompt-injection findings não chegam à publicação; somente patch
-  aplicável e checks rápidos aprovados geram draft PR.
+  aplicável e `git diff --check` aprovado geram draft PR. Scripts de build, teste ou
+  pacote da PR de origem não são executados pelo workflow de remediação.
 - **Testes unitários:** Contratos, redaction, prompt/client, patch guards e API.
 - **Testes de integração:** Coleta→proposta→validação→descriptor de publicação com
   APIs falsas, sem chamada real ao Xiaomi.
@@ -45,7 +46,9 @@ implemented only after predecessor PR-397 is verified as merged.
 - **Rollback:** Desabilitar/reverter workflow, revogar/rotacionar segredo, fechar a
   draft PR indesejada e remover somente a branch de automação.
 - **Definition of Done:** Testes focados, Actionlint, Quality Integrity e gates
-  aplicáveis passam; draft PR fica sem auto-merge e conversa de origem não é
-  encerrada automaticamente.
+  aplicáveis passam; publicação confirma digest/tree, identidade live da PR, lista de
+  arquivos staged e worktree limpo; draft PR fica sem auto-merge e conversa de origem
+  não é encerrada automaticamente. Os checks normais da draft continuam autoridade
+  para validar o código.
 - **Condição para desbloquear a próxima PR:** Nenhuma etapa posterior é desbloqueada
   automaticamente; a mudança precisa de revisão/merge humano e checks obrigatórios.

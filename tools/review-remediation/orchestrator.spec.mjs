@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 import { createGithubApi, GithubApiError } from './github-api.mjs';
+import { findingFingerprint } from './contracts.mjs';
 import {
   MAX_REMEDIATION_CYCLES,
   buildEvidenceDescriptor,
@@ -112,6 +113,7 @@ test('collects one concrete CodeRabbit finding and binds it to the current head'
   assert.equal(result.finding.source, 'coderabbit');
   assert.equal(result.finding.path, findingPath);
   assert.equal(result.finding.headSha, headSha);
+  assert.equal(result.finding.baseBranch, 'main');
   assert.match(result.finding.fingerprint, /^[0-9a-f]{64}$/);
 });
 
@@ -213,7 +215,7 @@ test('rejects multiple CodeRabbit inline findings instead of selecting one silen
 
 test('builds a bounded proposal input and redacted evidence descriptor', () => {
   const finding = {
-    source: 'coderabbit', repository, pullRequest: 401, sourceBranch: 'feature/fix-review', headSha,
+    source: 'coderabbit', repository, pullRequest: 401, sourceBranch: 'feature/fix-review', baseBranch: 'main', headSha,
     reviewer: 'coderabbitai[bot]', title: 'Fix error', detail: 'token=secret-value', path: findingPath, line: 42,
     evidenceUrl: `https://github.com/${repository}/pull/401#discussion_r88`, fingerprint: 'c'.repeat(64), policyRevision: 'review-remediation-v1',
   };
@@ -246,7 +248,7 @@ test('GitHub adapter uses bounded read-only requests and redacts errors', async 
 });
 
 function fixtureWorkspace(prefix) {
-  const workspace = mkdtempSync(join(tmpdir(), prefix));
+  const workspace = mkdtempSync(join(resolve(tmpdir()), prefix));
   mkdirSync(join(workspace, 'src'));
   writeFileSync(join(workspace, 'src', 'value.txt'), 'before\n');
   execFileSync('git', ['init', '-q'], { cwd: workspace, windowsHide: true });
@@ -259,14 +261,16 @@ function fixtureWorkspace(prefix) {
 }
 
 test('runs collect-to-propose-to-validate-to-publish with no provider network dependency', async () => {
+  const collectedFinding = {
+    source: 'coderabbit', repository, pullRequest: 401, sourceBranch: 'feature/fix-review', baseBranch: 'main', headSha,
+    reviewer: 'coderabbitai[bot]', title: 'Fix value', detail: 'The value is stale.', path: 'src/value.txt', line: 1,
+    evidenceUrl: `https://github.com/${repository}/pull/401#discussion_r1`, policyRevision: 'review-remediation-v1',
+  };
+  collectedFinding.fingerprint = findingFingerprint(collectedFinding);
   const collected = {
     status: 'READY',
     cycle: 1,
-    finding: {
-      source: 'coderabbit', repository, pullRequest: 401, sourceBranch: 'feature/fix-review', headSha,
-      reviewer: 'coderabbitai[bot]', title: 'Fix value', detail: 'The value is stale.', path: 'src/value.txt', line: 1,
-      evidenceUrl: `https://github.com/${repository}/pull/401#discussion_r1`, fingerprint: 'd'.repeat(64), policyRevision: 'review-remediation-v1',
-    },
+    finding: collectedFinding,
   };
   const proposal = await proposeFinding({
     collected,
@@ -290,12 +294,53 @@ test('runs collect-to-propose-to-validate-to-publish with no provider network de
     const publishPatchFile = join(publishWorkspace, 'remediation.patch');
     writeFileSync(publishPatchFile, proposal.patch);
     try {
-      const published = await publishValidated({ validated, finding: collected.finding, patchFile: publishPatchFile, workspace: publishWorkspace, cycle: 1 });
+      const published = await publishValidated({
+        validated,
+        proposal,
+        finding: collected.finding,
+        patchFile: publishPatchFile,
+        workspace: publishWorkspace,
+        cycle: 1,
+        api: fakeApi({ getBranch: async () => ({ name: 'feature/fix-review', commit: { sha: headSha } }) }),
+      });
       assert.equal(published.status, 'PUBLISH_READY');
       assert.match(published.branch, /^review-remediation\/pr-401\/aaaaaaaaaaaa-[0-9a-f]{12}$/);
+      assert.equal(published.base, 'feature/fix-review');
+      assert.equal(published.baseBranch, 'main');
       assert.match(published.marker, /^<!-- hank-review-remediation: fingerprint=[0-9a-f]{64} -->$/);
       assert.equal(published.noApproval, true);
       assert.equal(published.noMerge, true);
+
+      const tampered = await publishValidated({
+        validated,
+        proposal: { ...proposal, finding: { ...proposal.finding, baseBranch: 'release' } },
+        finding: collected.finding,
+        patchFile: publishPatchFile,
+        workspace: publishWorkspace,
+        cycle: 1,
+        api: fakeApi({ getBranch: async () => ({ name: 'feature/fix-review', commit: { sha: headSha } }) }),
+      });
+      assert.equal(tampered.status, 'HUMAN_REQUIRED');
+
+      const movedWorkspace = fixtureWorkspace('hank-review-moved-');
+      const movedPatchFile = join(movedWorkspace, 'remediation.patch');
+      writeFileSync(movedPatchFile, proposal.patch);
+      try {
+        const moved = await publishValidated({
+          validated,
+          proposal,
+          finding: collected.finding,
+          patchFile: movedPatchFile,
+          workspace: movedWorkspace,
+          cycle: 1,
+          api: fakeApi({
+            getPullRequest: async () => pullRequest({ head: { ref: 'feature/fix-review', sha: 'b'.repeat(40), repo: { full_name: repository } } }),
+          }),
+        });
+        assert.equal(moved.status, 'HUMAN_REQUIRED');
+      } finally {
+        rmSync(movedWorkspace, { recursive: true, force: true });
+      }
     } finally {
       rmSync(publishWorkspace, { recursive: true, force: true });
     }

@@ -12,6 +12,7 @@ import {
   assertAllowedPatchPaths,
   applyAndValidatePatch,
   validatePatchText,
+  validateResultTree,
 } from './patch-guard.mjs';
 
 const validPatch = [
@@ -134,6 +135,44 @@ test('rejects whitespace errors during application', async () => {
     writeFileSync(patchFile, validPatch.replace('+after', '+after '));
 
     await assert.rejects(applyAndValidatePatch({ workspace, patchFile }), (error) => error.code === 'PATCH_APPLY_FAILED');
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test('rejects modified ignored files instead of validating an unpublishable result', async () => {
+  const workspace = mkdtempSync(join(tmpdir(), 'hank-review-guard-ignored-'));
+  try {
+    mkdirSync(join(workspace, 'ignored'));
+    writeFileSync(join(workspace, '.gitignore'), 'ignored/\n');
+    writeFileSync(join(workspace, 'ignored', 'value.txt'), 'before\n');
+    git(workspace, ['init', '-q']);
+    git(workspace, ['config', 'core.autocrlf', 'false']);
+    git(workspace, ['config', 'user.email', 'test@example.invalid']);
+    git(workspace, ['config', 'user.name', 'Test Fixture']);
+    git(workspace, ['add', '.gitignore']);
+    git(workspace, ['commit', '-qm', 'fixture']);
+    const patchFile = join(workspace, 'remediation.patch');
+    writeFileSync(patchFile, validPatch.replaceAll('src/value.txt', 'ignored/value.txt'));
+
+    await assert.rejects(
+      applyAndValidatePatch({ workspace, patchFile }),
+      (error) => error.code === 'PATCH_RESULT_IGNORED',
+    );
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test('rejects an allowlisted result file above the output size limit', () => {
+  const workspace = mkdtempSync(join(tmpdir(), 'hank-review-guard-large-'));
+  try {
+    mkdirSync(join(workspace, 'src'));
+    writeFileSync(join(workspace, 'src', 'value.txt'), 'x'.repeat(256 * 1024 + 1));
+    assert.throws(
+      () => validateResultTree({ workspace, beforeFiles: ['src/value.txt'], afterFiles: ['src/value.txt'] }),
+      (error) => error.code === 'PATCH_RESULT_TOO_LARGE',
+    );
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }

@@ -27,6 +27,7 @@
 - Deny workflow/action files, Git metadata, environment files, credentials, policy/gate files, binaries, symlinks, and submodules in generated patches.
 - The first version performs no live MiMo call in tests and does not change the desktop runtime or provider registry.
 - The source PR remains unchanged; the only publication is a draft PR from a fingerprinted remediation branch targeting the source branch.
+- The remediation workflow never executes source-controlled build, test, package, or task scripts; the generated draft PR's normal required CI remains authoritative for those checks.
 
 ---
 
@@ -54,6 +55,7 @@ test('normalizes a CodeRabbit finding and binds it to the repository head', () =
     repository: 'stoltembergg-png/hank',
     pullRequest: 401,
     sourceBranch: 'feature/fix',
+    baseBranch: 'main',
     headSha: 'a'.repeat(40),
     reviewer: 'coderabbitai[bot]',
     title: 'Handle the error path',
@@ -204,6 +206,7 @@ Run: `git diff --check; git add tools/review-remediation/patch-guard.mjs tools/r
 - Create: `tools/review-remediation/github-api.mjs`
 - Create: `tools/review-remediation/orchestrator.mjs`
 - Create: `tools/review-remediation-agent.mjs`
+- Create: `tools/review-remediation-agent.spec.mjs`
 - Create: `tools/review-remediation/orchestrator.spec.mjs`
 
 **Interfaces:**
@@ -229,7 +232,7 @@ Use `fetch` with `Authorization: Bearer {github-token}`, `Accept: application/vn
 
 - [ ] **Step 4: Implement the four CLI stages**
 
-`collect` reads `GITHUB_EVENT_PATH`, validates event/source/identity, checks duplicate markers and branch existence, and writes only a normalized finding descriptor. `propose` reads that descriptor and API-bounded file patches, calls the Task 2 client, and writes the patch plus digest. `validate` calls the Task 3 guard against a caller-provided detached worktree and writes the test/tree descriptor. `publish` revalidates the descriptor and patch digest, creates a deterministic branch name, and emits a PR request descriptor; the workflow performs the final GitHub write operations.
+`collect` reads `GITHUB_EVENT_PATH`, validates event/source/identity, checks duplicate markers and branch existence, and writes only a normalized finding descriptor. `propose` reads that descriptor and API-bounded file patches, calls the Task 2 client, and writes the patch plus digest. `validate` calls the Task 3 guard against a caller-provided detached worktree and writes the test/tree descriptor. `publish` reads the proposal and validation descriptors, revalidates their shared identity, patch/tree digests, and live source PR/branch SHA, creates a deterministic branch name, and emits a PR request descriptor; the workflow performs the final GitHub write operations.
 
 - [ ] **Step 5: Run tests and commit the adapter**
 
@@ -266,9 +269,9 @@ Expected: FAIL because the workflow and its integrity assertions do not exist.
 
 Use `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1` with the repository default branch, `actions/setup-node@820762786026740c76f36085b0efc47a31fe5020` with Node `22.22.2`, and no dependency installation. Pass only bounded event/API data to `collect`; pass `XIAOMI_MIMO_API_KEY` only to the single `node ... propose` step after `collect` reports `READY`. Upload the patch as a short-lived artifact with its digest.
 
-- [ ] **Step 4: Implement credential-free validation and write-scoped publication jobs**
+- [ ] **Step 4: Implement deterministic credential-free validation and write-scoped publication jobs**
 
-Download the patch artifact, check out the exact PR head into a separate target directory with credentials disabled, run the trusted helper against that directory, and execute fixed checks without `GITHUB_TOKEN` or MiMo credentials in the environment. The publish job repeats patch/digest validation, uses `git -c core.hooksPath=/dev/null`, pushes only the generated branch, and calls `gh pr create --draft` with a bounded body containing the evidence marker, source SHA, tests, and rollback. It never runs a script from `target/`.
+Download the patch artifact, check out the exact PR head into a separate target directory with credentials disabled, run the trusted helper against that directory, and execute only deterministic patch checks (`git diff --check`) without `GITHUB_TOKEN` or MiMo credentials in the environment. The publish job repeats patch/digest/tree validation, re-fetches the original PR and source branch identity immediately before publication, verifies the staged file list and clean worktree/index boundary, uses `git -c core.hooksPath=/dev/null`, pushes only the generated branch, and calls `gh pr create --draft` with a bounded body containing the evidence marker, source SHA, tests, and rollback. It never runs a script from `target/`; the generated draft's normal required CI is authoritative for repository checks.
 
 - [ ] **Step 5: Run Actionlint and workflow integrity tests**
 

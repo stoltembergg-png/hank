@@ -1,4 +1,5 @@
-import { lstatSync, readFileSync, writeFileSync } from 'node:fs';
+import { lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { isAbsolute, relative, resolve } from 'node:path';
 
 import { createGithubApi } from './review-remediation/github-api.mjs';
 import {
@@ -32,7 +33,7 @@ function parseArgs(argv) {
     const key = argv[index];
     if (!key.startsWith('--') || index + 1 >= argv.length || argv[index + 1].startsWith('--')) throw error('CLI_USAGE');
     const name = key.slice(2);
-    if (!['event', 'input', 'output', 'repository', 'patch', 'patch-out', 'body-out', 'workspace', 'tests'].includes(name)) throw error('CLI_USAGE');
+    if (!['event', 'input', 'proposal', 'output', 'repository', 'patch', 'patch-out', 'body-out', 'workspace', 'tests'].includes(name)) throw error('CLI_USAGE');
     if (args[name] !== undefined) throw error('CLI_USAGE');
     args[name] = argv[index + 1];
     index += 1;
@@ -45,10 +46,52 @@ function requireArg(args, name) {
   return args[name];
 }
 
-function readJson(path) {
+function pathWithin(root, candidate) {
+  const relativePath = relative(root, candidate);
+  return relativePath === '' || (!relativePath.startsWith('..') && !isAbsolute(relativePath));
+}
+
+function resolveCliPath(path, { allowEventPath = false } = {}) {
+  if (typeof path !== 'string' || path.length === 0 || path.includes('\u0000')) throw error('CLI_INPUT_INVALID');
+  const candidate = resolve(path);
+  const workspace = resolve(process.env.GITHUB_WORKSPACE ?? process.cwd());
+  const eventPath = process.env.GITHUB_EVENT_PATH ? resolve(process.env.GITHUB_EVENT_PATH) : undefined;
+  const isEventPath = allowEventPath && eventPath === candidate;
+  if (!pathWithin(workspace, candidate) && !isEventPath) throw error('CLI_INPUT_INVALID');
   try {
-    if (!lstatSync(path).isFile()) throw error('CLI_INPUT_INVALID');
-    const text = readFileSync(path, 'utf8');
+    const workspaceRoot = realpathSync(workspace);
+    const canonical = realpathSync(candidate);
+    if (!isEventPath && !pathWithin(workspaceRoot, canonical)) throw error('CLI_INPUT_INVALID');
+    if (lstatSync(candidate).isSymbolicLink()) throw error('CLI_INPUT_INVALID');
+  } catch (caught) {
+    if (caught instanceof CliError) throw caught;
+    throw error('CLI_INPUT_INVALID');
+  }
+  return candidate;
+}
+
+function resolveCliOutputPath(path) {
+  if (typeof path !== 'string' || path.length === 0 || path.includes('\u0000')) throw error('CLI_INPUT_INVALID');
+  const candidate = resolve(path);
+  const workspace = resolve(process.env.GITHUB_WORKSPACE ?? process.cwd());
+  if (!pathWithin(workspace, candidate)) throw error('CLI_INPUT_INVALID');
+  try {
+    const workspaceRoot = realpathSync(workspace);
+    const parent = realpathSync(resolve(candidate, '..'));
+    if (!pathWithin(workspaceRoot, parent)) throw error('CLI_INPUT_INVALID');
+    if (lstatSync(candidate).isSymbolicLink()) throw error('CLI_INPUT_INVALID');
+  } catch (caught) {
+    if (caught instanceof CliError) throw caught;
+    if (caught?.code !== 'ENOENT') throw error('CLI_INPUT_INVALID');
+  }
+  return candidate;
+}
+
+function readJson(path, options) {
+  try {
+    const inputPath = resolveCliPath(path, options);
+    if (!lstatSync(inputPath).isFile()) throw error('CLI_INPUT_INVALID');
+    const text = readFileSync(inputPath, 'utf8');
     if (Buffer.byteLength(text, 'utf8') > MAX_JSON_BYTES) throw error('CLI_INPUT_TOO_LARGE');
     return JSON.parse(text);
   } catch (caught) {
@@ -66,7 +109,12 @@ function readTests(path) {
 
 function writeJson(path, value) {
   requireArg({ output: path }, 'output');
-  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+  const outputPath = resolveCliOutputPath(path);
+  writeFileSync(outputPath, `${JSON.stringify(value, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+}
+
+function writeText(path, value) {
+  writeFileSync(resolveCliOutputPath(requireArg({ output: path }, 'output')), value, { encoding: 'utf8', mode: 0o600 });
 }
 
 function repositoryFor(args) {
@@ -84,7 +132,7 @@ async function run(args) {
   const output = requireArg(args, 'output');
   if (args.command === 'collect') {
     const eventPath = args.event ?? process.env.GITHUB_EVENT_PATH;
-    const event = readJson(requireArg({ event: eventPath }, 'event'));
+    const event = readJson(requireArg({ event: eventPath }, 'event'), { allowEventPath: true });
     const result = await collectFinding({
       event: { ...event, eventName: process.env.GITHUB_EVENT_NAME ?? event.eventName },
       repository: repositoryFor(args),
@@ -105,7 +153,7 @@ async function run(args) {
     });
     if (result?.status === 'PROPOSED') {
       const patchOutput = requireArg(args, 'patch-out');
-      writeFileSync(patchOutput, result.patch, { encoding: 'utf8', mode: 0o600 });
+      writeText(patchOutput, result.patch);
       const { patch: _patch, ...descriptor } = result;
       writeJson(output, descriptor);
     } else {
@@ -127,14 +175,17 @@ async function run(args) {
     return;
   }
 
+  const proposal = readJson(requireArg(args, 'proposal'));
   const result = await publishValidated({
     validated: input,
-    finding: input.finding,
+    proposal,
+    finding: proposal.finding,
     patchFile: patch,
     workspace,
+    api: githubApi(args),
     cycle: input.cycle,
   });
-  if (result?.status === 'PUBLISH_READY' && args['body-out']) writeFileSync(requireArg(args, 'body-out'), renderDraftBody(result), { encoding: 'utf8', mode: 0o600 });
+  if (result?.status === 'PUBLISH_READY' && args['body-out']) writeText(args['body-out'], renderDraftBody(result));
   writeJson(output, result);
 }
 

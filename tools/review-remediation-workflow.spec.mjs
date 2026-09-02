@@ -84,6 +84,20 @@ test('fails closed during first rollout when the trusted helper is not on the de
   assert.match(collect, /status.*NOOP/);
 });
 
+test('does not execute source-controlled build or package scripts during validation', () => {
+  const workflow = readWorkflow();
+  const validate = jobBlock(workflow, 'validate');
+  const publish = jobBlock(workflow, 'publish');
+  assert.match(validate, /git diff --check/);
+  assert.doesNotMatch(validate, /cargo test|cargo clippy|npm (?:ci|run|test|exec)|pnpm |yarn /i);
+  assert.match(validate, /proposal\/proposal\.json/);
+  assert.match(publish, /--proposal proposal\/proposal\.json/);
+  assert.match(publish, /EXPECTED_SOURCE_PR/);
+  assert.match(publish, /EXPECTED_SOURCE_SHA/);
+  assert.match(publish, /git -C target diff --exit-code/);
+  assert.match(publish, /expected_files/);
+});
+
 test('fixes the MiMo model and endpoint in trusted workflow code', () => {
   const workflow = readWorkflow();
   assert.match(workflow, /mimo-v2\.5/);

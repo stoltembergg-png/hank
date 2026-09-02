@@ -6,6 +6,7 @@ import {
   MAX_FINDING_TITLE_BYTES,
   POLICY_REVISION,
   findingFingerprint,
+  hasUnredactedSecret,
   isDuplicateMarker,
   normalizeFinding,
   redactSecrets,
@@ -21,6 +22,7 @@ function validFinding(overrides = {}) {
     repository,
     pullRequest: 401,
     sourceBranch: 'feature/fix-review',
+    baseBranch: 'main',
     headSha,
     reviewer: 'coderabbitai[bot]',
     title: 'Handle the error path',
@@ -90,6 +92,21 @@ test('redacts credentials and secret-like reviewer text', () => {
   assert.match(value, /\[REDACTED\]/g);
 });
 
+test('redacts structured credentials and PEM material before provider transport', () => {
+  const value = redactSecrets([
+    '{"password":"quoted-secret","private_key":"private-secret"}',
+    "client_secret: 'yaml-secret'",
+    '-----BEGIN PRIVATE KEY-----',
+    'private-material',
+    '-----END PRIVATE KEY-----',
+  ].join('\n'));
+
+  assert.doesNotMatch(value, /quoted-secret|private-secret|yaml-secret|private-material/);
+  assert.match(value, /\[REDACTED\]/g);
+  assert.equal(hasUnredactedSecret(value), false);
+  assert.equal(hasUnredactedSecret('password: "still-secret"'), true);
+});
+
 test('bounds and redacts title and detail', () => {
   const longTitle = 'x'.repeat(MAX_FINDING_TITLE_BYTES + 1);
   const longDetail = 'x'.repeat(MAX_FINDING_DETAIL_BYTES + 1);
@@ -114,6 +131,7 @@ test('fingerprints are deterministic and independent of object key order', () =>
     reviewer: first.reviewer,
     headSha: first.headSha,
     sourceBranch: first.sourceBranch,
+    baseBranch: first.baseBranch,
     pullRequest: first.pullRequest,
     repository: first.repository,
     source: first.source,

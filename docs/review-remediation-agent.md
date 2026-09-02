@@ -3,7 +3,7 @@
 O workflow `Review remediation agent` transforma uma finding concreta do CodeRabbit ou
 do Aikido em uma proposta limitada pelo Xiaomi MiMo v2.5. A viabilidade só é aceita
 quando existe um unified diff aplicável, dentro dos limites de segurança e aprovado
-pelos checks rápidos no SHA exato da PR de origem.
+pelo check determinístico de whitespace no SHA exato da PR de origem.
 
 ## Limites operacionais
 
@@ -30,9 +30,11 @@ para revisão humana.
 2. `propose` é o único job que recebe `XIAOMI_MIMO_API_KEY`; o modelo retorna um
    patch ou `NO_PATCH`.
 3. `validate` aplica o patch em um target detached no SHA exato, sem credencial MiMo
-   e sem permissão de escrita, e executa os checks rápidos.
-4. `publish` revalida digest/tree e cria somente uma draft PR para a branch de origem.
-   Os checks obrigatórios dessa draft continuam sendo a autoridade final.
+   e sem permissão de escrita, e executa apenas `git diff --check`. Esse job nunca
+   executa scripts de build, teste ou pacote controlados pela PR.
+4. `publish` revalida digest/tree, identidade da PR e branch de origem, e cria somente
+   uma draft PR para a branch de origem. Os checks obrigatórios dessa draft continuam
+   sendo a autoridade final para código Rust, frontend, Tauri e E2E.
 
 Os artefatos carregam apenas descriptors, digests, patch bounded e evidência redigida.
 Reasoning do provedor, tokens e respostas HTTP brutas não são persistidos.

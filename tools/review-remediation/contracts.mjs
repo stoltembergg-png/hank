@@ -16,6 +16,14 @@ const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 const TEXT_CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
 const FORBIDDEN_PATH_PREFIX = /^(?:\.github\/(?:workflows|actions)(?:\/|$)|\.git(?:\/|$)|\.env(?:\.|$))/i;
 const FORBIDDEN_PATH_COMPONENT = /(?:^|\/)(?:\.env(?:\.[^/]*)?|credentials?(?:\.[^/]*)?|secrets?(?:\.[^/]*)?|tokens?(?:\.[^/]*)?|keys?(?:\.[^/]*)?|CODEOWNERS|branch-protection|rulesets?)(?:\/|$)/i;
+const SECRET_ASSIGNMENT_NAME = '(?:api[_-]?key|access[_-]?token|auth(?:orization)?|client[_-]?secret|password|passwd|private[_-]?key|secret|token)';
+const PEM_BLOCK = /-----BEGIN [A-Z0-9 ]+-----[\s\S]*?-----END [A-Z0-9 ]+-----/gi;
+const DOUBLE_QUOTED_SECRET_ASSIGNMENT = new RegExp(`(["']?${SECRET_ASSIGNMENT_NAME}["']?\\s*[:=]\\s*)"(?:\\\\.|[^"\\\\\\r\\n])*"`, 'gi');
+const SINGLE_QUOTED_SECRET_ASSIGNMENT = new RegExp(`(["']?${SECRET_ASSIGNMENT_NAME}["']?\\s*[:=]\\s*)'(?:\\\\.|[^'\\\\\\r\\n])*'`, 'gi');
+const UNREDACTED_DOUBLE_QUOTED_SECRET = new RegExp(`(?:["']?${SECRET_ASSIGNMENT_NAME}["']?\\s*[:=]\\s*)"(?!\\[REDACTED\\])(?:\\\\.|[^"\\\\\\r\\n])*"`, 'i');
+const UNREDACTED_SINGLE_QUOTED_SECRET = new RegExp(`(?:["']?${SECRET_ASSIGNMENT_NAME}["']?\\s*[:=]\\s*)'(?!\\[REDACTED\\])(?:\\\\.|[^'\\\\\\r\\n])*'`, 'i');
+const UNREDACTED_SECRET_ASSIGNMENT = new RegExp(`(?:^|[\\s;&])${SECRET_ASSIGNMENT_NAME}\\s*[:=]\\s*(?!\\[REDACTED\\])[^\\s,;]+`, 'i');
+const PEM_MATERIAL = /-----BEGIN [A-Z0-9 ]+-----[\\s\\S]*?-----END [A-Z0-9 ]+-----/i;
 
 function byteLength(value) {
   return Buffer.byteLength(value, 'utf8');
@@ -105,9 +113,12 @@ function reviewerAllowed(source, reviewer) {
 
 export function redactSecrets(value) {
   let text = String(value ?? '');
+  text = text.replace(PEM_BLOCK, '[REDACTED]');
+  text = text.replace(DOUBLE_QUOTED_SECRET_ASSIGNMENT, '$1"[REDACTED]"');
+  text = text.replace(SINGLE_QUOTED_SECRET_ASSIGNMENT, "$1'[REDACTED]'");
   text = text.replace(/(authorization\s*:\s*)(?:bearer|basic)\s+[^\s,;]+/gi, '$1[REDACTED]');
   text = text.replace(/\b(?:bearer|basic)\s+[A-Za-z0-9+/=_-]{12,}/gi, '[REDACTED]');
-  text = text.replace(/(^|[\s;&])((?:api[_-]?key|access[_-]?token|auth(?:orization)?|password|passwd|secret|token)\s*[:=]\s*)[^\s,;]+/gi, '$1$2[REDACTED]');
+  text = text.replace(new RegExp(`(^|[\\s;&])(${SECRET_ASSIGNMENT_NAME}\\s*[:=]\\s*)[^\\s,;]+`, 'gi'), '$1$2[REDACTED]');
   text = text.replace(/\b(?:sk|rk|pk)-[A-Za-z0-9][A-Za-z0-9_-]{7,}\b/g, '[REDACTED]');
   text = text.replace(/\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{12,}\b/g, '[REDACTED]');
   text = text.replace(/\bgithub_pat_[A-Za-z0-9_]{12,}\b/g, '[REDACTED]');
@@ -116,12 +127,22 @@ export function redactSecrets(value) {
   return text;
 }
 
+export function hasUnredactedSecret(value) {
+  const text = String(value ?? '');
+  return PEM_MATERIAL.test(text)
+    || UNREDACTED_DOUBLE_QUOTED_SECRET.test(text)
+    || UNREDACTED_SINGLE_QUOTED_SECRET.test(text)
+    || UNREDACTED_SECRET_ASSIGNMENT.test(text);
+}
+
 export function findingFingerprint(input) {
   const fingerprintInput = {
     source: readField(input, 'source'),
     repository: readField(input, 'repository'),
     pullRequest: readField(input, 'pullRequest', 'pull_request'),
     headSha: readField(input, 'headSha', 'head_sha'),
+    sourceBranch: readField(input, 'sourceBranch', 'source_branch'),
+    baseBranch: readField(input, 'baseBranch', 'base_branch'),
     reviewer: readField(input, 'reviewer'),
     title: redactSecrets(readField(input, 'title') ?? ''),
     detail: redactSecrets(readField(input, 'detail') ?? ''),
@@ -145,6 +166,9 @@ export function normalizeFinding(input, expectedRepository) {
 
   const sourceBranch = readField(input, 'sourceBranch', 'source_branch');
   if (!validateBranch(sourceBranch)) return invalid('source branch is invalid');
+
+  const baseBranch = readField(input, 'baseBranch', 'base_branch');
+  if (!validateBranch(baseBranch)) return invalid('base branch is invalid');
 
   const headShaValue = readField(input, 'headSha', 'head_sha');
   if (typeof headShaValue !== 'string' || !HEX_SHA.test(headShaValue)) return invalid('head SHA is invalid');
@@ -173,6 +197,7 @@ export function normalizeFinding(input, expectedRepository) {
     repository: expectedRepository,
     pullRequest,
     sourceBranch,
+    baseBranch,
     headSha,
     reviewer: reviewer.value,
     title: title.value,

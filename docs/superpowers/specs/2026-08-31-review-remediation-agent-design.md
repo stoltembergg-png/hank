@@ -17,7 +17,7 @@ The new automation must improve that path without allowing reviewer text or mode
 1. Detect actionable failures from CodeRabbit reviews and Aikido check runs.
 2. Bind every run to one repository, pull request, head SHA, source branch, finding fingerprint, and workflow policy revision.
 3. Ask `mimo-v2.5` for one bounded source patch using a sanitized, explicitly untrusted finding context.
-4. Validate the patch and run fixed repository checks without exposing the MiMo credential.
+4. Validate the patch with deterministic repository checks without exposing the MiMo credential.
 5. Publish a draft remediation pull request targeting the original pull request branch.
 6. Preserve human review, required checks, and the existing merge/release authority boundaries.
 7. Make duplicate events, stale findings, oversized output, and partial failures safe and observable.
@@ -69,8 +69,8 @@ The workflow is divided into four jobs so that no job both holds the MiMo secret
 
 1. **Collect** — read-only GitHub API access. Resolve the pull request and exact head SHA, accept only a known reviewer source, normalize one concrete finding, redact secret-like text, and compute a deterministic fingerprint.
 2. **Propose** — trusted workflow code only. Read the bounded finding and bounded source diff through the GitHub API, call MiMo with `XIAOMI_MIMO_API_KEY`, and emit a patch artifact. The job never checks out or runs pull-request code.
-3. **Validate** — no MiMo credential and no write token. Check out the source head into an isolated worktree, apply the patch, enforce path/diff/symlink/binary guards, and run the fixed fast checks. Any failure produces no branch or PR.
-4. **Publish** — write access only after validation. Recreate the validated worktree, commit only the verified files with hooks disabled, push a uniquely fingerprinted branch, and create a draft PR against the original source branch. The body contains bounded evidence metadata, tests, rollback instructions, and an explicit no-approval statement.
+3. **Validate** — no MiMo credential and no write token. Check out the source head into an isolated worktree, apply the patch, enforce path/diff/symlink/binary guards, and run only deterministic patch checks such as `git diff --check`. It never executes source-controlled build, test, package, or task scripts. Any failure produces no branch or PR.
+4. **Publish** — write access only after validation. Recreate the validated worktree, re-fetch the original PR and source branch identity at the exact collected SHA, commit only the verified files with hooks disabled, verify the staged file list and clean worktree/index boundary, push a uniquely fingerprinted branch, and create a draft PR against the original source branch. The body contains bounded evidence metadata, tests, rollback instructions, and an explicit no-approval statement.
 
 The workflow uses `persist-credentials: false` for every checkout. Pull-request code is never executed while `XIAOMI_MIMO_API_KEY` or a write-capable GitHub token is present.
 
@@ -88,6 +88,7 @@ source: aikido | coderabbit
 repository: owner/name
 pull_request: positive integer
 source_branch: validated repository branch name
+base_branch: validated repository base branch name
 head_sha: 40-hex commit
 title: <= 512 UTF-8 bytes, redacted
 detail: <= 8 KiB UTF-8 bytes, redacted
@@ -100,7 +101,7 @@ policy_revision: review-remediation-v1
 
 If a source provides only a generic failed check, an unbound URL, no concrete path/detail, a foreign repository, or a stale SHA, the workflow records `HUMAN_REQUIRED` and does not ask the model for a patch.
 
-The canonical fingerprint covers source, repository, pull request, head SHA, reviewer identity, title, detail, path, line, and policy revision. A completed fingerprint is idempotent: later duplicate events do not create another model call, branch, or PR.
+The canonical fingerprint covers source, repository, pull request, source/base branches, head SHA, reviewer identity, title, detail, path, line, and policy revision. A completed fingerprint is idempotent: later duplicate events do not create another model call, branch, or PR.
 
 ## Model boundary
 
@@ -139,10 +140,10 @@ Validation occurs in a clean detached worktree at the exact source head:
 1. `git apply --check` verifies patch applicability.
 2. The patch guard compares the resulting tree to the allowlist and limits.
 3. `git diff --check` rejects whitespace errors.
-4. Fixed repository checks run without provider or write credentials: Rust formatting and workspace tests, plus the repository's bounded frontend check when the patch touches frontend files.
-5. The full required checks remain authoritative on the resulting draft PR; the agent's fast checks cannot mark a PR ready or override a failed gate.
+4. The remediation workflow does not execute source-controlled build, test, package, or task scripts. The resulting draft PR's normal required CI is the authority for Rust, frontend, Tauri, and E2E checks.
+5. The full required checks remain authoritative on the resulting draft PR; the agent's deterministic patch check cannot mark a PR ready or override a failed gate.
 
-The publish step re-applies the exact validated patch and verifies its SHA-256 digest before commit. It creates:
+The publish step re-applies the exact validated patch, verifies its SHA-256 and tree digests, checks that only the validated file list is staged, and requires the original open PR and source branch to still point to the collected head SHA and base branch immediately before commit. It creates:
 
 ```text
 review-remediation/pr-<number>/<short-head>-<fingerprint-prefix>
@@ -173,7 +174,8 @@ All tests are offline and deterministic:
 - prompt construction: reviewer and diff text cannot alter the fixed instruction envelope;
 - MiMo client: request shape, endpoint/model allowlist, timeout, status mapping, malformed JSON, oversized response, and response-reasoning discard using an in-memory fake transport;
 - patch guard: traversal, absolute path, forbidden workflow/policy/secret path, binary/symlink/submodule, oversized diff, invalid patch, and valid source/test patch;
-- identity/idempotency: exact SHA/tree/repository binding and one branch/PR per fingerprint;
+- identity/idempotency: exact SHA/tree/repository binding, live publication revalidation, staged file-list binding, and one branch/PR per fingerprint;
+- workflow execution boundary: validation does not run source-controlled build/test/package scripts; the generated draft's existing CI remains authoritative;
 - workflow contract: top-level permissions, concurrency, timeouts, fork rejection, no `pull_request_target`, SHA-pinned actions, checkout credential policy, no auto-merge, and secret scoping;
 - integration fixture: successful collect→propose→validate→draft descriptor and failure matrix with no external network.
 
@@ -199,7 +201,7 @@ The capability is introduced as an isolated PR after the current predecessor PR 
 - The workflow and helper modules have deterministic contract tests and no live-provider test dependency.
 - Actionlint and existing Quality Integrity checks pass.
 - Fork, stale, duplicate, malformed, oversized, prompt-injection, secret-like, and forbidden-path cases fail closed.
-- A valid synthetic finding produces a draft PR descriptor only after patch validation and fast checks.
-- The draft PR is bound to the exact source SHA and original branch, with no auto-approval or auto-merge capability.
+- A valid synthetic finding produces a draft PR descriptor only after patch validation and deterministic patch checks.
+- The draft PR is bound to the exact source SHA, original source/base branches, validated tree, and staged file list, with no auto-approval or auto-merge capability.
 - Documentation records setup, permissions, secret rotation, observability, and rollback.
 - The implementation is published as a small isolated PR only after the current PR-397 predecessor is merged.
