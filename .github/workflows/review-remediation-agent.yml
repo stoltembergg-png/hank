@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: review-remediation-${{ github.repository }}-${{ github.event.pull_request.number || github.event.check_run.id }}
+  group: review-remediation-${{ github.repository }}-${{ github.event.pull_request.number || github.event.check_run.pull_requests[0].number || github.event.check_run.id }}
   cancel-in-progress: true
 
 jobs:
@@ -248,6 +248,8 @@ jobs:
           set -euo pipefail
           status="$(node -e "const value=require('./validation.json'); process.stdout.write(String(value.status || ''))")"
           test "$status" = "VALIDATED"
+          gates_ok="$(node -e "const value=require('./validation.json'); process.stdout.write(String(Array.isArray(value.gates) && value.gates.length === 4 && value.gates.every((gate) => gate?.status === 'PASS')))")"
+          test "$gates_ok" = "true"
           printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
 
       - name: Upload validation descriptor

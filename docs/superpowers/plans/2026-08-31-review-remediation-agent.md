@@ -25,6 +25,7 @@
 - Keep all external Actions pinned to full commit SHAs and every workflow fail-closed with permissions, concurrency, and timeout controls.
 - A patch is limited to 10 files, 500 added/deleted lines, 64 KiB patch text, and 256 KiB per resulting text file.
 - Deny workflow/action files, Git metadata, environment files, credentials, dependency manifests/lockfiles, policy/gate files, binaries, symlinks, and submodules in generated patches.
+- Count duplicate and cycle markers only when authored by the fixed `github-actions[bot]` publisher.
 - The first version performs no live MiMo call in tests and does not change the desktop runtime or provider registry.
 - The source PR remains unchanged; the only publication is a draft PR from a fingerprinted remediation branch targeting the source branch.
 - The remediation workflow never executes source-controlled build, test, package, or task scripts; the generated draft PR's normal required CI remains authoritative for those checks.

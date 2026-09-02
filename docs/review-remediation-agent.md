@@ -13,6 +13,8 @@ pelo check determinístico de whitespace no SHA exato da PR de origem.
 - Apenas findings CodeRabbit/Aikido do mesmo repositório são considerados.
 - PRs de fork, findings genéricas, SHA stale, duplicatas e ciclos esgotados terminam
   em `NOOP` ou `HUMAN_REQUIRED`.
+- Marcadores de duplicidade e ciclo só são aceitos quando publicados por
+  `github-actions[bot]`; comentários de usuários não podem bloquear a automação.
 - O patch é limitado a 10 arquivos, 500 linhas alteradas e 64 KiB de diff; cada
   arquivo textual resultante também é limitado a 256 KiB. Workflows, actions,
   políticas, secrets, credenciais, binários, symlinks, submodules e manifests ou
@@ -34,8 +36,10 @@ para revisão humana.
    e sem permissão de escrita, e executa apenas `git diff --check`. Esse job nunca
    executa scripts de build, teste ou pacote controlados pela PR.
 4. `publish` revalida digest/tree, identidade da PR e branch de origem, e cria somente
-   uma draft PR para a branch de origem. Os checks obrigatórios dessa draft continuam
-   sendo a autoridade final para código Rust, frontend, Tauri e E2E.
+  uma draft PR para a branch de origem. Os quatro gates determinísticos (`source-head`,
+  aplicabilidade, limites da árvore e whitespace) precisam estar em `PASS`; os checks
+  obrigatórios dessa draft continuam sendo a autoridade final para código Rust,
+  frontend, Tauri e E2E.
 
 Os artefatos carregam apenas descriptors, digests, patch bounded e evidência redigida.
 Reasoning do provedor, tokens e respostas HTTP brutas não são persistidos.

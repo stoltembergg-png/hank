@@ -108,6 +108,19 @@ test('redacts structured credentials and PEM material before provider transport'
   assert.equal(hasUnredactedSecret('password: "still-secret"'), true);
 });
 
+test('redacts compound credential assignment names without flagging the redacted value', () => {
+  const value = redactSecrets([
+    'api_token=api-secret',
+    'auth_token=auth-secret',
+    'refresh_token=refresh-secret',
+    "client_secret: '[REDACTED]'",
+  ].join('\n'));
+
+  assert.doesNotMatch(value, /api-secret|auth-secret|refresh-secret/);
+  assert.equal(hasUnredactedSecret(value), false);
+  assert.equal(hasUnredactedSecret('refresh_token=still-secret'), true);
+});
+
 test('bounds and redacts title and detail', () => {
   const longTitle = 'x'.repeat(MAX_FINDING_TITLE_BYTES + 1);
   const longDetail = 'x'.repeat(MAX_FINDING_DETAIL_BYTES + 1);

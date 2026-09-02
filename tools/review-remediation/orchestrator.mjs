@@ -20,9 +20,11 @@ import { applyAndValidatePatch, readPatchFile, validatePatchText } from './patch
 export const MAX_REMEDIATION_CYCLES = 2;
 export const MAX_REVIEW_COMMENTS = 100;
 export const MAX_FILES_FOR_PROPOSAL = 100;
+const REQUIRED_VALIDATION_GATES = ['source-head', 'patch-applicability', 'patch-boundaries', 'whitespace'];
 
 const CODE_RABBIT_LOGINS = new Set(['coderabbitai[bot]', 'coderabbit[bot]', 'coderabbit']);
 const AIKIDO_CHECK_NAMES = new Set(['aikido security: check code', 'aikido security: deep review']);
+const REMEDIATION_PUBLISHER_LOGIN = 'github-actions[bot]';
 
 export class OrchestratorError extends Error {
   constructor(code) {
@@ -51,6 +53,13 @@ function text(value, maxBytes) {
 
 function result(status, reason) {
   return { status, ...(reason ? { reason: text(reason, 512) } : {}) };
+}
+
+function requireValidationGates(value) {
+  if (!Array.isArray(value) || value.length !== REQUIRED_VALIDATION_GATES.length) throw error('EVIDENCE_GATES_INVALID');
+  const gates = REQUIRED_VALIDATION_GATES.map((name) => value.find((gate) => gate?.name === name));
+  if (gates.some((gate) => gate?.status !== 'PASS')) throw error('EVIDENCE_GATES_INVALID');
+  return REQUIRED_VALIDATION_GATES.map((name) => ({ name, status: 'PASS' }));
 }
 
 function eventName(event) {
@@ -120,6 +129,7 @@ function cycleFromComments(comments, finding) {
   const stablePattern = new RegExp(`<!--\\s*hank-review-remediation:\\s*lineage=${lineage}\\s+cycle=(\\d+)\\s*-->`, 'gi');
   const legacyPattern = new RegExp(`<!--\\s*hank-review-remediation:\\s*lineage=${finding.pullRequest}\\s+cycle=(\\d+)\\s*-->`, 'gi');
   return comments.reduce((max, comment) => {
+    if (comment?.user?.login?.toLowerCase() !== REMEDIATION_PUBLISHER_LOGIN) return max;
     const body = typeof comment?.body === 'string' ? comment.body : '';
     for (const match of body.matchAll(stablePattern)) max = Math.max(max, Number(match[1]));
     for (const match of body.matchAll(legacyPattern)) max = Math.max(max, Number(match[1]));
@@ -160,7 +170,8 @@ async function finalizeFinding({ finding, repository, api }) {
     return result('HUMAN_REQUIRED', 'duplicate state could not be read');
   }
   if (!Array.isArray(issueComments) || issueComments.length > MAX_REVIEW_COMMENTS) return result('HUMAN_REQUIRED', 'comment history is not bounded');
-  if (issueComments.some((comment) => isDuplicateMarker(comment?.body, normalized.finding.fingerprint))) return result('NOOP', 'finding fingerprint is already published');
+  if (issueComments.some((comment) => comment?.user?.login?.toLowerCase() === REMEDIATION_PUBLISHER_LOGIN
+    && isDuplicateMarker(comment?.body, normalized.finding.fingerprint))) return result('NOOP', 'finding fingerprint is already published');
   const previousCycle = cycleFromComments(issueComments, normalized.finding);
   if (previousCycle >= MAX_REMEDIATION_CYCLES) return result('HUMAN_REQUIRED', 'remediation cycle cap reached');
   let branch;
@@ -264,6 +275,7 @@ export function buildEvidenceDescriptor({ finding, patch, tests = [], tree = {} 
   const safeTests = Array.isArray(tests) ? tests.slice(0, 20).map((command) => text(command, 512)) : [];
   const safeFiles = Array.isArray(tree?.files) ? tree.files.slice(0, 10).map((path) => text(path, 1024)) : [];
   const treeDigest = text(tree?.treeDigest ?? tree?.digest ?? '', 128);
+  const gates = requireValidationGates(tree?.gates);
   return {
     status: 'VALIDATED',
     repository: text(finding.repository, 256),
@@ -276,6 +288,7 @@ export function buildEvidenceDescriptor({ finding, patch, tests = [], tree = {} 
     patchDigest: sha256(patch),
     files: safeFiles,
     tests: safeTests,
+    gates,
     treeDigest,
   };
 }
@@ -309,7 +322,7 @@ export async function proposeFinding({ collected, api, apiKey, endpoint = DEFAUL
 export async function validateProposal({ proposed, patchFile, workspace, tests = [] }) {
   if (proposed?.status !== 'PROPOSED') return proposed;
   try {
-    const applied = await applyAndValidatePatch({ workspace, patchFile });
+    const applied = await applyAndValidatePatch({ workspace, patchFile, expectedHeadSha: proposed.finding.headSha });
     if (applied.digest !== proposed.patchDigest) return result('HUMAN_REQUIRED', 'patch digest changed before validation');
     const evidence = buildEvidenceDescriptor({
       finding: proposed.finding,
@@ -337,6 +350,7 @@ function readPatchForEvidence({ workspace, patchFile }) {
 
 export function buildPublishDescriptor({ validated, finding, cycle = 1 }) {
   if (validated?.status !== 'VALIDATED' || !finding) throw error('PUBLISH_INPUT_INVALID');
+  const gates = requireValidationGates(validated.gates);
   const fingerprint = finding.fingerprint ?? findingFingerprint(finding);
   const normalizedFinding = { ...finding, fingerprint };
   const lineage = findingLineage(normalizedFinding);
@@ -359,6 +373,7 @@ export function buildPublishDescriptor({ validated, finding, cycle = 1 }) {
     treeDigest: validated.treeDigest,
     files: validated.files,
     tests: validated.tests,
+    gates,
     noApproval: true,
     noMerge: true,
   };
@@ -368,6 +383,7 @@ export function renderDraftBody(publish) {
   if (!publish || publish.status !== 'PUBLISH_READY') throw error('PUBLISH_BODY_INPUT_INVALID');
   const files = Array.isArray(publish.files) ? publish.files.slice(0, 10).map((path) => text(path, 1024)).join(', ') : 'not recorded';
   const tests = Array.isArray(publish.tests) ? publish.tests.slice(0, 20).map((command) => `- ${text(command, 512)}`).join('\n') : '- not recorded';
+  const gates = Array.isArray(publish.gates) ? publish.gates.map((gate) => `- ${text(gate.name, 128)}: ${text(gate.status, 32)}`).join('\n') : '- not recorded';
   return [
     publish.marker,
     publish.lineageMarker,
@@ -382,6 +398,9 @@ export function renderDraftBody(publish) {
     '',
     'Checks recorded by the validation job:',
     tests,
+    '',
+    'Deterministic validation gates:',
+    gates,
     '',
     'This is a draft for human review. The agent did not approve, merge, rebase, or resolve the source reviewer conversation.',
     'Rollback: close this draft and delete only its automation branch; the source pull request remains unchanged.',
@@ -428,11 +447,11 @@ export async function publishValidated({ validated, proposal, finding, patchFile
   const normalized = normalizeFinding(finding, validated.repository);
   if (normalized.status !== 'READY' || !sameFindingIdentity(normalized.finding, finding)) return result('HUMAN_REQUIRED', 'publication finding is invalid');
   try {
-    const reapplied = await applyAndValidatePatch({ workspace, patchFile });
+    const reapplied = await applyAndValidatePatch({ workspace, patchFile, expectedHeadSha: normalized.finding.headSha });
     if (reapplied.digest !== validated.patchDigest || reapplied.treeDigest !== validated.treeDigest) return result('HUMAN_REQUIRED', 'publish revalidation identity changed');
     const current = await verifyPublicationIdentity({ finding: normalized.finding, api });
     if (current.status !== 'READY') return current;
-    return buildPublishDescriptor({ validated, finding: current.finding, cycle });
+    return buildPublishDescriptor({ validated: { ...validated, gates: reapplied.gates }, finding: current.finding, cycle });
   } catch (caught) {
     return result('HUMAN_REQUIRED', caught?.code ?? 'publish validation failed');
   }

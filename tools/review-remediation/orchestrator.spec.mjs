@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, relative } from 'node:path';
 import test from 'node:test';
 
 import { createGithubApi, GithubApiError } from './github-api.mjs';
@@ -94,6 +93,7 @@ function aikidoEvent(overrides = {}) {
       id: 99,
       name: 'Aikido Security: Deep Review',
       conclusion: 'failure',
+      head_sha: headSha,
       details_url: `https://github.com/${repository}/actions/runs/99`,
       pull_requests: [{ number: 401 }],
       app: { slug: 'aikido' },
@@ -161,6 +161,13 @@ test('fails closed for foreign/fork/stale/closed/generic and non-reviewer events
     api: fakeApi({ getReviewComments: async () => [codeRabbitComment({ path: undefined })] }),
   });
   assert.equal(generic.status, 'HUMAN_REQUIRED');
+
+  const staleAikido = await collectFinding({
+    event: aikidoEvent({ check_run: { ...aikidoEvent().check_run, head_sha: 'b'.repeat(40) } }),
+    repository,
+    api: fakeApi({ getCheckAnnotations: async () => [{ path: findingPath, message: 'stale check' }] }),
+  });
+  assert.equal(staleAikido.status, 'HUMAN_REQUIRED');
 });
 
 test('does not create duplicate or remediation-branch work and enforces cycle cap', async () => {
@@ -180,7 +187,7 @@ test('does not create duplicate or remediation-branch work and enforces cycle ca
     repository,
     api: fakeApi({
       getReviewComments: async () => [codeRabbitComment()],
-      getIssueComments: async () => [{ body: `<!-- hank-review-remediation: fingerprint=${finding.fingerprint} -->` }],
+      getIssueComments: async () => [{ user: { login: 'github-actions[bot]' }, body: `<!-- hank-review-remediation: fingerprint=${finding.fingerprint} -->` }],
     }),
   });
   assert.equal(exactDuplicate.status, 'NOOP');
@@ -196,8 +203,8 @@ test('does not create duplicate or remediation-branch work and enforces cycle ca
     event: codeRabbitEvent(),
     repository,
     api: fakeApi({ getReviewComments: async () => [codeRabbitComment()], getIssueComments: async () => [
-      { body: '<!-- hank-review-remediation: lineage=401 cycle=1 -->' },
-      { body: '<!-- hank-review-remediation: lineage=401 cycle=2 -->' },
+      { user: { login: 'github-actions[bot]' }, body: '<!-- hank-review-remediation: lineage=401 cycle=1 -->' },
+      { user: { login: 'github-actions[bot]' }, body: '<!-- hank-review-remediation: lineage=401 cycle=2 -->' },
     ] }),
   });
   assert.equal(capped.status, 'HUMAN_REQUIRED');
@@ -222,11 +229,28 @@ test('keeps the remediation cycle cap across source head changes', async () => {
     repository,
     api: fakeApi({
       getReviewComments: async () => [codeRabbitComment({ commit_id: nextHead })],
-      getIssueComments: async () => [{ body: `<!-- hank-review-remediation: lineage=${lineage} cycle=2 -->` }],
+      getIssueComments: async () => [{ user: { login: 'github-actions[bot]' }, body: `<!-- hank-review-remediation: lineage=${lineage} cycle=2 -->` }],
     }),
   });
 
   assert.equal(capped.status, 'HUMAN_REQUIRED');
+});
+
+test('ignores cycle and duplicate markers authored by an untrusted commenter', async () => {
+  const collected = await collectFinding({
+    event: codeRabbitEvent(),
+    repository,
+    api: fakeApi({
+      getReviewComments: async () => [codeRabbitComment()],
+      getIssueComments: async () => [{
+        user: { login: 'untrusted-user' },
+        body: '<!-- hank-review-remediation: lineage=401 cycle=2 -->',
+      }],
+    }),
+  });
+
+  assert.equal(collected.status, 'READY');
+  assert.equal(collected.cycle, 1);
 });
 
 test('rejects multiple CodeRabbit inline findings instead of selecting one silently', async () => {
@@ -265,7 +289,21 @@ test('builds a bounded proposal input and redacted evidence descriptor', () => {
   const proposal = buildProposalInput({ finding, files: [{ filename: findingPath, patch: 'diff --git a/x b/x\n' }, { filename: 'src/other.rs', patch: 'ignored' }] });
   assert.equal(proposal.path, findingPath);
   assert.equal(proposal.patch, 'diff --git a/x b/x\n');
-  const evidence = buildEvidenceDescriptor({ finding, patch: 'patch secret=secret-value', tests: ['npm run test'], tree: { digest: 'd'.repeat(64), files: [findingPath] } });
+  const evidence = buildEvidenceDescriptor({
+    finding,
+    patch: 'patch secret=secret-value',
+    tests: ['git diff --check'],
+    tree: {
+      digest: 'd'.repeat(64),
+      files: [findingPath],
+      gates: [
+        { name: 'source-head', status: 'PASS' },
+        { name: 'patch-applicability', status: 'PASS' },
+        { name: 'patch-boundaries', status: 'PASS' },
+        { name: 'whitespace', status: 'PASS' },
+      ],
+    },
+  });
   assert.equal(evidence.status, 'VALIDATED');
   assert.doesNotMatch(JSON.stringify(evidence), /secret-value/);
   assert.equal(evidence.sourceSha, headSha);
@@ -315,7 +353,12 @@ test('GitHub adapter rejects repository path segments and unbounded first pages'
 });
 
 function fixtureWorkspace(prefix) {
-  const workspace = mkdtempSync(join(resolve(tmpdir()), prefix));
+  const workspace = mkdtempSync(join(process.cwd(), `.hank-review-orchestrator-${prefix}`));
+  const gitEnvironment = {
+    ...process.env,
+    GIT_AUTHOR_DATE: '2000-01-01T00:00:00Z',
+    GIT_COMMITTER_DATE: '2000-01-01T00:00:00Z',
+  };
   mkdirSync(join(workspace, 'src'));
   writeFileSync(join(workspace, 'src', 'value.txt'), 'before\n');
   execFileSync('git', ['init', '-q'], { cwd: workspace, windowsHide: true });
@@ -323,38 +366,75 @@ function fixtureWorkspace(prefix) {
   execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: workspace, windowsHide: true });
   execFileSync('git', ['config', 'user.name', 'Test Fixture'], { cwd: workspace, windowsHide: true });
   execFileSync('git', ['add', 'src/value.txt'], { cwd: workspace, windowsHide: true });
-  execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: workspace, windowsHide: true });
+  execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: workspace, env: gitEnvironment, windowsHide: true });
   return workspace;
 }
 
-test('runs collect-to-propose-to-validate-to-publish with no provider network dependency', async () => {
-  const collectedFinding = {
-    source: 'coderabbit', repository, pullRequest: 401, sourceBranch: 'feature/fix-review', baseBranch: 'main', headSha,
-    reviewer: 'coderabbitai[bot]', title: 'Fix value', detail: 'The value is stale.', path: 'src/value.txt', line: 1,
-    evidenceUrl: `https://github.com/${repository}/pull/401#discussion_r1`, policyRevision: 'review-remediation-v1',
-  };
-  collectedFinding.fingerprint = findingFingerprint(collectedFinding);
-  const collected = {
-    status: 'READY',
-    cycle: 1,
-    finding: collectedFinding,
-  };
-  const proposal = await proposeFinding({
-    collected,
-    api: { getPullRequestFiles: async () => [{ filename: 'src/value.txt', patch: remediationPatch }] },
-    apiKey: 'provider-secret-fixture',
-    fetchImpl: async () => new Response(JSON.stringify({ choices: [{ message: { content: remediationPatch } }] }), { status: 200 }),
-  });
-  assert.equal(proposal.status, 'PROPOSED');
-  assert.equal(proposal.viability, 'VIABLE_PATCH');
+function workspaceHead(workspace) {
+  return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: workspace, encoding: 'utf8', windowsHide: true }).trim();
+}
 
-  const workspace = fixtureWorkspace('hank-review-orchestrator-');
+function workspaceInput(workspace) {
+  return relative(process.cwd(), workspace);
+}
+
+function patchInput(patchFile) {
+  return relative(process.cwd(), patchFile);
+}
+
+test('rejects validation when the workspace is not at the finding SHA', async () => {
+  const workspace = fixtureWorkspace('hank-review-head-mismatch-');
   const patchFile = join(workspace, 'remediation.patch');
-  writeFileSync(patchFile, proposal.patch);
+  writeFileSync(patchFile, remediationPatch);
   try {
-    const validated = await validateProposal({ proposed: proposal, patchFile, workspace, tests: ['git diff --check'] });
+    const result = await validateProposal({
+      proposed: {
+        status: 'PROPOSED',
+        patchDigest: 'd'.repeat(64),
+        finding: { headSha: headSha },
+      },
+      patchFile: patchInput(patchFile),
+      workspace: workspaceInput(workspace),
+    });
+
+    assert.equal(result.status, 'HUMAN_REQUIRED');
+    assert.equal(result.reason, 'PATCH_WORKSPACE_HEAD_MISMATCH');
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test('runs collect-to-propose-to-validate-to-publish with no provider network dependency', async () => {
+  const workspace = fixtureWorkspace('hank-review-orchestrator-');
+  try {
+    const sourceSha = workspaceHead(workspace);
+    const collectedFinding = {
+      source: 'coderabbit', repository, pullRequest: 401, sourceBranch: 'feature/fix-review', baseBranch: 'main', headSha: sourceSha,
+      reviewer: 'coderabbitai[bot]', title: 'Fix value', detail: 'The value is stale.', path: 'src/value.txt', line: 1,
+      evidenceUrl: `https://github.com/${repository}/pull/401#discussion_r1`, policyRevision: 'review-remediation-v1',
+    };
+    collectedFinding.fingerprint = findingFingerprint(collectedFinding);
+    const collected = {
+      status: 'READY',
+      cycle: 1,
+      finding: collectedFinding,
+    };
+    const proposal = await proposeFinding({
+      collected,
+      api: { getPullRequestFiles: async () => [{ filename: 'src/value.txt', patch: remediationPatch }] },
+      apiKey: 'provider-secret-fixture',
+      fetchImpl: async () => new Response(JSON.stringify({ choices: [{ message: { content: remediationPatch } }] }), { status: 200 }),
+    });
+    assert.equal(proposal.status, 'PROPOSED');
+    assert.equal(proposal.viability, 'VIABLE_PATCH');
+
+    const patchFile = join(workspace, 'remediation.patch');
+    writeFileSync(patchFile, proposal.patch);
+    const validated = await validateProposal({ proposed: proposal, patchFile: patchInput(patchFile), workspace: workspaceInput(workspace), tests: ['git diff --check'] });
     assert.equal(validated.status, 'VALIDATED');
     assert.equal(validated.finding.pullRequest, 401);
+    assert.equal(validated.sourceSha, sourceSha);
+    assert.deepEqual(validated.gates.map((gate) => gate.status), ['PASS', 'PASS', 'PASS', 'PASS']);
     assert.equal(readFileSync(join(workspace, 'src', 'value.txt'), 'utf8'), 'after\n');
 
     const publishWorkspace = fixtureWorkspace('hank-review-publish-');
@@ -365,13 +445,16 @@ test('runs collect-to-propose-to-validate-to-publish with no provider network de
         validated,
         proposal,
         finding: collected.finding,
-        patchFile: publishPatchFile,
-        workspace: publishWorkspace,
+        patchFile: patchInput(publishPatchFile),
+        workspace: workspaceInput(publishWorkspace),
         cycle: 1,
-        api: fakeApi({ getBranch: async () => ({ name: 'feature/fix-review', commit: { sha: headSha } }) }),
+        api: fakeApi({
+          getPullRequest: async () => pullRequest({ head: { ref: 'feature/fix-review', sha: sourceSha, repo: { full_name: repository } } }),
+          getBranch: async () => ({ name: 'feature/fix-review', commit: { sha: sourceSha } }),
+        }),
       });
       assert.equal(published.status, 'PUBLISH_READY');
-      assert.match(published.branch, /^review-remediation\/pr-401\/aaaaaaaaaaaa-[0-9a-f]{12}$/);
+      assert.match(published.branch, /^review-remediation\/pr-401\/[0-9a-f]{12}-[0-9a-f]{12}$/);
       assert.equal(published.base, 'feature/fix-review');
       assert.equal(published.baseBranch, 'main');
       assert.match(published.marker, /^<!-- hank-review-remediation: fingerprint=[0-9a-f]{64} -->$/);
@@ -384,8 +467,8 @@ test('runs collect-to-propose-to-validate-to-publish with no provider network de
         validated,
         proposal: { ...proposal, finding: { ...proposal.finding, baseBranch: 'release' } },
         finding: collected.finding,
-        patchFile: publishPatchFile,
-        workspace: publishWorkspace,
+        patchFile: patchInput(publishPatchFile),
+        workspace: workspaceInput(publishWorkspace),
         cycle: 1,
         api: fakeApi({ getBranch: async () => ({ name: 'feature/fix-review', commit: { sha: headSha } }) }),
       });
@@ -399,8 +482,8 @@ test('runs collect-to-propose-to-validate-to-publish with no provider network de
           validated,
           proposal,
           finding: collected.finding,
-          patchFile: movedPatchFile,
-          workspace: movedWorkspace,
+          patchFile: patchInput(movedPatchFile),
+          workspace: workspaceInput(movedWorkspace),
           cycle: 1,
           api: fakeApi({
             getPullRequest: async () => pullRequest({ head: { ref: 'feature/fix-review', sha: 'b'.repeat(40), repo: { full_name: repository } } }),

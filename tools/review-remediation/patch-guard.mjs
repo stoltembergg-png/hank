@@ -21,9 +21,10 @@ export { MAX_PATCH_BYTES, MAX_PATCH_FILES, MAX_PATCH_LINES, MAX_RESULT_FILE_BYTE
 
 const execFileAsync = promisify(execFile);
 const CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
+const HEX_SHA = /^[0-9a-f]{40}$/i;
 const FORBIDDEN_METADATA = /^(?:old mode|new mode|new file mode|deleted file mode|similarity index|rename from|rename to|copy from|copy to)\s/m;
 const FORBIDDEN_PATH = /^(?:\.github\/(?:workflows|actions)(?:\/|$)|\.git(?:\/|$)|\.env(?:\.|$)|tools\/review-remediation(?:\/|$))/i;
-const FORBIDDEN_DEPENDENCY_PATH = /(?:^|\/)(?:Cargo\.toml|Cargo\.lock|package\.json|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lock(?:b)?|go\.mod|go\.sum|requirements(?:[-_.][^/]*)?\.txt|Pipfile(?:\.lock)?|poetry\.lock|pyproject\.toml|composer\.(?:json|lock)|Gemfile(?:\.lock)?|mix\.lock|pubspec\.lock|Package\.swift|Package\.resolved|Podfile\.lock)$/i;
+const FORBIDDEN_DEPENDENCY_PATH = /(?:^|\/)(?:\.gitmodules|Cargo\.toml|Cargo\.lock|package\.json|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lock(?:b)?|go\.mod|go\.sum|requirements(?:[-_.][^/]*)?\.txt|Pipfile(?:\.lock)?|poetry\.lock|pyproject\.toml|composer\.(?:json|lock)|Gemfile(?:\.lock)?|mix\.lock|pubspec\.lock|Package\.swift|Package\.resolved|Podfile\.lock)$/i;
 
 export class PatchGuardError extends Error {
   constructor(code) {
@@ -142,9 +143,26 @@ function pathWithin(root, candidate) {
   return relativePath === '' || (!relativePath.startsWith('..') && !isAbsolute(relativePath));
 }
 
+function trustedWorkspaceBase() {
+  const base = resolve(process.env.GITHUB_WORKSPACE ?? process.cwd());
+  let stat;
+  let canonical;
+  try {
+    stat = lstatSync(base);
+    canonical = realpathSync(base);
+  } catch {
+    throw error('PATCH_INPUT_INVALID');
+  }
+  if (!stat.isDirectory() || stat.isSymbolicLink() || !pathWithin(base, canonical)) throw error('PATCH_INPUT_INVALID');
+  return canonical;
+}
+
 function resolveWorkspaceRoot(workspace) {
-  if (typeof workspace !== 'string' || workspace.length === 0 || workspace.includes('\u0000')) throw error('PATCH_INPUT_INVALID');
-  const root = resolve(workspace);
+  if (typeof workspace !== 'string' || workspace.length === 0 || workspace.includes('\u0000') || workspace.includes('..') || isAbsolute(workspace)) throw error('PATCH_INPUT_INVALID');
+  const base = trustedWorkspaceBase();
+  const root = resolve(base, workspace);
+  const relativeRoot = relative(base, root);
+  if (relativeRoot.startsWith('..') || isAbsolute(relativeRoot)) throw error('PATCH_INPUT_INVALID');
   let stat;
   let canonical;
   try {
@@ -153,16 +171,18 @@ function resolveWorkspaceRoot(workspace) {
   } catch {
     throw error('PATCH_INPUT_INVALID');
   }
-  if (!stat.isDirectory() || stat.isSymbolicLink() || !pathWithin(root, canonical)) throw error('PATCH_INPUT_INVALID');
+  if (!stat.isDirectory() || stat.isSymbolicLink() || !pathWithin(base, canonical) || !pathWithin(root, canonical)) throw error('PATCH_INPUT_INVALID');
   return canonical;
 }
 
 function resolvePatchPath(workspace, patchFile) {
-  if (typeof patchFile !== 'string' || patchFile.length === 0 || patchFile.includes('\u0000')) throw error('PATCH_INPUT_INVALID');
+  if (typeof patchFile !== 'string' || patchFile.length === 0 || patchFile.includes('\u0000') || patchFile.includes('..') || isAbsolute(patchFile)) throw error('PATCH_INPUT_INVALID');
   const segments = patchFile.replaceAll('\\', '/').split('/');
   if (segments.includes('..')) throw error('PATCH_INPUT_INVALID');
-  const patchPath = resolve(patchFile);
-  const currentDirectory = resolve(process.cwd());
+  const currentDirectory = trustedWorkspaceBase();
+  const patchPath = resolve(currentDirectory, patchFile);
+  const relativePath = relative(currentDirectory, patchPath);
+  if (relativePath.startsWith('..') || isAbsolute(relativePath)) throw error('PATCH_INPUT_INVALID');
   if (!pathWithin(workspace, patchPath) && !pathWithin(currentDirectory, patchPath)) throw error('PATCH_INPUT_INVALID');
   return patchPath;
 }
@@ -181,8 +201,8 @@ export function readPatchFile({ workspace, patchFile }) {
   }
 }
 
-function snapshotWorkspace(workspace, allowlistedPaths = []) {
-  const root = resolveWorkspaceRoot(workspace);
+function snapshotWorkspace(workspace, allowlistedPaths = [], resolvedRoot) {
+  const root = resolvedRoot ?? resolveWorkspaceRoot(workspace);
   const allowlisted = new Set(allowlistedPaths);
   const snapshot = new Map();
 
@@ -193,13 +213,16 @@ function snapshotWorkspace(workspace, allowlistedPaths = []) {
       if (relativeCheck.startsWith('..') || isAbsolute(relativeCheck)) throw error('PATCH_RESULT_PATH_INVALID');
       const relativePath = toPosixPath(relativeCheck);
       if (!relativePath || relativePath === '.git' || relativePath.startsWith('.git/')) continue;
+      const validatedPath = resolve(root, relativePath);
+      const validatedRelative = relative(root, validatedPath);
+      if (validatedRelative.startsWith('..') || isAbsolute(validatedRelative)) throw error('PATCH_RESULT_PATH_INVALID');
       if (entry.isDirectory()) {
-        visit(absolute);
+        visit(validatedPath);
         continue;
       }
-      const stat = lstatSync(absolute);
+      const stat = lstatSync(validatedPath);
       if (entry.isSymbolicLink()) {
-        snapshot.set(relativePath, { kind: 'symlink', value: readlinkSync(absolute), bytes: 0 });
+        snapshot.set(relativePath, { kind: 'symlink', value: readlinkSync(validatedPath), bytes: 0 });
         continue;
       }
       if (!entry.isFile()) {
@@ -208,7 +231,7 @@ function snapshotWorkspace(workspace, allowlistedPaths = []) {
       }
       const bytes = stat.size;
       if (allowlisted.has(relativePath) && bytes > MAX_RESULT_FILE_BYTES) throw error('PATCH_RESULT_TOO_LARGE');
-      const digest = bytes <= MAX_RESULT_FILE_BYTES ? sha256(readFileSync(absolute)) : `size:${bytes}`;
+      const digest = bytes <= MAX_RESULT_FILE_BYTES ? sha256(readFileSync(validatedPath)) : `size:${bytes}`;
       snapshot.set(relativePath, { kind: 'file', value: digest, bytes });
     }
   }
@@ -273,23 +296,39 @@ async function runGit(workspace, args, code) {
   }
 }
 
-export async function applyAndValidatePatch({ workspace, patchFile }) {
+async function assertWorkspaceHead(workspace, expectedHeadSha) {
+  if (expectedHeadSha === undefined) return undefined;
+  if (typeof expectedHeadSha !== 'string' || !HEX_SHA.test(expectedHeadSha)) throw error('PATCH_EXPECTED_HEAD_INVALID');
+  const result = await runGit(workspace, ['rev-parse', 'HEAD'], 'PATCH_WORKSPACE_HEAD_UNREADABLE');
+  const actualHeadSha = result.stdout.trim().toLowerCase();
+  if (actualHeadSha !== expectedHeadSha.toLowerCase()) throw error('PATCH_WORKSPACE_HEAD_MISMATCH');
+  return actualHeadSha;
+}
+
+export async function applyAndValidatePatch({ workspace, patchFile, expectedHeadSha }) {
   if (typeof workspace !== 'string' || typeof patchFile !== 'string') throw error('PATCH_INPUT_INVALID');
   const root = resolveWorkspaceRoot(workspace);
+  const workspaceHead = await assertWorkspaceHead(root, expectedHeadSha);
   const patchPath = resolvePatchPath(root, patchFile);
-  const patch = readPatchFile({ workspace: root, patchFile: patchPath });
+  const patch = readPatchFile({ workspace, patchFile });
   const metadata = validatePatchText(patch);
-  const before = snapshotWorkspace(root, metadata.files);
+  const before = snapshotWorkspace(workspace, metadata.files, root);
   let applied = false;
   try {
     await runGit(root, ['apply', '--check', '--whitespace=error', '--', patchPath], 'PATCH_APPLY_FAILED');
     await runGit(root, ['apply', '--whitespace=error', '--', patchPath], 'PATCH_APPLY_FAILED');
     applied = true;
     await runGit(root, ['diff', '--check'], 'PATCH_APPLY_FAILED');
-    const after = snapshotWorkspace(root, metadata.files);
+    const after = snapshotWorkspace(workspace, metadata.files, root);
     const changed = changedPaths(before, after);
-    const tree = validateResultTree({ workspace: root, beforeFiles: metadata.files, afterFiles: changed });
-    return { ...metadata, ...tree };
+    const tree = validateResultTree({ workspace, beforeFiles: metadata.files, afterFiles: changed });
+    const gates = [
+      ...(workspaceHead ? [{ name: 'source-head', status: 'PASS' }] : []),
+      { name: 'patch-applicability', status: 'PASS' },
+      { name: 'patch-boundaries', status: 'PASS' },
+      { name: 'whitespace', status: 'PASS' },
+    ];
+    return { ...metadata, ...tree, ...(workspaceHead ? { workspaceHead } : {}), gates };
   } catch (caught) {
     if (applied) {
       try {

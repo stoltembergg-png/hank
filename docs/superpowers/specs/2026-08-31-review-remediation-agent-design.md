@@ -151,7 +151,7 @@ review-remediation/pr-<number>/<short-head>-<fingerprint-prefix>
 
 The draft PR base is the original same-repository source branch. Its body includes the source PR number, exact source SHA, fingerprint, evidence URL when safe, files changed, commands run, and rollback steps. It does not state that the reviewer, model, or agent approved the change.
 
-At most two remediation cycles are allowed for the same source PR/finding lineage. A third request becomes `HUMAN_REQUIRED`. Events from a remediation branch, a closed source PR, an already completed fingerprint, or a bot-created draft are no-ops.
+At most two remediation cycles are allowed for the same source PR/finding lineage. A third request becomes `HUMAN_REQUIRED`. Cycle and duplicate markers count only when authored by the fixed `github-actions[bot]` publisher; user-authored lookalike markers are ignored. Events from a remediation branch, a closed source PR, an already completed fingerprint, or a bot-created draft are no-ops.
 
 ## Failure handling and rollback
 

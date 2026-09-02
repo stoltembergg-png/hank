@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -64,7 +63,7 @@ test('rejects traversal, absolute, Windows, forbidden, and trusted-helper paths'
     assert.throws(() => validatePatchText(patch), (error) => error.code.startsWith('PATCH_'), path);
   }
   assert.throws(() => assertAllowedPatchPaths(['src/value.txt', 'tools/review-remediation-agent.mjs']), (error) => error.code === 'PATCH_FORBIDDEN_PATH');
-  for (const path of ['Cargo.toml', 'Cargo.lock', 'package.json', 'package-lock.json', 'pnpm-lock.yaml']) {
+  for (const path of ['.gitmodules', 'Cargo.toml', 'Cargo.lock', 'package.json', 'package-lock.json', 'pnpm-lock.yaml']) {
     assert.throws(() => assertAllowedPatchPaths([path]), (error) => error.code === 'PATCH_FORBIDDEN_PATH');
   }
 });
@@ -111,8 +110,16 @@ function git(workspace, args) {
   return execFileSync('git', args, { cwd: workspace, encoding: 'utf8', windowsHide: true });
 }
 
+function workspaceInput(workspace) {
+  return relative(process.cwd(), workspace);
+}
+
+function patchInput(patchFile) {
+  return relative(process.cwd(), patchFile);
+}
+
 test('applies a valid patch only after git applicability and whitespace checks', async () => {
-  const workspace = mkdtempSync(join(tmpdir(), 'hank-review-guard-'));
+  const workspace = mkdtempSync(join(process.cwd(), '.hank-review-guard-'));
   try {
     mkdirSync(join(workspace, 'src'));
     writeFileSync(join(workspace, 'src', 'value.txt'), 'before\n');
@@ -125,7 +132,13 @@ test('applies a valid patch only after git applicability and whitespace checks',
     const patchFile = join(workspace, 'remediation.patch');
     writeFileSync(patchFile, validPatch.replace('+after', '+after\n'));
 
-    const result = await applyAndValidatePatch({ workspace, patchFile });
+    await assert.rejects(
+      applyAndValidatePatch({ workspace: workspaceInput(workspace), patchFile: patchInput(patchFile), expectedHeadSha: 'b'.repeat(40) }),
+      (error) => error.code === 'PATCH_WORKSPACE_HEAD_MISMATCH',
+    );
+    assert.equal(readFileSync(join(workspace, 'src', 'value.txt'), 'utf8'), 'before\n');
+
+    const result = await applyAndValidatePatch({ workspace: workspaceInput(workspace), patchFile: patchInput(patchFile) });
     assert.deepEqual(result.files, ['src/value.txt']);
     assert.equal(readFileSync(join(workspace, 'src', 'value.txt'), 'utf8').replaceAll('\r\n', '\n'), 'after\n');
     assert.match(result.treeDigest, /^[0-9a-f]{64}$/);
@@ -135,7 +148,7 @@ test('applies a valid patch only after git applicability and whitespace checks',
 });
 
 test('rejects whitespace errors during application', async () => {
-  const workspace = mkdtempSync(join(tmpdir(), 'hank-review-guard-whitespace-'));
+  const workspace = mkdtempSync(join(process.cwd(), '.hank-review-guard-whitespace-'));
   try {
     mkdirSync(join(workspace, 'src'));
     writeFileSync(join(workspace, 'src', 'value.txt'), 'before\n');
@@ -148,7 +161,7 @@ test('rejects whitespace errors during application', async () => {
     const patchFile = join(workspace, 'remediation.patch');
     writeFileSync(patchFile, validPatch.replace('+after', '+after '));
 
-    await assert.rejects(applyAndValidatePatch({ workspace, patchFile }), (error) => error.code === 'PATCH_APPLY_FAILED');
+    await assert.rejects(applyAndValidatePatch({ workspace: workspaceInput(workspace), patchFile: patchInput(patchFile) }), (error) => error.code === 'PATCH_APPLY_FAILED');
     assert.equal(readFileSync(join(workspace, 'src', 'value.txt'), 'utf8'), 'before\n');
     assert.equal(git(workspace, ['status', '--porcelain', '--untracked-files=no']), '');
   } finally {
@@ -157,7 +170,7 @@ test('rejects whitespace errors during application', async () => {
 });
 
 test('rejects modified ignored files instead of validating an unpublishable result', async () => {
-  const workspace = mkdtempSync(join(tmpdir(), 'hank-review-guard-ignored-'));
+  const workspace = mkdtempSync(join(process.cwd(), '.hank-review-guard-ignored-'));
   try {
     mkdirSync(join(workspace, 'ignored'));
     writeFileSync(join(workspace, '.gitignore'), 'ignored/\n');
@@ -172,7 +185,7 @@ test('rejects modified ignored files instead of validating an unpublishable resu
     writeFileSync(patchFile, validPatch.replaceAll('src/value.txt', 'ignored/value.txt'));
 
     await assert.rejects(
-      applyAndValidatePatch({ workspace, patchFile }),
+      applyAndValidatePatch({ workspace: workspaceInput(workspace), patchFile: patchInput(patchFile) }),
       (error) => error.code === 'PATCH_RESULT_IGNORED',
     );
     assert.equal(readFileSync(join(workspace, 'ignored', 'value.txt'), 'utf8'), 'before\n');
@@ -183,12 +196,12 @@ test('rejects modified ignored files instead of validating an unpublishable resu
 });
 
 test('rejects an allowlisted result file above the output size limit', () => {
-  const workspace = mkdtempSync(join(tmpdir(), 'hank-review-guard-large-'));
+  const workspace = mkdtempSync(join(process.cwd(), '.hank-review-guard-large-'));
   try {
     mkdirSync(join(workspace, 'src'));
     writeFileSync(join(workspace, 'src', 'value.txt'), 'x'.repeat(256 * 1024 + 1));
     assert.throws(
-      () => validateResultTree({ workspace, beforeFiles: ['src/value.txt'], afterFiles: ['src/value.txt'] }),
+      () => validateResultTree({ workspace: workspaceInput(workspace), beforeFiles: ['src/value.txt'], afterFiles: ['src/value.txt'] }),
       (error) => error.code === 'PATCH_RESULT_TOO_LARGE',
     );
   } finally {
