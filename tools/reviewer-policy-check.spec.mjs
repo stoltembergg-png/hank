@@ -411,6 +411,19 @@ test('rejects an unclosed quoted scalar', () => {
   assert.match(result.stderr, /reviewer configuration contains an unclosed quoted scalar/);
 });
 
+test('rejects unsupported YAML after a valid reviews block', () => {
+  const result = runChecker(`reviews:
+  request_changes_workflow: false
+  fail_commit_status: true
+  auto_review:
+    enabled: true
+not valid yaml
+`);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviewer configuration contains unsupported YAML syntax/);
+});
+
 test('rejects a quoted or scalar reviews parent', () => {
   const quoted = runChecker(`"reviews":
   request_changes_workflow: false

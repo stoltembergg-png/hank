@@ -249,6 +249,24 @@ test('workflow contract recognizes explicit block-scalar indentation indicators'
   );
 });
 
+test('workflow contract recognizes block-scalar indicators with inline comments', () => {
+  const commentedIndicatorWorkflow = `jobs:
+  integrity:
+    steps:
+      - run: | # preserve the multiline command
+          node --test tools/reviewer-policy-check.spec.mjs
+      - run: >2 # preserve the folded command
+          node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assertCommand(
+    commentedIndicatorWorkflow,
+    'node --test tools/reviewer-policy-check.spec.mjs',
+    'fixture.yml',
+    'integrity',
+  );
+});
+
 test('workflow contract does not treat heredoc content as an executable command', () => {
   const heredocWorkflow = `jobs:
   integrity:
