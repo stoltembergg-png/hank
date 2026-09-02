@@ -373,6 +373,25 @@ jobs:
           actual="$(sha256sum proposal/proposal.patch | awk '{print $1}')"
           test "$actual" = "$expected"
 
+      - name: Atomically claim fingerprint branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SOURCE_SHA: ${{ needs.collect.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          branch="$(node -e "const value=require('./publish.json'); process.stdout.write(String(value.branch || ''))")"
+          case "$branch" in
+            review-remediation/pr-[1-9][0-9]*/[0-9a-f]*-[0-9a-f]*) ;;
+            *) exit 1 ;;
+          esac
+          if gh api --method POST --repo "$GITHUB_REPOSITORY" "git/refs" \
+              -f "ref=refs/heads/$branch" \
+              -f "sha=$EXPECTED_SOURCE_SHA" >/dev/null; then
+            exit 0
+          fi
+          gh api --repo "$GITHUB_REPOSITORY" "branches/$branch" |
+            jq -e --arg branch "$branch" '(.name == $branch) and (.commit.sha | type == "string")' >/dev/null
+
       - name: Create isolated commit
         run: |
           set -euo pipefail

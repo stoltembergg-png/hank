@@ -57,10 +57,9 @@ Cada execução usa um grupo único e não cancelável; um grupo compartilhado p
 inseguro porque o GitHub Actions mantém apenas uma execução pendente e poderia descartar
 findings em uma rajada.
 Antes do commit, o agente relê os marcadores do publisher confiável e a branch
-determinística. O push sem force é a reivindicação concorrente; se outra execução
-já criou a branch, a árvore e o pai do commit são comparados antes da recuperação
-já criou a branch, a árvore e o pai do commit são comparados antes da recuperação
-da PR, sem force-push. A criação da PR valida que a branch aponta para a base original
+determinística. A criação da branch determinística no GitHub é uma reivindicação
+atômica; se outra execução já a criou, a árvore e o pai do commit são comparados
+antes da recuperação da PR, sem force-push. A criação da PR valida que a branch aponta para a base original
 e que a PR existente continua em rascunho; uma corrida de criação é reconsultada
 antes de ser considerada concluída.
 

@@ -109,6 +109,9 @@ test('does not execute source-controlled build or package scripts during validat
   assert.match(publish, /head\.ref/);
   assert.match(publish, /base\.ref/);
   assert.match(publish, /branchExists/);
+  assert.match(publish, /Atomically claim fingerprint branch/);
+  assert.match(publish, /gh api --method POST --repo "\$GITHUB_REPOSITORY" "git\/refs"/);
+  assert.match(publish, /refs\/heads\/\$branch/);
   assert.match(publish, /git -C target fetch --no-tags --depth=2/);
   assert.match(publish, /refs\/remotes\/origin\/\$branch/);
   assert.match(publish, /gh pr list [^\n]*--head/);
