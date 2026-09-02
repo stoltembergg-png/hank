@@ -48,7 +48,8 @@ test('keeps trust boundaries between collect/propose/validate/publish', () => {
   const publish = jobBlock(workflow, 'publish');
 
   assert.doesNotMatch(collect, /XIAOMI_MIMO_API_KEY/);
-  assert.match(propose, /XIAOMI_MIMO_API_KEY:\s*\$\{\{\s*secrets\.XIAOMI_MIMO_API_KEY\s*\}\}/);
+  assert.match(propose, /HANK_REVIEW_REMEDIATION_MIMO_API_KEY:\s*\$\{\{\s*secrets\.HANK_REVIEW_REMEDIATION_MIMO_API_KEY\s*\}\}/);
+  assert.doesNotMatch(propose, /\$\{\{\s*secrets\.XIAOMI_MIMO_API_KEY\s*\}\}/);
   assert.doesNotMatch(validate, /XIAOMI_MIMO_API_KEY/);
   assert.doesNotMatch(publish, /XIAOMI_MIMO_API_KEY/);
   assert.match(collect, /contents:\s*read/);
@@ -74,6 +75,19 @@ test('binds the MiMo secret environment only to the proposal job', () => {
   assert.doesNotMatch(collect, /^    environment:/m);
   assert.doesNotMatch(validate, /^    environment:/m);
   assert.doesNotMatch(publish, /^    environment:/m);
+});
+
+test('fails closed unless the MiMo environment is protected and the dedicated secret exists', () => {
+  const propose = jobBlock(readWorkflow(), 'propose');
+
+  assert.match(propose, /actions:\s*read/);
+  assert.match(propose, /Require protected MiMo environment/);
+  assert.match(propose, /HANK_REVIEW_REMEDIATION_MIMO_API_KEY/);
+  assert.match(propose, /-z\s+"\$\{HANK_REVIEW_REMEDIATION_MIMO_API_KEY:-\}"/);
+  assert.match(propose, /environments\/XIAOMI_MIMO_API_KEY/);
+  assert.match(propose, /protection_rules/);
+  assert.match(propose, /length/);
+  assert.match(propose, /[1-9]/);
 });
 
 test('pins actions and source identity, and prevents pull-request code from using credentials', () => {
@@ -155,6 +169,7 @@ test('fixes the MiMo model and endpoint in trusted workflow code', () => {
 test('documents operations without embedding a credential', () => {
   const guide = readFileSync(guidePath, 'utf8');
   assert.match(guide, /XIAOMI_MIMO_API_KEY/);
+  assert.match(guide, /HANK_REVIEW_REMEDIATION_MIMO_API_KEY/);
   assert.match(guide, /mimo-v2\.5/);
   assert.match(guide, /https:\/\/api\.xiaomimimo\.com\/v1/);
   assert.match(guide, /Environment.*XIAOMI_MIMO_API_KEY/i);

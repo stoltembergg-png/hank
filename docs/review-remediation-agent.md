@@ -9,7 +9,8 @@ pelos gates determinísticos no SHA exato da PR de origem.
 
 - Modelo fixo: `mimo-v2.5`.
 - Endpoint fixo: `https://api.xiaomimimo.com/v1`.
-- Credencial única: `XIAOMI_MIMO_API_KEY`, configurada como secret de Actions.
+- Credencial única: `HANK_REVIEW_REMEDIATION_MIMO_API_KEY`, configurada somente como
+  secret do Environment protegido `XIAOMI_MIMO_API_KEY`.
 - Apenas findings CodeRabbit/Aikido do mesmo repositório são considerados.
 - PRs de fork, findings genéricas, SHA stale, duplicatas e ciclos esgotados terminam
   em `NOOP` ou `HUMAN_REQUIRED`.
@@ -30,7 +31,7 @@ para revisão humana.
    fingerprint. Durante o primeiro rollout, enquanto o helper ainda não estiver na
    branch padrão, o job encerra como `NOOP` para não executar código recém-introduzido
    pela PR.
-2. `propose` é o único job que recebe `XIAOMI_MIMO_API_KEY`; a entrada externa é
+2. `propose` é o único job que recebe `HANK_REVIEW_REMEDIATION_MIMO_API_KEY`; a entrada externa é
    redigida na fronteira do provedor e qualquer material secreto não classificado
    encerra como `HUMAN_REQUIRED`. O modelo retorna um patch ou `NO_PATCH`.
 3. `validate` aplica o patch em um target detached no SHA exato, sem credencial MiMo
@@ -77,8 +78,12 @@ remediação.
 
 Antes de habilitar o workflow, revogue e faça a rotação de qualquer credencial que
 tenha sido colada em chat, depois grave somente o novo valor em
-`Settings → Environments → XIAOMI_MIMO_API_KEY → Environment secrets → XIAOMI_MIMO_API_KEY`.
-O job `propose` é o único vinculado a esse Environment. O valor nunca
+`Settings → Environments → XIAOMI_MIMO_API_KEY → Environment secrets → HANK_REVIEW_REMEDIATION_MIMO_API_KEY`.
+O nome do secret deve ser `HANK_REVIEW_REMEDIATION_MIMO_API_KEY`; não crie uma cópia
+com esse valor em `Settings → Secrets and variables → Actions`. Configure pelo menos
+uma regra de proteção (por exemplo, required reviewer) no Environment. O job `propose`
+é o único vinculado a esse Environment e falha fechado se a regra ou o secret faltar.
+O valor nunca
 deve entrar no repositório, prompt, log, comentário, artefato ou linha de comando.
 
 Para interromper a automação, remova o secret ou reverta/desabilite o workflow. Se uma

@@ -150,7 +150,7 @@ test('quality integrity rejects folded revision verification blocks', () => {
 
 test('review remediation keeps MiMo and publication boundaries explicit', () => {
   const text = workflowText('review-remediation-agent.yml');
-  assert.match(text, /XIAOMI_MIMO_API_KEY:\s*\$\{\{\s*secrets\.XIAOMI_MIMO_API_KEY\s*\}\}/);
+  assert.match(text, /HANK_REVIEW_REMEDIATION_MIMO_API_KEY:\s*\$\{\{\s*secrets\.HANK_REVIEW_REMEDIATION_MIMO_API_KEY\s*\}\}/);
   assert.match(text, /gh pr create --draft/);
   assert.doesNotMatch(text, /gh pr (?:merge|review|approve)/i);
   assert.doesNotMatch(text, /pull_request_target/);
