@@ -148,6 +148,16 @@ test('quality integrity rejects folded revision verification blocks', () => {
   assert.equal(workflowStepRun(foldedWorkflow, 'Verify checked revision'), undefined);
 });
 
+test('review remediation keeps MiMo and publication boundaries explicit', () => {
+  const text = workflowText('review-remediation-agent.yml');
+  assert.match(text, /XIAOMI_MIMO_API_KEY:\s*\$\{\{\s*secrets\.XIAOMI_MIMO_API_KEY\s*\}\}/);
+  assert.match(text, /gh pr create --draft/);
+  assert.doesNotMatch(text, /gh pr (?:merge|review|approve)/i);
+  assert.doesNotMatch(text, /pull_request_target/);
+  assert.match(text, /ref:\s*\$\{\{\s*needs\.collect\.outputs\.source_sha\s*\}\}/);
+  assert.match(text, /git -C target rev-parse HEAD/);
+});
+
 test('all external actions are pinned and checkout does not persist credentials', () => {
   for (const name of workflowFiles) {
     const text = workflowText(name);

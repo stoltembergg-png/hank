@@ -43,6 +43,9 @@ jobs:
       - name: Validate workflow integrity
         run: node --test tools/workflow-integrity.spec.mjs
 
+      - name: Validate reviewer remediation contracts
+        run: node --test tools/review-remediation-workflow.spec.mjs tools/review-remediation/*.spec.mjs
+
       - name: Validate automated reviewer policy
         run: node --test tools/reviewer-policy-check.spec.mjs
 
