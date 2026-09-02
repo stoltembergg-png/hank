@@ -1,0 +1,490 @@
+name: Review remediation agent
+
+on:
+  pull_request_review:
+    types: [submitted]
+  check_run:
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: review-remediation-${{ github.repository }}-review-${{ github.event.review.id || 'none' }}-check-${{ github.event.check_run.id || 'none' }}
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    name: Collect reviewer finding
+    if: ${{ github.event_name == 'pull_request_review' || github.event_name == 'check_run' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      issues: read
+    outputs:
+      status: ${{ steps.identity.outputs.status }}
+      source_sha: ${{ steps.identity.outputs.source_sha }}
+      source_pr: ${{ steps.identity.outputs.source_pr }}
+    steps:
+      - name: Checkout trusted helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup trusted Node runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22.22.2
+
+      - name: Collect normalized finding
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ -f tools/review-remediation-agent.mjs ]]; then
+            node tools/review-remediation-agent.mjs collect \
+              --event "$GITHUB_EVENT_PATH" \
+              --output collect.json \
+              --repository "$GITHUB_REPOSITORY"
+          else
+            printf '{"status":"NOOP","reason":"HELPER_NOT_ON_DEFAULT_BRANCH"}\n' > collect.json
+          fi
+
+      - name: Expose bounded identity
+        id: identity
+        run: |
+          set -euo pipefail
+          status="$(node -e "const value=require('./collect.json'); process.stdout.write(String(value.status || ''))")"
+          source_sha="$(node -e "const value=require('./collect.json'); process.stdout.write(String(value.finding?.headSha || ''))")"
+          source_pr="$(node -e "const value=require('./collect.json'); process.stdout.write(String(value.finding?.pullRequest || ''))")"
+          case "$status" in
+            READY)
+              [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
+              [[ "$source_pr" =~ ^[1-9][0-9]*$ ]]
+              ;;
+            NOOP|HUMAN_REQUIRED)
+              source_sha=""
+              source_pr=""
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+          {
+            printf 'status=%s\n' "$status"
+            printf 'source_sha=%s\n' "$source_sha"
+            printf 'source_pr=%s\n' "$source_pr"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload collect descriptor
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: review-remediation-collect-${{ github.event.review.id || github.event.check_run.id || 'none' }}
+          path: collect.json
+          if-no-files-found: error
+          retention-days: 1
+
+  propose:
+    name: Judge and propose patch
+    needs: collect
+    if: ${{ needs.collect.outputs.status == 'READY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      issues: read
+    outputs:
+      status: ${{ steps.identity.outputs.status }}
+    steps:
+      - name: Checkout trusted helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup trusted Node runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22.22.2
+
+      - name: Download collect descriptor
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: review-remediation-collect-${{ github.event.review.id || github.event.check_run.id || 'none' }}
+
+      - name: Call MiMo for bounded viability judgment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          XIAOMI_MIMO_API_KEY: ${{ secrets.XIAOMI_MIMO_API_KEY }}
+          MIMO_ENDPOINT: https://api.xiaomimimo.com/v1
+          MIMO_MODEL: mimo-v2.5
+        run: |
+          set -euo pipefail
+          node tools/review-remediation-agent.mjs propose \
+            --input collect.json \
+            --output proposal.json \
+            --patch-out proposal.patch \
+            --repository "$GITHUB_REPOSITORY"
+
+      - name: Verify proposal artifact digest
+        id: identity
+        run: |
+          set -euo pipefail
+          status="$(node -e "const value=require('./proposal.json'); process.stdout.write(String(value.status || ''))")"
+          if [[ "$status" == "PROPOSED" ]]; then
+            expected="$(node -e "const value=require('./proposal.json'); process.stdout.write(String(value.patchDigest || ''))")"
+            actual="$(sha256sum proposal.patch | awk '{print $1}')"
+            [[ "$expected" =~ ^[0-9a-f]{64}$ ]]
+            test "$actual" = "$expected"
+          elif [[ "$status" != "HUMAN_REQUIRED" && "$status" != "NOOP" ]]; then
+            exit 1
+          fi
+          printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
+
+      - name: Upload proposal descriptor
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: review-remediation-proposal-${{ github.event.review.id || github.event.check_run.id || 'none' }}
+          path: proposal.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload proposed patch
+        if: ${{ steps.identity.outputs.status == 'PROPOSED' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: review-remediation-patch-${{ github.event.review.id || github.event.check_run.id || 'none' }}
+          path: proposal.patch
+          if-no-files-found: error
+          retention-days: 1
+
+  validate:
+    name: Validate isolated patch
+    needs: [collect, propose]
+    if: ${{ needs.propose.outputs.status == 'PROPOSED' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      status: ${{ steps.identity.outputs.status }}
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout trusted helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup trusted Node runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22.22.2
+
+      - name: Download proposal descriptor
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: review-remediation-proposal-${{ github.event.review.id || github.event.check_run.id || 'none' }}
+          path: proposal
+
+      - name: Download proposed patch
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: review-remediation-patch-${{ github.event.review.id || github.event.check_run.id || 'none' }}
+          path: proposal
+
+      - name: Checkout exact source head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ needs.collect.outputs.source_sha }}
+          path: target
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact source tree
+        env:
+          EXPECTED_SHA: ${{ needs.collect.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          actual_sha="$(git -C target rev-parse HEAD)"
+          expected_tree="$(git -C target ls-tree "$EXPECTED_SHA")"
+          actual_tree="$(git -C target ls-tree HEAD)"
+          test "$actual_sha" = "$EXPECTED_SHA"
+          test "$actual_tree" = "$expected_tree"
+
+      - name: Define fixed validation checks
+        run: |
+          set -euo pipefail
+          node -e "require('fs').writeFileSync('tests.json', JSON.stringify(['git diff --check']))"
+
+      - name: Apply and validate bounded patch
+        run: |
+          set -euo pipefail
+          node tools/review-remediation-agent.mjs validate \
+            --input proposal/proposal.json \
+            --patch proposal/proposal.patch \
+            --workspace target \
+            --output validation.json \
+            --tests tests.json
+
+      - name: Require trusted semantic syntax gate
+        run: |
+          set -euo pipefail
+          node -e "const value=require('./validation.json'); const gate=value.gates?.find((item) => item?.name === 'semantic-syntax'); if (gate?.status !== 'PASS') process.exit(1)"
+
+      - name: Check patch whitespace
+        run: |
+          set -euo pipefail
+          git -C target diff --check
+
+      - name: Expose validation status
+        id: identity
+        run: |
+          set -euo pipefail
+          status="$(node -e "const value=require('./validation.json'); process.stdout.write(String(value.status || ''))")"
+          test "$status" = "VALIDATED"
+          gates_ok="$(node -e "const value=require('./validation.json'); process.stdout.write(String(Array.isArray(value.gates) && value.gates.length === 5 && value.gates.every((gate) => gate?.status === 'PASS')))")"
+          test "$gates_ok" = "true"
+          printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
+
+      - name: Upload validation descriptor
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: review-remediation-validation-${{ github.event.review.id || github.event.check_run.id || 'none' }}
+          path: validation.json
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish draft remediation PR
+    needs: [collect, propose, validate]
+    if: ${{ needs.validate.outputs.status == 'VALIDATED' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout trusted helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup trusted Node runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22.22.2
+
+      - name: Download proposal descriptor
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: review-remediation-proposal-${{ github.event.review.id || github.event.check_run.id || 'none' }}
+          path: proposal
+
+      - name: Download proposed patch
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: review-remediation-patch-${{ github.event.review.id || github.event.check_run.id || 'none' }}
+          path: proposal
+
+      - name: Download validation descriptor
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: review-remediation-validation-${{ github.event.review.id || github.event.check_run.id || 'none' }}
+          path: validation
+
+      - name: Checkout exact source head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ needs.collect.outputs.source_sha }}
+          path: target
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact source tree
+        env:
+          EXPECTED_SHA: ${{ needs.collect.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          actual_sha="$(git -C target rev-parse HEAD)"
+          expected_tree="$(git -C target ls-tree "$EXPECTED_SHA")"
+          actual_tree="$(git -C target ls-tree HEAD)"
+          test "$actual_sha" = "$EXPECTED_SHA"
+          test "$actual_tree" = "$expected_tree"
+
+      - name: Verify source PR identity before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SOURCE_PR: ${{ needs.collect.outputs.source_pr }}
+          EXPECTED_SOURCE_SHA: ${{ needs.collect.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          source_branch="$(node -e "const value=require('./proposal/proposal.json'); process.stdout.write(String(value.finding?.sourceBranch || ''))")"
+          base_branch="$(node -e "const value=require('./proposal/proposal.json'); process.stdout.write(String(value.finding?.baseBranch || ''))")"
+          test -n "$source_branch"
+          test -n "$base_branch"
+          gh api --repo "$GITHUB_REPOSITORY" "pulls/$EXPECTED_SOURCE_PR" |
+            jq -e \
+              --arg repository "$GITHUB_REPOSITORY" \
+              --arg source_sha "$EXPECTED_SOURCE_SHA" \
+              --arg source_branch "$source_branch" \
+              --arg base_branch "$base_branch" \
+              --argjson expected_number "$EXPECTED_SOURCE_PR" \
+              '(.state == "open") and (.number == $expected_number) and (.head.ref == $source_branch) and (.head.sha == $source_sha) and (.head.repo.full_name == $repository) and (.base.ref == $base_branch) and (.base.repo.full_name == $repository)' >/dev/null
+
+      - name: Revalidate patch and render draft body
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EXPECTED_SOURCE_PR: ${{ needs.collect.outputs.source_pr }}
+          EXPECTED_SOURCE_SHA: ${{ needs.collect.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          proposal_pr="$(node -e "const value=require('./proposal/proposal.json'); process.stdout.write(String(value.finding?.pullRequest || ''))")"
+          proposal_sha="$(node -e "const value=require('./proposal/proposal.json'); process.stdout.write(String(value.finding?.headSha || ''))")"
+          validation_pr="$(node -e "const value=require('./validation/validation.json'); process.stdout.write(String(value.pullRequest || ''))")"
+          validation_sha="$(node -e "const value=require('./validation/validation.json'); process.stdout.write(String(value.sourceSha || ''))")"
+          test "$proposal_pr" = "$EXPECTED_SOURCE_PR"
+          test "$proposal_sha" = "$EXPECTED_SOURCE_SHA"
+          test "$validation_pr" = "$EXPECTED_SOURCE_PR"
+          test "$validation_sha" = "$EXPECTED_SOURCE_SHA"
+          node tools/review-remediation-agent.mjs publish \
+            --input validation/validation.json \
+            --proposal proposal/proposal.json \
+            --patch proposal/proposal.patch \
+            --workspace target \
+            --output publish.json \
+            --body-out publish-body.md
+          status="$(node -e "const value=require('./publish.json'); process.stdout.write(String(value.status || ''))")"
+          test "$status" = "PUBLISH_READY"
+          expected="$(node -e "const value=require('./validation/validation.json'); process.stdout.write(String(value.patchDigest || ''))")"
+          actual="$(sha256sum proposal/proposal.patch | awk '{print $1}')"
+          test "$actual" = "$expected"
+
+      - name: Atomically claim fingerprint branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SOURCE_SHA: ${{ needs.collect.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          branch="$(node -e "const value=require('./publish.json'); process.stdout.write(String(value.branch || ''))")"
+          case "$branch" in
+            review-remediation/pr-[1-9][0-9]*/[0-9a-f]*-[0-9a-f]*) ;;
+            *) exit 1 ;;
+          esac
+          if gh api --method POST --repo "$GITHUB_REPOSITORY" "git/refs" \
+              -f "ref=refs/heads/$branch" \
+              -f "sha=$EXPECTED_SOURCE_SHA" >/dev/null; then
+            exit 0
+          fi
+          gh api --repo "$GITHUB_REPOSITORY" "branches/$branch" |
+            jq -e --arg branch "$branch" '(.name == $branch) and (.commit.sha | type == "string")' >/dev/null
+
+      - name: Create isolated commit
+        run: |
+          set -euo pipefail
+          branch="$(node -e "const value=require('./publish.json'); process.stdout.write(String(value.branch || ''))")"
+          case "$branch" in
+            review-remediation/pr-[1-9][0-9]*/[0-9a-f]*-[0-9a-f]*) ;;
+            *) exit 1 ;;
+          esac
+          git -C target config core.hooksPath /dev/null
+          git -C target config user.name 'Hank reviewer remediation'
+          git -C target config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C target switch --create "$branch"
+          git -C target add --all
+          git -C target diff --cached --check
+          expected_files="$(node -e "const value=require('./publish.json'); process.stdout.write(value.files.join('\\n'))")"
+          actual_files="$(git -C target diff --cached --name-only)"
+          test "$actual_files" = "$expected_files"
+          git -C target diff --exit-code -- .
+          git -C target commit -m 'fix: apply reviewer remediation'
+
+      - name: Push fingerprint branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SOURCE_SHA: ${{ needs.collect.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          branch="$(node -e "const value=require('./publish.json'); process.stdout.write(String(value.branch || ''))")"
+          branch_exists="$(node -e "const value=require('./publish.json'); process.stdout.write(String(value.branchExists === true))")"
+          case "$branch_exists" in
+            true|false) ;;
+            *) exit 1 ;;
+          esac
+          gh auth setup-git
+          remote_ref="refs/remotes/origin/$branch"
+          if [[ "$branch_exists" == "true" ]]; then
+            git -C target fetch --no-tags --depth=2 origin "refs/heads/$branch:$remote_ref"
+          elif ! git -C target -c core.hooksPath=/dev/null push --set-upstream origin "$branch"; then
+            git -C target fetch --no-tags --depth=2 origin "refs/heads/$branch:$remote_ref"
+          fi
+          git -C target show-ref --verify --quiet "$remote_ref"
+          remote_tip="$(git -C target rev-parse "$remote_ref")"
+          if [[ "$remote_tip" == "$EXPECTED_SOURCE_SHA" ]]; then
+            if ! git -C target -c core.hooksPath=/dev/null push origin "HEAD:refs/heads/$branch"; then
+              echo "another publisher advanced the claimed branch; verifying its result" >&2
+            fi
+            git -C target fetch --no-tags --depth=2 origin "refs/heads/$branch:$remote_ref"
+            remote_tip="$(git -C target rev-parse "$remote_ref")"
+          fi
+          test "$remote_tip" != "$EXPECTED_SOURCE_SHA"
+          remote_parent="$(git -C target rev-parse "$remote_ref^")"
+          remote_tree="$(git -C target rev-parse "${remote_ref}^{tree}")"
+          local_tree="$(git -C target rev-parse 'HEAD^{tree}')"
+          test "$remote_parent" = "$EXPECTED_SOURCE_SHA"
+          test "$remote_tree" = "$local_tree"
+
+      - name: Create draft remediation PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          branch="$(node -e "const value=require('./publish.json'); process.stdout.write(String(value.branch || ''))")"
+          base="$(node -e "const value=require('./publish.json'); process.stdout.write(String(value.base || ''))")"
+          pull_request="$(node -e "const value=require('./publish.json'); process.stdout.write(String(value.pullRequest || ''))")"
+          find_existing_pr() {
+            local open_prs invalid_pr
+            open_prs="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$GITHUB_REPOSITORY_OWNER:$branch" --state open --json number,headRefName,baseRefName,isDraft)"
+            invalid_pr="$(jq -r --arg branch "$branch" --arg base "$base" '[.[] | select(.headRefName == $branch and (.baseRefName != $base or .isDraft != true))] | .[0].number // empty' <<< "$open_prs")"
+            if [[ -n "$invalid_pr" ]]; then
+              echo "existing remediation PR has an unexpected base or draft state: #$invalid_pr" >&2
+              return 1
+            fi
+            jq -r --arg branch "$branch" --arg base "$base" '[.[] | select(.headRefName == $branch and .baseRefName == $base and .isDraft == true)] | .[0].number // empty' <<< "$open_prs"
+          }
+          existing_pr="$(find_existing_pr)"
+          if [[ -n "$existing_pr" ]]; then
+            exit 0
+          fi
+          if ! gh pr create --draft \
+              --repo "$GITHUB_REPOSITORY" \
+              --head "$branch" \
+              --base "$base" \
+              --title "fix: reviewer remediation #$pull_request" \
+              --body-file publish-body.md; then
+            existing_pr_after="$(find_existing_pr)"
+            test -n "$existing_pr_after"
+          fi
+
+      - name: Upload publication evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: review-remediation-publication-${{ github.event.review.id || github.event.check_run.id || 'none' }}
+          path: |
+            publish.json
+            publish-body.md
+          if-no-files-found: error
+          retention-days: 7

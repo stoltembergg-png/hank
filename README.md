@@ -181,6 +181,7 @@ Para detalhes específicos sobre a arquitetura e governança de agentes, consult
 - [Governança de Agentes de IA](file:///AI_AGENT_GOVERNANCE.md)
 - [Política de Autonomia de Agentes](file:///docs/autonomy-policy.md)
 - [Política e Gestão Orçamentária](file:///docs/budget-policy.md)
+- [Agente de Remediação de Reviewers](docs/review-remediation-agent.md)
 - [Guia de Contribuição](file:///CONTRIBUTING.md)
 
 ---

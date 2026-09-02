@@ -148,6 +148,30 @@ test('quality integrity rejects folded revision verification blocks', () => {
   assert.equal(workflowStepRun(foldedWorkflow, 'Verify checked revision'), undefined);
 });
 
+test('review remediation keeps MiMo and publication boundaries explicit', () => {
+  const text = workflowText('review-remediation-agent.yml');
+  assert.match(text, /XIAOMI_MIMO_API_KEY:\s*\$\{\{\s*secrets\.XIAOMI_MIMO_API_KEY\s*\}\}/);
+  assert.match(text, /gh pr create --draft/);
+  assert.doesNotMatch(text, /gh pr (?:merge|review|approve)/i);
+  assert.doesNotMatch(text, /pull_request_target/);
+  assert.match(text, /ref:\s*\$\{\{\s*needs\.collect\.outputs\.source_sha\s*\}\}/);
+  assert.match(text, /git -C target rev-parse HEAD/);
+  assert.match(text, /group:\s*review-remediation-\$\{\{\s*github\.repository\s*\}\}-review-\$\{\{\s*github\.event\.review\.id\s*\|\|\s*'none'\s*\}\}-check-\$\{\{\s*github\.event\.check_run\.id\s*\|\|\s*'none'\s*\}\}/);
+  assert.match(text, /github\.event\.review\.id/);
+  assert.match(text, /github\.event\.check_run\.id/);
+  assert.doesNotMatch(text, /group:[^\n]*github\.run_id/);
+  assert.doesNotMatch(text, /github\.run_id/);
+  assert.match(text, /cancel-in-progress:\s*false/);
+  assert.doesNotMatch(text, /awk '\{print \\$1\}'/);
+  const exactTreeBlocks = [...text.matchAll(/- name: Verify exact source tree[\s\S]*?(?=\n      - name:|\n  [a-zA-Z0-9_-]+:|$)/g)].map((match) => match[0]);
+  assert.equal(exactTreeBlocks.length, 2);
+  for (const block of exactTreeBlocks) {
+    assert.match(block, /EXPECTED_SHA:/);
+    assert.match(block, /test "\$actual_sha" = "\$EXPECTED_SHA"/);
+    assert.match(block, /test "\$actual_tree" = "\$expected_tree"/);
+  }
+});
+
 test('all external actions are pinned and checkout does not persist credentials', () => {
   for (const name of workflowFiles) {
     const text = workflowText(name);
