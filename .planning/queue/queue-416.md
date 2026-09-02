@@ -1,7 +1,7 @@
 # Executable Review Remediation Queue — PR-416
 
-**Status:** `IN_PROGRESS`. This card is the next increment after merged PR-415 and is
-implemented only after predecessor PR-397 is verified as merged.
+**Status:** `MERGED` (`c7b862f`, 2026-09-02). This card was the next increment after
+merged PR-415 and was implemented only after predecessor PR-397 was verified as merged.
 
 ### PR-416 — Bounded external reviewer remediation workflow
 
