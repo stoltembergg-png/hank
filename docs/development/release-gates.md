@@ -18,14 +18,19 @@ um gate de build, segurança ou release não pode ser movido para
 
 Para verificar localmente com uma resposta salva da API:
 
+As variáveis abaixo usam a revisão atualmente conferida. Ao validar outra
+resposta salva, substitua-as pelos SHA correspondentes ao snapshot.
+
 ```bash
+COMMIT_SHA="$(git rev-parse HEAD)"
+TREE_SHA="$(git rev-parse HEAD^{tree})"
 node tools/release-required-checks.mjs validate \
   --manifest .github/required-checks.json \
   --rules /tmp/active-rules.json \
   --repository stoltembergg-png/hank \
   --ref refs/heads/main \
-  --sha <commit-sha> \
-  --tree <tree-sha> \
+  --sha "$COMMIT_SHA" \
+  --tree "$TREE_SHA" \
   --output /tmp/required-checks.txt
 ```
 

@@ -168,6 +168,17 @@ test('AC-626: release gates cannot be reclassified as pull-request checks', () =
   }), /immutable release checks|approved reviewer checks/);
 });
 
+test('AC-626: release gate docs use shell-safe identity variables', () => {
+  const documentation = readFileSync('docs/development/release-gates.md', 'utf8');
+
+  assert.match(documentation, /COMMIT_SHA="\$\(git rev-parse HEAD\)"/);
+  assert.match(documentation, /TREE_SHA="\$\(git rev-parse HEAD\^\{tree\}\)"/);
+  assert.match(documentation, /--sha "\$COMMIT_SHA"/);
+  assert.match(documentation, /--tree "\$TREE_SHA"/);
+  assert.doesNotMatch(documentation, /--sha <commit-sha>/);
+  assert.doesNotMatch(documentation, /--tree <tree-sha>/);
+});
+
 test('AC-627: rerun is idempotent only for the exact existing release @spec:AC-627', () => {
   assert.deepEqual(decideIdempotentRelease({ tagExists: false, releaseExists: false }), { action: 'create' });
   assert.deepEqual(decideIdempotentRelease({ tagExists: true, releaseExists: true, existingTarget: sha, expectedSha: sha, existingManifestDigest: 'x', expectedManifestDigest: 'x' }), { action: 'noop', reason: 'matching release already exists' });
