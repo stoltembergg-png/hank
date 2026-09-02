@@ -1,6 +1,26 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync } from 'node:fs';
 
+const RELEASE_CHECKS = Object.freeze([
+  'Build Frontend',
+  'Build Rust',
+  'Build Rust Windows',
+  'Build Tauri Desktop',
+  'Desktop E2E / Project Lifecycle',
+  'w0-contract-gate',
+  'CodeQL (rust)',
+  'CodeQL (javascript-typescript)',
+  'ONP SDD verify and audit',
+  'Quality integrity',
+  'Security advisory gate',
+]);
+
+const PULL_REQUEST_CHECKS = Object.freeze([
+  'CodeRabbit',
+  'Aikido Security: check code',
+  'Aikido Security: Deep Review',
+]);
+
 function parseArgs(argv) {
   const args = {};
   for (let i = 0; i < argv.length; i += 1) {
@@ -18,6 +38,9 @@ export function readRequiredChecks(manifest) {
     throw new Error('required-checks manifest must contain non-empty names');
   }
   if (new Set(names).size !== names.length) throw new Error('required-checks manifest contains duplicates');
+  if (names.length !== RELEASE_CHECKS.length || names.some((name) => !RELEASE_CHECKS.includes(name))) {
+    throw new Error('required-checks manifest must preserve the immutable release checks');
+  }
   return names;
 }
 
@@ -30,6 +53,9 @@ export function readPullRequestChecks(manifest) {
     throw new Error('pullRequestChecks must contain non-empty names');
   }
   if (new Set(names).size !== names.length) throw new Error('pullRequestChecks contains duplicates');
+  if (names.length !== PULL_REQUEST_CHECKS.length || names.some((name) => !PULL_REQUEST_CHECKS.includes(name))) {
+    throw new Error('pullRequestChecks must contain only approved reviewer checks');
+  }
   return names;
 }
 

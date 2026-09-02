@@ -108,6 +108,17 @@ test('AC-626: prerelease derives required checks from manifest and active rulese
   assert.throws(() => assertPostMergeChecks({ checks: postMergeChecks, required: protectedNames }), /missing/);
 });
 
+test('AC-626: release gates cannot be reclassified as pull-request checks', () => {
+  const manifest = JSON.parse(readFileSync('.github/required-checks.json', 'utf8'));
+  const releaseGate = manifest.requiredChecks[0];
+
+  assert.throws(() => readProtectedChecks({
+    ...manifest,
+    requiredChecks: manifest.requiredChecks.slice(1),
+    pullRequestChecks: [...manifest.pullRequestChecks, releaseGate],
+  }), /immutable release checks|approved reviewer checks/);
+});
+
 test('AC-627: rerun is idempotent only for the exact existing release @spec:AC-627', () => {
   assert.deepEqual(decideIdempotentRelease({ tagExists: false, releaseExists: false }), { action: 'create' });
   assert.deepEqual(decideIdempotentRelease({ tagExists: true, releaseExists: true, existingTarget: sha, expectedSha: sha, existingManifestDigest: 'x', expectedManifestDigest: 'x' }), { action: 'noop', reason: 'matching release already exists' });
