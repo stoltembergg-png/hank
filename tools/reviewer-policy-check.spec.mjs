@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -64,6 +64,34 @@ test('accepts the hardened CodeRabbit reviewer configuration', () => {
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('rejects a reviewer tone that includes emoji', () => {
+  const result = runChecker(validConfig.replace('não use emojis, ícones ou floreios.', 'use 🙂 quando apropriado.'));
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /tone_instructions must not contain emoji/);
+});
+
+test('rejects a missing concise reviewer tone', () => {
+  const result = runChecker(validConfig.replace(/tone_instructions:.*\n/, ''));
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /tone_instructions must be an inline scalar/);
+});
+
+test('rejects an assertive reviewer profile', () => {
+  const result = runChecker(validConfig.replace('profile: "chill"', 'profile: "assertive"'));
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviews\.profile must be chill/);
+});
+
+test('rejects verbose walkthrough settings', () => {
+  const result = runChecker(validConfig.replace('sequence_diagrams: false', 'sequence_diagrams: true'));
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviews\.sequence_diagrams must be false/);
+});
+
 test('accepts the repository CodeRabbit reviewer configuration', () => {
   const result = spawnSync(process.execPath, [checker, repositoryConfig], {
     encoding: 'utf8',
@@ -72,30 +100,35 @@ test('accepts the repository CodeRabbit reviewer configuration', () => {
   assert.equal(result.status, 0, result.stderr);
 });
 
-test('repository reviewer output stays concise and text-only', () => {
-  const source = readFileSync(repositoryConfig, 'utf8');
-  const requiredLines = [
-    'tone_instructions: "Seja conciso e direto. Escreva em pt-BR. Use somente texto; não use emojis, ícones ou floreios."',
-    '  profile: "chill"',
-    '  review_status: false',
-    '  review_details: false',
-    '  collapse_walkthrough: true',
-    '  changed_files_summary: false',
-    '  sequence_diagrams: false',
-    '  estimate_code_review_effort: false',
-    '  assess_linked_issues: false',
-    '  related_issues: false',
-    '  related_prs: false',
-    '  suggested_labels: false',
-    '  suggested_reviewers: false',
-    '  in_progress_fortune: false',
-    '  poem: false',
-    '  enable_prompt_for_ai_agents: false',
-    '  high_level_summary_instructions: "Liste impacto, risco e testes em até 3 bullets. Sem emojis."',
-  ];
+test('does not accept output settings hidden inside a block scalar', () => {
+  const result = runChecker(`language: "pt-BR"
+tone_instructions: "Seja conciso e direto. Sem emojis."
+chat: |
+  profile: "chill"
+  review_status: false
+  review_details: false
+  collapse_walkthrough: true
+  changed_files_summary: false
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  assess_linked_issues: false
+  related_issues: false
+  related_prs: false
+  suggested_labels: false
+  suggested_reviewers: false
+  in_progress_fortune: false
+  poem: false
+  enable_prompt_for_ai_agents: false
+reviews:
+  request_changes_workflow: false
+  fail_commit_status: true
+  auto_review:
+    enabled: true
+`);
 
-  for (const line of requiredLines) assert.match(source, new RegExp(`^${line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'));
-  assert.doesNotMatch(source, /[\p{Extended_Pictographic}]/u);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviews\.profile must be chill/);
+  assert.match(result.stderr, /reviews\.review_details must be false/);
 });
 
 test('rejects a configuration that disables automatic CodeRabbit review', () => {
@@ -200,37 +233,28 @@ test('rejects reviewer-looking keys inside a YAML sequence', () => {
 });
 
 test('accepts inline comments on canonical YAML block headers', () => {
-  const result = runChecker(`reviews: # reviewer settings
-  request_changes_workflow: false
-  fail_commit_status: true
-  auto_review: # automatic review
-    enabled: true
-`);
+  const result = runChecker(validConfig
+    .replace('reviews:\n', 'reviews: # reviewer settings\n')
+    .replace('auto_review:\n', 'auto_review: # automatic review\n'));
 
   assert.equal(result.status, 0, result.stderr);
 });
 
 test('accepts a plain scalar with an embedded quote before an inline comment', () => {
-  const result = runChecker(`reviews:
-  request_changes_workflow: false
-  fail_commit_status: true
-  high_level_summary_instructions: plain "quoted # ${'x'.repeat(101)} trailing comment
-  auto_review:
-    enabled: true
-`);
+  const result = runChecker(validConfig.replace(
+    '  high_level_summary_instructions: "Liste impacto, risco e testes em até 3 bullets. Sem emojis."\n',
+    `  high_level_summary_instructions: plain "quoted # ${'x'.repeat(101)} trailing comment\n`,
+  ));
 
   assert.equal(result.status, 0, result.stderr);
 });
 
 test('accepts a single-quoted scalar with a literal backslash and doubled quote', () => {
-  const config = [
-    'reviews:',
-    '  request_changes_workflow: false',
-    '  fail_commit_status: true',
-    "  high_level_summary_instructions: 'literal \\''' # trailing " + 'x'.repeat(101),
-    '  auto_review:',
-    '    enabled: true',
-  ].join('\n');
+  const summary = String.raw`'literal \''' # trailing ${'x'.repeat(101)}`;
+  const config = validConfig.replace(
+    '  high_level_summary_instructions: "Liste impacto, risco e testes em até 3 bullets. Sem emojis."\n',
+    `  high_level_summary_instructions: ${summary}\n`,
+  );
   const result = runChecker(config);
 
   assert.equal(result.status, 0, result.stderr);
@@ -263,14 +287,7 @@ test('rejects a bare-tagged summary scalar before measuring its value', () => {
 });
 
 test('accepts a decorated scalar in an unrelated reviewer setting', () => {
-  const result = runChecker(`language: &locale "pt-BR"
-
-reviews:
-  request_changes_workflow: false
-  fail_commit_status: true
-  auto_review:
-    enabled: true
-`);
+  const result = runChecker(validConfig.replace('language: "pt-BR"', 'language: &locale "pt-BR"'));
 
   assert.equal(result.status, 0, result.stderr);
 });

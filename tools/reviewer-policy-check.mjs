@@ -14,6 +14,10 @@ function isDecoratedScalar(value) {
   return /^(?:(?:![^\s]*|&[^\s]+)\s*)+/.test(value) || /^\*[^\s]+(?:\s|$)/.test(value);
 }
 
+function containsEmoji(value) {
+  return /\p{Extended_Pictographic}/u.test(value);
+}
+
 function stripInlineComment(value) {
   const scalarStart = value.search(/\S|$/);
   let scalarQuote = value[scalarStart] === '"' || value[scalarStart] === "'" ? value[scalarStart] : undefined;
@@ -160,6 +164,22 @@ function value(blockValue, name) {
   return matches[0].value;
 }
 
+function rootValue(lines, name) {
+  const matches = directMappings(lines, -1).filter((entry) => entry.name === name);
+  if (matches.length !== 1) return undefined;
+  return matches[0].value;
+}
+
+function scalarText(rawValue) {
+  return /^(['"])(.*)\1$/.exec(rawValue)?.[2] ?? rawValue;
+}
+
+function requireBoolean(blockValue, name, expected, errors) {
+  if (boolean(blockValue, name) !== expected) {
+    errors.push(`reviews.${name} must be ${expected}`);
+  }
+}
+
 function validate(source) {
   const lines = source.split(/\r?\n/);
   const entries = structuralMappings(lines);
@@ -179,6 +199,38 @@ function validate(source) {
     errors.push('reviews.auto_review.enabled must be true');
   }
 
+  const tone = rootValue(lines, 'tone_instructions');
+  if (tone === undefined || tone === '' || isDecoratedScalar(tone) || isBlockScalar(tone)) {
+    errors.push('tone_instructions must be an inline scalar');
+  } else {
+    const toneText = scalarText(tone);
+    if (toneText.length > 250) errors.push('tone_instructions must be at most 250 characters');
+    if (containsEmoji(toneText)) errors.push('tone_instructions must not contain emoji');
+  }
+
+  if (scalarText(value(reviews, 'profile') ?? '') !== 'chill') {
+    errors.push('reviews.profile must be chill');
+  }
+
+  for (const name of [
+    'review_status',
+    'review_details',
+    'collapse_walkthrough',
+    'changed_files_summary',
+    'sequence_diagrams',
+    'estimate_code_review_effort',
+    'assess_linked_issues',
+    'related_issues',
+    'related_prs',
+    'suggested_labels',
+    'suggested_reviewers',
+    'in_progress_fortune',
+    'poem',
+    'enable_prompt_for_ai_agents',
+  ]) {
+    requireBoolean(reviews, name, name === 'collapse_walkthrough', errors);
+  }
+
   const summary = value(reviews, 'high_level_summary_instructions');
   if (summary !== undefined) {
     if (isDecoratedScalar(summary)) {
@@ -186,8 +238,9 @@ function validate(source) {
     } else if (isBlockScalar(summary)) {
       errors.push('reviews.high_level_summary_instructions must use an inline scalar');
     } else {
-      const unquoted = /^(['"])(.*)\1$/.exec(summary)?.[2] ?? summary;
+      const unquoted = scalarText(summary);
       if (unquoted.length > 100) errors.push('reviews.high_level_summary_instructions must be at most 100 characters');
+      if (containsEmoji(unquoted)) errors.push('reviews.high_level_summary_instructions must not contain emoji');
     }
   }
 
