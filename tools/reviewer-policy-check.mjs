@@ -11,7 +11,7 @@ function isBlockScalar(value) {
 }
 
 function isDecoratedScalar(value) {
-  return /^(?:(?:![^\s]+|&[^\s]+)\s*)+/.test(value) || /^\*[^\s]+(?:\s|$)/.test(value);
+  return /^(?:(?:![^\s]*|&[^\s]+)\s*)+/.test(value) || /^\*[^\s]+(?:\s|$)/.test(value);
 }
 
 function stripInlineComment(value) {
@@ -181,16 +181,14 @@ function validate(source) {
 
   const summary = value(reviews, 'high_level_summary_instructions');
   if (summary !== undefined) {
-    if (isBlockScalar(summary)) {
+    if (isDecoratedScalar(summary)) {
+      errors.push('reviewer configuration must use untagged, unanchored scalars');
+    } else if (isBlockScalar(summary)) {
       errors.push('reviews.high_level_summary_instructions must use an inline scalar');
     } else {
       const unquoted = /^(['"])(.*)\1$/.exec(summary)?.[2] ?? summary;
       if (unquoted.length > 100) errors.push('reviews.high_level_summary_instructions must be at most 100 characters');
     }
-  }
-
-  if (entries.some((entry) => isDecoratedScalar(entry.value))) {
-    errors.push('reviewer configuration must use untagged, unanchored scalars');
   }
 
   if (entries.some((entry) => entry.syntaxError)) {

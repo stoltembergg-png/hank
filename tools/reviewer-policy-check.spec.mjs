@@ -208,6 +208,32 @@ test('rejects tagged and anchored summary scalars before measuring their value',
   assert.match(result.stderr, /reviewer configuration must use untagged, unanchored scalars/);
 });
 
+test('rejects a bare-tagged summary scalar before measuring its value', () => {
+  const result = runChecker(`reviews:
+  request_changes_workflow: false
+  fail_commit_status: true
+  high_level_summary_instructions: ! "short # ${'x'.repeat(101)}"
+  auto_review:
+    enabled: true
+`);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviewer configuration must use untagged, unanchored scalars/);
+});
+
+test('accepts a decorated scalar in an unrelated reviewer setting', () => {
+  const result = runChecker(`language: &locale "pt-BR"
+
+reviews:
+  request_changes_workflow: false
+  fail_commit_status: true
+  auto_review:
+    enabled: true
+`);
+
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test('rejects an oversized CodeRabbit summary instruction', () => {
   const result = runChecker(`reviews:
   request_changes_workflow: false
