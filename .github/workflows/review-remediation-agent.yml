@@ -71,9 +71,11 @@ jobs:
               exit 1
               ;;
           esac
-          printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
-          printf 'source_sha=%s\n' "$source_sha" >> "$GITHUB_OUTPUT"
-          printf 'source_pr=%s\n' "$source_pr" >> "$GITHUB_OUTPUT"
+          {
+            printf 'status=%s\n' "$status"
+            printf 'source_sha=%s\n' "$source_sha"
+            printf 'source_pr=%s\n' "$source_pr"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Upload collect descriptor
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
