@@ -31,6 +31,7 @@ test('declares only the supported review events and four bounded jobs', () => {
   assert.match(workflow, /github\.event\.review\.id/);
   assert.match(workflow, /github\.event\.check_run\.id/);
   assert.doesNotMatch(workflow, /group:[^\n]*github\.run_id/);
+  assert.doesNotMatch(workflow, /github\.run_id/);
   assert.match(workflow, /cancel-in-progress:\s*false/);
   for (const job of ['collect', 'propose', 'validate', 'publish']) {
     const block = jobBlock(workflow, job);

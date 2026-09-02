@@ -160,6 +160,7 @@ test('review remediation keeps MiMo and publication boundaries explicit', () => 
   assert.match(text, /github\.event\.review\.id/);
   assert.match(text, /github\.event\.check_run\.id/);
   assert.doesNotMatch(text, /group:[^\n]*github\.run_id/);
+  assert.doesNotMatch(text, /github\.run_id/);
   assert.match(text, /cancel-in-progress:\s*false/);
   assert.doesNotMatch(text, /awk '\{print \\$1\}'/);
   const exactTreeBlocks = [...text.matchAll(/- name: Verify exact source tree[\s\S]*?(?=\n      - name:|\n  [a-zA-Z0-9_-]+:|$)/g)].map((match) => match[0]);
