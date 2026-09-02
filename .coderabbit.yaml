@@ -1,22 +1,30 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 language: "pt-BR"
+tone_instructions: "Seja conciso e direto. Escreva em pt-BR. Use somente texto; não use emojis, ícones ou floreios."
 
 reviews:
-  profile: "assertive"
+  profile: "chill"
   # Keep merge approval independent from the reviewer; required checks and
   # resolved conversations remain the authoritative merge conditions.
   request_changes_workflow: false
   high_level_summary: true
-  high_level_summary_instructions: >-
-    Resuma impacto funcional, arquitetural, de segurança, compatibilidade e
-    release. Declare explicitamente qualquer prova, teste ou gate ainda ausente.
-  review_status: true
-  review_details: true
-  review_progress: true
+  high_level_summary_instructions: "Liste impacto, risco e testes em até 3 bullets. Sem emojis."
+  review_status: false
+  review_details: false
   # A review execution failure must surface as a failed required check.
   fail_commit_status: true
-  collapse_walkthrough: false
+  collapse_walkthrough: true
+  changed_files_summary: false
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  assess_linked_issues: false
+  related_issues: false
+  related_prs: false
+  suggested_labels: false
+  suggested_reviewers: false
+  in_progress_fortune: false
   poem: false
+  enable_prompt_for_ai_agents: false
   auto_review:
     enabled: true
     drafts: false

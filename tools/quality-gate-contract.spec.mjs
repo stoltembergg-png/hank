@@ -11,18 +11,140 @@ const tauriWorkflow = read('.github/workflows/build-tauri.yml');
 const codeqlWorkflow = read('.github/workflows/codeql.yml');
 const qualityIntegrityWorkflow = read('.github/workflows/quality-integrity.yml');
 
-function assertCommand(workflow, command, file) {
-  const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  assert.match(workflow, new RegExp(escaped), `${file}: missing ${command}`);
+function isBlockScalar(value) {
+  return /^(?:[|>](?:[1-9])?[-+]?|[|>][-+]?[1-9])(?:\s+#.*)?$/.test(value);
 }
 
-function assertJobStepRun(workflow, jobName, expectedRunSubstring, file) {
-  const escaped = expectedRunSubstring.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // Match from step name to its run, without crossing another step boundary
-  const stepRegex = new RegExp(
-    '- name: ' + jobName + '(?:(?!\\n\\s*- name:)[\\s\\S])*?run:\\s*' + escaped + '(?=\\n\\s*- name:|\\n\\s*$)'
-  );
-  assert.match(workflow, stepRegex, `${file}: job ${jobName} missing run containing "${expectedRunSubstring}"`);
+function yamlMapping(line, index) {
+  const match = /^(\s*)([A-Za-z_][A-Za-z0-9_-]*):(?:\s*(.*))?$/.exec(line);
+  if (!match) return undefined;
+
+  return {
+    index,
+    indentation: match[1].length,
+    name: match[2],
+    value: (match[3] ?? '').trim(),
+  };
+}
+
+function directMappings(lines, start, end, parentIndentation) {
+  const entries = [];
+  for (let index = start; index < end; index += 1) {
+    const entry = yamlMapping(lines[index], index);
+    if (entry && entry.indentation > parentIndentation) entries.push(entry);
+  }
+  if (entries.length === 0) return [];
+
+  const directIndentation = Math.min(...entries.map((entry) => entry.indentation));
+  return entries.filter((entry) => entry.indentation === directIndentation);
+}
+
+function blockFromEntry(lines, entry, end) {
+  let blockEnd = end;
+  for (let index = entry.index + 1; index < end; index += 1) {
+    const line = lines[index];
+    if (line.trim() === '' || line.trimStart().startsWith('#')) continue;
+    if (line.length - line.trimStart().length <= entry.indentation) {
+      blockEnd = index;
+      break;
+    }
+  }
+
+  return { start: entry.index + 1, end: blockEnd, indentation: entry.indentation };
+}
+
+function findBlock(lines, start, end, parentIndentation, name) {
+  const matches = directMappings(lines, start, end, parentIndentation)
+    .filter((entry) => entry.name === name && entry.value === '');
+  if (matches.length !== 1) return undefined;
+  return blockFromEntry(lines, matches[0], end);
+}
+
+function runBody(lines, runEntry, end) {
+  if (!isBlockScalar(runEntry.value)) return [runEntry.value];
+
+  const body = [];
+  for (let index = runEntry.index + 1; index < end; index += 1) {
+    const line = lines[index];
+    if (line.trim() !== '' && line.length - line.trimStart().length <= runEntry.indentation) break;
+    body.push(line.trim());
+  }
+
+  const executable = [];
+  let heredocDelimiter;
+  for (const line of body) {
+    if (heredocDelimiter) {
+      if (line === heredocDelimiter) heredocDelimiter = undefined;
+      continue;
+    }
+
+    const heredoc = /<<-?\s*(?:(['"])(.*?)\1|([^\s;|&]+))/.exec(line);
+    executable.push(line);
+    if (heredoc) heredocDelimiter = heredoc[2] ?? heredoc[3];
+  }
+  return executable;
+}
+
+function executableRunCommands(workflow, workflowJobName, stepName) {
+  const lines = workflow.split(/\r?\n/);
+  const jobs = findBlock(lines, 0, lines.length, -1, 'jobs');
+  if (!jobs) return [];
+
+  const jobEntries = directMappings(lines, jobs.start, jobs.end, jobs.indentation)
+    .filter((entry) => entry.value === '')
+    .filter((entry) => workflowJobName === undefined || entry.name === workflowJobName);
+
+  return jobEntries.flatMap((jobEntry) => {
+    const job = blockFromEntry(lines, jobEntry, jobs.end);
+    const steps = findBlock(lines, job.start, job.end, job.indentation, 'steps');
+    if (!steps) return [];
+
+    const stepIndentation = steps.indentation + 2;
+    const runIndentation = stepIndentation + 2;
+    let inStep = false;
+    let currentStepName;
+    const commands = [];
+
+    for (let index = steps.start; index < steps.end; index += 1) {
+      const line = lines[index];
+      const indentation = line.length - line.trimStart().length;
+      if (indentation === stepIndentation && /^\s*-\s/.test(line)) {
+        inStep = true;
+        const inlineName = new RegExp(`^\\s*-\\s+name:\\s*(.*)$`).exec(line);
+        currentStepName = inlineName?.[1].trim().replace(/^(['"])(.*)\1$/, '$2');
+        const inlineRun = new RegExp(`^\\s*-\\s+run:\\s*(.*)$`).exec(line);
+        if (inlineRun && (stepName === undefined || currentStepName === stepName)) {
+          commands.push(...runBody(lines, {
+            index,
+            indentation: runIndentation,
+            value: inlineRun[1].trim(),
+          }, steps.end));
+        }
+        continue;
+      }
+      if (!inStep) continue;
+
+      const entry = yamlMapping(line, index);
+      if (entry?.indentation === runIndentation && entry.name === 'run' &&
+          (stepName === undefined || currentStepName === stepName)) {
+        commands.push(...runBody(lines, entry, steps.end));
+      }
+    }
+
+    return commands;
+  });
+}
+
+function assertCommand(workflow, command, file, jobName) {
+  const found = executableRunCommands(workflow, jobName)
+    .some((run) => run === command);
+  assert.ok(found, `${file}: missing ${command}`);
+}
+
+function assertJobStepRun(workflow, stepName, expectedRun, file, jobName = 'integrity') {
+  const found = executableRunCommands(workflow, jobName, stepName)
+    .some((run) => run === expectedRun);
+  assert.ok(found, `${file}: job ${stepName} missing run containing "${expectedRun}"`);
 }
 
 test('Rust workflow has fail-closed quality commands', () => {
@@ -67,9 +189,108 @@ test('quality integrity validates the hardened automated reviewer policy', () =>
   );
 });
 
-// Negative test: assertJobStepRun should NOT match when the named step
-// lacks the run field but a later step contains the command
-test('assertJobStepRun rejects workflow where named step lacks run but later step has it', () => {
+test('workflow contract ignores comments, echo, and another job', () => {
+  const decoyWorkflow = `# node --test tools/reviewer-policy-check.spec.mjs
+jobs:
+  decoy:
+    steps:
+      - run: echo "node --test tools/reviewer-policy-check.spec.mjs"
+  integrity:
+    steps:
+      - name: Comment only
+        run: |
+          # node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assert.throws(
+    () => assertCommand(
+      decoyWorkflow,
+      'node --test tools/reviewer-policy-check.spec.mjs',
+      'fixture.yml',
+      'integrity',
+    ),
+    /fixture\.yml: missing node --test tools\/reviewer-policy-check\.spec\.mjs/,
+  );
+});
+
+test('workflow contract recognizes inline multiline run steps', () => {
+  const multilineWorkflow = `jobs:
+  integrity:
+    steps:
+      - run: |
+          node --test tools/reviewer-policy-check.spec.mjs
+      - run: >
+          node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assertCommand(
+    multilineWorkflow,
+    'node --test tools/reviewer-policy-check.spec.mjs',
+    'fixture.yml',
+    'integrity',
+  );
+});
+
+test('workflow contract recognizes explicit block-scalar indentation indicators', () => {
+  const explicitIndentationWorkflow = `jobs:
+  integrity:
+    steps:
+      - run: |2
+          node --test tools/reviewer-policy-check.spec.mjs
+      - run: >2
+          node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assertCommand(
+    explicitIndentationWorkflow,
+    'node --test tools/reviewer-policy-check.spec.mjs',
+    'fixture.yml',
+    'integrity',
+  );
+});
+
+test('workflow contract does not treat heredoc content as an executable command', () => {
+  const heredocWorkflow = `jobs:
+  integrity:
+    steps:
+      - name: Heredoc content
+        run: |
+          cat <<'EOF'
+          node --test tools/reviewer-policy-check.spec.mjs
+          EOF
+`;
+
+  assert.throws(
+    () => assertCommand(
+      heredocWorkflow,
+      'node --test tools/reviewer-policy-check.spec.mjs',
+      'fixture.yml',
+      'integrity',
+    ),
+    /fixture\.yml: missing node --test tools\/reviewer-policy-check\.spec\.mjs/,
+  );
+});
+
+test('workflow contract rejects commands that can mask failures', () => {
+  const failOpenWorkflow = `jobs:
+  integrity:
+    steps:
+      - name: Fail open
+        run: node --test tools/reviewer-policy-check.spec.mjs || true
+`;
+
+  assert.throws(
+    () => assertCommand(
+      failOpenWorkflow,
+      'node --test tools/reviewer-policy-check.spec.mjs',
+      'fixture.yml',
+      'integrity',
+    ),
+    /fixture\.yml: missing node --test tools\/reviewer-policy-check\.spec\.mjs/,
+  );
+});
+
+test('assertJobStepRun rejects when a later step contains the command', () => {
   const maliciousWorkflow = `name: Quality integrity
 
 on:
@@ -82,7 +303,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Validate automated reviewer policy
-        # Missing run field
         run: echo "no checker here"
 
       - name: Validate quality gate contract

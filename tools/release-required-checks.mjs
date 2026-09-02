@@ -21,6 +21,28 @@ export function readRequiredChecks(manifest) {
   return names;
 }
 
+export function readPullRequestChecks(manifest) {
+  if (!Array.isArray(manifest?.pullRequestChecks)) {
+    throw new Error('required-checks manifest must contain pullRequestChecks');
+  }
+  const names = manifest.pullRequestChecks;
+  if (names.some((name) => typeof name !== 'string' || !name.trim())) {
+    throw new Error('pullRequestChecks must contain non-empty names');
+  }
+  if (new Set(names).size !== names.length) throw new Error('pullRequestChecks contains duplicates');
+  return names;
+}
+
+export function readProtectedChecks(manifest) {
+  const releaseChecks = readRequiredChecks(manifest);
+  const pullRequestChecks = readPullRequestChecks(manifest);
+  const names = [...releaseChecks, ...pullRequestChecks];
+  if (new Set(names).size !== names.length) {
+    throw new Error('required-checks manifest contains overlapping release and pull-request checks');
+  }
+  return names;
+}
+
 export function readRulesetRequiredChecks(rules) {
   if (!Array.isArray(rules)) throw new Error('active rules response must be an array');
   const required = rules.filter((rule) => rule?.type === 'required_status_checks');
@@ -35,21 +57,21 @@ export function readRulesetRequiredChecks(rules) {
 }
 
 export function assertManifestMatchesRuleset({ manifestNames, rulesetNames }) {
-  const manifest = new Set(manifestNames);
   const ruleset = new Set(rulesetNames);
   const missingFromRuleset = manifestNames.filter((name) => !ruleset.has(name));
-  const missingFromManifest = rulesetNames.filter((name) => !manifest.has(name));
-  if (missingFromRuleset.length || missingFromManifest.length || manifest.size !== ruleset.size) {
-    throw new Error(`required check manifest/ruleset mismatch: ${JSON.stringify({ missingFromRuleset, missingFromManifest })}`);
+  if (missingFromRuleset.length) {
+    throw new Error(`required check manifest/ruleset mismatch: ${JSON.stringify({ missingFromRuleset })}`);
   }
   return true;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = parseArgs(process.argv.slice(2));
-  const manifestNames = readRequiredChecks(JSON.parse(readFileSync(args.manifest, 'utf8')));
+  const manifest = JSON.parse(readFileSync(args.manifest, 'utf8'));
+  const manifestNames = readProtectedChecks(manifest);
+  const releaseNames = readRequiredChecks(manifest);
   const rulesetNames = readRulesetRequiredChecks(JSON.parse(readFileSync(args.rules, 'utf8')));
   assertManifestMatchesRuleset({ manifestNames, rulesetNames });
-  writeFileSync(args.output, `${rulesetNames.join(',')}\n`);
-  console.log(`required checks manifest/ruleset match: ${rulesetNames.length}`);
+  writeFileSync(args.output, `${releaseNames.join(',')}\n`);
+  console.log(`required checks covered by ruleset: ${manifestNames.length}; release checks emitted: ${releaseNames.length}`);
 }
