@@ -82,7 +82,8 @@ tenha sido colada em chat, depois grave somente o novo valor em
 O nome do secret deve ser `HANK_REVIEW_REMEDIATION_MIMO_API_KEY`; não crie uma cópia
 com esse valor em `Settings → Secrets and variables → Actions`. Configure pelo menos
 uma regra de proteção (por exemplo, required reviewer) no Environment. O job `propose`
-é o único vinculado a esse Environment e falha fechado se a regra ou o secret faltar.
+é o único vinculado a esse Environment e falha fechado se o secret faltar. A proteção
+é aplicada pela configuração do GitHub, não por uma chamada administrativa do job.
 O valor nunca
 deve entrar no repositório, prompt, log, comentário, artefato ou linha de comando.
 

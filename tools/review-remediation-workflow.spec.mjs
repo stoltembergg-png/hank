@@ -77,17 +77,13 @@ test('binds the MiMo secret environment only to the proposal job', () => {
   assert.doesNotMatch(publish, /^    environment:/m);
 });
 
-test('fails closed unless the MiMo environment is protected and the dedicated secret exists', () => {
+test('fails closed when the dedicated MiMo environment secret is absent', () => {
   const propose = jobBlock(readWorkflow(), 'propose');
 
-  assert.match(propose, /actions:\s*read/);
-  assert.match(propose, /Require protected MiMo environment/);
+  assert.match(propose, /Require MiMo environment secret/);
   assert.match(propose, /HANK_REVIEW_REMEDIATION_MIMO_API_KEY/);
   assert.match(propose, /-z\s+"\$\{HANK_REVIEW_REMEDIATION_MIMO_API_KEY:-\}"/);
-  assert.match(propose, /environments\/XIAOMI_MIMO_API_KEY/);
-  assert.match(propose, /protection_rules/);
-  assert.match(propose, /length/);
-  assert.match(propose, /[1-9]/);
+  assert.doesNotMatch(propose, /gh api[^\n]*environments\//);
 });
 
 test('pins actions and source identity, and prevents pull-request code from using credentials', () => {

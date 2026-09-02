@@ -101,7 +101,6 @@ jobs:
       pull-requests: read
       checks: read
       issues: read
-      actions: read
     outputs:
       status: ${{ steps.identity.outputs.status }}
     steps:
@@ -122,19 +121,13 @@ jobs:
         with:
           name: review-remediation-collect-${{ github.event.review.id || github.event.check_run.id || 'none' }}
 
-      - name: Require protected MiMo environment
+      - name: Require MiMo environment secret
         env:
-          GH_TOKEN: ${{ github.token }}
           HANK_REVIEW_REMEDIATION_MIMO_API_KEY: ${{ secrets.HANK_REVIEW_REMEDIATION_MIMO_API_KEY }}
         run: |
           set -euo pipefail
           if [[ -z "${HANK_REVIEW_REMEDIATION_MIMO_API_KEY:-}" ]]; then
             echo 'HANK_REVIEW_REMEDIATION_MIMO_API_KEY is missing from the protected environment' >&2
-            exit 1
-          fi
-          protection_rules="$(gh api --repo "$GITHUB_REPOSITORY" "environments/XIAOMI_MIMO_API_KEY" --jq '.protection_rules | length')"
-          if ! [[ "$protection_rules" =~ ^[1-9][0-9]*$ ]]; then
-            echo 'XIAOMI_MIMO_API_KEY must have at least one environment protection rule' >&2
             exit 1
           fi
 
