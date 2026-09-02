@@ -44,7 +44,9 @@ function blockFromEntry(lines, entry, end) {
   for (let index = entry.index + 1; index < end; index += 1) {
     const line = lines[index];
     if (line.trim() === '' || line.trimStart().startsWith('#')) continue;
-    if (line.length - line.trimStart().length <= entry.indentation) {
+    const lineIndentation = line.length - line.trimStart().length;
+    if (lineIndentation <= entry.indentation &&
+        !(lineIndentation === entry.indentation && /^\s*-(?:\s|$)/.test(line))) {
       blockEnd = index;
       break;
     }
@@ -99,7 +101,15 @@ function executableRunCommands(workflow, workflowJobName, stepName) {
     const steps = findBlock(lines, job.start, job.end, job.indentation, 'steps');
     if (!steps) return [];
 
-    const stepIndentation = steps.indentation + 2;
+    const stepLines = [];
+    for (let index = steps.start; index < steps.end; index += 1) {
+      if (/^\s*-(?:\s|$)/.test(lines[index])) stepLines.push(lines[index]);
+    }
+    if (stepLines.length === 0) return [];
+
+    const stepIndentation = Math.min(
+      ...stepLines.map((line) => line.length - line.trimStart().length),
+    );
     const runIndentation = stepIndentation + 2;
     let inStep = false;
     let currentStepName;
@@ -125,6 +135,10 @@ function executableRunCommands(workflow, workflowJobName, stepName) {
       if (!inStep) continue;
 
       const entry = yamlMapping(line, index);
+      if (entry?.indentation === runIndentation && entry.name === 'name') {
+        currentStepName = entry.value.replace(/^(['"])(.*)\1$/, '$2');
+        continue;
+      }
       if (entry?.indentation === runIndentation && entry.name === 'run' &&
           (stepName === undefined || currentStepName === stepName)) {
         commands.push(...runBody(lines, entry, steps.end));
@@ -264,6 +278,23 @@ test('workflow contract recognizes block-scalar indicators with inline comments'
     'node --test tools/reviewer-policy-check.spec.mjs',
     'fixture.yml',
     'integrity',
+  );
+});
+
+test('workflow contract derives indentation and captures standalone step names', () => {
+  const reformattedWorkflow = `jobs:
+  integrity:
+    steps:
+    - id: reviewer
+      name: Validate automated reviewer policy
+      run: node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assertJobStepRun(
+    reformattedWorkflow,
+    'Validate automated reviewer policy',
+    'node --test tools/reviewer-policy-check.spec.mjs',
+    'fixture.yml',
   );
 });
 
