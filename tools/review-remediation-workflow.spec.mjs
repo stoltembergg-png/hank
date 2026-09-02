@@ -63,6 +63,19 @@ test('keeps trust boundaries between collect/propose/validate/publish', () => {
   assert.doesNotMatch(workflow, /--force(?:-with-lease)?\b/);
 });
 
+test('binds the MiMo secret environment only to the proposal job', () => {
+  const workflow = readWorkflow();
+  const collect = jobBlock(workflow, 'collect');
+  const propose = jobBlock(workflow, 'propose');
+  const validate = jobBlock(workflow, 'validate');
+  const publish = jobBlock(workflow, 'publish');
+
+  assert.match(propose, /^    environment:\s*XIAOMI_MIMO_API_KEY\s*$/m);
+  assert.doesNotMatch(collect, /^    environment:/m);
+  assert.doesNotMatch(validate, /^    environment:/m);
+  assert.doesNotMatch(publish, /^    environment:/m);
+});
+
 test('pins actions and source identity, and prevents pull-request code from using credentials', () => {
   const workflow = readWorkflow();
   for (const sha of [
@@ -144,6 +157,7 @@ test('documents operations without embedding a credential', () => {
   assert.match(guide, /XIAOMI_MIMO_API_KEY/);
   assert.match(guide, /mimo-v2\.5/);
   assert.match(guide, /https:\/\/api\.xiaomimimo\.com\/v1/);
+  assert.match(guide, /Environment.*XIAOMI_MIMO_API_KEY/i);
   assert.match(guide, /fork/i);
   assert.match(guide, /rascunho/i);
   assert.match(guide, /(?:não|nao)[ -]?(?:aprova|faz merge)|no auto-merge/i);

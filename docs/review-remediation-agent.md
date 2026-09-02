@@ -77,7 +77,8 @@ remediação.
 
 Antes de habilitar o workflow, revogue e faça a rotação de qualquer credencial que
 tenha sido colada em chat, depois grave somente o novo valor em
-`Settings → Secrets and variables → Actions → XIAOMI_MIMO_API_KEY`. O valor nunca
+`Settings → Environments → XIAOMI_MIMO_API_KEY → Environment secrets → XIAOMI_MIMO_API_KEY`.
+O job `propose` é o único vinculado a esse Environment. O valor nunca
 deve entrar no repositório, prompt, log, comentário, artefato ou linha de comando.
 
 Para interromper a automação, remova o secret ou reverta/desabilite o workflow. Se uma

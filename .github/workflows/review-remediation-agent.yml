@@ -94,6 +94,7 @@ jobs:
     needs: collect
     if: ${{ needs.collect.outputs.status == 'READY' }}
     runs-on: ubuntu-24.04
+    environment: XIAOMI_MIMO_API_KEY
     timeout-minutes: 15
     permissions:
       contents: read
