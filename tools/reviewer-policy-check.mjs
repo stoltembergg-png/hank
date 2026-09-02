@@ -186,6 +186,7 @@ function decodeDoubleQuotedScalar(rawValue) {
   const text = [];
   for (let index = 1; index < trimmed.length - 1; index += 1) {
     const character = trimmed[index];
+    if (character === '"') return { error: 'unexpected closing quote' };
     if (character !== '\\') {
       text.push(character);
       continue;
