@@ -1,6 +1,6 @@
 # Review Remediation Agent Design
 
-**Status:** approved design, pending implementation plan
+**Status:** approved design, implementation in progress under the linked execution plan
 
 **Decision owner:** repository maintainers
 

@@ -14,7 +14,8 @@ const HEX_SHA = /^[0-9a-f]{40}$/i;
 const HEX_FINGERPRINT = /^[0-9a-f]{64}$/;
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 const TEXT_CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
-const FORBIDDEN_PATH = /^(?:\.github\/(?:workflows|actions)(?:\/|$)|\.git(?:\/|$)|\.env(?:\.|$)|(?:^|\/)(?:credentials?|secrets?|tokens?|keys?)(?:\.|\/|$)|(?:^|\/)(?:CODEOWNERS|branch-protection|rulesets?)(?:\.|\/|$))/i;
+const FORBIDDEN_PATH_PREFIX = /^(?:\.github\/(?:workflows|actions)(?:\/|$)|\.git(?:\/|$)|\.env(?:\.|$))/i;
+const FORBIDDEN_PATH_COMPONENT = /(?:^|\/)(?:\.env(?:\.[^/]*)?|credentials?(?:\.[^/]*)?|secrets?(?:\.[^/]*)?|tokens?(?:\.[^/]*)?|keys?(?:\.[^/]*)?|CODEOWNERS|branch-protection|rulesets?)(?:\/|$)/i;
 
 function byteLength(value) {
   return Buffer.byteLength(value, 'utf8');
@@ -76,7 +77,7 @@ function validatePath(path) {
   if (CONTROL_CHARACTERS.test(path) || path.includes('\\') || path.startsWith('/') || path.includes('//')) return false;
   const segments = path.split('/');
   if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) return false;
-  if (FORBIDDEN_PATH.test(path)) return false;
+  if (FORBIDDEN_PATH_PREFIX.test(path) || FORBIDDEN_PATH_COMPONENT.test(path)) return false;
   return true;
 }
 

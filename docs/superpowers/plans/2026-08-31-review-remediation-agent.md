@@ -92,7 +92,7 @@ Expected: all contract, redaction, identity, duplicate-marker, and bounds tests 
 
 Add `PR-416 — Bounded external reviewer remediation workflow` to `queue-416.md` with the approved scope, dependencies on the existing reviewer/fix-review contracts, exact security constraints, and the condition that no merge/release authority is granted.
 
-Run: `git diff --check; git add tools/review-remediation/contracts.mjs tools/review-remediation/contracts.spec.mjs .planning/queue/queue-415.md; git commit -m "feat: define review remediation contract"`
+Run: `git diff --check; git add tools/review-remediation/contracts.mjs tools/review-remediation/contracts.spec.mjs .planning/queue/queue-416.md; git commit -m "feat: define review remediation contract"`
 
 Expected: one clean contract commit and no unrelated files staged.
 

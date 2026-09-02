@@ -1,5 +1,6 @@
 export const GITHUB_API_ENDPOINT = 'https://api.github.com';
 export const MAX_GITHUB_RESPONSE_BYTES = 256 * 1024;
+export const GITHUB_TIMEOUT_MS = 15_000;
 
 export class GithubApiError extends Error {
   constructor(code) {
@@ -34,20 +35,35 @@ export function createGithubApi({ token, repository, fetchImpl = globalThis.fetc
 
   async function request(path, { allowNotFound = false } = {}) {
     let response;
+    const controller = new AbortController();
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(error('GITHUB_TIMEOUT'));
+      }, GITHUB_TIMEOUT_MS);
+    });
     try {
-      response = await fetchImpl(`${GITHUB_API_ENDPOINT}${path}`, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/vnd.github+json',
-          Authorization: `Bearer ${token}`,
-          'User-Agent': 'hank-review-remediation/1',
-          'X-GitHub-Api-Version': '2022-11-28',
-        },
-      });
-    } catch {
+      response = await Promise.race([
+        fetchImpl(`${GITHUB_API_ENDPOINT}${path}`, {
+          method: 'GET',
+          headers: {
+            Accept: 'application/vnd.github+json',
+            Authorization: `Bearer ${token}`,
+            'User-Agent': 'hank-review-remediation/1',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+          signal: controller.signal,
+        }),
+        timeout,
+      ]);
+    } catch (caught) {
+      if (caught instanceof GithubApiError) throw caught;
       throw error('GITHUB_NETWORK_ERROR');
+    } finally {
+      clearTimeout(timer);
     }
-    if (response.status === 404 && allowNotFound) return null;
+    if (response && response.status === 404 && allowNotFound) return null;
     if (!response || response.ok !== true || typeof response.text !== 'function') throw error(`GITHUB_HTTP_${response?.status ?? 'INVALID'}`);
     let text;
     try {

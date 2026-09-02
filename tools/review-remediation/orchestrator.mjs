@@ -42,7 +42,10 @@ function sha256(value) {
 function text(value, maxBytes) {
   if (typeof value !== 'string') return '';
   const redacted = redactSecrets(value).trim();
-  return Buffer.byteLength(redacted, 'utf8') <= maxBytes ? redacted : redacted.slice(0, maxBytes);
+  if (Buffer.byteLength(redacted, 'utf8') <= maxBytes) return redacted;
+  let bounded = redacted;
+  while (bounded.length > 0 && Buffer.byteLength(bounded, 'utf8') > maxBytes) bounded = bounded.slice(0, -1);
+  return bounded;
 }
 
 function result(status, reason) {
@@ -96,6 +99,7 @@ function checkAikido(check) {
 }
 
 function concreteCodeRabbitComment(comments, reviewId) {
+  if (!Number.isSafeInteger(reviewId) || reviewId <= 0) return undefined;
   const matching = comments.filter((comment) => comment?.pull_request_review_id === reviewId);
   if (matching.length !== 1) return undefined;
   return matching[0];
