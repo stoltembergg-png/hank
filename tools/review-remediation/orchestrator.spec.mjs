@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import test from 'node:test';
 
 import { createGithubApi, GithubApiError } from './github-api.mjs';
@@ -384,8 +384,13 @@ function fixtureWorkspace(prefix) {
     GIT_AUTHOR_DATE: '2000-01-01T00:00:00Z',
     GIT_COMMITTER_DATE: '2000-01-01T00:00:00Z',
   };
-  mkdirSync(join(workspace, 'src'));
-  writeFileSync(join(workspace, 'src', 'value.txt'), 'before\n');
+  const sourceDirectory = resolve(workspace, 'src');
+  const relativeSourceDirectory = relative(workspace, sourceDirectory);
+  if (relativeSourceDirectory.startsWith('..') || isAbsolute(relativeSourceDirectory)) {
+    throw new Error('invalid fixture path');
+  }
+  mkdirSync(sourceDirectory);
+  writeFileSync(join(sourceDirectory, 'value.txt'), 'before\n');
   execFileSync('git', ['init', '-q'], { cwd: workspace, windowsHide: true });
   execFileSync('git', ['config', 'core.autocrlf', 'false'], { cwd: workspace, windowsHide: true });
   execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: workspace, windowsHide: true });
@@ -533,8 +538,8 @@ test('runs collect-to-propose-to-validate-to-publish with no provider network de
               : { name: published.branch, commit: { sha: sourceSha } },
           }),
         });
-        assert.equal(claimed.status, 'NOOP');
-        assert.equal(claimed.reason, 'remediation branch already exists');
+        assert.equal(claimed.status, 'PUBLISH_READY');
+        assert.equal(claimed.branchExists, true);
       } finally {
         rmSync(claimedWorkspace, { recursive: true, force: true });
       }

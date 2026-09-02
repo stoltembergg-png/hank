@@ -103,6 +103,15 @@ test('does not execute source-controlled build or package scripts during validat
   assert.match(publish, /--proposal proposal\/proposal\.json/);
   assert.match(publish, /EXPECTED_SOURCE_PR/);
   assert.match(publish, /EXPECTED_SOURCE_SHA/);
+  assert.match(publish, /Verify source PR identity before publication/);
+  assert.match(publish, /gh api --repo "\$GITHUB_REPOSITORY"/);
+  assert.match(publish, /head\.sha/);
+  assert.match(publish, /head\.ref/);
+  assert.match(publish, /base\.ref/);
+  assert.match(publish, /branchExists/);
+  assert.match(publish, /git -C target fetch --no-tags --depth=2/);
+  assert.match(publish, /refs\/remotes\/origin\/\$branch/);
+  assert.match(publish, /gh pr list [^\n]*--head/);
   assert.match(publish, /git -C target diff --exit-code/);
   assert.match(publish, /expected_files/);
 });

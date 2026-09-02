@@ -23,7 +23,9 @@ const SINGLE_QUOTED_SECRET_ASSIGNMENT = new RegExp(`(["']?${SECRET_ASSIGNMENT_NA
 const UNREDACTED_DOUBLE_QUOTED_SECRET = new RegExp(`(?:["']?${SECRET_ASSIGNMENT_NAME}["']?\\s*[:=]\\s*)"(?!\\[REDACTED\\])(?:\\\\.|[^"\\\\\\r\\n])*"`, 'i');
 const UNREDACTED_SINGLE_QUOTED_SECRET = new RegExp(`(?:["']?${SECRET_ASSIGNMENT_NAME}["']?\\s*[:=]\\s*)'(?!\\[REDACTED\\])(?:\\\\.|[^'\\\\\\r\\n])*'`, 'i');
 const UNREDACTED_SECRET_ASSIGNMENT = new RegExp(`(?:^|[\\s;&])${SECRET_ASSIGNMENT_NAME}\\s*[:=]\\s*(?!["']|\\[REDACTED\\])[^\\s,;]+`, 'i');
-const PEM_MATERIAL = /-----BEGIN [A-Z0-9 ]+-----[\\s\\S]*?-----END [A-Z0-9 ]+-----/i;
+const UNREDACTED_TOKEN = /\b(?:sk|rk|pk)-[A-Za-z0-9][A-Za-z0-9_-]{7,}\b|\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{12,}\b|\bgithub_pat_[A-Za-z0-9_]{12,}\b|\bAKIA[0-9A-Z]{12,}\b|\bxox[baprs]-[A-Za-z0-9-]{12,}\b/i;
+const PEM_MATERIAL = /-----BEGIN [A-Z0-9 ]+-----[\s\S]*?-----END [A-Z0-9 ]+-----/i;
+const SECRET_MATERIAL_HINT = /-----BEGIN [A-Z0-9 ]+-----|-----END [A-Z0-9 ]+-----/i;
 
 function byteLength(value) {
   return Buffer.byteLength(value, 'utf8');
@@ -132,7 +134,23 @@ export function hasUnredactedSecret(value) {
   return PEM_MATERIAL.test(text)
     || UNREDACTED_DOUBLE_QUOTED_SECRET.test(text)
     || UNREDACTED_SINGLE_QUOTED_SECRET.test(text)
-    || UNREDACTED_SECRET_ASSIGNMENT.test(text);
+    || UNREDACTED_SECRET_ASSIGNMENT.test(text)
+    || UNREDACTED_TOKEN.test(text);
+}
+
+export function sanitizeProviderText(value) {
+  if (typeof value !== 'string') {
+    const invalidType = new Error('provider text must be text');
+    invalidType.code = 'SECRET_SCAN_UNCERTAIN';
+    throw invalidType;
+  }
+  const redacted = redactSecrets(value);
+  if (hasUnredactedSecret(redacted) || SECRET_MATERIAL_HINT.test(redacted)) {
+    const uncertain = new Error('provider secret scan is uncertain');
+    uncertain.code = 'SECRET_SCAN_UNCERTAIN';
+    throw uncertain;
+  }
+  return redacted;
 }
 
 export function findingFingerprint(input) {

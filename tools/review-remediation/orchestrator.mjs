@@ -12,6 +12,7 @@ import {
   isDuplicateMarker,
   normalizeFinding,
   redactSecrets,
+  sanitizeProviderText,
   remediationBranchName,
 } from './contracts.mjs';
 import { requestMimo, buildRemediationPrompt, DEFAULT_MIMO_ENDPOINT, MIMO_MODEL } from './mimo-client.mjs';
@@ -260,7 +261,7 @@ export function buildProposalInput({ finding, files }) {
   if (!finding || !Array.isArray(files) || files.length > MAX_FILES_FOR_PROPOSAL) throw error('PROPOSAL_INPUT_INVALID');
   const matches = files.filter((file) => file?.filename === finding.path);
   if (matches.length !== 1 || typeof matches[0].patch !== 'string' || matches[0].patch.length === 0) throw error('PROPOSAL_SOURCE_DIFF_MISSING');
-  const patch = redactSecrets(matches[0].patch);
+  const patch = sanitizeProviderText(matches[0].patch);
   if (Buffer.byteLength(patch, 'utf8') > MAX_PATCH_BYTES) throw error('PROPOSAL_SOURCE_DIFF_TOO_LARGE');
   if (hasUnredactedSecret(patch)) throw error('PROPOSAL_SOURCE_DIFF_SECRET_UNREDACTED');
   return {
@@ -348,7 +349,7 @@ function readPatchForEvidence({ workspace, patchFile }) {
   }
 }
 
-export function buildPublishDescriptor({ validated, finding, cycle = 1 }) {
+export function buildPublishDescriptor({ validated, finding, cycle = 1, branchExists = false }) {
   if (validated?.status !== 'VALIDATED' || !finding) throw error('PUBLISH_INPUT_INVALID');
   const gates = requireValidationGates(validated.gates);
   const fingerprint = finding.fingerprint ?? findingFingerprint(finding);
@@ -367,6 +368,7 @@ export function buildPublishDescriptor({ validated, finding, cycle = 1 }) {
     branch: remediationBranchName(normalizedFinding),
     base: normalizedFinding.sourceBranch,
     cycle,
+    branchExists: branchExists === true,
     marker: `<!-- hank-review-remediation: fingerprint=${fingerprint} -->`,
     lineageMarker: `<!-- hank-review-remediation: lineage=${lineage} cycle=${cycle} -->`,
     patchDigest: validated.patchDigest,
@@ -460,8 +462,7 @@ async function verifyPublicationClaim({ finding, api }) {
     && isDuplicateMarker(comment?.body, finding.fingerprint))) {
     return result('NOOP', 'finding fingerprint is already published');
   }
-  if (branch) return result('NOOP', 'remediation branch already exists');
-  return { status: 'READY' };
+  return { status: 'READY', branchExists: Boolean(branch) };
 }
 
 export async function publishValidated({ validated, proposal, finding, patchFile, workspace, api, cycle = 1 }) {
@@ -478,7 +479,12 @@ export async function publishValidated({ validated, proposal, finding, patchFile
     if (current.status !== 'READY') return current;
     const claim = await verifyPublicationClaim({ finding: current.finding, api });
     if (claim.status !== 'READY') return claim;
-    return buildPublishDescriptor({ validated: { ...validated, gates: reapplied.gates }, finding: current.finding, cycle });
+    return buildPublishDescriptor({
+      validated: { ...validated, gates: reapplied.gates },
+      finding: current.finding,
+      cycle,
+      branchExists: claim.branchExists,
+    });
   } catch (caught) {
     return result('HUMAN_REQUIRED', caught?.code ?? 'publish validation failed');
   }

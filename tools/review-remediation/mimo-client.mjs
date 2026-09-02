@@ -4,7 +4,7 @@ import {
   MAX_FINDING_DETAIL_BYTES,
   MAX_FINDING_TITLE_BYTES,
   MAX_PATCH_BYTES,
-  redactSecrets,
+  sanitizeProviderText,
 } from './contracts.mjs';
 
 export const DEFAULT_MIMO_ENDPOINT = 'https://api.xiaomimimo.com/v1';
@@ -55,7 +55,7 @@ function normalizeEndpoint(endpoint) {
 }
 
 function neutralizeUntrustedText(value) {
-  return redactSecrets(value)
+  return sanitizeProviderText(value)
     .replace(/\b(?:ignore|disregard)\s+(?:all\s+)?(?:the\s+)?(?:previous|prior|above)\s+instructions?\b/gi, '[UNTRUSTED_INSTRUCTION_REMOVED]')
     .replace(/\b(?:run|execute|invoke)\s+(?:curl|wget|powershell|pwsh|bash|sh|git)\b[^\r\n]*/gi, '[UNTRUSTED_COMMAND_REMOVED]');
 }
@@ -64,7 +64,11 @@ function boundedText(value, maxBytes, code) {
   if (typeof value !== 'string' || CONTROL_CHARACTERS.test(value) || Buffer.byteLength(value, 'utf8') > maxBytes) {
     throw error(code);
   }
-  return neutralizeUntrustedText(value);
+  try {
+    return neutralizeUntrustedText(value);
+  } catch {
+    throw error(code);
+  }
 }
 
 function findingValue(finding, camel, snake = camel) {

@@ -176,21 +176,20 @@ function resolveWorkspaceRoot(workspace) {
   return canonical;
 }
 
-function resolvePatchPath(workspace, patchFile) {
+function resolvePatchPath(patchFile) {
   if (typeof patchFile !== 'string' || patchFile.length === 0 || patchFile.includes('\u0000') || patchFile.includes('..') || isAbsolute(patchFile)) throw error('PATCH_INPUT_INVALID');
   const segments = patchFile.replaceAll('\\', '/').split('/');
   if (segments.includes('..')) throw error('PATCH_INPUT_INVALID');
-  const currentDirectory = trustedWorkspaceBase();
-  const patchPath = resolve(currentDirectory, patchFile);
-  const relativePath = relative(currentDirectory, patchPath);
+  const trustedRoot = trustedWorkspaceBase();
+  const patchPath = resolve(trustedRoot, patchFile);
+  const relativePath = relative(trustedRoot, patchPath);
   if (relativePath.startsWith('..') || isAbsolute(relativePath)) throw error('PATCH_INPUT_INVALID');
-  if (!pathWithin(workspace, patchPath) && !pathWithin(currentDirectory, patchPath)) throw error('PATCH_INPUT_INVALID');
   return patchPath;
 }
 
 export function readPatchFile({ workspace, patchFile }) {
-  const root = resolveWorkspaceRoot(workspace);
-  const patchPath = resolvePatchPath(root, patchFile);
+  resolveWorkspaceRoot(workspace);
+  const patchPath = resolvePatchPath(patchFile);
   try {
     const stat = lstatSync(patchPath);
     if (!stat.isFile() || stat.isSymbolicLink()) throw error('PATCH_INPUT_INVALID');
@@ -354,7 +353,7 @@ export async function applyAndValidatePatch({ workspace, patchFile, expectedHead
   if (typeof workspace !== 'string' || typeof patchFile !== 'string') throw error('PATCH_INPUT_INVALID');
   const root = resolveWorkspaceRoot(workspace);
   const workspaceHead = await assertWorkspaceHead(root, expectedHeadSha);
-  const patchPath = resolvePatchPath(root, patchFile);
+  const patchPath = resolvePatchPath(patchFile);
   const patch = readPatchFile({ workspace, patchFile });
   const metadata = validatePatchText(patch);
   const before = snapshotWorkspace(workspace, metadata.files, root);

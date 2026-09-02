@@ -10,6 +10,7 @@ import {
   hasUnredactedSecret,
   isDuplicateMarker,
   normalizeFinding,
+  sanitizeProviderText,
   redactSecrets,
   remediationBranchName,
 } from './contracts.mjs';
@@ -121,6 +122,15 @@ test('redacts compound credential assignment names without flagging the redacted
   assert.equal(hasUnredactedSecret(value), false);
   assert.equal(hasUnredactedSecret('refresh_token=still-secret'), true);
   assert.equal(hasUnredactedSecret('auth=still-secret'), true);
+});
+
+test('provider boundary rejects residual or incomplete secret material', () => {
+  const safe = sanitizeProviderText('password: "quoted-secret"');
+  assert.doesNotMatch(safe, /quoted-secret/);
+  assert.throws(
+    () => sanitizeProviderText('-----BEGIN PRIVATE KEY-----\npartial material'),
+    (error) => error.code === 'SECRET_SCAN_UNCERTAIN',
+  );
 });
 
 test('bounds and redacts title and detail', () => {

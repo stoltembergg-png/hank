@@ -47,6 +47,16 @@ test('prompt isolates reviewer data and forbids unsafe or policy edits', () => {
   assert.match(value.digest, /^[0-9a-f]{64}$/);
 });
 
+test('prompt fails closed when provider sanitization cannot classify secret material', () => {
+  assert.throws(
+    () => buildRemediationPrompt({
+      finding,
+      sourceDiff: `${sourceDiff}\n-----BEGIN PRIVATE KEY-----\npartial material`,
+    }),
+    (error) => error.code === 'MIMO_PROMPT_REJECTED',
+  );
+});
+
 test('extracts exactly one bounded unified diff and rejects reasoning or commands', () => {
   assert.equal(extractUnifiedDiff(sourceDiff), sourceDiff);
   assert.equal(extractUnifiedDiff(`\`\`\`diff\n${sourceDiff}\n\`\`\``), sourceDiff);

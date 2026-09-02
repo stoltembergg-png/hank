@@ -30,8 +30,9 @@ para revisão humana.
    fingerprint. Durante o primeiro rollout, enquanto o helper ainda não estiver na
    branch padrão, o job encerra como `NOOP` para não executar código recém-introduzido
    pela PR.
-2. `propose` é o único job que recebe `XIAOMI_MIMO_API_KEY`; o modelo retorna um
-   patch ou `NO_PATCH`.
+2. `propose` é o único job que recebe `XIAOMI_MIMO_API_KEY`; a entrada externa é
+   redigida na fronteira do provedor e qualquer material secreto não classificado
+   encerra como `HUMAN_REQUIRED`. O modelo retorna um patch ou `NO_PATCH`.
 3. `validate` aplica o patch em um target detached no SHA exato, sem credencial MiMo
    e sem permissão de escrita. O helper confiável executa o gate `semantic-syntax`
    apenas com parsers de sintaxe para arquivos JavaScript/Rust, além de
@@ -42,9 +43,10 @@ para revisão humana.
   uma PR em rascunho para a branch de origem. Os cinco gates determinísticos
   (`source-head`, aplicabilidade, limites da árvore, whitespace e `semantic-syntax`)
   precisam estar em `PASS`; imediatamente antes da publicação, o agente verifica
-  novamente o marcador e a branch determinística para evitar duplicatas. Os checks
-  obrigatórios desta PR em rascunho continuam sendo a autoridade final para código
-  Rust, frontend, Tauri e E2E.
+  novamente o marcador e a branch determinística para evitar duplicatas. Se a
+  branch já existir sem uma PR, o agente só a reutiliza após conferir pai e árvore
+  exatos; a criação da PR é idempotente. Os checks obrigatórios desta PR em
+  rascunho continuam sendo a autoridade final para código Rust, frontend, Tauri e E2E.
 
 Os artefatos carregam apenas descriptors, digests, patch bounded e evidência redigida.
 Reasoning do provedor, tokens e respostas HTTP brutas não são persistidos.
@@ -52,8 +54,9 @@ Reasoning do provedor, tokens e respostas HTTP brutas não são persistidos.
 Cada evento usa seu próprio grupo de concorrência, sem cancelamento, para não depender
 do único slot pendente do GitHub Actions nem descartar findings em uma rajada.
 Antes do commit, o agente relê os marcadores do publisher confiável e a branch
-determinística; se um deles já existir, retorna `NOOP`. O push sem force é a barreira
-final contra duas execuções concorrentes criarem a mesma branch.
+determinística. O push sem force é a reivindicação concorrente; se outra execução
+já criou a branch, a árvore e o pai do commit são comparados antes da recuperação
+da PR, sem force-push.
 
 ## Configuração, rotação e rollback
 

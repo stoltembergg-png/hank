@@ -70,10 +70,10 @@ The workflow is divided into four jobs so that no job both holds the MiMo secret
 1. **Collect** — read-only GitHub API access. Resolve the pull request and exact head SHA, accept only a known reviewer source, normalize one concrete finding, redact secret-like text, and compute a deterministic fingerprint.
 2. **Propose** — trusted workflow code only. Read the bounded finding and bounded source diff through the GitHub API, call MiMo with `XIAOMI_MIMO_API_KEY`, and emit a patch artifact. The job never checks out or runs pull-request code.
 3. **Validate** — no MiMo credential and no write token. Check out the source head into an isolated worktree, apply the patch, enforce path/diff/symlink/binary guards, and run deterministic patch checks plus the trusted `semantic-syntax` gate. The latter only parses JavaScript/Rust files with fixed runtime tools; it never executes source-controlled build, test, package, or task scripts. Any failure produces no branch or PR.
-4. **Publish** — write access only after validation. Recreate the validated worktree, re-fetch the original PR and source branch identity at the exact collected SHA, commit only the verified files with hooks disabled, verify the staged file list and clean worktree/index boundary, re-check the trusted marker history and deterministic remediation branch, push the branch without force, and create a draft PR against the original source branch. The body contains bounded evidence metadata, tests, rollback instructions, and an explicit no-approval statement.
+4. **Publish** — write access only after validation. Recreate the validated worktree, re-fetch the original PR and source branch identity at the exact collected SHA, commit only the verified files with hooks disabled, verify the staged file list and clean worktree/index boundary, re-check the trusted marker history and deterministic remediation branch, push the branch without force, and create a draft PR against the original source branch. If a concurrent run already created the deterministic branch, the workflow accepts it only after verifying the exact source parent and resulting tree, then idempotently creates or reuses its open draft PR. The body contains bounded evidence metadata, tests, rollback instructions, and an explicit no-approval statement.
 
 The workflow uses `persist-credentials: false` for every checkout. Pull-request code is never executed while `XIAOMI_MIMO_API_KEY` or a write-capable GitHub token is present.
-Each event uses its own non-canceling concurrency group keyed by `github.run_id`, so a burst does not replace an actionable event in GitHub Actions' single pending slot. Publication-time marker and branch checks, followed by a non-force push, provide the idempotency boundary for duplicate events.
+Each event uses its own non-canceling concurrency group keyed by `github.run_id`, so a burst does not replace an actionable event in GitHub Actions' single pending slot. Publication uses the deterministic branch as a compare-and-swap claim: a non-force push wins the claim, and a losing or restarted run verifies the branch parent/tree before recovering the draft PR.
 
 ## Event and finding contract
 
@@ -145,7 +145,7 @@ Validation occurs in a clean detached worktree at the exact source head:
 5. The remediation workflow does not execute source-controlled build, test, package, or task scripts. The resulting draft PR's normal required CI is the authority for Rust, frontend, Tauri, and E2E checks.
 6. The full required checks remain authoritative on the resulting draft PR; the agent's deterministic patch check cannot mark a PR ready or override a failed gate.
 
-The publish step re-applies the exact validated patch, verifies its SHA-256 and tree digests, checks that only the validated file list is staged, and requires the original open PR and source branch to still point to the collected head SHA and base branch immediately before commit. It re-reads issue markers and the deterministic remediation branch immediately before commit. An existing trusted marker or branch returns `NOOP`; the subsequent non-force push is the final concurrent-claim boundary. It creates:
+The publish step re-applies the exact validated patch, verifies its SHA-256 and tree digests, checks that only the validated file list is staged, and requires the original open PR and source branch to still point to the collected head SHA and base branch immediately before commit. It re-reads issue markers and the deterministic remediation branch immediately before commit. An existing trusted marker returns `NOOP`; an existing branch remains publishable only through exact parent/tree verification, and the non-force push is the concurrent-claim boundary. The final PR creation is idempotent. It creates:
 
 ```text
 review-remediation/pr-<number>/<short-head>-<fingerprint-prefix>
@@ -159,7 +159,7 @@ At most two remediation cycles are allowed for the same source PR/finding lineag
 
 - Missing `XIAOMI_MIMO_API_KEY`: record `NO_PROOF`/`HUMAN_REQUIRED`; do not fail unrelated required checks.
 - Provider timeout, rate limit, malformed response, or disallowed patch: record a bounded failure and do not publish.
-- Stale source SHA or changed source branch between jobs: discard the artifact and require a fresh review event.
+- Stale source SHA or changed source branch between jobs: discard the artifact and require a fresh review event. A pre-existing remediation branch is reused only when its parent and tree match the validated publication.
 - Validation failure: publish no branch and no PR; retain only bounded run metadata.
 - Publish failure after local validation: leave the source PR unchanged and expose the failure in the workflow summary.
 - Unwanted draft PR: close it and delete its automation branch; the source PR remains the rollback boundary.
@@ -172,11 +172,11 @@ The workflow never changes required-check manifests, rulesets, CODEOWNERS, relea
 All tests are offline and deterministic:
 
 - finding normalization: supported sources, wrong source, missing link/path, foreign repository, stale SHA, duplicate and cycle-cap cases;
-- redaction: API keys, bearer values, passwords, authorization headers, and secret-like reviewer text do not reach prompt/artifact/comment output;
+- redaction: API keys, bearer values, passwords, authorization headers, structured credentials, PEM material, and secret-like reviewer text do not reach provider/prompt/artifact/comment output; uncertain material fails closed;
 - prompt construction: reviewer and diff text cannot alter the fixed instruction envelope;
 - MiMo client: request shape, endpoint/model allowlist, timeout, status mapping, malformed JSON, oversized response, and response-reasoning discard using an in-memory fake transport;
 - patch guard: traversal, absolute path, forbidden workflow/policy/secret path, binary/symlink/submodule, oversized diff, invalid patch, valid source/test patch, valid deletions, and unformatted Rust parse checks;
-- identity/idempotency: exact SHA/tree/repository binding, live publication revalidation, staged file-list binding, publication-time marker/branch claim, and one branch/PR per fingerprint;
+- identity/idempotency: exact SHA/tree/repository binding, live publication revalidation, staged file-list binding, publication-time marker/branch claim, exact parent/tree recovery, and one branch/PR per fingerprint;
 - workflow execution boundary: validation runs only trusted syntax parsing and does not run source-controlled build/test/package scripts; the generated draft's existing CI remains authoritative;
 - workflow contract: top-level permissions, concurrency, timeouts, fork rejection, no `pull_request_target`, SHA-pinned actions, checkout credential policy, no auto-merge, and secret scoping;
 - integration fixture: successful collect→propose→validate→draft descriptor and failure matrix with no external network.
