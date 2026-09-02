@@ -83,10 +83,23 @@ test('rejects encoded emoji escapes in reviewer text', () => {
     ));
 
     assert.equal(toneResult.status, 1);
-    assert.match(toneResult.stderr, /tone_instructions must not contain YAML escape sequences/);
+    assert.match(toneResult.stderr, /tone_instructions must not contain emoji/);
     assert.equal(summaryResult.status, 1);
-    assert.match(summaryResult.stderr, /reviews\.high_level_summary_instructions must not contain YAML escape sequences/);
+    assert.match(summaryResult.stderr, /reviews\.high_level_summary_instructions must not contain emoji/);
   }
+});
+
+test('accepts legal non-emoji YAML escapes in reviewer text', () => {
+  const tone = String.raw`"Use \"quoted\" wording."`;
+  const summary = String.raw`"Liste impacto.\nUse tabs\tonly when needed."`;
+  const toneResult = runChecker(validConfig.replace(/tone_instructions:.*\n/, `tone_instructions: ${tone}\n`));
+  const summaryResult = runChecker(validConfig.replace(
+    '  high_level_summary_instructions: "Liste impacto, risco e testes em até 3 bullets. Sem emojis."\n',
+    `  high_level_summary_instructions: ${summary}\n`,
+  ));
+
+  assert.equal(toneResult.status, 0, toneResult.stderr);
+  assert.equal(summaryResult.status, 0, summaryResult.stderr);
 });
 
 test('rejects flow collections in reviewer text settings', () => {

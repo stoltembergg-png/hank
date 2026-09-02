@@ -18,10 +18,6 @@ function isFlowCollection(value) {
   return /^[\[{]/.test(value.trim());
 }
 
-function hasYamlEscape(value) {
-  return value.trimStart().startsWith('"') && value.includes('\\');
-}
-
 function containsEmoji(value) {
   return /\p{Extended_Pictographic}/u.test(value);
 }
@@ -182,6 +178,62 @@ function scalarText(rawValue) {
   return /^(['"])(.*)\1$/.exec(rawValue)?.[2] ?? rawValue;
 }
 
+function decodeDoubleQuotedScalar(rawValue) {
+  const trimmed = rawValue.trim();
+  if (!trimmed.startsWith('"')) return { text: scalarText(rawValue) };
+  if (!trimmed.endsWith('"')) return { error: 'unterminated scalar' };
+
+  const text = [];
+  for (let index = 1; index < trimmed.length - 1; index += 1) {
+    const character = trimmed[index];
+    if (character !== '\\') {
+      text.push(character);
+      continue;
+    }
+
+    const escape = trimmed[++index];
+    const simpleEscapes = {
+      '0': '\0',
+      a: '\x07',
+      b: '\b',
+      t: '\t',
+      n: '\n',
+      v: '\v',
+      f: '\f',
+      r: '\r',
+      e: '\x1b',
+      ' ': ' ',
+      '"': '"',
+      '/': '/',
+      '\\': '\\',
+      N: '\u0085',
+      _: '\u00a0',
+      L: '\u2028',
+      P: '\u2029',
+    };
+    if (Object.hasOwn(simpleEscapes, escape)) {
+      text.push(simpleEscapes[escape]);
+      continue;
+    }
+
+    const width = escape === 'x' ? 2 : escape === 'u' ? 4 : escape === 'U' ? 8 : 0;
+    if (width === 0) return { error: `unsupported escape \\${escape ?? ''}` };
+
+    const code = trimmed.slice(index + 1, index + 1 + width);
+    if (!new RegExp(`^[0-9A-Fa-f]{${width}}$`).test(code)) {
+      return { error: `invalid escape \\${escape}${code}` };
+    }
+    index += width;
+    const codePoint = Number.parseInt(code, 16);
+    if (escape === 'U' && codePoint > 0x10ffff) {
+      return { error: `invalid escape \\${escape}${code}` };
+    }
+    text.push(escape === 'U' ? String.fromCodePoint(codePoint) : String.fromCharCode(codePoint));
+  }
+
+  return { text: text.join('') };
+}
+
 function requireBoolean(blockValue, name, expected, errors) {
   if (boolean(blockValue, name) !== expected) {
     errors.push(`reviews.${name} must be ${expected}`);
@@ -210,12 +262,14 @@ function validate(source) {
   const tone = rootValue(lines, 'tone_instructions');
   if (tone === undefined || tone === '' || isDecoratedScalar(tone) || isBlockScalar(tone) || isFlowCollection(tone)) {
     errors.push('tone_instructions must be an inline scalar');
-  } else if (hasYamlEscape(tone)) {
-    errors.push('tone_instructions must not contain YAML escape sequences');
   } else {
-    const toneText = scalarText(tone);
-    if (toneText.length > 250) errors.push('tone_instructions must be at most 250 characters');
-    if (containsEmoji(toneText)) errors.push('tone_instructions must not contain emoji');
+    const decodedTone = decodeDoubleQuotedScalar(tone);
+    if (decodedTone.error) {
+      errors.push(`tone_instructions contains ${decodedTone.error}`);
+    } else {
+      if (decodedTone.text.length > 250) errors.push('tone_instructions must be at most 250 characters');
+      if (containsEmoji(decodedTone.text)) errors.push('tone_instructions must not contain emoji');
+    }
   }
 
   if (scalarText(value(reviews, 'profile') ?? '') !== 'chill') {
@@ -247,12 +301,14 @@ function validate(source) {
       errors.push('reviewer configuration must use untagged, unanchored scalars');
     } else if (isBlockScalar(summary) || isFlowCollection(summary)) {
       errors.push('reviews.high_level_summary_instructions must use an inline scalar');
-    } else if (hasYamlEscape(summary)) {
-      errors.push('reviews.high_level_summary_instructions must not contain YAML escape sequences');
     } else {
-      const unquoted = scalarText(summary);
-      if (unquoted.length > 100) errors.push('reviews.high_level_summary_instructions must be at most 100 characters');
-      if (containsEmoji(unquoted)) errors.push('reviews.high_level_summary_instructions must not contain emoji');
+      const decodedSummary = decodeDoubleQuotedScalar(summary);
+      if (decodedSummary.error) {
+        errors.push(`reviews.high_level_summary_instructions contains ${decodedSummary.error}`);
+      } else {
+        if (decodedSummary.text.length > 100) errors.push('reviews.high_level_summary_instructions must be at most 100 characters');
+        if (containsEmoji(decodedSummary.text)) errors.push('reviews.high_level_summary_instructions must not contain emoji');
+      }
     }
   }
 
