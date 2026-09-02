@@ -85,10 +85,12 @@ test('rejects reviewer values nested below their canonical CodeRabbit paths', ()
     fail_commit_status: true
     nested:
       enabled: true
-  `);
+`);
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /reviews\.request_changes_workflow must be false/);
+  assert.match(result.stderr, /reviews\.fail_commit_status must be true/);
+  assert.match(result.stderr, /reviews\.auto_review\.enabled must be true/);
 });
 
 test('ignores reviewer-looking keys inside block scalar content', () => {
@@ -178,4 +180,20 @@ test('rejects an oversized CodeRabbit summary instruction', () => {
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /reviews\.high_level_summary_instructions must be at most 100 characters/);
+});
+
+test('rejects a quoted or scalar reviews parent', () => {
+  const quoted = runChecker(`"reviews":
+  request_changes_workflow: false
+  fail_commit_status: true
+  auto_review:
+    enabled: true
+`);
+  const scalar = runChecker(`reviews: []
+`);
+
+  assert.equal(quoted.status, 1);
+  assert.match(quoted.stderr, /reviews block is required/);
+  assert.equal(scalar.status, 1);
+  assert.match(scalar.stderr, /reviews block is required/);
 });
