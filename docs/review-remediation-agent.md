@@ -3,7 +3,7 @@
 O workflow `Review remediation agent` transforma uma finding concreta do CodeRabbit ou
 do Aikido em uma proposta limitada pelo Xiaomi MiMo v2.5. A viabilidade só é aceita
 quando existe um unified diff aplicável, dentro dos limites de segurança e aprovado
-pelo check determinístico de whitespace no SHA exato da PR de origem.
+pelos gates determinísticos no SHA exato da PR de origem.
 
 ## Limites operacionais
 
@@ -35,16 +35,24 @@ para revisão humana.
 3. `validate` aplica o patch em um target detached no SHA exato, sem credencial MiMo
    e sem permissão de escrita. O helper confiável executa o gate `semantic-syntax`
    apenas com parsers de sintaxe para arquivos JavaScript/Rust, além de
-   `git diff --check`; nenhum script de build, teste ou pacote controlado pela PR
-   é executado.
+   `git diff --check`; para Rust, o `rustfmt --emit stdout` valida o parse sem exigir
+   que o patch esteja formatado. Exclusões válidas são ignoradas pelo parser depois
+   de aplicadas. Nenhum script de build, teste ou pacote controlado pela PR é executado.
 4. `publish` revalida digest/tree, identidade da PR e branch de origem, e cria somente
   uma PR em rascunho para a branch de origem. Os cinco gates determinísticos
   (`source-head`, aplicabilidade, limites da árvore, whitespace e `semantic-syntax`)
-  precisam estar em `PASS`; os checks obrigatórios desta PR em rascunho continuam
-  sendo a autoridade final para código Rust, frontend, Tauri e E2E.
+  precisam estar em `PASS`; imediatamente antes da publicação, o agente verifica
+  novamente o marcador e a branch determinística para evitar duplicatas. Os checks
+  obrigatórios desta PR em rascunho continuam sendo a autoridade final para código
+  Rust, frontend, Tauri e E2E.
 
 Os artefatos carregam apenas descriptors, digests, patch bounded e evidência redigida.
 Reasoning do provedor, tokens e respostas HTTP brutas não são persistidos.
+
+Todos os eventos da mesma PR compartilham um grupo de concorrência sem cancelamento.
+Antes do commit, o agente relê os marcadores do publisher confiável e a branch
+determinística; se um deles já existir, retorna `NOOP`. O push sem force é a barreira
+final contra duas execuções concorrentes criarem a mesma branch.
 
 ## Configuração, rotação e rollback
 

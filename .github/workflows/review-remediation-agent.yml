@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: review-remediation-${{ github.repository }}-${{ github.event.pull_request.number || github.event.check_run.pull_requests[0].number || github.event.check_run.id }}-${{ github.event_name }}-${{ github.event.review.user.login || github.event.check_run.name || 'event' }}
-  cancel-in-progress: true
+  group: review-remediation-${{ github.repository }}-${{ (github.event_name == 'pull_request_review' && github.event.action == 'submitted' && (github.event.review.state == 'changes_requested' || github.event.review.state == 'commented') && (github.event.review.user.login == 'coderabbitai[bot]' || github.event.review.user.login == 'coderabbit[bot]' || github.event.review.user.login == 'coderabbit') && github.event.pull_request.number) || (github.event_name == 'check_run' && github.event.action == 'completed' && github.event.check_run.conclusion != 'success' && (github.event.check_run.app.slug == 'aikido' || github.event.check_run.app.name == 'Aikido Security') && github.event.check_run.pull_requests[0].number && github.event.check_run.pull_requests[1].number == null && github.event.check_run.pull_requests[0].number) || github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   collect:

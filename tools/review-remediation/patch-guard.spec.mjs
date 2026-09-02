@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import test from 'node:test';
 
@@ -73,6 +73,7 @@ test('rejects binary, symlink, submodule, rename, and mode metadata', () => {
     `${validPatch}Binary files a/src/value.txt and b/src/value.txt differ\n`,
     validPatch.replace('--- a/src/value.txt', 'new file mode 120000\n--- a/src/value.txt'),
     validPatch.replace('--- a/src/value.txt', 'new file mode 160000\n--- a/src/value.txt'),
+    validPatch.replace('--- a/src/value.txt', 'deleted file mode 120000\n--- a/src/value.txt'),
     validPatch.replace('diff --git a/src/value.txt b/src/value.txt', 'diff --git a/src/value.txt b/src/renamed.txt\nrename from src/value.txt\nrename to src/renamed.txt'),
   ];
 
@@ -183,6 +184,77 @@ test('rejects syntax-invalid JavaScript and rolls the workspace back', async () 
     assert.equal(git(workspace, ['status', '--porcelain', '--untracked-files=no']), '');
   } finally {
     rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test('accepts JavaScript deletions and unformatted Rust through the parser-only gate', async () => {
+  const deletionWorkspace = mkdtempSync(join(process.cwd(), '.hank-review-guard-deletion-'));
+  try {
+    mkdirSync(join(deletionWorkspace, 'src'));
+    writeFileSync(join(deletionWorkspace, 'src', 'value.mjs'), 'const before = true;\n');
+    git(deletionWorkspace, ['init', '-q']);
+    git(deletionWorkspace, ['config', 'core.autocrlf', 'false']);
+    git(deletionWorkspace, ['config', 'user.email', 'test@example.invalid']);
+    git(deletionWorkspace, ['config', 'user.name', 'Test Fixture']);
+    git(deletionWorkspace, ['add', 'src/value.mjs']);
+    git(deletionWorkspace, ['commit', '-qm', 'fixture']);
+    const deletionPatchFile = join(deletionWorkspace, 'remediation.patch');
+    writeFileSync(deletionPatchFile, [
+      'diff --git a/src/value.mjs b/src/value.mjs',
+      'deleted file mode 100644',
+      '--- a/src/value.mjs',
+      '+++ /dev/null',
+      '@@ -1,1 +0,0 @@',
+      '-const before = true;',
+      '',
+    ].join('\n'));
+
+    const deletion = await applyAndValidatePatch({
+      workspace: workspaceInput(deletionWorkspace),
+      patchFile: patchInput(deletionPatchFile),
+    });
+    assert.deepEqual(deletion.files, ['src/value.mjs']);
+    assert.equal(existsSync(join(deletionWorkspace, 'src', 'value.mjs')), false);
+    assert.deepEqual(deletion.gates.map((gate) => gate.name), [
+      'patch-applicability',
+      'patch-boundaries',
+      'whitespace',
+      'semantic-syntax',
+    ]);
+  } finally {
+    rmSync(deletionWorkspace, { recursive: true, force: true });
+  }
+
+  const rustWorkspace = mkdtempSync(join(process.cwd(), '.hank-review-guard-rust-'));
+  try {
+    mkdirSync(join(rustWorkspace, 'src'));
+    writeFileSync(join(rustWorkspace, 'src', 'value.rs'), 'fn main() { println!("before"); }\n');
+    git(rustWorkspace, ['init', '-q']);
+    git(rustWorkspace, ['config', 'core.autocrlf', 'false']);
+    git(rustWorkspace, ['config', 'user.email', 'test@example.invalid']);
+    git(rustWorkspace, ['config', 'user.name', 'Test Fixture']);
+    git(rustWorkspace, ['add', 'src/value.rs']);
+    git(rustWorkspace, ['commit', '-qm', 'fixture']);
+    const rustPatchFile = join(rustWorkspace, 'remediation.patch');
+    writeFileSync(rustPatchFile, [
+      'diff --git a/src/value.rs b/src/value.rs',
+      '--- a/src/value.rs',
+      '+++ b/src/value.rs',
+      '@@ -1,1 +1,1 @@',
+      '-fn main() { println!("before"); }',
+      '+fn main(){println!("after");}',
+      '',
+    ].join('\n'));
+
+    const rust = await applyAndValidatePatch({
+      workspace: workspaceInput(rustWorkspace),
+      patchFile: patchInput(rustPatchFile),
+    });
+    assert.deepEqual(rust.files, ['src/value.rs']);
+    assert.match(readFileSync(join(rustWorkspace, 'src', 'value.rs'), 'utf8'), /after/);
+    assert.equal(rust.gates.at(-1).name, 'semantic-syntax');
+  } finally {
+    rmSync(rustWorkspace, { recursive: true, force: true });
   }
 });
 

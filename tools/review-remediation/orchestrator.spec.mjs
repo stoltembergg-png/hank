@@ -475,7 +475,9 @@ test('runs collect-to-propose-to-validate-to-publish with no provider network de
         cycle: 1,
         api: fakeApi({
           getPullRequest: async () => pullRequest({ head: { ref: 'feature/fix-review', sha: sourceSha, repo: { full_name: repository } } }),
-          getBranch: async () => ({ name: 'feature/fix-review', commit: { sha: sourceSha } }),
+          getBranch: async (branch) => branch === 'feature/fix-review'
+            ? { name: 'feature/fix-review', commit: { sha: sourceSha } }
+            : null,
         }),
       });
       assert.equal(published.status, 'PUBLISH_READY');
@@ -487,6 +489,55 @@ test('runs collect-to-propose-to-validate-to-publish with no provider network de
       assert.equal(published.lineage, findingLineage(collected.finding));
       assert.equal(published.noApproval, true);
       assert.equal(published.noMerge, true);
+
+      const duplicateWorkspace = fixtureWorkspace('hank-review-publish-duplicate-');
+      const duplicatePatchFile = join(duplicateWorkspace, 'remediation.patch');
+      writeFileSync(duplicatePatchFile, proposal.patch);
+      try {
+        const duplicate = await publishValidated({
+          validated,
+          proposal,
+          finding: collected.finding,
+          patchFile: patchInput(duplicatePatchFile),
+          workspace: workspaceInput(duplicateWorkspace),
+          cycle: 1,
+          api: fakeApi({
+            getPullRequest: async () => pullRequest({ head: { ref: 'feature/fix-review', sha: sourceSha, repo: { full_name: repository } } }),
+            getIssueComments: async () => [{ user: { login: 'github-actions[bot]' }, body: published.marker }],
+            getBranch: async (branch) => branch === 'feature/fix-review'
+              ? { name: 'feature/fix-review', commit: { sha: sourceSha } }
+              : null,
+          }),
+        });
+        assert.equal(duplicate.status, 'NOOP');
+        assert.equal(duplicate.reason, 'finding fingerprint is already published');
+      } finally {
+        rmSync(duplicateWorkspace, { recursive: true, force: true });
+      }
+
+      const claimedWorkspace = fixtureWorkspace('hank-review-publish-claimed-');
+      const claimedPatchFile = join(claimedWorkspace, 'remediation.patch');
+      writeFileSync(claimedPatchFile, proposal.patch);
+      try {
+        const claimed = await publishValidated({
+          validated,
+          proposal,
+          finding: collected.finding,
+          patchFile: patchInput(claimedPatchFile),
+          workspace: workspaceInput(claimedWorkspace),
+          cycle: 1,
+          api: fakeApi({
+            getPullRequest: async () => pullRequest({ head: { ref: 'feature/fix-review', sha: sourceSha, repo: { full_name: repository } } }),
+            getBranch: async (branch) => branch === 'feature/fix-review'
+              ? { name: 'feature/fix-review', commit: { sha: sourceSha } }
+              : { name: published.branch, commit: { sha: sourceSha } },
+          }),
+        });
+        assert.equal(claimed.status, 'NOOP');
+        assert.equal(claimed.reason, 'remediation branch already exists');
+      } finally {
+        rmSync(claimedWorkspace, { recursive: true, force: true });
+      }
 
       const tampered = await publishValidated({
         validated,

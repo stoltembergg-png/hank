@@ -439,6 +439,31 @@ async function verifyPublicationIdentity({ finding, api }) {
   return { status: 'READY', finding };
 }
 
+async function verifyPublicationClaim({ finding, api }) {
+  if (!api || typeof api.getIssueComments !== 'function' || typeof api.getBranch !== 'function') {
+    return result('HUMAN_REQUIRED', 'publication claim adapter is missing');
+  }
+  let issueComments;
+  let branch;
+  try {
+    [issueComments, branch] = await Promise.all([
+      api.getIssueComments(finding.pullRequest),
+      api.getBranch(remediationBranchName(finding)),
+    ]);
+  } catch {
+    return result('HUMAN_REQUIRED', 'publication claim could not be read');
+  }
+  if (!Array.isArray(issueComments) || issueComments.length > MAX_REVIEW_COMMENTS) {
+    return result('HUMAN_REQUIRED', 'publication comment history is not bounded');
+  }
+  if (issueComments.some((comment) => comment?.user?.login?.toLowerCase() === REMEDIATION_PUBLISHER_LOGIN
+    && isDuplicateMarker(comment?.body, finding.fingerprint))) {
+    return result('NOOP', 'finding fingerprint is already published');
+  }
+  if (branch) return result('NOOP', 'remediation branch already exists');
+  return { status: 'READY' };
+}
+
 export async function publishValidated({ validated, proposal, finding, patchFile, workspace, api, cycle = 1 }) {
   if (validated?.status !== 'VALIDATED') return validated;
   if (proposal?.status !== 'PROPOSED' || proposal.patchDigest !== validated.patchDigest || !sameFindingIdentity(proposal.finding, finding) || !sameFindingIdentity(validated.finding, finding)) {
@@ -451,6 +476,8 @@ export async function publishValidated({ validated, proposal, finding, patchFile
     if (reapplied.digest !== validated.patchDigest || reapplied.treeDigest !== validated.treeDigest) return result('HUMAN_REQUIRED', 'publish revalidation identity changed');
     const current = await verifyPublicationIdentity({ finding: normalized.finding, api });
     if (current.status !== 'READY') return current;
+    const claim = await verifyPublicationClaim({ finding: current.finding, api });
+    if (claim.status !== 'READY') return claim;
     return buildPublishDescriptor({ validated: { ...validated, gates: reapplied.gates }, finding: current.finding, cycle });
   } catch (caught) {
     return result('HUMAN_REQUIRED', caught?.code ?? 'publish validation failed');

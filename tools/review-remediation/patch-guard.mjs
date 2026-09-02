@@ -22,7 +22,8 @@ export { MAX_PATCH_BYTES, MAX_PATCH_FILES, MAX_PATCH_LINES, MAX_RESULT_FILE_BYTE
 const execFileAsync = promisify(execFile);
 const CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
 const HEX_SHA = /^[0-9a-f]{40}$/i;
-const FORBIDDEN_METADATA = /^(?:old mode|new mode|new file mode|deleted file mode|similarity index|rename from|rename to|copy from|copy to)\s/m;
+const FORBIDDEN_METADATA = /^(?:old mode|new mode|new file mode|similarity index|rename from|rename to|copy from|copy to)\s/m;
+const FORBIDDEN_DELETION_MODE = /^deleted file mode (?!100644\r?$|100755\r?$)/m;
 const FORBIDDEN_PATH = /^(?:\.github\/(?:workflows|actions)(?:\/|$)|\.git(?:\/|$)|\.env(?:\.|$)|tools\/review-remediation(?:\/|$))/i;
 const FORBIDDEN_DEPENDENCY_PATH = /(?:^|\/)(?:\.gitmodules|Cargo\.toml|Cargo\.lock|package\.json|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lock(?:b)?|go\.mod|go\.sum|requirements(?:[-_.][^/]*)?\.txt|Pipfile(?:\.lock)?|poetry\.lock|pyproject\.toml|composer\.(?:json|lock)|Gemfile(?:\.lock)?|mix\.lock|pubspec\.lock|Package\.swift|Package\.resolved|Podfile\.lock)$/i;
 
@@ -115,7 +116,7 @@ export function validatePatchText(patch) {
   if (Buffer.byteLength(patch, 'utf8') > MAX_PATCH_BYTES) throw error('PATCH_TOO_LARGE');
   if (CONTROL_CHARACTERS.test(patch)) throw error('PATCH_FORBIDDEN_CONTENT');
   if (/^(?:Binary files|GIT binary patch)/m.test(patch)) throw error('PATCH_BINARY_FORBIDDEN');
-  if (FORBIDDEN_METADATA.test(patch)) throw error('PATCH_METADATA_FORBIDDEN');
+  if (FORBIDDEN_METADATA.test(patch) || FORBIDDEN_DELETION_MODE.test(patch)) throw error('PATCH_METADATA_FORBIDDEN');
 
   const sections = sectionData(patch);
   if (sections.length > MAX_PATCH_FILES) throw error('PATCH_TOO_MANY_FILES');
@@ -277,6 +278,7 @@ function semanticFilePath(workspace, path) {
     if (!stat.isFile() || stat.isSymbolicLink()) throw error('PATCH_RESULT_SPECIAL_FILE');
   } catch (caught) {
     if (caught instanceof PatchGuardError) throw caught;
+    if (caught?.code === 'ENOENT') return null;
     throw error('PATCH_RESULT_PATH_INVALID');
   }
   return candidate;
@@ -287,13 +289,14 @@ async function runSemanticSyntaxChecks(workspace, files) {
     const extension = path.slice(path.lastIndexOf('.')).toLowerCase();
     if (!['.cjs', '.js', '.mjs', '.rs'].includes(extension)) continue;
     const target = semanticFilePath(workspace, path);
+    if (!target) continue;
     try {
       if (extension === '.rs') {
-        await execFileAsync('rustfmt', ['--check', '--edition', '2021', target], {
+        await execFileAsync('rustfmt', ['--emit', 'stdout', '--edition', '2021', target], {
           cwd: workspace,
           windowsHide: true,
           shell: false,
-          maxBuffer: 64 * 1024,
+          maxBuffer: 512 * 1024,
         });
       } else {
         await execFileAsync(process.execPath, ['--check', target], {
