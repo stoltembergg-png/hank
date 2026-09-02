@@ -319,6 +319,15 @@ test('accepts inline comments on canonical YAML block headers', () => {
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('accepts a hash inside a double-quoted reviewer scalar', () => {
+  const result = runChecker(validConfig.replace(
+    'tone_instructions: "Seja conciso e direto. Escreva em pt-BR. Use somente texto; não use emojis, ícones ou floreios."',
+    'tone_instructions: "Use # para títulos. Sem emojis."',
+  ));
+
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test('accepts a plain scalar with an embedded quote before an inline comment', () => {
   const result = runChecker(validConfig.replace(
     '  high_level_summary_instructions: "Liste impacto, risco e testes em até 3 bullets. Sem emojis."\n',
@@ -411,6 +420,18 @@ test('rejects an unclosed quoted scalar', () => {
   assert.match(result.stderr, /reviewer configuration contains an unclosed quoted scalar/);
 });
 
+test('rejects unsupported YAML after a valid reviews block', () => {
+  const result = runChecker(`reviews:
+  request_changes_workflow: false
+  fail_commit_status: true
+  auto_review:
+    enabled: true
+not valid yaml
+`);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviewer configuration contains unsupported YAML syntax/);
+});
 test('rejects a quoted or scalar reviews parent', () => {
   const quoted = runChecker(`"reviews":
   request_changes_workflow: false

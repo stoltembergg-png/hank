@@ -44,7 +44,9 @@ function blockFromEntry(lines, entry, end) {
   for (let index = entry.index + 1; index < end; index += 1) {
     const line = lines[index];
     if (line.trim() === '' || line.trimStart().startsWith('#')) continue;
-    if (line.length - line.trimStart().length <= entry.indentation) {
+    const lineIndentation = line.length - line.trimStart().length;
+    if (lineIndentation <= entry.indentation &&
+        !(lineIndentation === entry.indentation && /^\s*-(?:\s|$)/.test(line))) {
       blockEnd = index;
       break;
     }
@@ -99,7 +101,15 @@ function executableRunCommands(workflow, workflowJobName, stepName) {
     const steps = findBlock(lines, job.start, job.end, job.indentation, 'steps');
     if (!steps) return [];
 
-    const stepIndentation = steps.indentation + 2;
+    const stepLines = [];
+    for (let index = steps.start; index < steps.end; index += 1) {
+      if (/^\s*-(?:\s|$)/.test(lines[index])) stepLines.push(lines[index]);
+    }
+    if (stepLines.length === 0) return [];
+
+    const stepIndentation = Math.min(
+      ...stepLines.map((line) => line.length - line.trimStart().length),
+    );
     const runIndentation = stepIndentation + 2;
     let inStep = false;
     let currentStepName;
@@ -108,7 +118,7 @@ function executableRunCommands(workflow, workflowJobName, stepName) {
     for (let index = steps.start; index < steps.end; index += 1) {
       const line = lines[index];
       const indentation = line.length - line.trimStart().length;
-      if (indentation === stepIndentation && /^\s*-\s/.test(line)) {
+      if (indentation === stepIndentation && /^\s*-(?:\s|$)/.test(line)) {
         inStep = true;
         const inlineName = new RegExp(`^\\s*-\\s+name:\\s*(.*)$`).exec(line);
         currentStepName = inlineName?.[1].trim().replace(/^(['"])(.*)\1$/, '$2');
@@ -125,6 +135,10 @@ function executableRunCommands(workflow, workflowJobName, stepName) {
       if (!inStep) continue;
 
       const entry = yamlMapping(line, index);
+      if (entry?.indentation === runIndentation && entry.name === 'name') {
+        currentStepName = entry.value.replace(/^(['"])(.*)\1$/, '$2');
+        continue;
+      }
       if (entry?.indentation === runIndentation && entry.name === 'run' &&
           (stepName === undefined || currentStepName === stepName)) {
         commands.push(...runBody(lines, entry, steps.end));
@@ -249,6 +263,62 @@ test('workflow contract recognizes explicit block-scalar indentation indicators'
   );
 });
 
+test('workflow contract recognizes block-scalar indicators with inline comments', () => {
+  const commentedIndicatorWorkflow = `jobs:
+  integrity:
+    steps:
+      - run: | # preserve the multiline command
+          node --test tools/reviewer-policy-check.spec.mjs
+      - run: >2 # preserve the folded command
+          node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assertCommand(
+    commentedIndicatorWorkflow,
+    'node --test tools/reviewer-policy-check.spec.mjs',
+    'fixture.yml',
+    'integrity',
+  );
+});
+
+test('workflow contract derives indentation and captures standalone step names', () => {
+  const reformattedWorkflow = `jobs:
+  integrity:
+    steps:
+    - id: reviewer
+      name: Validate automated reviewer policy
+      run: node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assertJobStepRun(
+    reformattedWorkflow,
+    'Validate automated reviewer policy',
+    'node --test tools/reviewer-policy-check.spec.mjs',
+    'fixture.yml',
+  );
+});
+
+test('workflow contract rejects a command inside a skipped bare step', () => {
+  const skippedStepWorkflow = `jobs:
+  integrity:
+    steps:
+    - name: Validate automated reviewer policy
+      run: echo "no checker here"
+    -
+      if: \${{ false }}
+      run: node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assert.throws(
+    () => assertJobStepRun(
+      skippedStepWorkflow,
+      'Validate automated reviewer policy',
+      'node --test tools/reviewer-policy-check.spec.mjs',
+      'fixture.yml',
+    ),
+    /fixture\.yml: job Validate automated reviewer policy missing run containing/,
+  );
+});
 test('workflow contract does not treat heredoc content as an executable command', () => {
   const heredocWorkflow = `jobs:
   integrity:

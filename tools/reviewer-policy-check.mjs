@@ -26,7 +26,7 @@ function stripInlineComment(value) {
   const scalarStart = value.search(/\S|$/);
   let scalarQuote = value[scalarStart] === '"' || value[scalarStart] === "'" ? value[scalarStart] : undefined;
   let escaped = false;
-  for (let index = scalarStart; index < value.length; index += 1) {
+  for (let index = scalarQuote ? scalarStart + 1 : scalarStart; index < value.length; index += 1) {
     const character = value[index];
     if (scalarQuote === '"') {
       if (escaped) {
@@ -94,7 +94,7 @@ function mapping(line, index) {
   };
 }
 
-function structuralMappings(lines) {
+function structuralMappings(lines, syntaxErrors = []) {
   const entries = [];
   const sequenceIndentations = [];
   let scalar;
@@ -115,8 +115,12 @@ function structuralMappings(lines) {
       continue;
     }
 
+    if (line.trim() === '' || line.trimStart().startsWith('#')) continue;
     const entry = mapping(line, index);
-    if (!entry) continue;
+    if (!entry) {
+      syntaxErrors.push(index);
+      continue;
+    }
 
     entries.push({ ...entry, sequenceDepth: sequenceIndentations.length });
     if (isBlockScalar(entry.value)) scalar = { indentation: entry.indentation };
@@ -247,7 +251,8 @@ function requireBoolean(blockValue, name, expected, errors) {
 
 function validate(source) {
   const lines = source.split(/\r?\n/);
-  const entries = structuralMappings(lines);
+  const syntaxErrors = [];
+  const entries = structuralMappings(lines, syntaxErrors);
   const reviews = block(lines, -1, 'reviews');
   if (!reviews) return ['reviews block is required'];
 
@@ -319,6 +324,9 @@ function validate(source) {
 
   if (entries.some((entry) => entry.syntaxError)) {
     errors.push('reviewer configuration contains an unclosed quoted scalar');
+  }
+  if (syntaxErrors.length > 0) {
+    errors.push('reviewer configuration contains unsupported YAML syntax');
   }
 
   return errors;

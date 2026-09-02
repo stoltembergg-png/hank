@@ -12,18 +12,31 @@ administrativo em `/repos/{owner}/{repo}/rules/branches/main` e verifica se os
 dois grupos do manifesto estão cobertos pelo Ruleset antes de aguardar os
 check-runs de release. O arquivo de saída usado pelo polling contém apenas
 `requiredChecks`.
+Os dois grupos também são validados contra allowlists imutáveis no verificador:
+um gate de build, segurança ou release não pode ser movido para
+`pullRequestChecks`, e essa lista não pode ser substituída por um check arbitrário.
 
 Para verificar localmente com uma resposta salva da API:
 
+As variáveis abaixo usam a revisão atualmente conferida. Ao validar outra
+resposta salva, substitua-as pelos SHA correspondentes ao snapshot.
+
 ```bash
+COMMIT_SHA="$(git rev-parse HEAD)"
+TREE_SHA="$(git rev-parse HEAD^{tree})"
 node tools/release-required-checks.mjs validate \
   --manifest .github/required-checks.json \
   --rules /tmp/active-rules.json \
+  --repository stoltembergg-png/hank \
+  --ref refs/heads/main \
+  --sha "$COMMIT_SHA" \
+  --tree "$TREE_SHA" \
   --output /tmp/required-checks.txt
 ```
 
 A verificação falha quando um gate versionado não está no Ruleset, aparece
 duplicado ou quando a política strict não está ativa. Checks adicionais do
 Ruleset são permitidos para proteção de PR e não são incluídos no polling de
-release. A proteção clássica de branch permanece ativa durante a migração e
-continua sendo administrada separadamente.
+release. O snapshot também precisa ser completo e corresponder ao repositório,
+ref, commit e árvore informados. A proteção clássica de branch permanece ativa
+durante a migração e continua sendo administrada separadamente.

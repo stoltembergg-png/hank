@@ -106,12 +106,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
+          SHA: ${{ steps.identity.outputs.sha }}
+          TREE: ${{ steps.identity.outputs.tree }}
         run: |
           set -euo pipefail
-          gh api "repos/$REPOSITORY/rules/branches/main" > /tmp/active-rules.json
+          gh api --paginate --slurp "repos/$REPOSITORY/rules/branches/main" > /tmp/active-rules-pages.json
+          node --input-type=module -e "import fs from 'node:fs'; const pages = JSON.parse(fs.readFileSync('/tmp/active-rules-pages.json', 'utf8')); if (!Array.isArray(pages) || pages.some((page) => !Array.isArray(page))) process.exit(1); const rules = pages.flat(); if (!rules.length) process.exit(1); fs.writeFileSync('/tmp/active-rules.json', JSON.stringify({ schemaVersion: 1, repository: process.env.REPOSITORY, ref: 'refs/heads/main', sha: process.env.SHA, tree: process.env.TREE, complete: true, rules }) + '\\n');"
           node tools/release-required-checks.mjs validate \
             --manifest .github/required-checks.json \
             --rules /tmp/active-rules.json \
+            --repository "$REPOSITORY" \
+            --ref refs/heads/main \
+            --sha "$SHA" \
+            --tree "$TREE" \
             --output /tmp/required-checks.txt
 
       - name: Wait for required post-merge checks
