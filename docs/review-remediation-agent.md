@@ -44,8 +44,10 @@ para revisão humana.
   (`source-head`, aplicabilidade, limites da árvore, whitespace e `semantic-syntax`)
   precisam estar em `PASS`; imediatamente antes da publicação, o agente verifica
   novamente o marcador e a branch determinística para evitar duplicatas. Se a
-  branch já existir sem uma PR, o agente só a reutiliza após conferir pai e árvore
-  exatos; a criação da PR é idempotente. Os checks obrigatórios desta PR em
+  branch já existir sem uma PR, uma reserva ainda apontando para o SHA de origem
+  pode ser avançada por fast-forward por um publisher confiável; uma branch já
+  concluída só é reutilizada após conferir pai e árvore exatos. A criação da PR é
+  idempotente. Os checks obrigatórios desta PR em
   rascunho continuam sendo a autoridade final para código Rust, frontend, Tauri e E2E.
 
 Os artefatos carregam apenas descriptors, digests, patch bounded e evidência redigida.
@@ -58,13 +60,16 @@ inseguro porque o GitHub Actions mantém apenas uma execução pendente e poderi
 findings em uma rajada.
 Antes do commit, o agente relê os marcadores do publisher confiável e a branch
 determinística. A criação da branch determinística no GitHub é uma reivindicação
-atômica; se outra execução já a criou, a árvore e o pai do commit são comparados
-antes da recuperação da PR, sem force-push. A criação da PR valida que a branch aponta para a base original
-e que a PR existente continua em rascunho; uma corrida de criação é reconsultada
-antes de ser considerada concluída.
+atômica. Uma branch existente é classificada pelo commit remoto: a reserva no SHA
+de origem é avançada por fast-forward; uma remediação já publicada exige pai e
+árvore exatos. Em ambos os casos, o push é sem force-push e uma corrida é
+revalidada antes da recuperação da PR. A criação da PR valida que a branch aponta
+para a base original e que a PR existente continua em rascunho; uma corrida de
+criação é reconsultada antes de ser considerada concluída.
 Uma branch criada por uma execução interrompida não bloqueia o finding: a coleta
-mantém `READY` e a próxima execução recupera a branch somente após as mesmas
-verificações de pai e árvore.
+mantém `READY`; a próxima execução identifica a reserva pelo ponteiro no SHA de
+origem e a avança por fast-forward, ou valida pai e árvore se ela já contiver a
+remediação.
 
 ## Configuração, rotação e rollback
 

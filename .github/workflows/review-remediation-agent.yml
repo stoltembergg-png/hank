@@ -432,6 +432,15 @@ jobs:
             git -C target fetch --no-tags --depth=2 origin "refs/heads/$branch:$remote_ref"
           fi
           git -C target show-ref --verify --quiet "$remote_ref"
+          remote_tip="$(git -C target rev-parse "$remote_ref")"
+          if [[ "$remote_tip" == "$EXPECTED_SOURCE_SHA" ]]; then
+            if ! git -C target -c core.hooksPath=/dev/null push origin "HEAD:refs/heads/$branch"; then
+              echo "another publisher advanced the claimed branch; verifying its result" >&2
+            fi
+            git -C target fetch --no-tags --depth=2 origin "refs/heads/$branch:$remote_ref"
+            remote_tip="$(git -C target rev-parse "$remote_ref")"
+          fi
+          test "$remote_tip" != "$EXPECTED_SOURCE_SHA"
           remote_parent="$(git -C target rev-parse "$remote_ref^")"
           remote_tree="$(git -C target rev-parse "${remote_ref}^{tree}")"
           local_tree="$(git -C target rev-parse 'HEAD^{tree}')"

@@ -114,6 +114,11 @@ test('does not execute source-controlled build or package scripts during validat
   assert.match(publish, /refs\/heads\/\$branch/);
   assert.match(publish, /git -C target fetch --no-tags --depth=2/);
   assert.match(publish, /refs\/remotes\/origin\/\$branch/);
+  assert.match(publish, /remote_tip=.*git -C target rev-parse/);
+  assert.match(publish, /remote_tip.*EXPECTED_SOURCE_SHA/);
+  assert.match(publish, /HEAD:refs\/heads\/\$branch/);
+  assert.match(publish, /remote_parent=.*git -C target rev-parse/);
+  assert.match(publish, /remote_tree=.*git -C target rev-parse/);
   assert.match(publish, /gh pr list [^\n]*--head/);
   assert.match(publish, /--json number,headRefName,baseRefName,isDraft/);
   assert.match(publish, /baseRefName/);
