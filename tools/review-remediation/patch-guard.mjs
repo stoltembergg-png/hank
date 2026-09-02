@@ -148,10 +148,14 @@ function pathWithin(root, candidate) {
   return relativePath === '' || (!relativePath.startsWith('..') && !isAbsolute(relativePath));
 }
 
+function hasParentSegment(value) {
+  return value.replaceAll('\\', '/').split('/').includes('..');
+}
+
 function readBoundedFile({ root, relativePath }, maxBytes, tooLargeCode, invalidCode) {
   if (typeof root !== 'string' || typeof relativePath !== 'string'
     || relativePath.length === 0 || relativePath.includes('\u0000')
-    || relativePath.includes('..') || isAbsolute(relativePath)) {
+    || hasParentSegment(relativePath) || isAbsolute(relativePath)) {
     throw error(invalidCode);
   }
   const filePath = resolve(root, relativePath);

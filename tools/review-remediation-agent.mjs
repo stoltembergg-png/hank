@@ -51,6 +51,10 @@ function pathWithin(root, candidate) {
   return relativePath === '' || (!relativePath.startsWith('..') && !isAbsolute(relativePath));
 }
 
+function hasParentSegment(value) {
+  return value.replaceAll('\\', '/').split('/').includes('..');
+}
+
 function resolveCliPath(path, { allowEventPath = false } = {}) {
   if (typeof path !== 'string' || path.length === 0 || path.includes('\u0000')) throw error('CLI_INPUT_INVALID');
   const candidate = resolve(path);
@@ -102,7 +106,7 @@ function resolveCliOutputPath(path) {
 function readBoundedFile({ root, relativePath }) {
   if (typeof root !== 'string' || typeof relativePath !== 'string'
     || relativePath.length === 0 || relativePath.includes('\u0000')
-    || relativePath.includes('..') || isAbsolute(relativePath)) {
+    || hasParentSegment(relativePath) || isAbsolute(relativePath)) {
     throw error('CLI_INPUT_INVALID');
   }
   const filePath = resolve(root, relativePath);

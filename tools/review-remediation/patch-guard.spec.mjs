@@ -45,6 +45,13 @@ test('preserves a real top-level directory named b in unified diff paths', () =>
   );
 });
 
+test('allows double dots inside a filename while rejecting parent segments', () => {
+  const dottedPatch = validPatch.replaceAll('src/value.txt', 'src/foo..txt');
+  assert.deepEqual(validatePatchText(dottedPatch).files, ['src/foo..txt']);
+  const traversalPatch = validPatch.replaceAll('src/value.txt', 'src/../value.txt');
+  assert.throws(() => validatePatchText(traversalPatch), (error) => error.code === 'PATCH_INVALID_PATH');
+});
+
 test('rejects traversal, absolute, Windows, forbidden, and trusted-helper paths', () => {
   const paths = [
     '../secret.txt',
