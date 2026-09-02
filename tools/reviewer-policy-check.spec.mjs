@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -11,12 +11,27 @@ const checker = fileURLToPath(new URL('tools/reviewer-policy-check.mjs', root));
 const repositoryConfig = fileURLToPath(new URL('.coderabbit.yaml', root));
 
 const validConfig = `language: "pt-BR"
+tone_instructions: "Seja conciso e direto. Escreva em pt-BR. Use somente texto; não use emojis, ícones ou floreios."
 
 reviews:
-  profile: "assertive"
+  profile: "chill"
   request_changes_workflow: false
-  review_status: true
-  review_progress: true
+  review_status: false
+  review_details: false
+  collapse_walkthrough: true
+  changed_files_summary: false
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  assess_linked_issues: false
+  related_issues: false
+  related_prs: false
+  suggested_labels: false
+  suggested_reviewers: false
+  in_progress_fortune: false
+  poem: false
+  enable_prompt_for_ai_agents: false
+  high_level_summary: true
+  high_level_summary_instructions: "Liste impacto, risco e testes em até 3 bullets. Sem emojis."
   fail_commit_status: true
   auto_review:
     enabled: true
@@ -55,6 +70,32 @@ test('accepts the repository CodeRabbit reviewer configuration', () => {
   });
 
   assert.equal(result.status, 0, result.stderr);
+});
+
+test('repository reviewer output stays concise and text-only', () => {
+  const source = readFileSync(repositoryConfig, 'utf8');
+  const requiredLines = [
+    'tone_instructions: "Seja conciso e direto. Escreva em pt-BR. Use somente texto; não use emojis, ícones ou floreios."',
+    '  profile: "chill"',
+    '  review_status: false',
+    '  review_details: false',
+    '  collapse_walkthrough: true',
+    '  changed_files_summary: false',
+    '  sequence_diagrams: false',
+    '  estimate_code_review_effort: false',
+    '  assess_linked_issues: false',
+    '  related_issues: false',
+    '  related_prs: false',
+    '  suggested_labels: false',
+    '  suggested_reviewers: false',
+    '  in_progress_fortune: false',
+    '  poem: false',
+    '  enable_prompt_for_ai_agents: false',
+    '  high_level_summary_instructions: "Liste impacto, risco e testes em até 3 bullets. Sem emojis."',
+  ];
+
+  for (const line of requiredLines) assert.match(source, new RegExp(`^${line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'));
+  assert.doesNotMatch(source, /[\p{Extended_Pictographic}]/u);
 });
 
 test('rejects a configuration that disables automatic CodeRabbit review', () => {
