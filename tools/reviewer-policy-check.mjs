@@ -180,6 +180,10 @@ function scalarText(rawValue) {
 
 function decodeDoubleQuotedScalar(rawValue) {
   const trimmed = rawValue.trim();
+  if (trimmed.startsWith("'")) {
+    if (!/^'(?:[^']|'')*'$/.test(trimmed)) return { error: 'malformed single-quoted scalar' };
+    return { text: trimmed.slice(1, -1).replace(/''/g, "'") };
+  }
   if (!trimmed.startsWith('"')) return { text: scalarText(rawValue) };
   if (!trimmed.endsWith('"')) return { error: 'unterminated scalar' };
 

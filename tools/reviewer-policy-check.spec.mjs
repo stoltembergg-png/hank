@@ -116,6 +116,20 @@ test('rejects trailing tokens after an early double-quote closure', () => {
   assert.match(summaryResult.stderr, /reviews\.high_level_summary_instructions contains unexpected closing quote/);
 });
 
+test('rejects trailing tokens after an early single-quote closure', () => {
+  const malformed = String.raw`'ok'junk'`;
+  const toneResult = runChecker(validConfig.replace(/tone_instructions:.*\n/, `tone_instructions: ${malformed}\n`));
+  const summaryResult = runChecker(validConfig.replace(
+    '  high_level_summary_instructions: "Liste impacto, risco e testes em até 3 bullets. Sem emojis."\n',
+    `  high_level_summary_instructions: ${malformed}\n`,
+  ));
+
+  assert.equal(toneResult.status, 1);
+  assert.match(toneResult.stderr, /tone_instructions contains malformed single-quoted scalar/);
+  assert.equal(summaryResult.status, 1);
+  assert.match(summaryResult.stderr, /reviews\.high_level_summary_instructions contains malformed single-quoted scalar/);
+});
+
 test('rejects flow collections in reviewer text settings', () => {
   const flowValues = ['[]', '{}', '[text, {nested: value}]'];
 
