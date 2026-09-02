@@ -33,6 +33,18 @@ test('ONP evidence checks out the pull request head, not a synthetic merge commi
   );
 });
 
+test('quality integrity binds and verifies the exact pull request head', () => {
+  const text = workflowText('quality-integrity.yml');
+  assert.match(
+    text,
+    /ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\|\|\s*github\.sha\s*\}\}/,
+    'quality integrity must bind to the PR head SHA',
+  );
+  assert.match(text, /- name: Verify checked revision[\s\S]*EXPECTED_SHA:/);
+  assert.match(text, /actual_sha=.*git rev-parse HEAD[\s\S]*test "\$actual_sha" = "\$EXPECTED_SHA"/);
+  assert.match(text, /actual_tree=.*git rev-parse HEAD\^\{tree\}[\s\S]*test "\$actual_tree" = "\$expected_tree"/);
+});
+
 test('all external actions are pinned and checkout does not persist credentials', () => {
   for (const name of workflowFiles) {
     const text = workflowText(name);
