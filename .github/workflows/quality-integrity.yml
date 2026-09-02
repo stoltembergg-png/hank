@@ -32,8 +32,8 @@ jobs:
         run: |
           set -euo pipefail
           actual_sha="$(git rev-parse HEAD)"
-          expected_tree="$(git rev-parse "${EXPECTED_SHA}^{tree}")"
-          actual_tree="$(git rev-parse HEAD^{tree})"
+          expected_tree="$(git ls-tree "$EXPECTED_SHA")"
+          actual_tree="$(git ls-tree HEAD)"
           test "$actual_sha" = "$EXPECTED_SHA"
           test "$actual_tree" = "$expected_tree"
 

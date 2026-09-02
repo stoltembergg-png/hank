@@ -42,7 +42,11 @@ test('quality integrity binds and verifies the exact pull request head', () => {
   );
   assert.match(text, /- name: Verify checked revision[\s\S]*EXPECTED_SHA:/);
   assert.match(text, /actual_sha=.*git rev-parse HEAD[\s\S]*test "\$actual_sha" = "\$EXPECTED_SHA"/);
-  assert.match(text, /actual_tree=.*git rev-parse HEAD\^\{tree\}[\s\S]*test "\$actual_tree" = "\$expected_tree"/);
+  assert.match(
+    text,
+    /expected_tree=.*git ls-tree "\$EXPECTED_SHA"[\s\S]*actual_tree=.*git ls-tree HEAD[\s\S]*test "\$actual_tree" = "\$expected_tree"/,
+    'quality integrity must compare the checked tree with the expected revision',
+  );
 });
 
 test('all external actions are pinned and checkout does not persist credentials', () => {
