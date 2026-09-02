@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: review-remediation-${{ github.repository }}-${{ github.event.review.id || github.event.check_run.id || github.run_id }}
+  group: review-remediation-${{ github.repository }}-review-${{ github.event.review.id || 'none' }}-check-${{ github.event.check_run.id || 'none' }}
   cancel-in-progress: false
 
 jobs:
