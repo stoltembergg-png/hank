@@ -7,7 +7,7 @@ import {
   readlinkSync,
   readdirSync,
 } from 'node:fs';
-import { isAbsolute, relative, resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 
 import {
   MAX_PATCH_BYTES,
@@ -186,19 +186,6 @@ export function validateResultTree({ workspace, beforeFiles, afterFiles }) {
   return { files: actual, treeDigest: treeDigest(snapshot, actual) };
 }
 
-function assertInsideWorkspace(workspace, candidate) {
-  const root = resolve(workspace);
-  const target = resolve(candidate);
-  if (isAbsolute(relative(root, target)) || relative(root, target).startsWith(`..${requirePathSeparator()}`) || relative(root, target) === '..') {
-    throw error('PATCH_FILE_OUTSIDE_WORKSPACE');
-  }
-  return target;
-}
-
-function requirePathSeparator() {
-  return process.platform === 'win32' ? '\\' : '/';
-}
-
 async function runGit(workspace, args, code) {
   try {
     return await execFileAsync('git', args, {
@@ -214,11 +201,13 @@ async function runGit(workspace, args, code) {
 
 export async function applyAndValidatePatch({ workspace, patchFile }) {
   if (typeof workspace !== 'string' || typeof patchFile !== 'string') throw error('PATCH_INPUT_INVALID');
-  const patchPath = assertInsideWorkspace(workspace, patchFile);
+  const patchPath = resolve(patchFile);
   let patch;
   try {
+    if (!lstatSync(patchPath).isFile()) throw error('PATCH_INPUT_INVALID');
     patch = readFileSync(patchPath, 'utf8');
-  } catch {
+  } catch (caught) {
+    if (caught instanceof PatchGuardError) throw caught;
     throw error('PATCH_INPUT_INVALID');
   }
   const metadata = validatePatchText(patch);

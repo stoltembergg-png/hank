@@ -13,6 +13,7 @@ export const MAX_RESULT_FILE_BYTES = 256 * 1024;
 const HEX_SHA = /^[0-9a-f]{40}$/i;
 const HEX_FINGERPRINT = /^[0-9a-f]{64}$/;
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
+const TEXT_CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
 const FORBIDDEN_PATH = /^(?:\.github\/(?:workflows|actions)(?:\/|$)|\.git(?:\/|$)|\.env(?:\.|$)|(?:^|\/)(?:credentials?|secrets?|tokens?|keys?)(?:\.|\/|$)|(?:^|\/)(?:CODEOWNERS|branch-protection|rulesets?)(?:\.|\/|$))/i;
 
 function byteLength(value) {
@@ -53,7 +54,7 @@ function validText(value, { label, maxBytes, required = true }) {
   const redacted = redactSecrets(value).trim();
   if (required && redacted.length === 0) return { error: `${label} is empty` };
   if (byteLength(redacted) > maxBytes) return { error: `${label} exceeds its byte limit` };
-  if (CONTROL_CHARACTERS.test(redacted)) return { error: `${label} contains control characters` };
+  if (TEXT_CONTROL_CHARACTERS.test(redacted)) return { error: `${label} contains control characters` };
   return { value: redacted };
 }
 
