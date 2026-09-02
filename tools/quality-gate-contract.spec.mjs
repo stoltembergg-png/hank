@@ -72,6 +72,8 @@ function runBody(lines, runEntry, end) {
     body.push(line.trim());
   }
 
+  if (runEntry.value.startsWith('>')) return [body.join(' ').trim()];
+
   const executable = [];
   let heredocDelimiter;
   for (const line of body) {
@@ -291,6 +293,27 @@ test('workflow contract recognizes block-scalar indicators with inline comments'
     'node --test tools/quality-gate-contract.spec.mjs',
     'fixture.yml',
     'integrity',
+  );
+});
+
+test('workflow contract does not treat folded run lines as independent commands', () => {
+  const foldedCommandWorkflow = `jobs:
+  integrity:
+    steps:
+      - name: Validate automated reviewer policy
+        run: >
+          echo disabled
+          node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assert.throws(
+    () => assertJobStepRun(
+      foldedCommandWorkflow,
+      'Validate automated reviewer policy',
+      'node --test tools/reviewer-policy-check.spec.mjs',
+      'fixture.yml',
+    ),
+    /fixture\.yml: job Validate automated reviewer policy missing run containing/,
   );
 });
 
