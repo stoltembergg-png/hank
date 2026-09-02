@@ -7,9 +7,7 @@ reviews:
   # resolved conversations remain the authoritative merge conditions.
   request_changes_workflow: false
   high_level_summary: true
-  high_level_summary_instructions: >-
-    Resuma impacto funcional, arquitetural, de segurança, compatibilidade e
-    release. Declare explicitamente qualquer prova, teste ou gate ainda ausente.
+  high_level_summary_instructions: "Resuma impacto, segurança e compatibilidade; indique testes e gates ausentes."
   review_status: true
   review_details: true
   review_progress: true

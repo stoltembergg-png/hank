@@ -166,3 +166,16 @@ test('accepts inline comments on canonical YAML block headers', () => {
 
   assert.equal(result.status, 0, result.stderr);
 });
+
+test('rejects an oversized CodeRabbit summary instruction', () => {
+  const result = runChecker(`reviews:
+  request_changes_workflow: false
+  fail_commit_status: true
+  high_level_summary_instructions: "${'x'.repeat(101)}"
+  auto_review:
+    enabled: true
+`);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviews\.high_level_summary_instructions must be at most 100 characters/);
+});

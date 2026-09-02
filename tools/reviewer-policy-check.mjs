@@ -88,6 +88,13 @@ function boolean(blockValue, name) {
   return undefined;
 }
 
+function value(blockValue, name) {
+  const matches = directMappings(blockValue.lines, blockValue.indentation)
+    .filter((entry) => entry.name === name);
+  if (matches.length !== 1) return undefined;
+  return matches[0].value;
+}
+
 function validate(source) {
   const lines = source.split(/\r?\n/);
   const reviews = block(lines, -1, 'reviews');
@@ -104,6 +111,12 @@ function validate(source) {
   }
   if (!autoReview || boolean(autoReview, 'enabled') !== true) {
     errors.push('reviews.auto_review.enabled must be true');
+  }
+
+  const summary = value(reviews, 'high_level_summary_instructions');
+  if (summary !== undefined) {
+    const unquoted = /^(['"])(.*)\1$/.exec(summary)?.[2] ?? summary;
+    if (unquoted.length > 100) errors.push('reviews.high_level_summary_instructions must be at most 100 characters');
   }
 
   return errors;

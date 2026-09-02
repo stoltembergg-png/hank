@@ -128,9 +128,8 @@ function executableRunCommands(workflow, jobName) {
 }
 
 function assertCommand(workflow, command, file, jobName) {
-  const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const found = executableRunCommands(workflow, jobName)
-    .some((run) => new RegExp(`^${escaped}(?:\\s|$)`).test(run));
+    .some((run) => run === command);
   assert.ok(found, `${file}: missing ${command}`);
 }
 
@@ -232,6 +231,25 @@ test('workflow contract does not treat heredoc content as an executable command'
   assert.throws(
     () => assertCommand(
       heredocWorkflow,
+      'node --test tools/reviewer-policy-check.spec.mjs',
+      'fixture.yml',
+      'integrity',
+    ),
+    /fixture\.yml: missing node --test tools\/reviewer-policy-check\.spec\.mjs/,
+  );
+});
+
+test('workflow contract rejects commands that can mask failures', () => {
+  const failOpenWorkflow = `jobs:
+  integrity:
+    steps:
+      - name: Fail open
+        run: node --test tools/reviewer-policy-check.spec.mjs || true
+`;
+
+  assert.throws(
+    () => assertCommand(
+      failOpenWorkflow,
       'node --test tools/reviewer-policy-check.spec.mjs',
       'fixture.yml',
       'integrity',
