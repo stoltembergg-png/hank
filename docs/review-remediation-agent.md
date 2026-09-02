@@ -24,7 +24,9 @@ para revisão humana.
 ## Fluxo
 
 1. `collect` lê o evento e a API do GitHub, valida identidade, SHA, finding e
-   fingerprint.
+   fingerprint. Durante o primeiro rollout, enquanto o helper ainda não estiver na
+   branch padrão, o job encerra como `NOOP` para não executar código recém-introduzido
+   pela PR.
 2. `propose` é o único job que recebe `XIAOMI_MIMO_API_KEY`; o modelo retorna um
    patch ou `NO_PATCH`.
 3. `validate` aplica o patch em um target detached no SHA exato, sem credencial MiMo

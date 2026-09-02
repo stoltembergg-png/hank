@@ -46,10 +46,14 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          node tools/review-remediation-agent.mjs collect \
-            --event "$GITHUB_EVENT_PATH" \
-            --output collect.json \
-            --repository "$GITHUB_REPOSITORY"
+          if [[ -f tools/review-remediation-agent.mjs ]]; then
+            node tools/review-remediation-agent.mjs collect \
+              --event "$GITHUB_EVENT_PATH" \
+              --output collect.json \
+              --repository "$GITHUB_REPOSITORY"
+          else
+            printf '{"status":"NOOP","reason":"HELPER_NOT_ON_DEFAULT_BRANCH"}\n' > collect.json
+          fi
 
       - name: Expose bounded identity
         id: identity

@@ -77,6 +77,13 @@ test('pins actions and source identity, and prevents pull-request code from usin
   assert.match(workflow, /if:\s*\$\{\{\s*needs\.validate\.outputs\.status\s*==\s*'VALIDATED'/);
 });
 
+test('fails closed during first rollout when the trusted helper is not on the default branch', () => {
+  const collect = jobBlock(readWorkflow(), 'collect');
+  assert.match(collect, /if \[\[ -f tools\/review-remediation-agent\.mjs \]\]/);
+  assert.match(collect, /HELPER_NOT_ON_DEFAULT_BRANCH/);
+  assert.match(collect, /status.*NOOP/);
+});
+
 test('fixes the MiMo model and endpoint in trusted workflow code', () => {
   const workflow = readWorkflow();
   assert.match(workflow, /mimo-v2\.5/);
