@@ -27,10 +27,10 @@ test('declares only the supported review events and four bounded jobs', () => {
   assert.doesNotMatch(workflow, /^  (?:push|pull_request|workflow_dispatch|schedule):/m);
   assert.match(workflow, /^permissions:\s*$/m);
   assert.match(workflow, /^concurrency:\s*$/m);
-  assert.match(workflow, /group:\s*review-remediation-\$\{\{\s*github\.repository\s*\}\}-\$\{\{\s*github\.run_id\s*\}\}/);
-  assert.doesNotMatch(workflow, /group:[^\n]*github\.event_name/);
+  assert.match(workflow, /group:\s*review-remediation-\$\{\{\s*github\.repository\s*\}\}-\$\{\{\s*github\.event\.review\.id\s*\|\|\s*github\.event\.check_run\.id\s*\|\|\s*github\.run_id\s*\}\}/);
+  assert.match(workflow, /github\.event\.review\.id/);
+  assert.match(workflow, /github\.event\.check_run\.id/);
   assert.match(workflow, /cancel-in-progress:\s*false/);
-  assert.doesNotMatch(workflow, /group:[^\n]*\}\}-\$\{\{\s*github\.event_name\s*\}\}/);
   for (const job of ['collect', 'propose', 'validate', 'publish']) {
     const block = jobBlock(workflow, job);
     assert.ok(block, `${job} job is missing`);

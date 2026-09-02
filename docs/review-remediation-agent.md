@@ -55,9 +55,10 @@ Reasoning do provedor, tokens e respostas HTTP brutas não são persistidos. As 
 de JSON, patches e arquivos allowlisted usam caminhos relativos validados e descritores
 de arquivo com `O_NOFOLLOW` quando o sistema oferece essa proteção.
 
-Cada execução usa um grupo único e não cancelável; um grupo compartilhado por PR seria
-inseguro porque o GitHub Actions mantém apenas uma execução pendente e poderia descartar
-findings em uma rajada.
+Cada evento usa uma chave de concorrência não cancelável baseada no identificador
+durável da review ou do check run, com `run_id` apenas como fallback. Findings
+distintos não ocupam a mesma fila; uma reentrega do mesmo evento é serializada.
+O branch determinístico mantém a idempotência entre eventos diferentes.
 Antes do commit, o agente relê os marcadores do publisher confiável e a branch
 determinística. A criação da branch determinística no GitHub é uma reivindicação
 atômica. Uma branch existente é classificada pelo commit remoto: a reserva no SHA
