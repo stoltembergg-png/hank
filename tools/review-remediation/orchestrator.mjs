@@ -181,8 +181,12 @@ async function finalizeFinding({ finding, repository, api }) {
   } catch {
     return result('HUMAN_REQUIRED', 'remediation branch state could not be read');
   }
-  if (branch) return result('NOOP', 'remediation branch already exists');
-  return { status: 'READY', finding: normalized.finding, cycle: previousCycle + 1 };
+  return {
+    status: 'READY',
+    finding: normalized.finding,
+    cycle: previousCycle + 1,
+    branchExists: Boolean(branch),
+  };
 }
 
 export async function collectFinding({ event, repository, api }) {

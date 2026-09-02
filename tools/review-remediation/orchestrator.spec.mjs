@@ -236,6 +236,21 @@ test('keeps the remediation cycle cap across source head changes', async () => {
   assert.equal(capped.status, 'HUMAN_REQUIRED');
 });
 
+test('keeps an interrupted branch claim recoverable', async () => {
+  const claimed = await collectFinding({
+    event: codeRabbitEvent(),
+    repository,
+    api: fakeApi({
+      getReviewComments: async () => [codeRabbitComment()],
+      getBranch: async (branch) => ({ name: branch, commit: { sha: headSha } }),
+    }),
+  });
+
+  assert.equal(claimed.status, 'READY', JSON.stringify(claimed));
+  assert.equal(claimed.branchExists, true);
+  assert.equal(claimed.cycle, 1);
+});
+
 test('ignores cycle and duplicate markers authored by an untrusted commenter', async () => {
   const collected = await collectFinding({
     event: codeRabbitEvent(),

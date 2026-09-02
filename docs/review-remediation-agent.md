@@ -62,6 +62,9 @@ atômica; se outra execução já a criou, a árvore e o pai do commit são comp
 antes da recuperação da PR, sem force-push. A criação da PR valida que a branch aponta para a base original
 e que a PR existente continua em rascunho; uma corrida de criação é reconsultada
 antes de ser considerada concluída.
+Uma branch criada por uma execução interrompida não bloqueia o finding: a coleta
+mantém `READY` e a próxima execução recupera a branch somente após as mesmas
+verificações de pai e árvore.
 
 ## Configuração, rotação e rollback
 
