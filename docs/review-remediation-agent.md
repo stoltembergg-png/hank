@@ -49,7 +49,8 @@ para revisão humana.
 Os artefatos carregam apenas descriptors, digests, patch bounded e evidência redigida.
 Reasoning do provedor, tokens e respostas HTTP brutas não são persistidos.
 
-Todos os eventos da mesma PR compartilham um grupo de concorrência sem cancelamento.
+Cada evento usa seu próprio grupo de concorrência, sem cancelamento, para não depender
+do único slot pendente do GitHub Actions nem descartar findings em uma rajada.
 Antes do commit, o agente relê os marcadores do publisher confiável e a branch
 determinística; se um deles já existir, retorna `NOOP`. O push sem force é a barreira
 final contra duas execuções concorrentes criarem a mesma branch.

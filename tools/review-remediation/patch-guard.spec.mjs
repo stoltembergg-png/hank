@@ -306,6 +306,27 @@ test('rejects modified ignored files instead of validating an unpublishable resu
   }
 });
 
+test('rejects ignored deletions before skipping an absent result path', () => {
+  const workspace = mkdtempSync(join(process.cwd(), '.hank-review-guard-ignored-deletion-'));
+  try {
+    mkdirSync(join(workspace, 'ignored'));
+    writeFileSync(join(workspace, '.gitignore'), 'ignored/\n');
+    git(workspace, ['init', '-q']);
+    git(workspace, ['config', 'core.autocrlf', 'false']);
+    git(workspace, ['config', 'user.email', 'test@example.invalid']);
+    git(workspace, ['config', 'user.name', 'Test Fixture']);
+    git(workspace, ['add', '.gitignore']);
+    git(workspace, ['commit', '-qm', 'fixture']);
+
+    assert.throws(
+      () => validateResultTree({ workspace: workspaceInput(workspace), beforeFiles: ['ignored/value.txt'], afterFiles: ['ignored/value.txt'] }),
+      (error) => error.code === 'PATCH_RESULT_IGNORED',
+    );
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
 test('rejects an allowlisted result file above the output size limit', () => {
   const workspace = mkdtempSync(join(process.cwd(), '.hank-review-guard-large-'));
   try {

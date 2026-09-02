@@ -73,7 +73,7 @@ The workflow is divided into four jobs so that no job both holds the MiMo secret
 4. **Publish** — write access only after validation. Recreate the validated worktree, re-fetch the original PR and source branch identity at the exact collected SHA, commit only the verified files with hooks disabled, verify the staged file list and clean worktree/index boundary, re-check the trusted marker history and deterministic remediation branch, push the branch without force, and create a draft PR against the original source branch. The body contains bounded evidence metadata, tests, rollback instructions, and an explicit no-approval statement.
 
 The workflow uses `persist-credentials: false` for every checkout. Pull-request code is never executed while `XIAOMI_MIMO_API_KEY` or a write-capable GitHub token is present.
-All events for the same repository pull request share one concurrency group with cancellation disabled. Publication-time marker and branch checks, followed by a non-force push, provide the idempotency boundary for duplicate events.
+Each event uses its own non-canceling concurrency group keyed by `github.run_id`, so a burst does not replace an actionable event in GitHub Actions' single pending slot. Publication-time marker and branch checks, followed by a non-force push, provide the idempotency boundary for duplicate events.
 
 ## Event and finding contract
 

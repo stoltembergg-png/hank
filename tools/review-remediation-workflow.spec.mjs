@@ -27,9 +27,8 @@ test('declares only the supported review events and four bounded jobs', () => {
   assert.doesNotMatch(workflow, /^  (?:push|pull_request|workflow_dispatch|schedule):/m);
   assert.match(workflow, /^permissions:\s*$/m);
   assert.match(workflow, /^concurrency:\s*$/m);
-  assert.match(workflow, /group:\s*review-remediation-\$\{\{.*github\.event_name == 'pull_request_review'.*github\.event\.review\.user\.login.*github\.event\.check_run\.app\.slug == 'aikido'.*github\.run_id \}\}/);
-  assert.match(workflow, /github\.event\.check_run\.pull_requests\[1\]\.number == null/);
-  assert.doesNotMatch(workflow, /group:[^\n]*github\.event\.review\.user\.login \|\|/);
+  assert.match(workflow, /group:\s*review-remediation-\$\{\{\s*github\.repository\s*\}\}-\$\{\{\s*github\.run_id\s*\}\}/);
+  assert.doesNotMatch(workflow, /group:[^\n]*github\.event_name/);
   assert.match(workflow, /cancel-in-progress:\s*false/);
   assert.doesNotMatch(workflow, /group:[^\n]*\}\}-\$\{\{\s*github\.event_name\s*\}\}/);
   for (const job of ['collect', 'propose', 'validate', 'publish']) {

@@ -319,11 +319,11 @@ export function validateResultTree({ workspace, beforeFiles, afterFiles }) {
   if (actual.some((path) => !allowed.includes(path))) throw error('PATCH_RESULT_OUTSIDE_ALLOWLIST');
   const snapshot = snapshotWorkspace(workspace, allowed);
   for (const path of actual) {
+    if (isIgnoredResultPath(resolveWorkspaceRoot(workspace), path)) throw error('PATCH_RESULT_IGNORED');
     const entry = snapshot.get(path);
     if (!entry) continue;
     if (entry.kind !== 'file') throw error('PATCH_RESULT_SPECIAL_FILE');
     if (entry.bytes > MAX_RESULT_FILE_BYTES) throw error('PATCH_RESULT_TOO_LARGE');
-    if (isIgnoredResultPath(resolveWorkspaceRoot(workspace), path)) throw error('PATCH_RESULT_IGNORED');
   }
   return { files: actual, treeDigest: treeDigest(snapshot, actual) };
 }
