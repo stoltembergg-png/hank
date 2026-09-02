@@ -74,7 +74,7 @@ test('rejects unsafe branches and paths before model processing', () => {
   for (const sourceBranch of ['../main', 'feature\\secret', 'feature..name', 'feature name']) {
     assert.equal(normalizeFinding(validFinding({ sourceBranch }), repository).status, 'HUMAN_REQUIRED');
   }
-  for (const path of ['../secret.txt', '/absolute.txt', '.github/workflows/build.yml', 'target\\file.rs']) {
+  for (const path of ['../secret.txt', '/absolute.txt', '.github/workflows/build.yml', 'config/credentials.json', 'config/.env.local', 'target\\file.rs']) {
     assert.equal(normalizeFinding(validFinding({ path }), repository).status, 'HUMAN_REQUIRED');
   }
 });
