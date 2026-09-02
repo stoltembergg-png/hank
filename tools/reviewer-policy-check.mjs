@@ -26,7 +26,7 @@ function stripInlineComment(value) {
   const scalarStart = value.search(/\S|$/);
   let scalarQuote = value[scalarStart] === '"' || value[scalarStart] === "'" ? value[scalarStart] : undefined;
   let escaped = false;
-  for (let index = scalarStart; index < value.length; index += 1) {
+  for (let index = scalarQuote ? scalarStart + 1 : scalarStart; index < value.length; index += 1) {
     const character = value[index];
     if (scalarQuote === '"') {
       if (escaped) {
