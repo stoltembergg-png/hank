@@ -49,7 +49,9 @@ para revisão humana.
   rascunho continuam sendo a autoridade final para código Rust, frontend, Tauri e E2E.
 
 Os artefatos carregam apenas descriptors, digests, patch bounded e evidência redigida.
-Reasoning do provedor, tokens e respostas HTTP brutas não são persistidos.
+Reasoning do provedor, tokens e respostas HTTP brutas não são persistidos. As leituras
+de JSON, patches e arquivos allowlisted usam caminhos relativos validados e descritores
+de arquivo com `O_NOFOLLOW` quando o sistema oferece essa proteção.
 
 Cada execução usa um grupo único e não cancelável; um grupo compartilhado por PR seria
 inseguro porque o GitHub Actions mantém apenas uma execução pendente e poderia descartar

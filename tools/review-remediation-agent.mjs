@@ -1,4 +1,4 @@
-import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, realpathSync, writeFileSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 
 import { createGithubApi } from './review-remediation/github-api.mjs';
@@ -70,6 +70,18 @@ function resolveCliPath(path, { allowEventPath = false } = {}) {
   return candidate;
 }
 
+function resolveCliReadTarget(path, options) {
+  const inputPath = resolveCliPath(path, options);
+  const workspace = resolve(process.env.GITHUB_WORKSPACE ?? process.cwd());
+  const eventPath = process.env.GITHUB_EVENT_PATH ? resolve(process.env.GITHUB_EVENT_PATH) : undefined;
+  const isEventPath = options?.allowEventPath === true && eventPath === inputPath;
+  const root = isEventPath ? resolve(inputPath, '..') : realpathSync(workspace);
+  const canonical = realpathSync(inputPath);
+  const relativePath = relative(root, canonical);
+  if (!relativePath || relativePath.startsWith('..') || isAbsolute(relativePath)) throw error('CLI_INPUT_INVALID');
+  return { root, relativePath };
+}
+
 function resolveCliOutputPath(path) {
   if (typeof path !== 'string' || path.length === 0 || path.includes('\u0000')) throw error('CLI_INPUT_INVALID');
   const candidate = resolve(path);
@@ -87,7 +99,15 @@ function resolveCliOutputPath(path) {
   return candidate;
 }
 
-function readBoundedFile(filePath) {
+function readBoundedFile({ root, relativePath }) {
+  if (typeof root !== 'string' || typeof relativePath !== 'string'
+    || relativePath.length === 0 || relativePath.includes('\u0000')
+    || relativePath.includes('..') || isAbsolute(relativePath)) {
+    throw error('CLI_INPUT_INVALID');
+  }
+  const filePath = resolve(root, relativePath);
+  const relativeCheck = relative(root, filePath);
+  if (relativeCheck.startsWith('..') || isAbsolute(relativeCheck)) throw error('CLI_INPUT_INVALID');
   let descriptor;
   try {
     const noFollow = constants.O_NOFOLLOW ?? 0;
@@ -95,9 +115,15 @@ function readBoundedFile(filePath) {
     const stat = fstatSync(descriptor);
     if (!stat.isFile()) throw error('CLI_INPUT_INVALID');
     if (stat.size > MAX_JSON_BYTES) throw error('CLI_INPUT_TOO_LARGE');
-    const content = readFileSync(descriptor);
-    if (content.byteLength > MAX_JSON_BYTES) throw error('CLI_INPUT_TOO_LARGE');
-    return content.toString('utf8');
+    const content = Buffer.alloc(MAX_JSON_BYTES + 1);
+    let bytesRead = 0;
+    while (bytesRead < content.byteLength) {
+      const result = readSync(descriptor, content, bytesRead, content.byteLength - bytesRead, null);
+      if (result === 0) break;
+      bytesRead += result;
+    }
+    if (bytesRead > MAX_JSON_BYTES || fstatSync(descriptor).size > MAX_JSON_BYTES) throw error('CLI_INPUT_TOO_LARGE');
+    return content.subarray(0, bytesRead).toString('utf8');
   } catch (caught) {
     if (caught instanceof CliError) throw caught;
     throw error('CLI_INPUT_INVALID');
@@ -114,9 +140,10 @@ function readBoundedFile(filePath) {
 
 function readJson(path, options) {
   try {
-    const inputPath = resolveCliPath(path, options);
+    const target = resolveCliReadTarget(path, options);
+    const inputPath = resolve(target.root, target.relativePath);
     if (!lstatSync(inputPath).isFile()) throw error('CLI_INPUT_INVALID');
-    return JSON.parse(readBoundedFile(inputPath));
+    return JSON.parse(readBoundedFile(target));
   } catch (caught) {
     if (caught instanceof CliError) throw caught;
     throw error('CLI_INPUT_INVALID');

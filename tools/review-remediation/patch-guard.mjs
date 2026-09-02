@@ -7,7 +7,7 @@ import {
   fstatSync,
   lstatSync,
   openSync,
-  readFileSync,
+  readSync,
   readlinkSync,
   readdirSync,
   realpathSync,
@@ -148,7 +148,15 @@ function pathWithin(root, candidate) {
   return relativePath === '' || (!relativePath.startsWith('..') && !isAbsolute(relativePath));
 }
 
-function readBoundedFile(filePath, maxBytes, tooLargeCode, invalidCode) {
+function readBoundedFile({ root, relativePath }, maxBytes, tooLargeCode, invalidCode) {
+  if (typeof root !== 'string' || typeof relativePath !== 'string'
+    || relativePath.length === 0 || relativePath.includes('\u0000')
+    || relativePath.includes('..') || isAbsolute(relativePath)) {
+    throw error(invalidCode);
+  }
+  const filePath = resolve(root, relativePath);
+  const relativeCheck = relative(root, filePath);
+  if (relativeCheck.startsWith('..') || isAbsolute(relativeCheck)) throw error(invalidCode);
   let descriptor;
   try {
     const noFollow = constants.O_NOFOLLOW ?? 0;
@@ -156,9 +164,15 @@ function readBoundedFile(filePath, maxBytes, tooLargeCode, invalidCode) {
     const stat = fstatSync(descriptor);
     if (!stat.isFile()) throw error(invalidCode);
     if (stat.size > maxBytes) throw error(tooLargeCode);
-    const content = readFileSync(descriptor);
-    if (content.byteLength > maxBytes) throw error(tooLargeCode);
-    return content;
+    const content = Buffer.alloc(maxBytes + 1);
+    let bytesRead = 0;
+    while (bytesRead < content.byteLength) {
+      const result = readSync(descriptor, content, bytesRead, content.byteLength - bytesRead, null);
+      if (result === 0) break;
+      bytesRead += result;
+    }
+    if (bytesRead > maxBytes || fstatSync(descriptor).size > maxBytes) throw error(tooLargeCode);
+    return content.subarray(0, bytesRead);
   } catch (caught) {
     if (caught instanceof PatchGuardError) throw caught;
     throw error(invalidCode);
@@ -218,12 +232,14 @@ function resolvePatchPath(patchFile) {
 
 export function readPatchFile({ workspace, patchFile }) {
   resolveWorkspaceRoot(workspace);
+  const trustedRoot = trustedWorkspaceBase();
   const patchPath = resolvePatchPath(patchFile);
+  const patchRelativePath = toPosixPath(relative(trustedRoot, patchPath));
   try {
     const stat = lstatSync(patchPath);
     if (!stat.isFile() || stat.isSymbolicLink()) throw error('PATCH_INPUT_INVALID');
     if (stat.size > MAX_PATCH_BYTES) throw error('PATCH_TOO_LARGE');
-    return readBoundedFile(patchPath, MAX_PATCH_BYTES, 'PATCH_TOO_LARGE', 'PATCH_INPUT_INVALID').toString('utf8');
+    return readBoundedFile({ root: trustedRoot, relativePath: patchRelativePath }, MAX_PATCH_BYTES, 'PATCH_TOO_LARGE', 'PATCH_INPUT_INVALID').toString('utf8');
   } catch (caught) {
     if (caught instanceof PatchGuardError) throw caught;
     throw error('PATCH_INPUT_INVALID');
@@ -260,7 +276,7 @@ function snapshotWorkspace(workspace, allowlistedPaths = [], resolvedRoot) {
       }
       const bytes = stat.size;
       if (allowlisted.has(relativePath)) {
-        const content = readBoundedFile(validatedPath, MAX_RESULT_FILE_BYTES, 'PATCH_RESULT_TOO_LARGE', 'PATCH_RESULT_PATH_INVALID');
+        const content = readBoundedFile({ root, relativePath }, MAX_RESULT_FILE_BYTES, 'PATCH_RESULT_TOO_LARGE', 'PATCH_RESULT_PATH_INVALID');
         snapshot.set(relativePath, { kind: 'file', value: sha256(content), bytes: content.byteLength });
         continue;
       }

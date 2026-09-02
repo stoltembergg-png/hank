@@ -182,6 +182,7 @@ All tests are offline and deterministic:
 - integration fixture: successful collect→propose→validate→draft descriptor and failure matrix with no external network.
 
 The tests must not contain a real provider credential or call Xiaomi. Quality gates are Actionlint, the workflow-integrity tests, the applicable Node/Rust tests, format/lint checks, and the existing CI/reviewer checks on the draft PR.
+CLI and patch readers must validate repository-relative paths before opening them and use descriptor-based bounded reads; on platforms that expose `O_NOFOLLOW`, the reader must request it to avoid following a swapped symlink.
 
 ## Operational prerequisites
 
