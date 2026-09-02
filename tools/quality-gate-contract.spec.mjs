@@ -11,8 +11,108 @@ const tauriWorkflow = read('.github/workflows/build-tauri.yml');
 const codeqlWorkflow = read('.github/workflows/codeql.yml');
 const qualityIntegrityWorkflow = read('.github/workflows/quality-integrity.yml');
 
-function assertCommand(workflow, command, file) {
-  assert.match(workflow, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${file}: missing ${command}`);
+function yamlMapping(line, index) {
+  const match = /^(\s*)([A-Za-z_][A-Za-z0-9_-]*):(?:\s*(.*))?$/.exec(line);
+  if (!match) return undefined;
+
+  return {
+    index,
+    indentation: match[1].length,
+    name: match[2],
+    value: (match[3] ?? '').trim(),
+  };
+}
+
+function directMappings(lines, start, end, parentIndentation) {
+  const entries = [];
+  for (let index = start; index < end; index += 1) {
+    const entry = yamlMapping(lines[index], index);
+    if (entry && entry.indentation > parentIndentation) entries.push(entry);
+  }
+  if (entries.length === 0) return [];
+
+  const directIndentation = Math.min(...entries.map((entry) => entry.indentation));
+  return entries.filter((entry) => entry.indentation === directIndentation);
+}
+
+function blockFromEntry(lines, entry, end) {
+  let blockEnd = end;
+  for (let index = entry.index + 1; index < end; index += 1) {
+    const line = lines[index];
+    if (line.trim() === '' || line.trimStart().startsWith('#')) continue;
+    if (line.length - line.trimStart().length <= entry.indentation) {
+      blockEnd = index;
+      break;
+    }
+  }
+
+  return { start: entry.index + 1, end: blockEnd, indentation: entry.indentation };
+}
+
+function findBlock(lines, start, end, parentIndentation, name) {
+  const matches = directMappings(lines, start, end, parentIndentation)
+    .filter((entry) => entry.name === name && entry.value === '');
+  if (matches.length !== 1) return undefined;
+  return blockFromEntry(lines, matches[0], end);
+}
+
+function runBody(lines, runEntry, end) {
+  if (!/^[|>][+-]?(?:\s+#.*)?$/.test(runEntry.value)) return [runEntry.value];
+
+  const body = [];
+  for (let index = runEntry.index + 1; index < end; index += 1) {
+    const line = lines[index];
+    if (line.trim() !== '' && line.length - line.trimStart().length <= runEntry.indentation) break;
+    body.push(line.trim());
+  }
+  return body;
+}
+
+function executableRunCommands(workflow, jobName) {
+  const lines = workflow.split(/\r?\n/);
+  const jobs = findBlock(lines, 0, lines.length, -1, 'jobs');
+  if (!jobs) return [];
+
+  const jobEntries = directMappings(lines, jobs.start, jobs.end, jobs.indentation)
+    .filter((entry) => entry.value === '')
+    .filter((entry) => jobName === undefined || entry.name === jobName);
+
+  return jobEntries.flatMap((jobEntry) => {
+    const job = blockFromEntry(lines, jobEntry, jobs.end);
+    const steps = findBlock(lines, job.start, job.end, job.indentation, 'steps');
+    if (!steps) return [];
+
+    const stepIndentation = steps.indentation + 2;
+    const runIndentation = stepIndentation + 2;
+    let inStep = false;
+    const commands = [];
+
+    for (let index = steps.start; index < steps.end; index += 1) {
+      const line = lines[index];
+      const indentation = line.length - line.trimStart().length;
+      if (indentation === stepIndentation && /^\s*-\s/.test(line)) {
+        inStep = true;
+        const inlineRun = new RegExp(`^\\s*-\\s+run:\\s*(.*)$`).exec(line);
+        if (inlineRun) commands.push(inlineRun[1].trim());
+        continue;
+      }
+      if (!inStep) continue;
+
+      const entry = yamlMapping(line, index);
+      if (entry?.indentation === runIndentation && entry.name === 'run') {
+        commands.push(...runBody(lines, entry, steps.end));
+      }
+    }
+
+    return commands;
+  });
+}
+
+function assertCommand(workflow, command, file, jobName) {
+  const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const found = executableRunCommands(workflow, jobName)
+    .some((run) => new RegExp(`^${escaped}(?:\\s|$)`).test(run));
+  assert.ok(found, `${file}: missing ${command}`);
 }
 
 test('Rust workflow has fail-closed quality commands', () => {
@@ -53,5 +153,30 @@ test('quality integrity validates the hardened automated reviewer policy', () =>
     qualityIntegrityWorkflow,
     'node --test tools/reviewer-policy-check.spec.mjs',
     'quality-integrity.yml',
+    'integrity',
+  );
+});
+
+test('workflow contract ignores comments, echo, and another job', () => {
+  const decoyWorkflow = `# node --test tools/reviewer-policy-check.spec.mjs
+jobs:
+  decoy:
+    steps:
+      - run: echo "node --test tools/reviewer-policy-check.spec.mjs"
+  integrity:
+    steps:
+      - name: Comment only
+        run: |
+          # node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assert.throws(
+    () => assertCommand(
+      decoyWorkflow,
+      'node --test tools/reviewer-policy-check.spec.mjs',
+      'fixture.yml',
+      'integrity',
+    ),
+    /fixture\.yml: missing node --test tools\/reviewer-policy-check\.spec\.mjs/,
   );
 });
