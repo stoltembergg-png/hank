@@ -169,6 +169,32 @@ test('accepts inline comments on canonical YAML block headers', () => {
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('accepts a plain scalar with an embedded quote before an inline comment', () => {
+  const result = runChecker(`reviews:
+  request_changes_workflow: false
+  fail_commit_status: true
+  high_level_summary_instructions: plain "quoted # ${'x'.repeat(101)} trailing comment
+  auto_review:
+    enabled: true
+`);
+
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('accepts a single-quoted scalar with a literal backslash and doubled quote', () => {
+  const config = [
+    'reviews:',
+    '  request_changes_workflow: false',
+    '  fail_commit_status: true',
+    "  high_level_summary_instructions: 'literal \\''' # trailing " + 'x'.repeat(101),
+    '  auto_review:',
+    '    enabled: true',
+  ].join('\n');
+  const result = runChecker(config);
+
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test('rejects an oversized CodeRabbit summary instruction', () => {
   const result = runChecker(`reviews:
   request_changes_workflow: false

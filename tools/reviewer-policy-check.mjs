@@ -11,20 +11,34 @@ function isBlockScalar(value) {
 }
 
 function stripInlineComment(value) {
-  let quote;
+  const scalarStart = value.search(/\S|$/);
+  let scalarQuote = value[scalarStart] === '"' || value[scalarStart] === "'" ? value[scalarStart] : undefined;
   let escaped = false;
-  for (let index = 0; index < value.length; index += 1) {
+  for (let index = scalarStart; index < value.length; index += 1) {
     const character = value[index];
-    if (quote) {
-      if (character === quote && !escaped) quote = undefined;
-      escaped = character === '\\' && !escaped;
+    if (scalarQuote === '"') {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (character === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (character === '"') scalarQuote = undefined;
       continue;
     }
-    if (character === '"' || character === "'") {
-      quote = character;
+    if (scalarQuote === "'") {
+      if (character === "'") {
+        if (value[index + 1] === "'") {
+          index += 1;
+          continue;
+        }
+        scalarQuote = undefined;
+      }
       continue;
     }
-    if (character === '#' && (index === 0 || /\s/.test(value[index - 1]))) return value.slice(0, index);
+    if (character === '#' && (index === scalarStart || /\s/.test(value[index - 1]))) return value.slice(0, index);
   }
   return value;
 }
@@ -34,10 +48,22 @@ function hasUnclosedQuote(value) {
   const quote = trimmed[0];
   if (quote !== '"' && quote !== "'") return false;
 
+  if (quote === "'") {
+    for (let index = 1; index < trimmed.length; index += 1) {
+      if (trimmed[index] !== "'") continue;
+      if (trimmed[index + 1] === "'") {
+        index += 1;
+        continue;
+      }
+      return false;
+    }
+    return true;
+  }
+
   let escaped = false;
   for (let index = 1; index < trimmed.length; index += 1) {
     const character = trimmed[index];
-    if (character === quote && !escaped) return false;
+    if (character === '"' && !escaped) return false;
     escaped = character === '\\' && !escaped;
   }
   return true;
