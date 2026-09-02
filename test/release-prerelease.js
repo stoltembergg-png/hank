@@ -22,6 +22,8 @@ import {
 import {
   assertManifestMatchesRuleset,
   readRequiredChecks,
+  readProtectedChecks,
+  readPullRequestChecks,
   readRulesetRequiredChecks,
 } from '../tools/release-required-checks.mjs';
 
@@ -70,12 +72,16 @@ test('AC-626: fails closed on missing or failed post-merge checks @spec:AC-626',
 test('AC-626: prerelease derives required checks from manifest and active ruleset @spec:AC-626', () => {
   const workflow = readFileSync('.github/workflows/release-prerelease.yml', 'utf8');
   const manifest = JSON.parse(readFileSync('.github/required-checks.json', 'utf8'));
-  const activeRules = JSON.parse(readFileSync('.github/required-checks.json', 'utf8'));
   const names = readRequiredChecks(manifest);
-    assert.equal(names.length, 14);
-    assert.ok(names.includes('CodeRabbit'));
-    assert.ok(names.includes('Aikido Security: check code'));
-    assert.ok(names.includes('Aikido Security: Deep Review'));
+  const reviewerNames = readPullRequestChecks(manifest);
+  const protectedNames = readProtectedChecks(manifest);
+  assert.equal(names.length, 11);
+  assert.deepEqual(reviewerNames, [
+    'CodeRabbit',
+    'Aikido Security: check code',
+    'Aikido Security: Deep Review',
+  ]);
+  assert.deepEqual(protectedNames, [...names, ...reviewerNames]);
   assert.match(workflow, /rules\/branches\/main/);
   assert.match(workflow, /\.github\/required-checks\.json/);
   assert.match(workflow, /release-required-checks\.mjs validate/);
@@ -83,13 +89,23 @@ test('AC-626: prerelease derives required checks from manifest and active rulese
   assert.doesNotMatch(workflow, /branches\/main\/protection\/required_status_checks/);
   const ruleset = [{ type: 'required_status_checks', parameters: {
     strict_required_status_checks_policy: true,
-    required_status_checks: names.map((context) => ({ context, integration_id: 15368 })),
+    required_status_checks: protectedNames.map((context) => ({
+      context,
+      integration_id: reviewerNames.includes(context) ? (context === 'CodeRabbit' ? 347564 : 898896) : 15368,
+    })),
   } }];
-  assert.deepEqual(readRulesetRequiredChecks(ruleset), names);
-  assert.equal(assertManifestMatchesRuleset({ manifestNames: names, rulesetNames: names }), true);
+  assert.deepEqual(readRulesetRequiredChecks(ruleset), protectedNames);
+  assert.equal(assertManifestMatchesRuleset({ manifestNames: protectedNames, rulesetNames: protectedNames }), true);
+  assert.equal(assertManifestMatchesRuleset({ manifestNames: names, rulesetNames: protectedNames }), true);
   assert.throws(() => assertManifestMatchesRuleset({ manifestNames: names, rulesetNames: names.slice(0, -1) }), /mismatch/);
-  assert.throws(() => assertManifestMatchesRuleset({ manifestNames: names, rulesetNames: [...names, 'Product Acceptance \/ Workspace'] }), /mismatch/);
-  assert.deepEqual(activeRules.requiredChecks, names);
+  assert.equal(assertManifestMatchesRuleset({
+    manifestNames: protectedNames,
+    rulesetNames: [...protectedNames, 'Product Acceptance / Workspace'],
+  }), true);
+
+  const postMergeChecks = names.map((name) => ({ name, status: 'completed', conclusion: 'success' }));
+  assert.doesNotThrow(() => assertPostMergeChecks({ checks: postMergeChecks, required: names }));
+  assert.throws(() => assertPostMergeChecks({ checks: postMergeChecks, required: protectedNames }), /missing/);
 });
 
 test('AC-627: rerun is idempotent only for the exact existing release @spec:AC-627', () => {

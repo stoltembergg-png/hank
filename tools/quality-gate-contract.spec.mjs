@@ -65,7 +65,20 @@ function runBody(lines, runEntry, end) {
     if (line.trim() !== '' && line.length - line.trimStart().length <= runEntry.indentation) break;
     body.push(line.trim());
   }
-  return body;
+
+  const executable = [];
+  let heredocDelimiter;
+  for (const line of body) {
+    if (heredocDelimiter) {
+      if (line === heredocDelimiter) heredocDelimiter = undefined;
+      continue;
+    }
+
+    const heredoc = /<<-?\s*(?:(['"])(.*?)\1|([^\s;|&]+))/.exec(line);
+    executable.push(line);
+    if (heredoc) heredocDelimiter = heredoc[2] ?? heredoc[3];
+  }
+  return executable;
 }
 
 function executableRunCommands(workflow, jobName) {
@@ -93,7 +106,13 @@ function executableRunCommands(workflow, jobName) {
       if (indentation === stepIndentation && /^\s*-\s/.test(line)) {
         inStep = true;
         const inlineRun = new RegExp(`^\\s*-\\s+run:\\s*(.*)$`).exec(line);
-        if (inlineRun) commands.push(inlineRun[1].trim());
+        if (inlineRun) {
+          commands.push(...runBody(lines, {
+            index,
+            indentation: runIndentation,
+            value: inlineRun[1].trim(),
+          }, steps.end));
+        }
         continue;
       }
       if (!inStep) continue;
@@ -173,6 +192,46 @@ jobs:
   assert.throws(
     () => assertCommand(
       decoyWorkflow,
+      'node --test tools/reviewer-policy-check.spec.mjs',
+      'fixture.yml',
+      'integrity',
+    ),
+    /fixture\.yml: missing node --test tools\/reviewer-policy-check\.spec\.mjs/,
+  );
+});
+
+test('workflow contract recognizes inline multiline run steps', () => {
+  const multilineWorkflow = `jobs:
+  integrity:
+    steps:
+      - run: |
+          node --test tools/reviewer-policy-check.spec.mjs
+      - run: >
+          node --test tools/reviewer-policy-check.spec.mjs
+`;
+
+  assertCommand(
+    multilineWorkflow,
+    'node --test tools/reviewer-policy-check.spec.mjs',
+    'fixture.yml',
+    'integrity',
+  );
+});
+
+test('workflow contract does not treat heredoc content as an executable command', () => {
+  const heredocWorkflow = `jobs:
+  integrity:
+    steps:
+      - name: Heredoc content
+        run: |
+          cat <<'EOF'
+          node --test tools/reviewer-policy-check.spec.mjs
+          EOF
+`;
+
+  assert.throws(
+    () => assertCommand(
+      heredocWorkflow,
       'node --test tools/reviewer-policy-check.spec.mjs',
       'fixture.yml',
       'integrity',

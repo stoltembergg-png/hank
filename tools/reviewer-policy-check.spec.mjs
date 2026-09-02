@@ -85,12 +85,10 @@ test('rejects reviewer values nested below their canonical CodeRabbit paths', ()
     fail_commit_status: true
     nested:
       enabled: true
-`);
+  `);
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /reviews\.request_changes_workflow must be false/);
-  assert.match(result.stderr, /reviews\.fail_commit_status must be true/);
-  assert.match(result.stderr, /reviews\.auto_review\.enabled must be true/);
 });
 
 test('ignores reviewer-looking keys inside block scalar content', () => {
@@ -129,4 +127,42 @@ test('rejects a configuration with a missing canonical reviewer path', () => {
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /reviews\.request_changes_workflow must be false/);
+});
+
+test('rejects reviewer-looking keys inside an explicitly-indented block scalar', () => {
+  const result = runChecker(`reviews:
+  high_level_summary_instructions: |2
+    request_changes_workflow: false
+    fail_commit_status: true
+    auto_review:
+      enabled: true
+`);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviews\.request_changes_workflow must be false/);
+  assert.match(result.stderr, /reviews\.fail_commit_status must be true/);
+  assert.match(result.stderr, /reviews\.auto_review\.enabled must be true/);
+});
+
+test('rejects reviewer-looking keys inside a YAML sequence', () => {
+  const result = runChecker(`reviews:
+  - request_changes_workflow: false
+    fail_commit_status: true
+    auto_review:
+      enabled: true
+`);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviews\.request_changes_workflow must be false/);
+});
+
+test('accepts inline comments on canonical YAML block headers', () => {
+  const result = runChecker(`reviews: # reviewer settings
+  request_changes_workflow: false
+  fail_commit_status: true
+  auto_review: # automatic review
+    enabled: true
+`);
+
+  assert.equal(result.status, 0, result.stderr);
 });

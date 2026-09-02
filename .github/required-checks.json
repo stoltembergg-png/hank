@@ -12,7 +12,9 @@
     "CodeQL (javascript-typescript)",
     "ONP SDD verify and audit",
     "Quality integrity",
-    "Security advisory gate",
+    "Security advisory gate"
+  ],
+  "pullRequestChecks": [
     "CodeRabbit",
     "Aikido Security: check code",
     "Aikido Security: Deep Review"
