@@ -195,6 +195,19 @@ test('accepts a single-quoted scalar with a literal backslash and doubled quote'
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('rejects tagged and anchored summary scalars before measuring their value', () => {
+  const result = runChecker(`reviews:
+  request_changes_workflow: false
+  fail_commit_status: true
+  high_level_summary_instructions: &summary !!str "short # ${'x'.repeat(101)}"
+  auto_review:
+    enabled: true
+`);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviewer configuration must use untagged, unanchored scalars/);
+});
+
 test('rejects an oversized CodeRabbit summary instruction', () => {
   const result = runChecker(`reviews:
   request_changes_workflow: false

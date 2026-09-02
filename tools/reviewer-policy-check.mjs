@@ -10,6 +10,10 @@ function isBlockScalar(value) {
   return /^(?:[|>](?:[1-9])?[-+]?|[|>][-+]?[1-9])$/.test(value);
 }
 
+function isDecoratedScalar(value) {
+  return /^(?:(?:![^\s]+|&[^\s]+)\s*)+/.test(value) || /^\*[^\s]+(?:\s|$)/.test(value);
+}
+
 function stripInlineComment(value) {
   const scalarStart = value.search(/\S|$/);
   let scalarQuote = value[scalarStart] === '"' || value[scalarStart] === "'" ? value[scalarStart] : undefined;
@@ -158,6 +162,7 @@ function value(blockValue, name) {
 
 function validate(source) {
   const lines = source.split(/\r?\n/);
+  const entries = structuralMappings(lines);
   const reviews = block(lines, -1, 'reviews');
   if (!reviews) return ['reviews block is required'];
 
@@ -184,7 +189,11 @@ function validate(source) {
     }
   }
 
-  if (structuralMappings(lines).some((entry) => entry.syntaxError)) {
+  if (entries.some((entry) => isDecoratedScalar(entry.value))) {
+    errors.push('reviewer configuration must use untagged, unanchored scalars');
+  }
+
+  if (entries.some((entry) => entry.syntaxError)) {
     errors.push('reviewer configuration contains an unclosed quoted scalar');
   }
 
