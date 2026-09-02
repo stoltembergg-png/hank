@@ -319,7 +319,6 @@ test('workflow contract rejects a command inside a skipped bare step', () => {
     /fixture\.yml: job Validate automated reviewer policy missing run containing/,
   );
 });
-
 test('workflow contract does not treat heredoc content as an executable command', () => {
   const heredocWorkflow = `jobs:
   integrity:

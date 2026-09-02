@@ -12,7 +12,6 @@ administrativo em `/repos/{owner}/{repo}/rules/branches/main` e verifica se os
 dois grupos do manifesto estão cobertos pelo Ruleset antes de aguardar os
 check-runs de release. O arquivo de saída usado pelo polling contém apenas
 `requiredChecks`.
-
 Os dois grupos também são validados contra allowlists imutáveis no verificador:
 um gate de build, segurança ou release não pode ser movido para
 `pullRequestChecks`, e essa lista não pode ser substituída por um check arbitrário.
