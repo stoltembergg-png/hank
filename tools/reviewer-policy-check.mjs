@@ -6,38 +6,60 @@ function indentation(line) {
   return line.length - line.trimStart().length;
 }
 
-function block(lines, name) {
-  const header = new RegExp(`^\\s*${name}:\\s*(?:#.*)?$`);
-  const start = lines.findIndex((line) => header.test(line));
-  if (start === -1) return undefined;
+function mapping(line, index) {
+  const match = /^(\s*)([A-Za-z_][A-Za-z0-9_-]*):(?:\s*(.*))?$/.exec(line);
+  if (!match) return undefined;
+  return {
+    index,
+    indentation: match[1].length,
+    name: match[2],
+    value: (match[3] ?? '').replace(/\s+#.*$/, '').trim(),
+  };
+}
 
-  const headerIndentation = indentation(lines[start]);
+function directMappings(lines, parentIndentation) {
+  const entries = lines
+    .map(mapping)
+    .filter((entry) => entry && entry.indentation > parentIndentation);
+  if (!entries.length) return [];
+
+  const directIndentation = Math.min(...entries.map((entry) => entry.indentation));
+  return entries.filter((entry) => entry.indentation === directIndentation);
+}
+
+function block(lines, parentIndentation, name) {
+  const matches = directMappings(lines, parentIndentation).filter((entry) => entry.name === name);
+  if (matches.length !== 1 || matches[0].value !== '') return undefined;
+
+  const header = matches[0];
   let end = lines.length;
-  for (let index = start + 1; index < lines.length; index += 1) {
+  for (let index = header.index + 1; index < lines.length; index += 1) {
     const line = lines[index];
     if (line.trim() === '' || line.trimStart().startsWith('#')) continue;
-    if (indentation(line) <= headerIndentation) {
+    if (indentation(line) <= header.indentation) {
       end = index;
       break;
     }
   }
 
-  return lines.slice(start + 1, end);
+  return { lines: lines.slice(header.index + 1, end), indentation: header.indentation };
 }
 
-function boolean(lines, name) {
-  const matcher = new RegExp(`^\\s*${name}:\\s*(true|false)\\s*(?:#.*)?$`);
-  const line = lines.find((candidate) => matcher.test(candidate));
-  if (!line) return undefined;
-  return matcher.exec(line)[1] === 'true';
+function boolean(blockValue, name) {
+  const matches = directMappings(blockValue.lines, blockValue.indentation)
+    .filter((entry) => entry.name === name);
+  if (matches.length !== 1) return undefined;
+  if (matches[0].value === 'true') return true;
+  if (matches[0].value === 'false') return false;
+  return undefined;
 }
 
 function validate(source) {
   const lines = source.split(/\r?\n/);
-  const reviews = block(lines, 'reviews');
+  const reviews = block(lines, -1, 'reviews');
   if (!reviews) return ['reviews block is required'];
 
-  const autoReview = block(reviews, 'auto_review');
+  const autoReview = block(reviews.lines, reviews.indentation, 'auto_review');
   const errors = [];
 
   if (boolean(reviews, 'request_changes_workflow') !== false) {

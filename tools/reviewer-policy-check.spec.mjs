@@ -77,3 +77,56 @@ test('rejects a configuration that hides CodeRabbit review execution failures', 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /reviews\.fail_commit_status must be true/);
 });
+
+test('rejects reviewer values nested below their canonical CodeRabbit paths', () => {
+  const result = runChecker(`reviews:
+  auto_review:
+    request_changes_workflow: false
+    fail_commit_status: true
+    nested:
+      enabled: true
+`);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviews\.request_changes_workflow must be false/);
+  assert.match(result.stderr, /reviews\.fail_commit_status must be true/);
+  assert.match(result.stderr, /reviews\.auto_review\.enabled must be true/);
+});
+
+test('ignores reviewer-looking keys inside block scalar content', () => {
+  const result = runChecker(`reviews:
+  auto_review:
+    enabled: true
+  high_level_summary_instructions: |
+    request_changes_workflow: false
+    fail_commit_status: true
+`);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviews\.request_changes_workflow must be false/);
+  assert.match(result.stderr, /reviews\.fail_commit_status must be true/);
+});
+
+test('rejects duplicate canonical reviewer keys', () => {
+  const result = runChecker(`reviews:
+  request_changes_workflow: false
+  request_changes_workflow: true
+  fail_commit_status: true
+  auto_review:
+    enabled: true
+`);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviews\.request_changes_workflow must be false/);
+});
+
+test('rejects a configuration with a missing canonical reviewer path', () => {
+  const result = runChecker(`reviews:
+  fail_commit_status: true
+  auto_review:
+    enabled: true
+`);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /reviews\.request_changes_workflow must be false/);
+});
