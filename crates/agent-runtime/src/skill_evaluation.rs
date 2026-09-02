@@ -46,6 +46,8 @@ pub struct SkillEvaluationRequest {
     pub baseline: SkillRecord,
     pub candidate: ParsedSkill,
     pub validation: SkillValidationReport,
+    pub validation_policy: crate::skill_validation::SkillValidationPolicy,
+    pub validation_budget: BudgetLimits,
     pub baseline_fixture: SkillFixture,
     pub candidate_fixture: SkillFixture,
     pub baseline_report: SkillTestReport,
@@ -171,6 +173,8 @@ impl SkillEvaluationService {
                 request.candidate.manifest.id,
                 &request.candidate.manifest.version,
                 &request.validation,
+                &request.validation_policy,
+                &request.validation_budget,
             )
         {
             return Ok(report(

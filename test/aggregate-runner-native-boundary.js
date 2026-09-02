@@ -7,6 +7,39 @@ const workflow = readFileSync(
   new URL('../.github/workflows/onp-sdd-evidence.yml', import.meta.url),
   'utf8',
 );
+const nativeCorpusSpec = readFileSync(
+  new URL('../.spec/features/native-evaluation-corpus/spec.md', import.meta.url),
+  'utf8',
+);
+const nativeRunnerSpec = readFileSync(
+  new URL('../.spec/features/native-evaluation-runner/spec.md', import.meta.url),
+  'utf8',
+);
+const safetyReasoningCorpusSpec = readFileSync(
+  new URL('../.spec/features/safety-reasoning-evaluation-corpus/spec.md', import.meta.url),
+  'utf8',
+);
+const benchmarkComparisonSpec = readFileSync(
+  new URL('../.spec/features/benchmark-comparison/spec.md', import.meta.url),
+  'utf8',
+);
+
+function workflowStepRun(stepName) {
+  const lines = workflow.split(/\r?\n/);
+  const nameLine = `- name: ${stepName}`;
+  const start = lines.findIndex((line) => line.trim() === nameLine);
+  assert.notEqual(start, -1, `workflow step not found: ${stepName}`);
+  const indentation = lines[start].match(/^\s*/u)[0].length;
+  const nextStep = lines.findIndex(
+    (line, index) =>
+      index > start &&
+      new RegExp(`^\\s{${indentation}}- name:`).test(line),
+  );
+  const block = lines.slice(start, nextStep === -1 ? lines.length : nextStep);
+  const runLines = block.filter((line) => /^\s*run:\s*/u.test(line));
+  assert.equal(runLines.length, 1, `workflow step must have one run key: ${stepName}`);
+  return runLines[0].replace(/^\s*run:\s*/u, '').trim();
+}
 
 test('aggregate runner exposes an explicit native-test boundary', () => {
   assert.match(runner, /HANK_SKIP_TAURI/);
@@ -31,6 +64,54 @@ test('ONP workflow runs native evaluation contract verification explicitly', () 
     workflow,
     /Verify native evaluation contract[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify native-evaluation-contract/,
   );
+});
+
+test('ONP workflow runs native evaluation corpus verification explicitly', () => {
+  assert.match(
+    workflow,
+    /Verify native evaluation corpus[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify native-evaluation-corpus/,
+  );
+});
+
+test('ONP workflow runs native evaluation runner verification explicitly', () => {
+  assert.equal(
+    workflowStepRun('Verify native evaluation runner'),
+    'node tools/ci/run-onp-spec.mjs verify native-evaluation-runner',
+  );
+});
+
+test('ONP workflow runs safety and reasoning corpus verification explicitly', () => {
+  assert.match(
+    workflow,
+    /Verify safety and reasoning evaluation corpus[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify safety-reasoning-evaluation-corpus/,
+  );
+});
+
+test('native evaluation runner spec declares mandatory ONP audit sections', () => {
+  assert.match(nativeRunnerSpec, /## Suposições\r?\n\r?\nNenhuma\./);
+  assert.match(nativeRunnerSpec, /## Perguntas em aberto\r?\n\r?\nNenhuma\./);
+});
+
+test('native evaluation corpus spec declares mandatory ONP audit sections', () => {
+  assert.match(nativeCorpusSpec, /## Suposições\r?\n\r?\nNenhuma\./);
+  assert.match(nativeCorpusSpec, /## Perguntas em aberto\r?\n\r?\nNenhuma\./);
+});
+
+test('safety and reasoning corpus spec declares mandatory ONP audit sections', () => {
+  assert.match(safetyReasoningCorpusSpec, /## Suposições\r?\n\r?\nNenhuma\./);
+  assert.match(safetyReasoningCorpusSpec, /## Perguntas em aberto\r?\n\r?\nNenhuma\./);
+});
+
+test('ONP workflow runs benchmark comparison verification explicitly', () => {
+  assert.equal(
+    workflowStepRun('Verify benchmark comparison'),
+    'node tools/ci/run-onp-spec.mjs verify benchmark-comparison',
+  );
+});
+
+test('benchmark comparison spec declares mandatory ONP audit sections', () => {
+  assert.match(benchmarkComparisonSpec, /## Suposições\r?\n\r?\nNenhuma\./);
+  assert.match(benchmarkComparisonSpec, /## Perguntas em aberto\r?\n\r?\nNenhuma\./);
 });
 
 test('ONP workflow runs Git worktree verification explicitly', () => {
@@ -225,6 +306,18 @@ test('ONP workflow runs PR generation workflow verification explicitly', () => {
   assert.match(
     workflow,
     /Verify runtime transport[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify runtime-transport/,
+  );
+  assert.match(
+    workflow,
+    /Verify remote protocol[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify remote-protocol/,
+  );
+  assert.match(
+    workflow,
+    /Verify authenticated remote daemon[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify authenticated-remote-daemon/,
+  );
+  assert.match(
+    workflow,
+    /Verify websocket event stream[\s\S]*?node tools\/ci\/run-onp-spec\.mjs verify websocket-event-stream/,
   );
 });
 

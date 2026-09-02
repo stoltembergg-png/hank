@@ -25,9 +25,9 @@ or tied to a stale SHA.
 
 Include one standalone traceability line in the PR description: `Plan card: PR-###`
 when the change implements a queue card, or `Plan card: none` for documentation,
-tooling and other changes outside the executable queue. The README progress bar uses
-this metadata only to report ID correspondence; it does not replace the plan ledger,
-dependency gates or Definition of Done evidence.
+tooling and other changes outside the executable queue. The queue cards and plan
+ledger are the source of truth for progress; this metadata does not replace the plan
+ledger, dependency gates or Definition of Done evidence.
 
 ## Blockers and reporting
 

@@ -22,6 +22,8 @@ import {
 import {
   assertManifestMatchesRuleset,
   readRequiredChecks,
+  readProtectedChecks,
+  readPullRequestChecks,
   readRulesetRequiredChecks,
 } from '../tools/release-required-checks.mjs';
 
@@ -70,23 +72,126 @@ test('AC-626: fails closed on missing or failed post-merge checks @spec:AC-626',
 test('AC-626: prerelease derives required checks from manifest and active ruleset @spec:AC-626', () => {
   const workflow = readFileSync('.github/workflows/release-prerelease.yml', 'utf8');
   const manifest = JSON.parse(readFileSync('.github/required-checks.json', 'utf8'));
-  const activeRules = JSON.parse(readFileSync('.github/required-checks.json', 'utf8'));
   const names = readRequiredChecks(manifest);
+  const reviewerNames = readPullRequestChecks(manifest);
+  const protectedNames = readProtectedChecks(manifest);
   assert.equal(names.length, 11);
+  assert.deepEqual(reviewerNames, [
+    'CodeRabbit',
+    'Aikido Security: check code',
+    'Aikido Security: Deep Review',
+  ]);
+  assert.deepEqual(protectedNames, [...names, ...reviewerNames]);
   assert.match(workflow, /rules\/branches\/main/);
+  assert.match(workflow, /rules\/branches\/main.*active-rules-pages/s);
   assert.match(workflow, /\.github\/required-checks\.json/);
   assert.match(workflow, /release-required-checks\.mjs validate/);
+  assert.match(workflow, /--repository "\$REPOSITORY"/);
+  assert.match(workflow, /--ref refs\/heads\/main/);
+  assert.match(workflow, /--sha "\$SHA"/);
+  assert.match(workflow, /--tree "\$TREE"/);
   assert.match(workflow, /--required \"\$required\"/);
   assert.doesNotMatch(workflow, /branches\/main\/protection\/required_status_checks/);
   const ruleset = [{ type: 'required_status_checks', parameters: {
     strict_required_status_checks_policy: true,
-    required_status_checks: names.map((context) => ({ context, integration_id: 15368 })),
+    required_status_checks: protectedNames.map((context) => ({
+      context,
+      integration_id: reviewerNames.includes(context) ? (context === 'CodeRabbit' ? 347564 : 898896) : 15368,
+    })),
   } }];
-  assert.deepEqual(readRulesetRequiredChecks(ruleset), names);
-  assert.equal(assertManifestMatchesRuleset({ manifestNames: names, rulesetNames: names }), true);
+  const rulesSnapshot = {
+    schemaVersion: 1,
+    repository: 'stoltembergg-png/hank',
+    ref: 'refs/heads/main',
+    sha,
+    tree,
+    complete: true,
+    rules: ruleset,
+  };
+  const releaseIdentity = { repository: rulesSnapshot.repository, ref: rulesSnapshot.ref, sha, tree };
+  assert.deepEqual(readRulesetRequiredChecks(rulesSnapshot, releaseIdentity), protectedNames);
+  assert.equal(assertManifestMatchesRuleset({ manifestNames: protectedNames, rulesetNames: protectedNames }), true);
+  assert.equal(assertManifestMatchesRuleset({ manifestNames: names, rulesetNames: protectedNames }), true);
   assert.throws(() => assertManifestMatchesRuleset({ manifestNames: names, rulesetNames: names.slice(0, -1) }), /mismatch/);
-  assert.throws(() => assertManifestMatchesRuleset({ manifestNames: names, rulesetNames: [...names, 'Product Acceptance \/ Workspace'] }), /mismatch/);
-  assert.deepEqual(activeRules.requiredChecks, names);
+  assert.equal(assertManifestMatchesRuleset({
+    manifestNames: protectedNames,
+    rulesetNames: [...protectedNames, 'Product Acceptance / Workspace'],
+  }), true);
+
+  const postMergeChecks = names.map((name) => ({ name, status: 'completed', conclusion: 'success' }));
+  assert.doesNotThrow(() => assertPostMergeChecks({ checks: postMergeChecks, required: names }));
+  assert.throws(() => assertPostMergeChecks({ checks: postMergeChecks, required: protectedNames }), /missing/);
+});
+
+test('AC-626: ruleset snapshot is complete and bound to the exact release identity', () => {
+  const identity = { repository: 'stoltembergg-png/hank', ref: 'refs/heads/main', sha, tree };
+  const snapshot = {
+    schemaVersion: 1,
+    ...identity,
+    complete: true,
+    rules: [{
+      type: 'required_status_checks',
+      parameters: {
+        strict_required_status_checks_policy: true,
+        required_status_checks: [{ context: 'Build Frontend', integration_id: 15368 }],
+      },
+    }],
+  };
+
+  assert.doesNotThrow(() => readRulesetRequiredChecks(snapshot, identity));
+  const unboundCheckSnapshot = {
+    ...snapshot,
+    rules: [{ ...snapshot.rules[0], parameters: {
+      ...snapshot.rules[0].parameters,
+      required_status_checks: [{ context: 'Build Frontend', integration_id: null }],
+    } }],
+  };
+  assert.deepEqual(readRulesetRequiredChecks(unboundCheckSnapshot, identity), ['Build Frontend']);
+  assert.throws(() => readRulesetRequiredChecks({
+    ...snapshot,
+    rules: [{ ...snapshot.rules[0], parameters: {
+      ...snapshot.rules[0].parameters,
+      required_status_checks: [{ context: 'Build Frontend', integration_id: 0 }],
+    } }],
+  }, identity), /incomplete entries/);
+  assert.throws(() => readRulesetRequiredChecks({ ...snapshot, complete: false }, identity), /complete/);
+  for (const [field, value] of [
+    ['repository', 'other/repository'],
+    ['ref', 'refs/heads/release'],
+    ['sha', 'c'.repeat(40)],
+    ['tree', 'c'.repeat(40)],
+  ]) {
+    assert.throws(() => readRulesetRequiredChecks({ ...snapshot, [field]: value }, identity), /identity/);
+  }
+  assert.throws(() => readRulesetRequiredChecks({
+    ...snapshot,
+    rules: [{ ...snapshot.rules[0], parameters: {
+      ...snapshot.rules[0].parameters,
+      required_status_checks: [{}],
+    } }],
+  }, identity), /incomplete entries/);
+});
+
+test('AC-626: release gates cannot be reclassified as pull-request checks', () => {
+  const manifest = JSON.parse(readFileSync('.github/required-checks.json', 'utf8'));
+  const releaseGate = manifest.requiredChecks[0];
+
+  assert.throws(() => readProtectedChecks({
+    ...manifest,
+    requiredChecks: manifest.requiredChecks.slice(1),
+    pullRequestChecks: [...manifest.pullRequestChecks, releaseGate],
+  }), /immutable release checks|approved reviewer checks/);
+});
+
+test('AC-626: release gate docs use shell-safe identity variables', () => {
+  const documentation = readFileSync('docs/development/release-gates.md', 'utf8');
+
+  assert.match(documentation, /COMMIT_SHA="\$\(git rev-parse HEAD\)"/);
+  assert.match(documentation, /TREE_SHA="\$\(git rev-parse HEAD\^\{tree\}\)"/);
+  assert.match(documentation, /--sha "\$COMMIT_SHA"/);
+  assert.match(documentation, /--tree "\$TREE_SHA"/);
+  assert.doesNotMatch(documentation, /--sha <commit-sha>/);
+  assert.doesNotMatch(documentation, /--tree <tree-sha>/);
 });
 
 test('AC-627: rerun is idempotent only for the exact existing release @spec:AC-627', () => {

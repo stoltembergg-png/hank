@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "pt-BR"
+tone_instructions: "Seja conciso e direto. Escreva em pt-BR. Use somente texto; não use emojis, ícones ou floreios."
+
+reviews:
+  profile: "chill"
+  # Keep merge approval independent from the reviewer; required checks and
+  # resolved conversations remain the authoritative merge conditions.
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_instructions: "Liste impacto, risco e testes em até 3 bullets. Sem emojis."
+  review_status: false
+  review_details: false
+  # A review execution failure must surface as a failed required check.
+  fail_commit_status: true
+  collapse_walkthrough: true
+  changed_files_summary: false
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  assess_linked_issues: false
+  related_issues: false
+  related_prs: false
+  suggested_labels: false
+  suggested_reviewers: false
+  in_progress_fortune: false
+  poem: false
+  enable_prompt_for_ai_agents: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/target/**"
+    - "!**/dist/**"
+    - "!**/coverage/**"
+  path_instructions:
+    - path: "**/*.rs"
+      instructions: |
+        Preserve as fronteiras de ARCHITECTURE.md. Código de domínio não pode
+        depender de Tauri, UI, storage ou providers concretos. Exija tratamento
+        de erro explícito, isolamento por projeto, limites verificáveis e provas
+        para caminhos de permissão, segredo e efeitos externos.
+    - path: "frontend/**"
+      instructions: |
+        Verifique que a UI usa comandos e eventos versionados e não acessa
+        SQLite, filesystem ou providers concretos. Mudanças de comportamento
+        devem ter testes de frontend ou E2E proporcionais ao risco.
+    - path: ".github/workflows/**"
+      instructions: |
+        Não aceite relaxamento de gates. Workflows devem ter permissões mínimas,
+        timeout, concorrência, actions fixadas por SHA e execução fail-closed.
+    - path: "tools/**"
+      instructions: |
+        Ferramentas e gates precisam produzir evidência determinística ligada ao
+        SHA e à árvore exatos, sem aceitar resultados pendentes, truncados ou
+        provenientes de outra revisão.
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  automatic_linking_mode: "disabled"

@@ -381,6 +381,18 @@ jobs:
       - name: Verify native evaluation contract
         run: node tools/ci/run-onp-spec.mjs verify native-evaluation-contract
 
+      - name: Verify native evaluation corpus
+        run: node tools/ci/run-onp-spec.mjs verify native-evaluation-corpus
+
+      - name: Verify native evaluation runner
+        run: node tools/ci/run-onp-spec.mjs verify native-evaluation-runner
+
+      - name: Verify benchmark comparison
+        run: node tools/ci/run-onp-spec.mjs verify benchmark-comparison
+
+      - name: Verify safety and reasoning evaluation corpus
+        run: node tools/ci/run-onp-spec.mjs verify safety-reasoning-evaluation-corpus
+
       - name: Verify agent configuration proposal
         run: node tools/ci/run-onp-spec.mjs verify agent-configuration-proposal
 
@@ -446,6 +458,15 @@ jobs:
 
       - name: Verify runtime transport
         run: node tools/ci/run-onp-spec.mjs verify runtime-transport
+
+      - name: Verify remote protocol
+        run: node tools/ci/run-onp-spec.mjs verify remote-protocol
+
+      - name: Verify authenticated remote daemon
+        run: node tools/ci/run-onp-spec.mjs verify authenticated-remote-daemon
+
+      - name: Verify websocket event stream
+        run: node tools/ci/run-onp-spec.mjs verify websocket-event-stream
 
       - name: Verify workflow AgentNode
         run: node tools/ci/run-onp-spec.mjs verify workflow-agent-node

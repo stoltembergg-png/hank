@@ -28,6 +28,11 @@ const commands = [
     args: ['--test', 'test/python-sdk-contract.spec.test.js'],
   },
   {
+    label: 'Screenshot path traversal security tests',
+    command: process.execPath,
+    args: ['--test', 'test/screenshot-path-traversal.test.js'],
+  },
+  {
     label: 'Python SDK tests',
     command: process.platform === 'win32' ? 'python.exe' : 'python3',
     args: ['-m', 'unittest', 'discover', '-s', 'python/tests', '-p', 'test_*.py'],

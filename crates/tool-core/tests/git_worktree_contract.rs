@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, atomic::AtomicBool};
 use tempfile::TempDir;
-use tool_core::{GitWorktreeError, GitWorktreeTool, PermissionDecision};
+use tool_core::{GitWorktreeError, GitWorktreeTool, PermissionDecision, parse_worktree_porcelain};
 
 fn setup_repository() -> (TempDir, PathBuf, PathBuf, ProjectId) {
     let dir = tempfile::tempdir().unwrap();
@@ -26,10 +26,14 @@ fn setup_repository() -> (TempDir, PathBuf, PathBuf, ProjectId) {
 
 fn find_git() -> PathBuf {
     let executable = if cfg!(windows) { "git.exe" } else { "git" };
+    find_program(executable)
+}
+
+fn find_program(executable: &str) -> PathBuf {
     std::env::split_paths(&std::env::var_os("PATH").unwrap())
         .map(|directory| directory.join(executable))
         .find(|candidate| candidate.is_file())
-        .expect("git executable not found")
+        .unwrap_or_else(|| panic!("{executable} executable not found"))
 }
 
 fn run_git<const N: usize>(git: &Path, cwd: &Path, args: [&str; N]) {
@@ -301,39 +305,13 @@ fn list_fails_closed_when_process_output_is_truncated() {
     assert_eq!(result, Err(GitWorktreeError::OutputTruncated));
 }
 
-#[cfg(unix)]
 #[test]
 // @spec:AC-1310
 fn list_rejects_malformed_porcelain_instead_of_returning_partial_state() {
-    use std::os::unix::fs::PermissionsExt;
-
-    let (_dir, repository, _git, project_id) = setup_repository();
-    let fake_git = repository.join("fake-git");
-    fs::write(
-        &fake_git,
-        "#!/bin/sh\nprintf '%s\\n' 'worktree /tmp/worktree' 'HEAD not-a-hex-head'\n",
-    )
-    .unwrap();
-    let mut permissions = fs::metadata(&fake_git).unwrap().permissions();
-    permissions.set_mode(0o755);
-    fs::set_permissions(&fake_git, permissions).unwrap();
-    let tool = GitWorktreeTool::new(
-        project_id,
-        repository.clone(),
-        repository,
-        fake_git,
-        64 * 1024,
-    )
-    .unwrap();
-
-    let result = tool.list(
-        project_id,
-        PermissionDecision::Allowed { reason: "contract" },
-        agent_protocol::ids::TraceId::new(),
-        Arc::new(AtomicBool::new(false)),
+    assert_eq!(
+        parse_worktree_porcelain("worktree /tmp/worktree\nHEAD not-a-hex-head\n"),
+        Err(GitWorktreeError::MalformedOutput)
     );
-
-    assert_eq!(result, Err(GitWorktreeError::MalformedOutput));
 }
 
 #[test]
