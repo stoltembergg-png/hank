@@ -14,6 +14,8 @@ use thiserror::Error;
 
 pub mod event_stream;
 
+pub mod credential_broker;
+
 /// Maximum retained redacted lifecycle events. Older events rotate out.
 pub const MAX_AUDIT_EVENTS: usize = 256;
 
