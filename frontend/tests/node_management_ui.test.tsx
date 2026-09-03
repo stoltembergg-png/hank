@@ -50,8 +50,8 @@ function makeApi(overrides: Partial<NodeManagementApiClient> = {}): NodeManageme
   };
 }
 
-describe('NodeList contract (AC-1471, AC-1472, AC-1473, AC-1474, AC-1475)', () => {
-  // @spec:AC-1471 @spec:AC-1475
+describe('NodeList contract (AC-1495, AC-1496, AC-1497, AC-1498, AC-1499)', () => {
+  // @spec:AC-1495 @spec:AC-1499
   it('lista renderiza nodes autenticados com role=list', async () => {
     render(<NodeList projectId={projectId} apiClient={makeApi()} nowMs={() => 1_700_000_600_500} />);
 
@@ -62,7 +62,7 @@ describe('NodeList contract (AC-1471, AC-1472, AC-1473, AC-1474, AC-1475)', () =
     expect(screen.getByText('Node A')).toBeInTheDocument();
   });
 
-  it('AC-1473: texto hostil é renderizado como texto puro, sem executar HTML/JS', async () => {
+  it('AC-1497: texto hostil é renderizado como texto puro, sem executar HTML/JS', async () => {
     const { container } = render(
       <NodeList projectId={projectId} apiClient={makeApi()} nowMs={() => 1_700_000_600_500} />,
     );
@@ -75,7 +75,7 @@ describe('NodeList contract (AC-1471, AC-1472, AC-1473, AC-1474, AC-1475)', () =
     expect(container.textContent).toContain('"><img src=x onerror=alert(1)>');
   });
 
-  // @spec:AC-1472
+  // @spec:AC-1496
   it('revoke confirmado envia bridge e atualiza estado para revoked', async () => {
     const api = makeApi();
     render(<NodeList projectId={projectId} apiClient={api} nowMs={() => 1_700_000_600_500} />);
@@ -95,7 +95,7 @@ describe('NodeList contract (AC-1471, AC-1472, AC-1473, AC-1474, AC-1475)', () =
     );
   });
 
-  // @spec:AC-1472
+  // @spec:AC-1496
   it('cancelar o diálogo de revoke NÃO chama a bridge', async () => {
     const api = makeApi();
     render(<NodeList projectId={projectId} apiClient={api} nowMs={() => 1_700_000_600_500} />);
@@ -106,7 +106,7 @@ describe('NodeList contract (AC-1471, AC-1472, AC-1473, AC-1474, AC-1475)', () =
     expect(api.revoke).not.toHaveBeenCalled();
   });
 
-  // @spec:AC-1474
+  // @spec:AC-1498
   it('resposta stale desabilita revoke e exibe banner de aviso', async () => {
     const resultWithStaleFetch: NodeListResult = {
       fetched_at_ms: 1_700_000_000_000, // fetched 60s ago
@@ -132,8 +132,8 @@ describe('NodeList contract (AC-1471, AC-1472, AC-1473, AC-1474, AC-1475)', () =
   });
 });
 
-describe('NodeDetail contract (AC-1471, AC-1473, AC-1475)', () => {
-  // @spec:AC-1473
+describe('NodeDetail contract (AC-1495, AC-1497, AC-1499)', () => {
+  // @spec:AC-1497
   it('renderiza display_name hostil como texto puro', async () => {
     const api = makeApi({ get: vi.fn().mockResolvedValue(hostileNode) });
     const { container } = render(<NodeDetail projectId={projectId} nodeId={hostileNode.node_id} apiClient={api} />);

@@ -1,33 +1,33 @@
 {
   "feature": "node-management-ui",
-  "timestamp": "2026-09-03T19:35:20.685Z",
-  "gitRev": "0d29a83",
+  "timestamp": "2026-09-03T20:15:06.626Z",
+  "gitRev": "d610e58",
   "command": "node tools/run-feature-tests.mjs node-management-ui",
   "reporter": "exitcode",
   "exitCode": 0,
   "testsParsed": 0,
   "results": {
-    "AC-1471": {
+    "AC-1495": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-1472": {
+    "AC-1496": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-1473": {
+    "AC-1497": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-1474": {
+    "AC-1498": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"
     },
-    "AC-1475": {
+    "AC-1499": {
       "status": "pass",
       "testName": null,
       "method": "exitcode"

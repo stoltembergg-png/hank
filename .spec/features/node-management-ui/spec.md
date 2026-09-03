@@ -9,7 +9,7 @@ Como usuário autorizado, quero listar, inspecionar e revogar nodes remotos
 autenticados sem nunca expor material de credencial, para que eu consiga auditar
 o runtime remoto e interromper pareamento suspeito com confiança.
 
-#### AC-1471 — Lista de nodes renderiza somente estado autenticado e saúde
+#### AC-1495 — Lista de nodes renderiza somente estado autenticado e saúde
 
 - **Dado** resposta do bridge Tauri com lista de nodes autenticados
 - **Quando** o componente `<NodeList>` renderiza a lista
@@ -18,7 +18,7 @@ o runtime remoto e interromper pareamento suspeito com confiança.
   `CredentialRef`, tokens e material bruto de protocolo nunca aparecem no DOM
   (texto, atributos ou data-attributes).
 
-#### AC-1472 — Ação de revoke é confirmada e devolve estado terminal
+#### AC-1496 — Ação de revoke é confirmada e devolve estado terminal
 
 - **Dado** um node com state `active`
 - **Quando** o usuário clica em revoke e confirma o diálogo
@@ -26,7 +26,7 @@ o runtime remoto e interromper pareamento suspeito com confiança.
   o item passa a `revoked` na próxima renderização e o botão revoke some;
   cancelar o diálogo não emite nenhuma chamada à bridge.
 
-#### AC-1473 — Detalhe de node escapa texto hostil sem executar nada
+#### AC-1497 — Detalhe de node escapa texto hostil sem executar nada
 
 - **Dado** um node cuja `node_id`, `peer` ou `display_name` contenha
   caracteres HTML/JS/scripts
@@ -36,7 +36,7 @@ o runtime remoto e interromper pareamento suspeito com confiança.
   `data:text/html` é executado, e o teste verifica via `dangerouslySetInnerHTML`
   ausente.
 
-#### AC-1474 — Resposta stale da bridge é fail-closed
+#### AC-1498 — Resposta stale da bridge é fail-closed
 
 - **Dado** resposta de `list_nodes` com campo `stale_since_ms` anterior
   ao wall clock atual mais `STALE_RESPONSE_THRESHOLD_MS`
@@ -45,7 +45,7 @@ o runtime remoto e interromper pareamento suspeito com confiança.
   desabilitada e um banner de aviso informa que a ação pode ser imprecisa;
   o usuário pode reabrir a lista manualmente.
 
-#### AC-1475 — Acessibilidade mínima da listagem e do detalhe
+#### AC-1499 — Acessibilidade mínima da listagem e do detalhe
 
 - **Dado** o componente `<NodeList>` e `<NodeDetail>` montados
 - **Quando** o DOM é inspecionado
@@ -71,3 +71,7 @@ o runtime remoto e interromper pareamento suspeito com confiança.
   contrato da PR-251 e a PR não inventa serialização crua.
 - ASM-1463: a fonte de verdade (Tauri bridge) é responsável por aplicar
   autorização e rate limiting; a UI apenas reflete o que ela devolve.
+
+## Perguntas em aberto
+
+Nenhuma.
