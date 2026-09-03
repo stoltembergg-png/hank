@@ -35,6 +35,15 @@ pub const MAX_NODE_ID_LEN: usize = 128;
 pub const MAX_CREDENTIAL_AUDIT_EVENTS: usize = 256;
 /// Maximum retained revoked tombstones (capacity observability only).
 pub const MAX_REVOKED_TOMBSTONES: usize = 256;
+/// Maximum allowed lease duration in milliseconds (24h). Anything beyond
+/// this would let a single lease occupy a slot indefinitely and bypass
+/// the bounded-expiry/rotation guarantee.
+pub const MAX_LEASE_DURATION_MS: u64 = 24 * 60 * 60 * 1_000;
+/// Maximum allowed length of a credential reference label held by the
+/// broker. Mirrors the provider-core invariant to keep defence in depth
+/// even when the caller hands the broker a value that was not produced
+/// by `CredentialRef::parse` (e.g. via direct construction or deserialise).
+pub const MAX_CREDENTIAL_REF_LEN: usize = 128;
 
 /// Source of monotonic time for the broker. Production code uses
 /// [`SystemClock`]; tests inject a deterministic clock.
@@ -301,7 +310,11 @@ impl CredentialBroker {
         lease_duration_ms: u64,
     ) -> Result<CredentialLease, CredentialBrokerError> {
         scope.revalidate()?;
+        Self::validate_credential_ref(&reference)?;
         if lease_duration_ms == 0 {
+            return Err(CredentialBrokerError::InvalidScope);
+        }
+        if lease_duration_ms > MAX_LEASE_DURATION_MS {
             return Err(CredentialBrokerError::InvalidScope);
         }
         let now_ms = self.clock.now_ms();
@@ -481,6 +494,29 @@ impl CredentialBroker {
         state
             .leases
             .retain(|_, record| now_ms < record.expires_at_ms);
+    }
+
+    /// Defensive check on the inner string of a `CredentialRef`. The
+    /// provider-core parser already enforces this when the value is
+    /// built via `CredentialRef::parse`, but a caller that hands the
+    /// broker a value produced by direct construction or by a custom
+    /// `Deserialize` impl could otherwise bypass that invariant. The
+    /// broker itself never deserialises — this check is the safety net
+    /// at the broker boundary.
+    fn validate_credential_ref(reference: &CredentialRef) -> Result<(), CredentialBrokerError> {
+        let value = reference.as_str();
+        if value.is_empty() || value.len() > MAX_CREDENTIAL_REF_LEN {
+            return Err(CredentialBrokerError::InvalidScope);
+        }
+        let normalized = value.to_ascii_lowercase();
+        for marker in [
+            "api_key", "apikey", "api-key", "secret", "token", "password", "bearer",
+        ] {
+            if normalized.contains(marker) {
+                return Err(CredentialBrokerError::InvalidScope);
+            }
+        }
+        Ok(())
     }
 
     fn push_audit(

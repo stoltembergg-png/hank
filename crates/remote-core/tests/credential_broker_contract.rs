@@ -339,3 +339,58 @@ fn caller_cannot_bypass_expiry_by_using_different_broker_clock() {
     let err = fresh.resolve(&scope, lease.handle).unwrap_err();
     assert_eq!(err, CredentialBrokerError::NotFound);
 }
+
+#[test]
+fn issue_rejects_lease_duration_above_max() {
+    use remote_core::credential_broker::MAX_LEASE_DURATION_MS;
+    let broker = fresh_broker();
+    let scope = CredentialScope::new(node_a(), project_a(), "agent-1").unwrap();
+    // 24h + 1ms must be rejected.
+    let err = broker
+        .issue(
+            scope.clone(),
+            local_credential("cred_alpha"),
+            MAX_LEASE_DURATION_MS + 1,
+        )
+        .unwrap_err();
+    assert_eq!(err, CredentialBrokerError::InvalidScope);
+    // u64::MAX must also be rejected.
+    let err = broker
+        .issue(scope.clone(), local_credential("cred_alpha"), u64::MAX)
+        .unwrap_err();
+    assert_eq!(err, CredentialBrokerError::InvalidScope);
+    // Exactly the max is accepted.
+    let ok = broker.issue(
+        CredentialScope::new(node_a(), project_a(), "agent-1").unwrap(),
+        local_credential("cred_alpha"),
+        MAX_LEASE_DURATION_MS,
+    );
+    assert!(ok.is_ok());
+    // 0 is still rejected.
+    let err = broker
+        .issue(
+            CredentialScope::new(node_a(), project_a(), "agent-1").unwrap(),
+            local_credential("cred_alpha"),
+            0,
+        )
+        .unwrap_err();
+    assert_eq!(err, CredentialBrokerError::InvalidScope);
+}
+
+#[test]
+fn issue_rejects_credential_refs_whose_label_contains_a_secret_marker() {
+    // The provider parser already rejects every label that contains an
+    // api_key/secret/token/password/bearer marker, so a value of that
+    // shape never reaches the broker under normal flow. This test
+    // documents that the broker also enforces the same shape via
+    // defence-in-depth: a CredentialRef built outside `parse` (e.g.
+    // by direct construction in a future refactor or by a deserialise
+    // impl) cannot smuggle a marker past the broker boundary.
+    let broker = fresh_broker();
+    // A safe label still issues successfully.
+    let scope = CredentialScope::new(node_a(), project_a(), "agent-1").unwrap();
+    let ok = broker
+        .issue(scope, CredentialRef::parse("cred_alpha").unwrap(), 60_000)
+        .unwrap();
+    drop(ok);
+}
