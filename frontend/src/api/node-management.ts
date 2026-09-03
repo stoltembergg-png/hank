@@ -78,6 +78,16 @@ export class DesktopNodeManagementApiClient implements NodeManagementApiClient {
 
 export const defaultNodeManagementApi = new DesktopNodeManagementApiClient();
 
+/**
+ * Test/Storybook-only default. The product shell should construct the
+ * concrete `DesktopNodeManagementApiClient` at the composition root and
+ * pass it to the `NodeList` / `NodeDetail` components via `apiClient`. The
+ * `NodeManagementApiClient` interface lives in the public API; the
+ * concrete Tauri implementation must not be imported by the
+ * `settings/nodes/` components.
+ */
+export const __unsafe_test_default_api = new DesktopNodeManagementApiClient();
+
 export function isStaleResponse(result: NodeListResult, nowMs: number): boolean {
   if (result.fetched_at_ms <= 0) return true;
   return nowMs - result.fetched_at_ms > STALE_RESPONSE_THRESHOLD_MS;
