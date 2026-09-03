@@ -84,14 +84,30 @@ fn resolve_fails_closed_for_diverging_scope() {
     let lease = broker
         .issue(scope.clone(), local_credential("cred_alpha"), 60_000)
         .unwrap();
+    // Build a forged lease that uses the same handle but a different scope.
     let wrong_node = CredentialScope::new(node_b(), project_a(), "agent-1").unwrap();
-    let err = broker.resolve(&wrong_node, lease.handle).unwrap_err();
+    let forged = remote_core::credential_broker::CredentialLease {
+        handle: lease.handle,
+        scope: wrong_node,
+        expires_at_ms: lease.expires_at_ms,
+    };
+    let err = broker.resolve(&forged).unwrap_err();
     assert_eq!(err, CredentialBrokerError::ScopeMismatch);
     let wrong_project = CredentialScope::new(node_a(), project_b(), "agent-1").unwrap();
-    let err = broker.resolve(&wrong_project, lease.handle).unwrap_err();
+    let forged = remote_core::credential_broker::CredentialLease {
+        handle: lease.handle,
+        scope: wrong_project,
+        expires_at_ms: lease.expires_at_ms,
+    };
+    let err = broker.resolve(&forged).unwrap_err();
     assert_eq!(err, CredentialBrokerError::ScopeMismatch);
     let wrong_actor = CredentialScope::new(node_a(), project_a(), "agent-2").unwrap();
-    let err = broker.resolve(&wrong_actor, lease.handle).unwrap_err();
+    let forged = remote_core::credential_broker::CredentialLease {
+        handle: lease.handle,
+        scope: wrong_actor,
+        expires_at_ms: lease.expires_at_ms,
+    };
+    let err = broker.resolve(&forged).unwrap_err();
     assert_eq!(err, CredentialBrokerError::ScopeMismatch);
     let reason = broker
         .audit()
@@ -112,11 +128,11 @@ fn expired_or_revoked_lease_fails_closed() {
         .unwrap();
     // Just before expiry
     clock.advance(999);
-    let ok = broker.resolve(&scope, lease.handle);
+    let ok = broker.resolve(&lease);
     assert!(ok.is_ok());
     // Past expiry
     clock.advance(1);
-    let err = broker.resolve(&scope, lease.handle).unwrap_err();
+    let err = broker.resolve(&lease).unwrap_err();
     assert_eq!(err, CredentialBrokerError::Expired);
     let audit = broker.audit();
     assert!(audit
@@ -129,8 +145,8 @@ fn expired_or_revoked_lease_fails_closed() {
     let lease2 = broker
         .issue(scope2.clone(), local_credential("cred_beta"), 60_000)
         .unwrap();
-    broker.revoke(&scope2, lease2.handle).unwrap();
-    let err = broker.resolve(&scope2, lease2.handle).unwrap_err();
+    broker.revoke(&lease2).unwrap();
+    let err = broker.resolve(&lease2).unwrap_err();
     assert_eq!(err, CredentialBrokerError::NotFound);
     // Capacity is freed by revoke (the revoked handle moves to a bounded
     // tombstone ring, not the active lease map).
@@ -180,8 +196,6 @@ fn broker_is_bounded_and_audit_never_records_secret_values() {
     let lease = other_broker
         .issue(scope, local_credential("cred_after_rewind"), 60_000)
         .unwrap();
-    // The new broker was free; the handle exists and is bound to its own
-    // seed/generation pair.
     let _ = lease;
 }
 
@@ -197,8 +211,15 @@ fn lease_binding_prevents_cross_actor_or_cross_project_use() {
         .issue(scope_a.clone(), local_credential("cred_beta"), 60_000)
         .unwrap();
     assert_ne!(lease_a.handle, lease_a2.handle);
+    // Resolve of lease A under a different project for the same actor
+    // is denied.
     let wrong = CredentialScope::new(node_a(), project_b(), "agent-1").unwrap();
-    let err = broker.resolve(&wrong, lease_a.handle).unwrap_err();
+    let forged = remote_core::credential_broker::CredentialLease {
+        handle: lease_a.handle,
+        scope: wrong,
+        expires_at_ms: lease_a.expires_at_ms,
+    };
+    let err = broker.resolve(&forged).unwrap_err();
     assert_eq!(err, CredentialBrokerError::ScopeMismatch);
 }
 
@@ -223,7 +244,7 @@ fn revoke_frees_capacity_for_subsequent_issues() {
         .unwrap_err();
     assert_eq!(err, CredentialBrokerError::CapacityExhausted);
     for lease in &original {
-        broker.revoke(&scope, lease.handle).unwrap();
+        broker.revoke(lease).unwrap();
     }
     assert_eq!(broker.active_leases(), 0);
     assert_eq!(broker.revoked_tombstones(), MAX_CREDENTIAL_LEASES);
@@ -245,9 +266,8 @@ fn invalid_scope_is_rejected_without_state_mutation() {
     assert_eq!(err, CredentialBrokerError::InvalidScope);
     let err = CredentialScope::new(node_a(), project_a(), "").unwrap_err();
     assert_eq!(err, CredentialBrokerError::InvalidScope);
-    // Bad NodeId: empty string is rejected by `NodeId::new` itself, but
-    // an oversized or control-character-filled NodeId can be built via
-    // the public tuple struct and is caught at scope construction.
+    // Bad NodeId: an oversized or control-character-filled NodeId can be
+    // built via the public tuple struct and is caught at scope construction.
     let bad_node = NodeId("\u{0000}node".into());
     let err = CredentialScope::new(bad_node, project_a(), "agent-1").unwrap_err();
     assert_eq!(err, CredentialBrokerError::InvalidScope);
@@ -281,10 +301,10 @@ fn unknown_handle_resolves_as_not_found() {
     let lease = broker
         .issue(scope.clone(), local_credential("cred_alpha"), 60_000)
         .unwrap();
-    // A fresh broker has no leases; resolving the same handle must fail
+    // A fresh broker has no leases; resolving the same lease fails
     // closed and the audit log records the probing attempt.
     let fresh = CredentialBroker::with_clock(FakeClock::new(2_000));
-    let err = fresh.resolve(&scope, lease.handle).unwrap_err();
+    let err = fresh.resolve(&lease).unwrap_err();
     assert_eq!(err, CredentialBrokerError::NotFound);
     let audit = fresh.audit();
     assert!(audit
@@ -299,10 +319,17 @@ fn revoke_requires_matching_scope() {
     let lease = broker
         .issue(scope.clone(), local_credential("cred_alpha"), 60_000)
         .unwrap();
+    // Build a forged lease that uses the same handle but a different scope.
     let wrong = CredentialScope::new(node_a(), project_a(), "agent-2").unwrap();
-    let err = broker.revoke(&wrong, lease.handle).unwrap_err();
+    let forged = remote_core::credential_broker::CredentialLease {
+        handle: lease.handle,
+        scope: wrong,
+        expires_at_ms: lease.expires_at_ms,
+    };
+    let err = broker.revoke(&forged).unwrap_err();
     assert_eq!(err, CredentialBrokerError::ScopeMismatch);
-    broker.revoke(&scope, lease.handle).unwrap();
+    // The legitimate lease can still be revoked.
+    broker.revoke(&lease).unwrap();
     assert_eq!(broker.revoked_tombstones(), 1);
 }
 
@@ -331,12 +358,12 @@ fn caller_cannot_bypass_expiry_by_using_different_broker_clock() {
         .unwrap();
     // Past expiry, the resolve fails.
     clock.advance(1_001);
-    let err = broker.resolve(&scope, lease.handle).unwrap_err();
+    let err = broker.resolve(&lease).unwrap_err();
     assert_eq!(err, CredentialBrokerError::Expired);
     // Even if a caller tried to construct a brand-new broker, that broker
     // does not share state with the original — the old lease is gone.
     let fresh = CredentialBroker::with_clock(FakeClock::new(500));
-    let err = fresh.resolve(&scope, lease.handle).unwrap_err();
+    let err = fresh.resolve(&lease).unwrap_err();
     assert_eq!(err, CredentialBrokerError::NotFound);
 }
 
@@ -381,13 +408,12 @@ fn issue_rejects_lease_duration_above_max() {
 fn issue_rejects_credential_refs_whose_label_contains_a_secret_marker() {
     // The provider parser already rejects every label that contains an
     // api_key/secret/token/password/bearer marker, so a value of that
-    // shape never reaches the broker under normal flow. This test
-    // documents that the broker also enforces the same shape via
-    // defence-in-depth: a CredentialRef built outside `parse` (e.g.
-    // by direct construction in a future refactor or by a deserialise
-    // impl) cannot smuggle a marker past the broker boundary.
+    // shape never reaches the broker under normal flow. The broker also
+    // enforces the same shape via defence-in-depth, so a CredentialRef
+    // built outside `parse` (e.g. by direct construction in a future
+    // refactor or by a deserialise impl) cannot smuggle a marker past
+    // the broker boundary.
     let broker = fresh_broker();
-    // A safe label still issues successfully.
     let scope = CredentialScope::new(node_a(), project_a(), "agent-1").unwrap();
     let ok = broker
         .issue(scope, CredentialRef::parse("cred_alpha").unwrap(), 60_000)

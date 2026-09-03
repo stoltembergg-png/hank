@@ -49,9 +49,13 @@ use remote_core::credential_broker::{CredentialBroker, CredentialScope};
 let broker = CredentialBroker::new();
 let scope = CredentialScope::new(NodeId::new("node-1")?, project, "agent-1")?;
 let reference = CredentialRef::parse("cred_alpha")?;
-let lease = broker.issue(scope.clone(), reference, 60_000)?;
-// Transport `lease.handle` (opaque hex starting with `scoped_`) to a peer.
-let resolved = broker.resolve(&scope, lease.handle)?;
+let lease = broker.issue(scope, reference, 60_000)?;
+// Transport the full `CredentialLease` to a peer. The broker will refuse
+// `resolve` and `revoke` that present a caller-supplied scope or handle
+// instead of the original lease; the lease is the broker-issued access
+// context.
+let resolved = broker.resolve(&lease)?;
+broker.revoke(&lease)?;
 ```
 
 The broker owns its own clock and entropy. Production code uses

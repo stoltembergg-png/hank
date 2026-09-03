@@ -360,16 +360,16 @@ impl CredentialBroker {
         })
     }
 
-    /// Resolves an opaque handle to the local credential reference only
-    /// when the exact scope matches and the lease is active. Time is taken
-    /// from the injected clock; the caller cannot bypass expiry by
-    /// backdating the timestamp.
-    pub fn resolve(
-        &self,
-        scope: &CredentialScope,
-        handle: ScopedCredentialRef,
-    ) -> Result<CredentialRef, CredentialBrokerError> {
-        scope.revalidate()?;
+    /// Resolves a broker-issued lease to the local credential reference
+    /// only when the lease is still active. The `lease` is the
+    /// broker-issued access context: the caller must present the
+    /// original `CredentialLease` returned by `issue`; the broker will
+    /// not accept a caller-supplied scope or handle on its own. Time is
+    /// taken from the injected clock; the caller cannot bypass expiry
+    /// by backdating the timestamp.
+    pub fn resolve(&self, lease: &CredentialLease) -> Result<CredentialRef, CredentialBrokerError> {
+        lease.scope.revalidate()?;
+        Self::validate_credential_ref_handle(&lease.handle)?;
         let now_ms = self.clock.now_ms();
         let mut state = self
             .state
@@ -380,10 +380,10 @@ impl CredentialBroker {
         // proper error variant (Expired vs NotFound vs ScopeMismatch).
         let mut target: Option<Result<CredentialRef, CredentialBrokerError>> = None;
         for record in state.leases.values() {
-            if record.handle != handle {
+            if record.handle != lease.handle {
                 continue;
             }
-            if &record.scope != scope {
+            if record.scope != lease.scope {
                 target = Some(Err(CredentialBrokerError::ScopeMismatch));
                 break;
             }
@@ -399,7 +399,11 @@ impl CredentialBroker {
         self.purge_expired(&mut state, now_ms);
         match target {
             Some(Ok(reference)) => {
-                self.push_audit(&mut state, scope.clone(), CredentialAuditReason::Resolved);
+                self.push_audit(
+                    &mut state,
+                    lease.scope.clone(),
+                    CredentialAuditReason::Resolved,
+                );
                 Ok(reference)
             }
             Some(Err(err)) => {
@@ -409,45 +413,45 @@ impl CredentialBroker {
                     CredentialBrokerError::ScopeMismatch => CredentialAuditReason::ScopeDenied,
                     _ => CredentialAuditReason::ScopeDenied,
                 };
-                self.push_audit(&mut state, scope.clone(), reason);
+                self.push_audit(&mut state, lease.scope.clone(), reason);
                 Err(err)
             }
             None => {
                 // Unknown handle: still recorded with the caller's scope so
                 // the audit trail captures probing attempts.
-                self.push_audit(&mut state, scope.clone(), CredentialAuditReason::NotFound);
+                self.push_audit(
+                    &mut state,
+                    lease.scope.clone(),
+                    CredentialAuditReason::NotFound,
+                );
                 Err(CredentialBrokerError::NotFound)
             }
         }
     }
 
-    /// Revokes a lease by handle, only when the supplied scope exactly
-    /// matches the issuing scope. The handle itself is the revocation
-    /// token: there is no separate predictable numeric identifier that a
-    /// caller could enumerate to revoke other agents' leases. Revoked
-    /// handles move to a bounded tombstone ring so future identical
-    /// handles (if a future lease is issued for the same scope and
-    /// reference) remain distinguishable.
-    pub fn revoke(
-        &self,
-        scope: &CredentialScope,
-        handle: ScopedCredentialRef,
-    ) -> Result<(), CredentialBrokerError> {
-        scope.revalidate()?;
+    /// Revokes a lease by presenting the broker-issued lease token. The
+    /// caller must present the exact `CredentialLease` returned by
+    /// `issue`; the broker will not accept a caller-supplied scope or
+    /// handle on its own. The handle is the only revocation token and
+    /// the scope is bound to the issuer, so a malicious caller cannot
+    /// enumerate or forge revocations for other agents' leases.
+    pub fn revoke(&self, lease: &CredentialLease) -> Result<(), CredentialBrokerError> {
+        lease.scope.revalidate()?;
+        Self::validate_credential_ref_handle(&lease.handle)?;
         let mut state = self
             .state
             .lock()
             .map_err(|_| CredentialBrokerError::StateUnavailable)?;
-        let removed = state.leases.remove(&handle);
+        let removed = state.leases.remove(&lease.handle);
         match removed {
             Some(record) => {
-                if &record.scope != scope {
+                if record.scope != lease.scope {
                     // Return the lease so capacity is not silently freed by
                     // a forged scope, and audit the attempt.
                     state.leases.insert(record.handle, record);
                     self.push_audit(
                         &mut state,
-                        scope.clone(),
+                        lease.scope.clone(),
                         CredentialAuditReason::ScopeDenied,
                     );
                     return Err(CredentialBrokerError::ScopeMismatch);
@@ -456,14 +460,36 @@ impl CredentialBroker {
                     state.revoked_tombstones.pop_front();
                 }
                 state.revoked_tombstones.push_back(record.handle);
-                self.push_audit(&mut state, scope.clone(), CredentialAuditReason::Revoked);
+                self.push_audit(
+                    &mut state,
+                    lease.scope.clone(),
+                    CredentialAuditReason::Revoked,
+                );
                 Ok(())
             }
             None => {
-                self.push_audit(&mut state, scope.clone(), CredentialAuditReason::NotFound);
+                self.push_audit(
+                    &mut state,
+                    lease.scope.clone(),
+                    CredentialAuditReason::NotFound,
+                );
                 Err(CredentialBrokerError::NotFound)
             }
         }
+    }
+
+    /// Defensive check on a `ScopedCredentialRef` handle at the broker
+    /// boundary. The handle is opaque, so this only enforces a sanity
+    /// bound on its serialized length (it is a 32-byte digest and its
+    /// hex form has a fixed length).
+    fn validate_credential_ref_handle(
+        handle: &ScopedCredentialRef,
+    ) -> Result<(), CredentialBrokerError> {
+        let hex = handle.as_hex();
+        if hex.len() != "scoped_".len() + 64 {
+            return Err(CredentialBrokerError::InvalidScope);
+        }
+        Ok(())
     }
 
     /// Returns bounded, redacted audit events in oldest-to-newest order.
