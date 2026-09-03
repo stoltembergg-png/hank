@@ -1,7 +1,7 @@
 {
   "feature": "node-management-ui",
-  "timestamp": "2026-09-03T20:15:06.626Z",
-  "gitRev": "d610e58",
+  "timestamp": "2026-09-03T20:57:16.591Z",
+  "gitRev": "793b5b0",
   "command": "node tools/run-feature-tests.mjs node-management-ui",
   "reporter": "exitcode",
   "exitCode": 0,
