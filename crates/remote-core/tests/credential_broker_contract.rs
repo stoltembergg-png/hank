@@ -420,3 +420,55 @@ fn issue_rejects_credential_refs_whose_label_contains_a_secret_marker() {
         .unwrap();
     drop(ok);
 }
+
+#[test]
+fn scoped_credential_ref_round_trips_through_parse() {
+    use remote_core::credential_broker::ScopedCredentialRef;
+    let broker = fresh_broker();
+    let scope = CredentialScope::new(node_a(), project_a(), "agent-1").unwrap();
+    let lease = broker
+        .issue(scope, local_credential("cred_alpha"), 60_000)
+        .unwrap();
+    let hex = lease.handle.as_hex();
+    let restored = ScopedCredentialRef::parse(&hex).expect("hex must round-trip");
+    assert_eq!(restored, lease.handle);
+    // Bad shapes are rejected.
+    let bad_inputs: [&str; 5] = [
+        "",
+        "scoped_short",
+        "scoped_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "wrong_prefix_0000000000000000000000000000000000000000000000000000000000000000",
+        "scoped_000000000000000000000000000000000000000000000000000000000000000g",
+    ];
+    for bad in bad_inputs {
+        let res = ScopedCredentialRef::parse(bad);
+        assert!(res.is_err(), "input {bad:?} must be rejected");
+    }
+    let _ = restored;
+}
+
+#[test]
+fn resolve_emits_not_found_audit_for_unknown_handle() {
+    use remote_core::credential_broker::ScopedCredentialRef;
+    let broker = fresh_broker();
+    let scope = CredentialScope::new(node_a(), project_a(), "agent-1").unwrap();
+    // Build a well-formed lease whose handle is unknown to the broker.
+    let forged_handle = ScopedCredentialRef::parse(
+        "scoped_0000000000000000000000000000000000000000000000000000000000000000",
+    )
+    .unwrap();
+    let lease = remote_core::credential_broker::CredentialLease {
+        handle: forged_handle,
+        scope: scope.clone(),
+        expires_at_ms: 0,
+    };
+    let err = broker.resolve(&lease).unwrap_err();
+    assert_eq!(err, CredentialBrokerError::NotFound);
+    let audit = broker.audit();
+    assert!(
+        audit
+            .iter()
+            .any(|event| matches!(event.reason, CredentialAuditReason::NotFound)),
+        "NotFound must be recorded in the audit log"
+    );
+}

@@ -196,6 +196,34 @@ impl ScopedCredentialRef {
         }
         out
     }
+
+    /// Validated input conversion. Accepts only the canonical
+    /// `scoped_<64-hex>` form produced by [`ScopedCredentialRef::as_hex`].
+    /// Transport adapters that receive a handle from a peer must use
+    /// this constructor to rebuild a handle before calling
+    /// [`CredentialBroker::resolve`] or [`CredentialBroker::revoke`].
+    pub fn parse(value: &str) -> Result<Self, CredentialBrokerError> {
+        let prefix = "scoped_";
+        let expected = prefix.len() + 64;
+        if value.len() != expected || !value.starts_with(prefix) {
+            return Err(CredentialBrokerError::InvalidScope);
+        }
+        let hex = &value[prefix.len()..];
+        if !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err(CredentialBrokerError::InvalidScope);
+        }
+        let mut bytes = [0u8; 32];
+        for (i, chunk) in hex.as_bytes().chunks(2).enumerate() {
+            let hi = (chunk[0] as char)
+                .to_digit(16)
+                .ok_or(CredentialBrokerError::InvalidScope)?;
+            let lo = (chunk[1] as char)
+                .to_digit(16)
+                .ok_or(CredentialBrokerError::InvalidScope)?;
+            bytes[i] = ((hi << 4) | lo) as u8;
+        }
+        Ok(Self(bytes))
+    }
 }
 
 /// Bounded lease for a scoped credential reference. The handle is the
