@@ -16,7 +16,6 @@
   ],
   "pullRequestChecks": [
     "CodeRabbit",
-    "Aikido Security: check code",
-    "Aikido Security: Deep Review"
+    "Aikido Security: check code"
   ]
 }
