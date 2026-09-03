@@ -97,7 +97,7 @@ export function NodeList({
 
   const stale = result ? isStaleResponse(result, now) : false;
 
-  // When staleness flips on, close any open revoke dialog to prevent late
+  // When staleness flips on, close an open revoke dialog to prevent late
   // confirmation against an outdated list.
   useEffect(() => {
     if (stale && dialog && !dialog.resolving) {
