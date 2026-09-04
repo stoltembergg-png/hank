@@ -193,7 +193,7 @@ test('Frontend workflow has explicit lint, typecheck, test, and build gates', ()
   assert.ok(auditCommands.includes('max_attempts=3'));
   assert.ok(auditCommands.includes('export npm_config_fetch_timeout=60000'));
   assert.ok(auditCommands.includes('export npm_config_fetch_retries=0'));
-  assert.ok(auditCommands.includes('export npm_config_audit_registry=https://registry.npmjs.com/'));
+  assert.ok(auditCommands.includes('export npm_config_registry=https://registry.npmjs.com/'));
   assert.ok(!auditCommands.some((command) => command.includes('--no-audit')));
   const patternCommand = auditCommands.find((command) => command.startsWith('transient_pattern='));
   assert.ok(patternCommand, 'build-frontend.yml: missing bounded transient error pattern');
@@ -211,6 +211,22 @@ test('Tauri workflow retains native check, format, and acceptance gates', () => 
   assertCommand(tauriWorkflow, 'cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --locked', 'build-tauri.yml');
   assertCommand(tauriWorkflow, 'cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml -- --check', 'build-tauri.yml');
   assertCommand(tauriWorkflow, 'cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked', 'build-tauri.yml');
+  const tauriDependencyCommands = executableRunCommands(
+    tauriWorkflow,
+    'build-tauri',
+    'Install Tauri Linux dependencies',
+  );
+  const tauriSources = [...tauriWorkflow.matchAll(/^\s+deb\s+\S+.*$/gm)].map((match) => match[0].trim());
+  assert.deepEqual(tauriSources, [
+    'deb https://mirrors.edge.kernel.org/ubuntu noble main universe multiverse restricted',
+    'deb https://mirrors.edge.kernel.org/ubuntu noble-updates main universe multiverse restricted',
+    'deb https://mirrors.edge.kernel.org/ubuntu noble-security main universe multiverse restricted',
+  ]);
+  const tauriAptCommands = tauriDependencyCommands.filter((command) => command.includes('apt-get'));
+  assert.equal(tauriAptCommands.length, 2);
+  assert.ok(tauriAptCommands.every((command) => command.includes('"${apt_opts[@]}"')));
+  assert.match(tauriWorkflow, /apt_opts=\(-o Dir::Etc::sourcelist=\/tmp\/hank-ubuntu\.sources\.list -o Dir::Etc::sourceparts=-/);
+  assert.doesNotMatch(tauriWorkflow, /(?:archive|security)\.ubuntu\.com/);
   assert.doesNotMatch(tauriWorkflow, /continue-on-error\s*:\s*true/);
 });
 
