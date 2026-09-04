@@ -16,11 +16,13 @@ mudança no perfil ativo.
 4. Com preflight compatível e confirmação explícita, o serviço adquire o lock derivado do
    destino, copia o banco para staging bounded e roda migrations, schema check, integrity
    check e hash somente no staging.
-5. O destino existente é renomeado para o nome temporário de previous; o stage completo
-   é renomeado para o destino; por fim o receipt sincronizado é publicado. Se uma etapa de
-   promoção falhar, o serviço tenta recolocar o previous e remove os temporários seguros.
-6. Um retry com o mesmo request e receipt íntegro retorna `AlreadyApplied`; divergências
-   de receipt, origem ou hash falham como conflito e exigem investigação do operador.
+5. O destino existente e seus sidecars `-wal`/`-shm` são renomeados para os nomes
+   temporários de previous; o stage completo é renomeado para o destino; sidecars de
+   stage são removidos antes de publicar o receipt. Se uma etapa de promoção falhar, o
+   serviço tenta recolocar o trio previous e remove os temporários seguros.
+6. Um retry com o mesmo request e receipt íntegro repete o cleanup pendente e só então
+   retorna `AlreadyApplied`; divergências de receipt, origem ou hash falham como conflito
+   e exigem investigação do operador.
 
 ## Segurança e limites
 
@@ -34,7 +36,8 @@ mudança no perfil ativo.
 - Nenhum segredo, token, prompt ou ciphertext é aceito ou serializado pelo contrato. A
   proteção concreta e a autorização pertencem às fronteiras de Secrets Broker/Application API.
 - O limite de bytes cobre cópia e hash. Falhas deixam o destino anterior intacto quando
-  possível; o arquivo `previous` não é removido durante uma tentativa de rollback falha.
+  possível; cleanup de stage/previous falho retorna erro explícito e pode ser repetido com
+  o mesmo request, sem declarar `Applied` novamente.
 
 ## Compatibilidade e last-known-good
 
@@ -44,10 +47,12 @@ precisa ser exatamente `current_schema_version`; um target antigo, um backup mai
 o target ou um target acima do runtime são incompatíveis e não são promovidos. Não há
 downgrade indiscriminado.
 
-O arquivo anterior só é descartado depois da publicação do receipt. Em uma falha de
-promoção, o operador deve preservar e investigar os artefatos de recuperação conforme a
-política da aplicação; esta entrega não executa restore automático após qualquer erro nem
-afirma um drill real de crash/power-loss.
+O arquivo anterior só é descartado depois da publicação do receipt. Se o cleanup posterior
+falhar, o receipt e o novo target continuam identificáveis, mas a chamada retorna erro; a
+retentativa com o mesmo request pode concluir a limpeza antes de devolver `AlreadyApplied`.
+Em uma falha de promoção, o operador deve preservar e investigar os artefatos de recuperação
+conforme a política da aplicação; esta entrega não executa restore automático após qualquer
+erro nem afirma um drill real de crash/power-loss.
 
 ## Operação posterior
 

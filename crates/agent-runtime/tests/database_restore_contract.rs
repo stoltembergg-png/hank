@@ -152,11 +152,100 @@ async fn existing_target_is_replaced_and_receipt_makes_retry_idempotent() {
     assert!(!target
         .with_file_name(".profile-a.db.restore-previous.db")
         .exists());
+    assert!(!target
+        .with_file_name(".profile-a.db.restore-previous.db-wal")
+        .exists());
+    assert!(!target
+        .with_file_name(".profile-a.db.restore-previous.db-shm")
+        .exists());
+
+    tokio::fs::write(
+        target.with_file_name(".profile-a.db.restore-stage.tmp-wal"),
+        b"stale stage sidecar",
+    )
+    .await
+    .unwrap();
+    tokio::fs::write(
+        target.with_file_name(".profile-a.db.restore-previous.db"),
+        b"stale previous artifact",
+    )
+    .await
+    .unwrap();
 
     let second = service.restore(request).await.unwrap();
     assert_eq!(second.outcome, RestoreOutcome::AlreadyApplied);
+    assert!(!target
+        .with_file_name(".profile-a.db.restore-stage.tmp-wal")
+        .exists());
+    assert!(!target
+        .with_file_name(".profile-a.db.restore-previous.db")
+        .exists());
     assert_eq!(first.target_sha256, second.target_sha256);
 
+    let restored = SqliteStorage::connect(SqliteStorageConfig::for_file(&target))
+        .await
+        .unwrap();
+    let row = sqlx::query("SELECT name FROM projects WHERE id = 'project-a'")
+        .fetch_one(restored.pool())
+        .await
+        .unwrap();
+    assert_eq!(row.get::<String, _>("name"), "Project");
+    restored.close().await;
+    source_storage.close().await;
+}
+
+// @spec:AC-1703
+#[tokio::test]
+async fn interrupted_promotion_recovers_previous_before_retrying_restore() {
+    let (dir, source_storage, backup) = seeded_source().await;
+    let artifact = backup.create(backup_request()).await.unwrap();
+    let target_root = dir.path().join("profiles");
+    tokio::fs::create_dir_all(&target_root).await.unwrap();
+    let target = target_root.join("profile-a.db");
+
+    let old = SqliteStorage::connect(SqliteStorageConfig {
+        database_path: Some(target.clone()),
+        max_connections: 1,
+        busy_timeout: std::time::Duration::from_secs(5),
+        create_if_missing: true,
+        wal_mode: false,
+        foreign_keys: true,
+    })
+    .await
+    .unwrap();
+    run_migrations(old.pool()).await.unwrap();
+    sqlx::query(
+        "INSERT INTO projects (id, name, status, owner, created_at, updated_at, settings) \
+         VALUES ('project-a', 'Old', 'active', 'owner-a', '2026-01-01', '2026-01-01', '{}')",
+    )
+    .execute(old.pool())
+    .await
+    .unwrap();
+    old.close().await;
+
+    let previous = target.with_file_name(".profile-a.db.restore-previous.db");
+    tokio::fs::rename(&target, &previous).await.unwrap();
+    let stale_stage_wal = target.with_file_name(".profile-a.db.restore-stage.tmp-wal");
+    tokio::fs::write(&stale_stage_wal, b"interrupted stage")
+        .await
+        .unwrap();
+
+    let service = restore_service(backup, &target_root);
+    let result = service
+        .restore(restore_request(
+            &artifact,
+            &target,
+            "profile-a",
+            21,
+            "restore-after-interruption",
+            false,
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(result.outcome, RestoreOutcome::Applied);
+    assert!(!previous.exists());
+    assert!(!stale_stage_wal.exists());
     let restored = SqliteStorage::connect(SqliteStorageConfig::for_file(&target))
         .await
         .unwrap();
@@ -573,5 +662,36 @@ async fn oversized_restore_cleans_staging_and_leaves_no_target() {
         Vec::new()
     };
     assert!(entries.is_empty());
+    source_storage.close().await;
+}
+
+#[cfg(unix)]
+// @spec:AC-1704
+#[tokio::test]
+async fn symlink_parent_is_rejected_without_following_the_link() {
+    use std::os::unix::fs::symlink;
+
+    let (dir, source_storage, backup) = seeded_source().await;
+    let artifact = backup.create(backup_request()).await.unwrap();
+    let target_root = dir.path().join("profiles");
+    let outside = dir.path().join("outside");
+    std::fs::create_dir_all(&outside).unwrap();
+    symlink(&outside, &target_root).unwrap();
+    let target = target_root.join("profile-a.db");
+    let service = restore_service(backup, &target_root);
+
+    let result = service
+        .restore(restore_request(
+            &artifact,
+            &target,
+            "profile-a",
+            21,
+            "restore-parent-symlink",
+            false,
+        ))
+        .await;
+
+    assert!(matches!(result, Err(RestoreError::TargetOutsideRoot)));
+    assert!(!outside.join("profile-a.db").exists());
     source_storage.close().await;
 }
