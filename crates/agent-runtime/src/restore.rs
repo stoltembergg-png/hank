@@ -311,6 +311,12 @@ impl DatabaseRestoreService {
                 .result_from_receipt(&request, &verified, &paths, receipt)
                 .await;
         }
+        recover_interrupted_restore(&paths, self.policy.max_restore_bytes).await?;
+        if let Some(receipt) = read_receipt(&paths.receipt).await? {
+            return self
+                .result_from_receipt(&request, &verified, &paths, receipt)
+                .await;
+        }
         self.apply(&request, &verified, plan, paths).await
     }
 
@@ -340,15 +346,13 @@ impl DatabaseRestoreService {
         )
         .await
         {
-            let _ = cleanup_stage(&paths).await;
-            return Err(error);
+            return Err(cleanup_after_error(&paths, &receipt_stage, error).await);
         }
         let staged = self.prepare_stage(&paths.stage, request, verified).await;
         let (schema_version, target_sha256) = match staged {
             Ok(value) => value,
             Err(error) => {
-                let _ = cleanup_stage(&paths).await;
-                return Err(error);
+                return Err(cleanup_after_error(&paths, &receipt_stage, error).await);
             }
         };
         let receipt = RestoreReceipt {
@@ -364,32 +368,25 @@ impl DatabaseRestoreService {
         };
         let receipt_stage = receipt_stage_path(&paths.receipt);
         if let Err(error) = write_receipt(&receipt_stage, &receipt).await {
-            let _ = cleanup_stage(&paths).await;
-            return Err(error);
+            return Err(cleanup_after_error(&paths, &receipt_stage, error).await);
         }
 
         let target_exists = match target_is_regular_file(&paths.target).await {
             Ok(value) => value,
             Err(error) => {
-                let _ = cleanup_stage(&paths).await;
-                let _ = tokio::fs::remove_file(&receipt_stage).await;
-                return Err(error);
+                return Err(cleanup_after_error(&paths, &receipt_stage, error).await);
             }
         };
         let target_wal_exists = match sidecar_is_regular_or_absent(&paths.target_wal).await {
             Ok(value) => value,
             Err(error) => {
-                let _ = cleanup_stage(&paths).await;
-                let _ = tokio::fs::remove_file(&receipt_stage).await;
-                return Err(error);
+                return Err(cleanup_after_error(&paths, &receipt_stage, error).await);
             }
         };
         let target_shm_exists = match sidecar_is_regular_or_absent(&paths.target_shm).await {
             Ok(value) => value,
             Err(error) => {
-                let _ = cleanup_stage(&paths).await;
-                let _ = tokio::fs::remove_file(&receipt_stage).await;
-                return Err(error);
+                return Err(cleanup_after_error(&paths, &receipt_stage, error).await);
             }
         };
         if !target_exists && (target_wal_exists || target_shm_exists) {
@@ -773,6 +770,89 @@ async fn schema_version(pool: &Pool<Sqlite>) -> Result<i64, sqlx::Error> {
     sqlx::query_scalar::<Sqlite, i64>("SELECT COALESCE(MAX(version), 0) FROM _sqlx_migrations")
         .fetch_one(pool)
         .await
+}
+
+async fn recover_interrupted_restore(
+    paths: &RestorePaths,
+    max_restore_bytes: u64,
+) -> Result<(), RestoreError> {
+    let receipt_stage = receipt_stage_path(&paths.receipt);
+    let previous_exists = artifact_exists(&paths.previous).await?
+        || artifact_exists(&paths.previous_wal).await?
+        || artifact_exists(&paths.previous_shm).await?;
+    let stage_exists = artifact_exists(&paths.stage).await?
+        || artifact_exists(&paths.stage_wal).await?
+        || artifact_exists(&paths.stage_shm).await?;
+
+    if previous_exists {
+        if target_is_regular_file(&paths.target).await? {
+            sidecar_is_regular_or_absent(&paths.target_wal).await?;
+            sidecar_is_regular_or_absent(&paths.target_shm).await?;
+            remove_optional(&paths.target)
+                .await
+                .map_err(RestoreError::Rollback)?;
+            remove_optional(&paths.target_wal)
+                .await
+                .map_err(RestoreError::Rollback)?;
+            remove_optional(&paths.target_shm)
+                .await
+                .map_err(RestoreError::Rollback)?;
+        } else {
+            remove_optional(&paths.target_wal)
+                .await
+                .map_err(RestoreError::Rollback)?;
+            remove_optional(&paths.target_shm)
+                .await
+                .map_err(RestoreError::Rollback)?;
+        }
+        rollback_previous(paths).await?;
+        cleanup_stage(paths).await?;
+        remove_optional(&receipt_stage)
+            .await
+            .map_err(RestoreError::Io)?;
+        return Ok(());
+    }
+
+    if stage_exists {
+        cleanup_stage(paths).await?;
+        remove_optional(&receipt_stage)
+            .await
+            .map_err(RestoreError::Io)?;
+        return Ok(());
+    }
+
+    if artifact_exists(&receipt_stage).await? {
+        let receipt = read_receipt(&receipt_stage)
+            .await?
+            .ok_or(RestoreError::InvalidReceipt)?;
+        if target_is_regular_file(&paths.target).await? {
+            let (_, digest) = hash_file(&paths.target, max_restore_bytes).await?;
+            if digest != receipt.target_sha256 {
+                return Err(RestoreError::RestoreConflict);
+            }
+            tokio::fs::rename(&receipt_stage, &paths.receipt)
+                .await
+                .map_err(RestoreError::Io)?;
+            return Ok(());
+        }
+        remove_optional(&receipt_stage)
+            .await
+            .map_err(RestoreError::Io)?;
+    }
+    Ok(())
+}
+
+async fn cleanup_after_error(
+    paths: &RestorePaths,
+    receipt_stage: &Path,
+    primary: RestoreError,
+) -> RestoreError {
+    let stage_error = cleanup_stage(paths).await.err();
+    let receipt_error = remove_optional(receipt_stage)
+        .await
+        .err()
+        .map(RestoreError::Io);
+    stage_error.or(receipt_error).unwrap_or(primary)
 }
 
 async fn artifact_exists(path: &Path) -> Result<bool, RestoreError> {

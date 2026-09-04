@@ -194,6 +194,61 @@ async fn existing_target_is_replaced_and_receipt_makes_retry_idempotent() {
     source_storage.close().await;
 }
 
+// @spec:AC-1703
+#[tokio::test]
+async fn interrupted_promotion_recovers_previous_before_retrying_restore() {
+    let (dir, source_storage, backup) = seeded_source().await;
+    let artifact = backup.create(backup_request()).await.unwrap();
+    let target_root = dir.path().join("profiles");
+    tokio::fs::create_dir_all(&target_root).await.unwrap();
+    let target = target_root.join("profile-a.db");
+
+    let old = SqliteStorage::connect(SqliteStorageConfig::for_file(&target))
+        .await
+        .unwrap();
+    run_migrations(old.pool()).await.unwrap();
+    sqlx::query(
+        "INSERT INTO projects (id, name, status, owner, created_at, updated_at, settings) \
+         VALUES ('project-a', 'Old', 'active', 'owner-a', '2026-01-01', '2026-01-01', '{}')",
+    )
+    .execute(old.pool())
+    .await
+    .unwrap();
+    old.close().await;
+
+    let previous = target.with_file_name(".profile-a.db.restore-previous.db");
+    tokio::fs::rename(&target, &previous).await.unwrap();
+    let stale_stage_wal = target.with_file_name(".profile-a.db.restore-stage.tmp-wal");
+    tokio::fs::write(&stale_stage_wal, b"interrupted stage").await.unwrap();
+
+    let service = restore_service(backup, &target_root);
+    let result = service
+        .restore(restore_request(
+            &artifact,
+            &target,
+            "profile-a",
+            21,
+            "restore-after-interruption",
+            false,
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(result.outcome, RestoreOutcome::Applied);
+    assert!(!previous.exists());
+    assert!(!stale_stage_wal.exists());
+    let restored = SqliteStorage::connect(SqliteStorageConfig::for_file(&target))
+        .await
+        .unwrap();
+    let row = sqlx::query("SELECT name FROM projects WHERE id = 'project-a'")
+        .fetch_one(restored.pool())
+        .await
+        .unwrap();
+    assert_eq!(row.get::<String, _>("name"), "Project");
+    restored.close().await;
+    source_storage.close().await;
+}
+
 // @spec:AC-1701
 #[tokio::test]
 async fn older_backup_is_migrated_during_staging_before_promotion() {
