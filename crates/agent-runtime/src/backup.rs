@@ -332,11 +332,11 @@ impl DatabaseBackupService {
         vacuum_result.map_err(BackupError::Database)?;
         let database_file_handle = tokio::fs::File::open(paths.temporary_database_path)
             .await
-            .map_err(BackupError::Io)?;
+            .map_err(|error| io_context("open snapshot", error))?;
         database_file_handle
             .sync_all()
             .await
-            .map_err(BackupError::Io)?;
+            .map_err(|error| io_context("sync snapshot", error))?;
         drop(database_file_handle);
 
         let (database_size_bytes, database_sha256) =
@@ -372,20 +372,23 @@ impl DatabaseBackupService {
 
         let mut manifest_file = tokio::fs::File::create(paths.temporary_manifest_path)
             .await
-            .map_err(BackupError::Io)?;
+            .map_err(|error| io_context("create manifest", error))?;
         manifest_file
             .write_all(&manifest_bytes)
             .await
-            .map_err(BackupError::Io)?;
-        manifest_file.sync_all().await.map_err(BackupError::Io)?;
+            .map_err(|error| io_context("write manifest", error))?;
+        manifest_file
+            .sync_all()
+            .await
+            .map_err(|error| io_context("sync manifest", error))?;
         drop(manifest_file);
 
         tokio::fs::rename(paths.temporary_database_path, paths.database_path)
             .await
-            .map_err(BackupError::Io)?;
+            .map_err(|error| io_context("publish database", error))?;
         tokio::fs::rename(paths.temporary_manifest_path, paths.manifest_path)
             .await
-            .map_err(BackupError::Io)?;
+            .map_err(|error| io_context("publish manifest", error))?;
 
         Ok(BackupArtifact {
             manifest,
@@ -661,6 +664,13 @@ fn path_string(path: &Path) -> Result<String, BackupError> {
     path.to_str()
         .map(ToOwned::to_owned)
         .ok_or(BackupError::Destination)
+}
+
+fn io_context(context: &str, error: std::io::Error) -> BackupError {
+    BackupError::Io(std::io::Error::new(
+        error.kind(),
+        format!("{context}: {error}"),
+    ))
 }
 
 fn sql_quote(value: &str) -> String {
