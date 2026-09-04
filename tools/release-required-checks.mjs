@@ -17,7 +17,6 @@ const RELEASE_CHECKS = Object.freeze([
 
 const PULL_REQUEST_CHECKS = Object.freeze([
   'CodeRabbit',
-  'Aikido Security: check code',
 ]);
 const HEX_SHA = /^[0-9a-f]{40}$/;
 const REPOSITORY = /^[^/\s]+\/[^/\s]+$/;
