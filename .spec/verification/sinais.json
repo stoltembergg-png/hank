@@ -7677,6 +7677,51 @@
       "primeiraVez": "2026-09-01T07:02:02.144Z",
       "ultimaVez": "2026-09-01T07:02:02.144Z",
       "gitRev": "8c62264"
+    },
+    "VERIFY_FALHOU::node-management-ui::AC-1471": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "node-management-ui",
+      "ref": "AC-1471",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-03T18:57:54.386Z",
+      "ultimaVez": "2026-09-03T18:57:54.386Z",
+      "gitRev": "0d29a83"
+    },
+    "VERIFY_FALHOU::node-management-ui::AC-1472": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "node-management-ui",
+      "ref": "AC-1472",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-03T18:57:54.386Z",
+      "ultimaVez": "2026-09-03T18:57:54.386Z",
+      "gitRev": "0d29a83"
+    },
+    "VERIFY_FALHOU::node-management-ui::AC-1473": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "node-management-ui",
+      "ref": "AC-1473",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-03T18:57:54.386Z",
+      "ultimaVez": "2026-09-03T18:57:54.386Z",
+      "gitRev": "0d29a83"
+    },
+    "VERIFY_FALHOU::node-management-ui::AC-1474": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "node-management-ui",
+      "ref": "AC-1474",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-03T18:57:54.386Z",
+      "ultimaVez": "2026-09-03T18:57:54.386Z",
+      "gitRev": "0d29a83"
+    },
+    "VERIFY_FALHOU::node-management-ui::AC-1475": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "node-management-ui",
+      "ref": "AC-1475",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-03T18:57:54.386Z",
+      "ultimaVez": "2026-09-03T18:57:54.386Z",
+      "gitRev": "0d29a83"
     }
   }
 }

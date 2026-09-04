@@ -1,0 +1,37 @@
+{
+  "feature": "node-management-ui",
+  "timestamp": "2026-09-04T00:00:21.253Z",
+  "gitRev": "5381070",
+  "command": "node tools/run-feature-tests.mjs node-management-ui",
+  "reporter": "exitcode",
+  "exitCode": 0,
+  "testsParsed": 0,
+  "results": {
+    "AC-1495": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-1496": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-1497": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-1498": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    },
+    "AC-1499": {
+      "status": "pass",
+      "testName": null,
+      "method": "exitcode"
+    }
+  },
+  "principles": {}
+}
