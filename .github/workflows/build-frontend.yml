@@ -63,6 +63,7 @@ jobs:
           audit_status=1
           export npm_config_fetch_timeout=60000
           export npm_config_fetch_retries=0
+          export npm_config_audit_registry=https://registry.npmjs.com/
           transient_pattern='^(npm warn|npm error) audit (502 Bad Gateway|503 Service Unavailable|504 Gateway Timeout|network timeout at:)|^(npm warn|npm error) (code )?(ECONNRESET|ETIMEDOUT|EAI_AGAIN)'
           for attempt in $(seq 1 "$max_attempts"); do
             audit_log=$(mktemp)
