@@ -168,6 +168,7 @@ pub struct BackupArtifact {
 #[derive(Debug, Clone)]
 pub struct BackupVerification {
     pub manifest: BackupManifest,
+    pub database_path: PathBuf,
     pub manifest_sha256: String,
 }
 
@@ -469,7 +470,7 @@ impl DatabaseBackupService {
         }
 
         let storage = SqliteStorage::connect(SqliteStorageConfig {
-            database_path: Some(canonical_database_path),
+            database_path: Some(canonical_database_path.clone()),
             max_connections: 1,
             busy_timeout: std::time::Duration::from_secs(5),
             create_if_missing: false,
@@ -489,6 +490,7 @@ impl DatabaseBackupService {
 
         Ok(BackupVerification {
             manifest,
+            database_path: canonical_database_path,
             manifest_sha256: digest_bytes(&manifest_bytes),
         })
     }

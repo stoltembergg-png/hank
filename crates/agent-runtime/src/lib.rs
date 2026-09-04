@@ -42,6 +42,7 @@ pub mod python_executor;
 pub mod python_lifecycle;
 pub mod python_logs;
 pub mod python_node;
+pub mod restore;
 pub mod retry;
 pub mod sandbox;
 pub mod scheduler;
@@ -90,6 +91,10 @@ pub use project_service::*;
 pub use project_skills::*;
 pub use project_update_service::*;
 pub use python_environment::*;
+pub use restore::{
+    restore_lock_path, restore_request_digest, DatabaseRestoreService, RestoreAuthorization,
+    RestoreError, RestoreOutcome, RestorePolicy, RestoreRequest, RestoreResult,
+};
 pub use skill_candidate::{
     SkillCandidate, SkillCandidateGenerationService, SkillCandidatePolicy, SkillCandidateProposal,
     SkillCandidateReason, SkillCandidateRequest, SkillCandidateStatus, SkillEvaluationHandoff,
