@@ -13,11 +13,7 @@
 ## T-1462 — Seed de handle via CSPRNG no adapter [concluída]
 
 - Refs: US-1451, AC-1466
-- Arquivos: crates/remote-core/src/credential_broker.rs,
-  crates/remote-core/tests/credential_broker_contract.rs,
-  crates/remote-adapter/src/lib.rs, crates/remote-adapter/Cargo.toml,
-  Cargo.toml, Cargo.lock, crates/test-support/src/arch_fixtures_test.rs,
-  docs/remote-credential-isolation.md
+- Arquivos: crates/remote-core/src/credential_broker.rs, crates/remote-core/tests/credential_broker_contract.rs, crates/remote-adapter/src/lib.rs, crates/remote-adapter/Cargo.toml, crates/remote-adapter/tests/os_entropy_contract.rs, Cargo.toml, Cargo.lock, crates/test-support/src/arch_fixtures_test.rs, docs/remote-credential-isolation.md, test/remote-credential-isolation-onp.test.mjs
 - O core recebe somente `BrokerEntropy`; o adapter usa `getrandom` sem fallback
   temporal/contador e retorna erro tipado quando o CSPRNG não está disponível.
 
