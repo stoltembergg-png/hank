@@ -340,14 +340,14 @@ impl DatabaseRestoreService {
         )
         .await
         {
-            cleanup_stage(&paths).await;
+            let _ = cleanup_stage(&paths).await;
             return Err(error);
         }
         let staged = self.prepare_stage(&paths.stage, request, verified).await;
         let (schema_version, target_sha256) = match staged {
             Ok(value) => value,
             Err(error) => {
-                cleanup_stage(&paths).await;
+                let _ = cleanup_stage(&paths).await;
                 return Err(error);
             }
         };
@@ -364,14 +364,14 @@ impl DatabaseRestoreService {
         };
         let receipt_stage = receipt_stage_path(&paths.receipt);
         if let Err(error) = write_receipt(&receipt_stage, &receipt).await {
-            cleanup_stage(&paths).await;
+            let _ = cleanup_stage(&paths).await;
             return Err(error);
         }
 
         let target_exists = match target_is_regular_file(&paths.target).await {
             Ok(value) => value,
             Err(error) => {
-                cleanup_stage(&paths).await;
+                let _ = cleanup_stage(&paths).await;
                 let _ = tokio::fs::remove_file(&receipt_stage).await;
                 return Err(error);
             }
@@ -379,7 +379,7 @@ impl DatabaseRestoreService {
         let target_wal_exists = match sidecar_is_regular_or_absent(&paths.target_wal).await {
             Ok(value) => value,
             Err(error) => {
-                cleanup_stage(&paths).await;
+                let _ = cleanup_stage(&paths).await;
                 let _ = tokio::fs::remove_file(&receipt_stage).await;
                 return Err(error);
             }
@@ -387,13 +387,13 @@ impl DatabaseRestoreService {
         let target_shm_exists = match sidecar_is_regular_or_absent(&paths.target_shm).await {
             Ok(value) => value,
             Err(error) => {
-                cleanup_stage(&paths).await;
+                let _ = cleanup_stage(&paths).await;
                 let _ = tokio::fs::remove_file(&receipt_stage).await;
                 return Err(error);
             }
         };
         if !target_exists && (target_wal_exists || target_shm_exists) {
-            cleanup_stage(&paths).await;
+            let _ = cleanup_stage(&paths).await;
             let _ = tokio::fs::remove_file(&receipt_stage).await;
             return Err(RestoreError::RestoreConflict);
         }
@@ -401,7 +401,7 @@ impl DatabaseRestoreService {
             move_target_to_previous(&paths, target_exists, target_wal_exists, target_shm_exists)
                 .await
         {
-            cleanup_stage(&paths).await;
+            let _ = cleanup_stage(&paths).await;
             let _ = tokio::fs::remove_file(&receipt_stage).await;
             return Err(error);
         }
@@ -411,10 +411,16 @@ impl DatabaseRestoreService {
             } else {
                 Ok(())
             };
-            cleanup_stage(&paths).await;
+            let _ = cleanup_stage(&paths).await;
             let _ = tokio::fs::remove_file(&receipt_stage).await;
             rollback_result?;
             return Err(RestoreError::Promotion(error));
+        }
+        if let Err(error) = cleanup_stage(&paths).await {
+            let rollback_result = rollback_promoted(&paths, target_exists).await;
+            let _ = tokio::fs::remove_file(&receipt_stage).await;
+            rollback_result?;
+            return Err(error);
         }
         if let Err(error) = tokio::fs::rename(&receipt_stage, &paths.receipt).await {
             let rollback_result = rollback_promoted(&paths, target_exists).await;
@@ -422,12 +428,7 @@ impl DatabaseRestoreService {
             rollback_result?;
             return Err(RestoreError::Io(error));
         }
-        if target_exists {
-            let _ = remove_optional(&paths.previous).await;
-            let _ = remove_optional(&paths.previous_wal).await;
-            let _ = remove_optional(&paths.previous_shm).await;
-        }
-        cleanup_stage(&paths).await;
+        cleanup_previous(&paths).await?;
 
         Ok(RestoreResult {
             outcome: RestoreOutcome::Applied,
@@ -515,6 +516,8 @@ impl DatabaseRestoreService {
         if target_sha256 != receipt.target_sha256 {
             return Err(RestoreError::RestoreConflict);
         }
+        cleanup_previous(paths).await?;
+        cleanup_stage(paths).await?;
         Ok(RestoreResult {
             outcome: RestoreOutcome::AlreadyApplied,
             restore_id: request.restore_id.clone(),
@@ -868,10 +871,28 @@ async fn rollback_promoted(paths: &RestorePaths, target_exists: bool) -> Result<
     }
 }
 
-async fn cleanup_stage(paths: &RestorePaths) {
-    let _ = remove_optional(&paths.stage).await;
-    let _ = remove_optional(&paths.stage_wal).await;
-    let _ = remove_optional(&paths.stage_shm).await;
+async fn cleanup_stage(paths: &RestorePaths) -> Result<(), RestoreError> {
+    remove_optional(&paths.stage)
+        .await
+        .map_err(RestoreError::Io)?;
+    remove_optional(&paths.stage_wal)
+        .await
+        .map_err(RestoreError::Io)?;
+    remove_optional(&paths.stage_shm)
+        .await
+        .map_err(RestoreError::Io)
+}
+
+async fn cleanup_previous(paths: &RestorePaths) -> Result<(), RestoreError> {
+    remove_optional(&paths.previous)
+        .await
+        .map_err(RestoreError::Io)?;
+    remove_optional(&paths.previous_wal)
+        .await
+        .map_err(RestoreError::Io)?;
+    remove_optional(&paths.previous_shm)
+        .await
+        .map_err(RestoreError::Io)
 }
 
 async fn remove_optional(path: &Path) -> Result<(), std::io::Error> {
