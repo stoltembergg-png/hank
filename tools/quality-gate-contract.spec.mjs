@@ -183,6 +183,11 @@ test('Frontend workflow has explicit lint, typecheck, test, and build gates', ()
   assertCommand(frontendWorkflow, 'npm run test', 'build-frontend.yml');
   assertCommand(frontendWorkflow, 'npm run build', 'build-frontend.yml');
   assertCommand(frontendWorkflow, 'npm audit --audit-level=high', 'build-frontend.yml');
+  assert.match(frontendWorkflow, /max_attempts=3/);
+  assert.match(frontendWorkflow, /npm_config_fetch_timeout=60000/);
+  assert.match(frontendWorkflow, /npm_config_fetch_retries=0/);
+  assert.match(frontendWorkflow, /Service Unavailable/);
+  assert.doesNotMatch(frontendWorkflow, /npm (?:ci|audit).*--no-audit/);
   assert.doesNotMatch(frontendWorkflow, /continue-on-error\s*:\s*true/);
 });
 
