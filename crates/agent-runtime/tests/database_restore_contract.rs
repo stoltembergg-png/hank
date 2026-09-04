@@ -232,6 +232,32 @@ async fn dry_run_reports_incompatible_schema_without_writing_target() {
     source_storage.close().await;
 }
 
+// @spec:AC-1703
+#[tokio::test]
+async fn dry_run_authorization_cannot_be_reused_for_a_real_promotion() {
+    let (dir, source_storage, backup) = seeded_source().await;
+    let artifact = backup.create(backup_request()).await.unwrap();
+    let target_root = dir.path().join("profiles");
+    let target = target_root.join("profile-a.db");
+    let service = restore_service(backup, &target_root);
+    let mut request = restore_request(
+        &artifact,
+        &target,
+        "profile-a",
+        21,
+        "restore-dry-run-replay",
+        false,
+    );
+    request.dry_run = true;
+
+    assert!(matches!(
+        service.restore(request).await,
+        Err(RestoreError::InvalidRequest)
+    ));
+    assert!(!target.exists());
+    source_storage.close().await;
+}
+
 // @spec:AC-1702
 #[tokio::test]
 async fn incompatible_schema_is_rejected_before_staging() {
@@ -260,7 +286,7 @@ async fn incompatible_schema_is_rejected_before_staging() {
     source_storage.close().await;
 }
 
-// @spec:AC-1703
+// @spec:AC-1702
 #[tokio::test]
 async fn digest_mismatch_never_touches_the_explicit_target() {
     let (dir, source_storage, backup) = seeded_source().await;
@@ -389,6 +415,33 @@ async fn outside_target_and_profile_mismatch_fail_closed() {
         mismatch_result,
         Err(RestoreError::ProfileMismatch)
     ));
+    source_storage.close().await;
+}
+
+// @spec:AC-1704
+#[tokio::test]
+async fn reserved_restore_artifact_names_are_not_valid_targets() {
+    let (dir, source_storage, backup) = seeded_source().await;
+    let artifact = backup.create(backup_request()).await.unwrap();
+    let target_root = dir.path().join("profiles");
+    let target = target_root.join(".profile-a.restore-previous.db");
+    let service = restore_service(backup, &target_root);
+
+    assert!(matches!(
+        service
+            .restore(restore_request(
+                &artifact,
+                &target,
+                "profile-a",
+                21,
+                "restore-reserved-name",
+                false,
+            ))
+            .await,
+        Err(RestoreError::TargetInvalid)
+    ));
+    assert!(restore_lock_path(&target).is_err());
+    assert!(!target.exists());
     source_storage.close().await;
 }
 

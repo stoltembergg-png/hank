@@ -97,13 +97,14 @@ impl RestoreRequest {
 /// opaque authorization from being replayed against a different request.
 pub fn restore_request_digest(request: &RestoreRequest) -> String {
     let material = format!(
-        "restore-v{RESTORE_FORMAT_VERSION}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+        "restore-v{RESTORE_FORMAT_VERSION}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
         request.restore_id,
         request.source_manifest_path.to_string_lossy(),
         request.source_backup_id,
         request.target_profile_id,
         request.target_database_path.to_string_lossy(),
         request.target_schema_version,
+        request.dry_run,
         request.authorization.actor_id,
         request.authorization.confirmation_id,
     );
@@ -491,7 +492,7 @@ impl DatabaseRestoreService {
             .file_name()
             .and_then(|value| value.to_str())
             .ok_or(RestoreError::TargetInvalid)?;
-        if !is_database_filename(filename) {
+        if !is_database_filename(filename) || is_reserved_restore_filename(filename) {
             return Err(RestoreError::TargetInvalid);
         }
         let parent = target.parent().ok_or(RestoreError::TargetOutsideRoot)?;
@@ -550,7 +551,7 @@ pub fn restore_lock_path(target: impl AsRef<Path>) -> Result<PathBuf, RestoreErr
         .file_name()
         .and_then(|value| value.to_str())
         .ok_or(RestoreError::TargetInvalid)?;
-    if !is_database_filename(filename) {
+    if !is_database_filename(filename) || is_reserved_restore_filename(filename) {
         return Err(RestoreError::TargetInvalid);
     }
     Ok(target.with_file_name(format!("{filename}.restore.lock")))
@@ -744,6 +745,14 @@ fn is_database_filename(value: &str) -> bool {
         && Path::new(value)
             .components()
             .all(|component| matches!(component, Component::Normal(_)))
+}
+
+fn is_reserved_restore_filename(value: &str) -> bool {
+    value.starts_with('.')
+        || value.ends_with(".restore-stage.tmp")
+        || value.ends_with(".restore-previous.db")
+        || value.ends_with(".restore-receipt.json")
+        || value.ends_with(".restore.lock")
 }
 
 fn is_safe_path(path: &Path) -> bool {

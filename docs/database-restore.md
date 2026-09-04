@@ -9,8 +9,8 @@ mudança no perfil ativo.
 1. O adapter autorizado escolhe `restore_id`, backup, `target_profile_id`, arquivo `.db`
    direto da raiz de perfis e `target_schema_version`.
 2. O adapter calcula o request digest com a intenção completa e fornece a autorização
-   opaca do operador. O digest vincula actor, confirmação, origem, destino e schema; ele
-   não substitui autenticação.
+   opaca do operador. O digest vincula actor, confirmação, modo dry-run, origem, destino
+   e schema; ele não substitui autenticação.
 3. Execute primeiro com `dry_run: true`. O preflight verifica manifesto, digest, tamanho,
    integridade, backup/profile identity e a matriz de schema sem escrever o banco alvo.
 4. Com preflight compatível e confirmação explícita, o serviço adquire o lock derivado do
