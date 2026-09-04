@@ -216,11 +216,17 @@ test('Tauri workflow retains native check, format, and acceptance gates', () => 
     'build-tauri',
     'Install Tauri Linux dependencies',
   );
-  assert.match(tauriWorkflow, /mirrors\.edge\.kernel\.org\/ubuntu noble main/);
-  assert.match(tauriWorkflow, /Dir::Etc::sourcelist=\/tmp\/hank-ubuntu\.sources\.list/);
-  assert.ok(tauriDependencyCommands.some((command) => command.includes('Acquire::Retries=3')));
-  assert.ok(tauriDependencyCommands.some((command) => command.includes('"${apt_opts[@]}" update')));
-  assert.ok(tauriDependencyCommands.some((command) => command.includes('"${apt_opts[@]}" -o DPkg::Lock::Timeout=60')));
+  const tauriSources = [...tauriWorkflow.matchAll(/^\s+deb\s+\S+.*$/gm)].map((match) => match[0].trim());
+  assert.deepEqual(tauriSources, [
+    'deb https://mirrors.edge.kernel.org/ubuntu noble main universe multiverse restricted',
+    'deb https://mirrors.edge.kernel.org/ubuntu noble-updates main universe multiverse restricted',
+    'deb https://mirrors.edge.kernel.org/ubuntu noble-security main universe multiverse restricted',
+  ]);
+  const tauriAptCommands = tauriDependencyCommands.filter((command) => command.includes('apt-get'));
+  assert.equal(tauriAptCommands.length, 2);
+  assert.ok(tauriAptCommands.every((command) => command.includes('"${apt_opts[@]}"')));
+  assert.match(tauriWorkflow, /apt_opts=\(-o Dir::Etc::sourcelist=\/tmp\/hank-ubuntu\.sources\.list -o Dir::Etc::sourceparts=-/);
+  assert.doesNotMatch(tauriWorkflow, /(?:archive|security)\.ubuntu\.com/);
   assert.doesNotMatch(tauriWorkflow, /continue-on-error\s*:\s*true/);
 });
 
