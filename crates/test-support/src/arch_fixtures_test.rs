@@ -198,6 +198,7 @@ fn metadata_lists_expected_crates() {
         "security-core",
         "auth-core",
         "remote-core",
+        "recovery-core",
         "provider-adapter-openai-compatible",
         "provider-adapter-openai",
         "provider-adapter-anthropic",

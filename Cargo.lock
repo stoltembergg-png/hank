@@ -1567,6 +1567,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "recovery-core"
+version = "0.3.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
