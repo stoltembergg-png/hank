@@ -216,9 +216,11 @@ test('Tauri workflow retains native check, format, and acceptance gates', () => 
     'build-tauri',
     'Install Tauri Linux dependencies',
   );
-  assert.ok(tauriDependencyCommands.includes('mirror_replacements=0'));
-  assert.ok(tauriDependencyCommands.includes('if (( mirror_replacements == 0 )); then'));
-  assert.match(tauriWorkflow, /mirrors\.edge\.kernel\.org/);
+  assert.match(tauriWorkflow, /mirrors\.edge\.kernel\.org\/ubuntu noble main/);
+  assert.match(tauriWorkflow, /Dir::Etc::sourcelist=\/tmp\/hank-ubuntu\.sources\.list/);
+  assert.ok(tauriDependencyCommands.some((command) => command.includes('Acquire::Retries=3')));
+  assert.ok(tauriDependencyCommands.some((command) => command.includes('"${apt_opts[@]}" update')));
+  assert.ok(tauriDependencyCommands.some((command) => command.includes('"${apt_opts[@]}" -o DPkg::Lock::Timeout=60')));
   assert.doesNotMatch(tauriWorkflow, /continue-on-error\s*:\s*true/);
 });
 
