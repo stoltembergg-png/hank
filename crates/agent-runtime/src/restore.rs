@@ -427,6 +427,7 @@ impl DatabaseRestoreService {
             let _ = remove_optional(&paths.previous_wal).await;
             let _ = remove_optional(&paths.previous_shm).await;
         }
+        cleanup_stage(&paths).await;
 
         Ok(RestoreResult {
             outcome: RestoreOutcome::Applied,
@@ -807,7 +808,7 @@ async fn move_target_to_previous(
     ] {
         if exists {
             if let Err(error) = tokio::fs::rename(source, destination).await {
-                let _ = rollback_previous(paths).await;
+                rollback_previous(paths).await?;
                 return Err(RestoreError::Promotion(error));
             }
         }
