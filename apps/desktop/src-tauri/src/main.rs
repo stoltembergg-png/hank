@@ -12,7 +12,7 @@ pub mod skills;
 pub mod streaming;
 
 use agent_runtime::{
-    migrations::run_migrations,
+    migration_hardening::{embedded_migration_manifest, run_migrations_hardened, MigrationRequest},
     sqlite::{SqliteStorage, SqliteStorageConfig},
 };
 use std::{io, path::PathBuf, time::Duration};
@@ -128,7 +128,16 @@ fn main() {
                 let storage = SqliteStorage::connect(SqliteStorageConfig::for_file(database_path))
                     .await
                     .map_err(|error| io::Error::other(error.to_string()))?;
-                run_migrations(storage.pool())
+                let target_version = embedded_migration_manifest().latest_version();
+                run_migrations_hardened(
+                    storage.pool(),
+                    MigrationRequest {
+                        operation_id: format!("startup-migration-v{target_version}"),
+                        profile_id: "default-profile".into(),
+                        target_version,
+                        verified_backup: None,
+                    },
+                )
                     .await
                     .map_err(|error| io::Error::other(error.to_string()))?;
                 Ok::<_, io::Error>(storage)
