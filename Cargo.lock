@@ -1805,7 +1805,9 @@ name = "secrets-core"
 version = "0.3.0"
 dependencies = [
  "provider-core",
+ "subtle",
  "thiserror",
+ "zeroize",
 ]
 
 [[package]]
