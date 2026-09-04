@@ -211,6 +211,14 @@ test('Tauri workflow retains native check, format, and acceptance gates', () => 
   assertCommand(tauriWorkflow, 'cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --locked', 'build-tauri.yml');
   assertCommand(tauriWorkflow, 'cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml -- --check', 'build-tauri.yml');
   assertCommand(tauriWorkflow, 'cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked', 'build-tauri.yml');
+  const tauriDependencyCommands = executableRunCommands(
+    tauriWorkflow,
+    'build-tauri',
+    'Install Tauri Linux dependencies',
+  );
+  assert.ok(tauriDependencyCommands.includes('mirror_replacements=0'));
+  assert.ok(tauriDependencyCommands.includes('if (( mirror_replacements == 0 )); then'));
+  assert.match(tauriWorkflow, /mirrors\.edge\.kernel\.org/);
   assert.doesNotMatch(tauriWorkflow, /continue-on-error\s*:\s*true/);
 });
 

@@ -37,9 +37,6 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           set -euo pipefail
-          find /etc/apt -type f -print0 | while IFS= read -r -d '' source; do
-            sudo perl -0pi -e 's/azure\\.archive\\.ubuntu\\.com|archive\\.ubuntu\\.com/mirrors.edge.kernel.org/g' "$source"
-          done
           cat <<'APT_SOURCES' | sudo tee /tmp/hank-ubuntu.sources.list >/dev/null
           deb https://mirrors.edge.kernel.org/ubuntu noble main universe multiverse restricted
           deb https://mirrors.edge.kernel.org/ubuntu noble-updates main universe multiverse restricted
