@@ -63,6 +63,7 @@ jobs:
           audit_status=1
           export npm_config_fetch_timeout=60000
           export npm_config_fetch_retries=0
+          transient_pattern='^(npm warn|npm error) audit (502 Bad Gateway|503 Service Unavailable|504 Gateway Timeout|network timeout at:)|^(npm warn|npm error) (code )?(ECONNRESET|ETIMEDOUT|EAI_AGAIN)'
           for attempt in $(seq 1 "$max_attempts"); do
             audit_log=$(mktemp)
             set +e
@@ -77,7 +78,7 @@ jobs:
               rm -f "$audit_log"
               exit 0
             fi
-            if ! grep -Eq '(^|[^0-9])5[0-9]{2}([^0-9]|$)|Service Unavailable|network timeout|ECONNRESET|ETIMEDOUT|EAI_AGAIN' "$audit_log"; then
+            if ! grep -Eq "$transient_pattern" "$audit_log"; then
               rm -f "$audit_log"
               exit "$audit_status"
             fi

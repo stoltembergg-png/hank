@@ -184,11 +184,24 @@ test('Frontend workflow has explicit lint, typecheck, test, and build gates', ()
   assertCommand(frontendWorkflow, 'npm run build', 'build-frontend.yml');
   assertCommand(frontendWorkflow, 'npm audit --audit-level=high', 'build-frontend.yml');
   assert.match(frontendWorkflow, /npm install --global npm@11\.6\.0/);
-  assert.match(frontendWorkflow, /max_attempts=3/);
-  assert.match(frontendWorkflow, /npm_config_fetch_timeout=60000/);
-  assert.match(frontendWorkflow, /npm_config_fetch_retries=0/);
-  assert.match(frontendWorkflow, /Service Unavailable/);
-  assert.match(frontendWorkflow, /network timeout/);
+  const auditCommands = executableRunCommands(
+    frontendWorkflow,
+    'build-frontend',
+    'Audit frontend dependencies',
+  );
+  assert.ok(auditCommands.includes('npm audit --audit-level=high'));
+  assert.ok(auditCommands.includes('max_attempts=3'));
+  assert.ok(auditCommands.includes('export npm_config_fetch_timeout=60000'));
+  assert.ok(auditCommands.includes('export npm_config_fetch_retries=0'));
+  assert.ok(!auditCommands.some((command) => command.includes('--no-audit')));
+  const patternCommand = auditCommands.find((command) => command.startsWith('transient_pattern='));
+  assert.ok(patternCommand, 'build-frontend.yml: missing bounded transient error pattern');
+  const transientPattern = patternCommand.slice('transient_pattern='.length).replace(/^'|'$/g, '');
+  const transientMatcher = new RegExp(transientPattern);
+  assert.match('npm warn audit 503 Service Unavailable - POST', transientMatcher);
+  assert.match('npm warn audit network timeout at: https://registry.npmjs.org/', transientMatcher);
+  assert.doesNotMatch('found 500 vulnerabilities', transientMatcher);
+  assert.doesNotMatch('npm warn audit 400 Bad Request - POST', transientMatcher);
   assert.doesNotMatch(frontendWorkflow, /npm (?:ci|audit).*--no-audit/);
   assert.doesNotMatch(frontendWorkflow, /continue-on-error\s*:\s*true/);
 });
