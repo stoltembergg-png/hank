@@ -14,3 +14,4 @@
   contrato da PR-251 e a PR não inventa serialização crua.
 - ASM-1463: a fonte de verdade (Tauri bridge) é responsável por aplicar
   autorização e rate limiting; a UI apenas reflete o que ela devolve.
+
