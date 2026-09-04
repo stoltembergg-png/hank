@@ -48,7 +48,8 @@ modo seguro.
 #### AC-1505 — Stale capabilities e credenciais exigem revalidação
 
 - **Dado** um `RecoveryMarker` cuja `pending_classes` inclui
-  `CredentialRevocationPending` ou `CapabilityRotationPending`
+  `CredentialRevocationPending` ou `CapabilityRotationPending`, **sem** incluir
+  classe de quarentena (`DatabaseMigration`, `UnknownEffect` ou `CorruptMarker`)
 - **Quando** `replay(marker)` é executado em `RecoveryMode::Safe`
 - **Então** o resultado é `RecoveryOutcome::RevalidateRequired` e o
   callback `on_revalidate` é invocado uma única vez com
