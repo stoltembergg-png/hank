@@ -34,7 +34,7 @@ jobs:
           set -euo pipefail
           for mirror_file in /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/ubuntu.sources; do
             if [[ -f "$mirror_file" ]]; then
-              sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' "$mirror_file"
+              sudo sed -i -e 's|azure.archive.ubuntu.com|mirrors.edge.kernel.org|g' -e 's|archive.ubuntu.com|mirrors.edge.kernel.org|g' "$mirror_file"
             fi
           done
           timeout 180s sudo apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update

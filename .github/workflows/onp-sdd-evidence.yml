@@ -40,12 +40,12 @@ jobs:
         run: |
           set -euo pipefail
           find /etc/apt -type f -print0 | while IFS= read -r -d '' source; do
-            sudo perl -0pi -e 's/azure\\.archive\\.ubuntu\\.com/archive.ubuntu.com/g' "$source"
+            sudo perl -0pi -e 's/azure\\.archive\\.ubuntu\\.com|archive\\.ubuntu\\.com/mirrors.edge.kernel.org/g' "$source"
           done
           cat <<'APT_SOURCES' | sudo tee /tmp/hank-ubuntu.sources.list >/dev/null
-          deb https://archive.ubuntu.com/ubuntu noble main universe multiverse restricted
-          deb https://archive.ubuntu.com/ubuntu noble-updates main universe multiverse restricted
-          deb https://security.ubuntu.com/ubuntu noble-security main universe multiverse restricted
+          deb https://mirrors.edge.kernel.org/ubuntu noble main universe multiverse restricted
+          deb https://mirrors.edge.kernel.org/ubuntu noble-updates main universe multiverse restricted
+          deb https://mirrors.edge.kernel.org/ubuntu noble-security main universe multiverse restricted
           APT_SOURCES
           apt_opts=(-o Dir::Etc::sourcelist=/tmp/hank-ubuntu.sources.list -o Dir::Etc::sourceparts=- -o Acquire::ForceIPv4=true -o Acquire::Retries=5 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60)
           timeout 300s sudo apt-get "${apt_opts[@]}" update
