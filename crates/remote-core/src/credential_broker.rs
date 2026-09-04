@@ -55,7 +55,7 @@ pub trait BrokerClock: Send + Sync {
 /// broker never produces the same handle for the same `(scope, ref)` that a
 /// previous broker instance did.
 pub trait BrokerEntropy: Send + Sync {
-    fn next_seed(&self) -> [u8; 16];
+    fn next_seed(&self) -> Result<[u8; 16], CredentialBrokerError>;
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -74,17 +74,10 @@ impl BrokerClock for SystemClock {
 pub struct OsEntropy;
 
 impl BrokerEntropy for OsEntropy {
-    fn next_seed(&self) -> [u8; 16] {
-        // Mix the system clock with a process-local atomic counter so two
-        // calls in the same millisecond still differ.
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static COUNTER: AtomicU64 = AtomicU64::new(0);
-        let now = SystemClock.now_ms();
-        let count = COUNTER.fetch_add(1, Ordering::Relaxed);
+    fn next_seed(&self) -> Result<[u8; 16], CredentialBrokerError> {
         let mut seed = [0u8; 16];
-        seed[0..8].copy_from_slice(&now.to_le_bytes());
-        seed[8..16].copy_from_slice(&count.to_le_bytes());
-        seed
+        getrandom::fill(&mut seed).map_err(|_| CredentialBrokerError::EntropyUnavailable)?;
+        Ok(seed)
     }
 }
 
@@ -271,6 +264,8 @@ pub enum CredentialBrokerError {
     CapacityExhausted,
     #[error("remote credential broker state lock unavailable")]
     StateUnavailable,
+    #[error("operating system CSPRNG unavailable")]
+    EntropyUnavailable,
 }
 
 struct LeaseRecord {
@@ -300,20 +295,20 @@ pub struct CredentialBroker {
 }
 
 impl CredentialBroker {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, CredentialBrokerError> {
         Self::with_clock_and_entropy(Arc::new(SystemClock), Arc::new(OsEntropy))
     }
 
-    pub fn with_clock(clock: Arc<dyn BrokerClock>) -> Self {
+    pub fn with_clock(clock: Arc<dyn BrokerClock>) -> Result<Self, CredentialBrokerError> {
         Self::with_clock_and_entropy(clock, Arc::new(OsEntropy))
     }
 
     pub fn with_clock_and_entropy(
         clock: Arc<dyn BrokerClock>,
         entropy: Arc<dyn BrokerEntropy>,
-    ) -> Self {
-        let seed = entropy.next_seed();
-        Self {
+    ) -> Result<Self, CredentialBrokerError> {
+        let seed = entropy.next_seed()?;
+        Ok(Self {
             clock,
             entropy,
             state: Mutex::new(BrokerState {
@@ -323,7 +318,7 @@ impl CredentialBroker {
                 revoked_tombstones: VecDeque::with_capacity(MAX_REVOKED_TOMBSTONES),
                 audit: VecDeque::with_capacity(MAX_CREDENTIAL_AUDIT_EVENTS),
             }),
-        }
+        })
     }
 
     /// Issues an opaque scoped reference for an existing local credential.
@@ -590,6 +585,6 @@ impl CredentialBroker {
 
 impl Default for CredentialBroker {
     fn default() -> Self {
-        Self::new()
+        Self::new().expect("OS CSPRNG must be available to construct CredentialBroker")
     }
 }

@@ -11,4 +11,5 @@ description = "Bounded authenticated remote daemon control-plane contracts"
 agent-protocol = { path = "../agent-protocol" }
 provider-core = { path = "../provider-core" }
 sha2 = { workspace = true }
+getrandom = { workspace = true }
 thiserror = { workspace = true }

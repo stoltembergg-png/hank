@@ -46,7 +46,7 @@ use agent_protocol::remote_protocol::NodeId;
 use provider_core::CredentialRef;
 use remote_core::credential_broker::{CredentialBroker, CredentialScope};
 
-let broker = CredentialBroker::new();
+let broker = CredentialBroker::new()?;
 let scope = CredentialScope::new(NodeId::new("node-1")?, project, "agent-1")?;
 let reference = CredentialRef::parse("cred_alpha")?;
 let lease = broker.issue(scope, reference, 60_000)?;
@@ -59,7 +59,10 @@ broker.revoke(&lease)?;
 ```
 
 The broker owns its own clock and entropy. Production code uses
-`SystemClock` + `OsEntropy`; tests can pass a `FakeClock` through
+`SystemClock` + `OsEntropy`, where `OsEntropy` reads 128 bits from the operating
+system CSPRNG through `getrandom`; if that source fails, broker construction
+returns `CredentialBrokerError::EntropyUnavailable` and does not fall back to a
+time-derived or counter-derived seed. Tests can pass a `FakeClock` through
 `CredentialBroker::with_clock` to control time deterministically.
 The caller cannot pick the start time of an issued lease, nor pick the
 timestamp used to evaluate expiry, so a peer cannot bypass a lease
@@ -84,5 +87,5 @@ deadline by submitting a backdated timestamp.
 
 - `cargo fmt --all -- --check` — PASS
 - `cargo clippy -p remote-core --all-targets -- -D warnings` — PASS
-- `cargo test -p remote-core` — 4 + 8 + 7 tests PASS (broker contract +
-  existing daemon/event-stream coverage)
+- `cargo test -p remote-core` — 18 broker contract tests plus 4 daemon and
+  8 event-stream contract tests PASS

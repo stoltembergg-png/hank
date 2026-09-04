@@ -49,8 +49,11 @@ transporte segredo.
   somente referências opacas já existentes no escopo local.
 - Escopo exato (node/project/actor) é revalidado em toda emissão e resolução.
 - Lease, expiração e revogação são fail-closed; stale cleanup não reabre.
-- Sem keychain, OS backend, socket, TLS, OAuth callback ou dispatch remoto
+- Sem `keychain`, OS backend, socket, TLS, OAuth callback ou dispatch remoto
   nesta fatia — o broker é transport-neutral e o backend de secrets é injetado.
+- `OsEntropy` obtém a seed de 128 bits do CSPRNG do sistema via `getrandom`;
+  indisponibilidade da fonte aborta a construção com erro tipado, sem fallback
+  para timestamp, contador ou outro valor previsível.
 
 ## Suposições
 
