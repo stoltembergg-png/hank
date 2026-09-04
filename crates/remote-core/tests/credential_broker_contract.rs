@@ -2,8 +2,8 @@ use agent_protocol::ids::ProjectId;
 use agent_protocol::remote_protocol::NodeId;
 use provider_core::CredentialRef;
 use remote_core::credential_broker::{
-    BrokerClock, CredentialAuditReason, CredentialBroker, CredentialBrokerError, CredentialScope,
-    MAX_CREDENTIAL_LEASES,
+    BrokerClock, BrokerEntropy, CredentialAuditReason, CredentialBroker, CredentialBrokerError,
+    CredentialScope, MAX_CREDENTIAL_LEASES,
 };
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -51,8 +51,44 @@ impl BrokerClock for FakeClock {
     }
 }
 
+#[derive(Debug, Default)]
+struct FixedEntropy;
+
+static NEXT_TEST_SEED: AtomicU64 = AtomicU64::new(1);
+
+impl BrokerEntropy for FixedEntropy {
+    fn next_seed(&self) -> Result<[u8; 16], CredentialBrokerError> {
+        let value = NEXT_TEST_SEED.fetch_add(1, Ordering::Relaxed);
+        Ok(value.to_le_bytes().repeat(2).try_into().unwrap())
+    }
+}
+
+#[derive(Debug, Default)]
+struct FailingEntropy;
+
+impl BrokerEntropy for FailingEntropy {
+    fn next_seed(&self) -> Result<[u8; 16], CredentialBrokerError> {
+        Err(CredentialBrokerError::EntropyUnavailable)
+    }
+}
+
+fn broker_with_clock(clock: Arc<dyn BrokerClock>) -> CredentialBroker {
+    CredentialBroker::with_clock_and_entropy(clock, Arc::new(FixedEntropy))
+        .expect("test entropy must be available")
+}
+
 fn fresh_broker() -> CredentialBroker {
-    CredentialBroker::with_clock(FakeClock::new(1_000))
+    broker_with_clock(FakeClock::new(1_000))
+}
+
+#[test]
+fn broker_creation_fails_closed_when_entropy_is_unavailable() {
+    let result =
+        CredentialBroker::with_clock_and_entropy(FakeClock::new(1_000), Arc::new(FailingEntropy));
+    assert!(matches!(
+        result,
+        Err(CredentialBrokerError::EntropyUnavailable)
+    ));
 }
 
 #[test]
@@ -121,7 +157,7 @@ fn resolve_fails_closed_for_diverging_scope() {
 // @spec:AC-1468
 fn expired_or_revoked_lease_fails_closed() {
     let clock = FakeClock::new(1_000);
-    let broker = CredentialBroker::with_clock(clock.clone());
+    let broker = broker_with_clock(clock.clone());
     let scope = CredentialScope::new(node_a(), project_a(), "agent-1").unwrap();
     let lease = broker
         .issue(scope.clone(), local_credential("cred_alpha"), 1_000)
@@ -158,7 +194,7 @@ fn expired_or_revoked_lease_fails_closed() {
 // @spec:AC-1469
 fn broker_is_bounded_and_audit_never_records_secret_values() {
     let clock = FakeClock::new(1_000);
-    let broker = CredentialBroker::with_clock(clock.clone());
+    let broker = broker_with_clock(clock.clone());
     let scope_factory =
         |i: u64| CredentialScope::new(node_a(), project_a(), &format!("agent-{i}")).unwrap();
     for i in 0..MAX_CREDENTIAL_LEASES {
@@ -191,7 +227,7 @@ fn broker_is_bounded_and_audit_never_records_secret_values() {
     // The clock cannot be rolled back: even if the caller wanted to
     // "rewind" by creating a new broker, that broker has a different seed
     // and so handles do not alias.
-    let other_broker = CredentialBroker::with_clock(FakeClock::new(500));
+    let other_broker = broker_with_clock(FakeClock::new(500));
     let scope = scope_factory(0);
     let lease = other_broker
         .issue(scope, local_credential("cred_after_rewind"), 60_000)
@@ -296,14 +332,14 @@ fn issue_revalidates_scope_construction() {
 #[test]
 fn unknown_handle_resolves_as_not_found() {
     let clock = FakeClock::new(1_000);
-    let broker = CredentialBroker::with_clock(clock.clone());
+    let broker = broker_with_clock(clock.clone());
     let scope = CredentialScope::new(node_a(), project_a(), "agent-1").unwrap();
     let lease = broker
         .issue(scope.clone(), local_credential("cred_alpha"), 60_000)
         .unwrap();
     // A fresh broker has no leases; resolving the same lease fails
     // closed and the audit log records the probing attempt.
-    let fresh = CredentialBroker::with_clock(FakeClock::new(2_000));
+    let fresh = broker_with_clock(FakeClock::new(2_000));
     let err = fresh.resolve(&lease).unwrap_err();
     assert_eq!(err, CredentialBrokerError::NotFound);
     let audit = fresh.audit();
@@ -336,10 +372,10 @@ fn revoke_requires_matching_scope() {
 #[test]
 fn per_broker_seed_makes_handles_independent_across_brokers() {
     let scope = CredentialScope::new(node_a(), project_a(), "agent-1").unwrap();
-    let a = CredentialBroker::with_clock(FakeClock::new(1_000))
+    let a = broker_with_clock(FakeClock::new(1_000))
         .issue(scope.clone(), local_credential("cred_alpha"), 60_000)
         .unwrap();
-    let b = CredentialBroker::with_clock(FakeClock::new(1_000))
+    let b = broker_with_clock(FakeClock::new(1_000))
         .issue(scope.clone(), local_credential("cred_alpha"), 60_000)
         .unwrap();
     // Two brokers (even with the same fake clock) must produce different
@@ -351,7 +387,7 @@ fn per_broker_seed_makes_handles_independent_across_brokers() {
 #[test]
 fn caller_cannot_bypass_expiry_by_using_different_broker_clock() {
     let clock = FakeClock::new(1_000);
-    let broker = CredentialBroker::with_clock(clock.clone());
+    let broker = broker_with_clock(clock.clone());
     let scope = CredentialScope::new(node_a(), project_a(), "agent-1").unwrap();
     let lease = broker
         .issue(scope.clone(), local_credential("cred_alpha"), 1_000)
@@ -362,7 +398,7 @@ fn caller_cannot_bypass_expiry_by_using_different_broker_clock() {
     assert_eq!(err, CredentialBrokerError::Expired);
     // Even if a caller tried to construct a brand-new broker, that broker
     // does not share state with the original — the old lease is gone.
-    let fresh = CredentialBroker::with_clock(FakeClock::new(500));
+    let fresh = broker_with_clock(FakeClock::new(500));
     let err = fresh.resolve(&lease).unwrap_err();
     assert_eq!(err, CredentialBrokerError::NotFound);
 }

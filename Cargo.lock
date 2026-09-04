@@ -1612,6 +1612,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "remote-adapter"
+version = "0.3.0"
+dependencies = [
+ "getrandom 0.4.3",
+ "remote-core",
+]
+
+[[package]]
 name = "remote-core"
 version = "0.3.0"
 dependencies = [

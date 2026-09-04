@@ -8,12 +8,10 @@
 //! produce different handles and a previously purged or revoked handle can
 //! never replay.
 //!
-//! Time and entropy come from a [`BrokerClock`] / [`BrokerEntropy`] trait
-//! object that the caller injects. The default implementations are
-//! [`SystemClock`] and [`OsEntropy`]; tests can pass deterministic stubs.
-//! All scope inputs (node, project, actor) are bounded and revalidated at
-//! every broker boundary so direct field construction cannot bypass the
-//! invariants. Concrete OS keychain / Stronghold adapters and secret
+//! Time and entropy come from [`BrokerClock`] / [`BrokerEntropy`] trait
+//! objects injected by an adapter or composition root. The core has no default
+//! clock, entropy provider or process-global construction path; tests can pass
+//! deterministic stubs. Concrete OS keychain / Stronghold adapters and secret
 //! migration belong to later cards.
 
 use agent_protocol::ids::ProjectId;
@@ -22,7 +20,6 @@ use provider_core::CredentialRef;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 
 /// Maximum active scoped credential leases.
@@ -45,8 +42,8 @@ pub const MAX_LEASE_DURATION_MS: u64 = 24 * 60 * 60 * 1_000;
 /// by `CredentialRef::parse` (e.g. via direct construction or deserialise).
 pub const MAX_CREDENTIAL_REF_LEN: usize = 128;
 
-/// Source of monotonic time for the broker. Production code uses
-/// [`SystemClock`]; tests inject a deterministic clock.
+/// Source of monotonic time for the broker. Adapters inject the concrete
+/// production clock; tests inject a deterministic clock.
 pub trait BrokerClock: Send + Sync {
     fn now_ms(&self) -> u64;
 }
@@ -55,37 +52,7 @@ pub trait BrokerClock: Send + Sync {
 /// broker never produces the same handle for the same `(scope, ref)` that a
 /// previous broker instance did.
 pub trait BrokerEntropy: Send + Sync {
-    fn next_seed(&self) -> [u8; 16];
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub struct SystemClock;
-
-impl BrokerClock for SystemClock {
-    fn now_ms(&self) -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_millis() as u64)
-            .unwrap_or(0)
-    }
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub struct OsEntropy;
-
-impl BrokerEntropy for OsEntropy {
-    fn next_seed(&self) -> [u8; 16] {
-        // Mix the system clock with a process-local atomic counter so two
-        // calls in the same millisecond still differ.
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static COUNTER: AtomicU64 = AtomicU64::new(0);
-        let now = SystemClock.now_ms();
-        let count = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let mut seed = [0u8; 16];
-        seed[0..8].copy_from_slice(&now.to_le_bytes());
-        seed[8..16].copy_from_slice(&count.to_le_bytes());
-        seed
-    }
+    fn next_seed(&self) -> Result<[u8; 16], CredentialBrokerError>;
 }
 
 /// Exact scope a credential reference is bound to. All fields are private;
@@ -271,6 +238,8 @@ pub enum CredentialBrokerError {
     CapacityExhausted,
     #[error("remote credential broker state lock unavailable")]
     StateUnavailable,
+    #[error("operating system CSPRNG unavailable")]
+    EntropyUnavailable,
 }
 
 struct LeaseRecord {
@@ -300,20 +269,17 @@ pub struct CredentialBroker {
 }
 
 impl CredentialBroker {
-    pub fn new() -> Self {
-        Self::with_clock_and_entropy(Arc::new(SystemClock), Arc::new(OsEntropy))
-    }
-
-    pub fn with_clock(clock: Arc<dyn BrokerClock>) -> Self {
-        Self::with_clock_and_entropy(clock, Arc::new(OsEntropy))
-    }
-
+    /// Builds a broker from caller-supplied clock and entropy ports.
+    ///
+    /// The core deliberately has no default constructor: an adapter or
+    /// composition root must choose concrete implementations and handle
+    /// entropy initialization failure explicitly.
     pub fn with_clock_and_entropy(
         clock: Arc<dyn BrokerClock>,
         entropy: Arc<dyn BrokerEntropy>,
-    ) -> Self {
-        let seed = entropy.next_seed();
-        Self {
+    ) -> Result<Self, CredentialBrokerError> {
+        let seed = entropy.next_seed()?;
+        Ok(Self {
             clock,
             entropy,
             state: Mutex::new(BrokerState {
@@ -323,7 +289,7 @@ impl CredentialBroker {
                 revoked_tombstones: VecDeque::with_capacity(MAX_REVOKED_TOMBSTONES),
                 audit: VecDeque::with_capacity(MAX_CREDENTIAL_AUDIT_EVENTS),
             }),
-        }
+        })
     }
 
     /// Issues an opaque scoped reference for an existing local credential.
@@ -585,11 +551,5 @@ impl CredentialBroker {
         state
             .audit
             .push_back(CredentialAuditEvent { scope, reason });
-    }
-}
-
-impl Default for CredentialBroker {
-    fn default() -> Self {
-        Self::new()
     }
 }
