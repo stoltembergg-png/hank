@@ -138,8 +138,8 @@ fn main() {
                         verified_backup: None,
                     },
                 )
-                    .await
-                    .map_err(|error| io::Error::other(error.to_string()))?;
+                .await
+                .map_err(|error| io::Error::other(error.to_string()))?;
                 Ok::<_, io::Error>(storage)
             })
             .map_err(|error| {
