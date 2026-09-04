@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
 
 use recovery_core::{
-    InMemoryStorage, RecoveryCallbacks, RecoveryClass, RecoveryClassification, RecoveryCoordinator,
-    RecoveryError, RecoveryMarker, RecoveryMode, RecoveryOutcome, RevalidationRequest,
-    MAX_PENDING_CLASSES,
+    InMemoryStorage, RecoveryAuditOutcome, RecoveryCallbacks, RecoveryClass,
+    RecoveryClassification, RecoveryCoordinator, RecoveryError, RecoveryMarker, RecoveryMode,
+    RecoveryOutcome, RevalidationRequest, MAX_PENDING_CLASSES,
 };
 
 #[derive(Default)]
@@ -196,6 +196,83 @@ fn mixed_revalidation_and_quarantine_is_fail_closed() {
 }
 
 #[test]
+fn project_mismatch_is_rejected_before_audit_or_callback() {
+    let mut coordinator = RecoveryCoordinator::new(InMemoryStorage::for_project("project-a"));
+    let mut callbacks = Recorder::default();
+    let mut marker = marker("foreign", vec![RecoveryClass::UnknownEffect]);
+    marker.project_id = "project-b".into();
+
+    assert!(matches!(
+        coordinator.replay(&marker, &mut callbacks),
+        Err(RecoveryError::ProjectMismatch)
+    ));
+    assert!(coordinator.storage().audit().is_empty());
+    assert_eq!(callbacks.replay_count, 0);
+    assert_eq!(callbacks.revalidate_count, 0);
+}
+
+#[test]
+fn resume_quarantine_is_deferred_until_safe_startup() {
+    let marker = marker("deferred", vec![RecoveryClass::JournalAppend]);
+    let mut resume = RecoveryCoordinator::with_mode(InMemoryStorage::new(), RecoveryMode::Resume);
+    let mut resume_callbacks = Recorder::default();
+
+    assert!(matches!(
+        resume.replay(&marker, &mut resume_callbacks).unwrap(),
+        RecoveryOutcome::Quarantined { .. }
+    ));
+    assert_eq!(resume_callbacks.replay_count, 0);
+
+    let storage = std::mem::replace(resume.storage_mut(), InMemoryStorage::new());
+    let mut safe = RecoveryCoordinator::new(storage);
+    let mut safe_callbacks = Recorder::default();
+    assert!(matches!(
+        safe.replay(&marker, &mut safe_callbacks).unwrap(),
+        RecoveryOutcome::Replayed { .. }
+    ));
+    assert_eq!(safe_callbacks.replay_count, 1);
+}
+
+#[test]
+fn revalidation_audit_contains_counts_but_no_opaque_references() {
+    let mut coordinator = RecoveryCoordinator::new(InMemoryStorage::new());
+    let mut callbacks = Recorder::default();
+    let marker = marker(
+        "audit-redaction",
+        vec![RecoveryClass::CapabilityRotationPending],
+    );
+
+    coordinator.replay(&marker, &mut callbacks).unwrap();
+    let audit = format!("{:?}", coordinator.storage().audit());
+    assert!(!audit.contains("cred-ref-1"));
+    assert!(!audit.contains("cap-read"));
+    assert!(audit.contains("RevalidateRequired"));
+    match &coordinator.storage().audit()[0].outcome {
+        RecoveryAuditOutcome::RevalidateRequired {
+            capability_count,
+            credential_count,
+            ..
+        } => {
+            assert_eq!(*capability_count, 1);
+            assert_eq!(*credential_count, 1);
+        }
+        other => panic!("unexpected audit outcome: {other:?}"),
+    }
+}
+
+#[test]
+fn last_safe_action_is_bounded() {
+    let coordinator = RecoveryCoordinator::new(InMemoryStorage::new());
+    let mut marker = marker("oversized-action", vec![RecoveryClass::JournalAppend]);
+    marker.last_safe_action = "x".repeat(129);
+
+    assert_eq!(
+        coordinator.classify(&marker),
+        RecoveryClassification::Corrupt
+    );
+}
+
+#[test]
 fn inverted_epoch_is_corrupt_and_never_replayed() {
     let mut coordinator = RecoveryCoordinator::new(InMemoryStorage::new());
     let mut callbacks = Recorder::default();
@@ -230,4 +307,17 @@ fn bounded_marker_is_corrupt_and_never_replayed() {
         RecoveryOutcome::Quarantined { .. }
     ));
     assert_eq!(callbacks.replay_count, 0);
+}
+
+#[test]
+fn crash_bundle_escapes_all_json_control_characters() {
+    let coordinator = RecoveryCoordinator::new(InMemoryStorage::new());
+    let mut marker = marker("control", vec![RecoveryClass::JournalAppend]);
+    marker.recovery_id = "r-\t\0\u{1f}".into();
+    let json = coordinator.redacted_bundle(&marker).to_json();
+
+    assert!(json.contains("r-\\t\\u0000\\u001f"));
+    assert!(!json.contains('\t'));
+    assert!(!json.contains('\0'));
+    assert!(!json.contains('\u{1f}'));
 }

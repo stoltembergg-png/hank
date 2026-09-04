@@ -2,7 +2,7 @@
 
 > feature: crash-recovery-contract
 
-## T-1500 — Startup recovery coordinator fail-closed [pendente]
+## T-1500 — Startup recovery coordinator fail-closed [concluida]
 
 - Refs: US-1500, AC-1501, AC-1502, AC-1503, AC-1504, AC-1505
 - Arquivos: crates/recovery-core/src/lib.rs, crates/recovery-core/src/coordinator.rs, crates/recovery-core/src/marker.rs, crates/recovery-core/src/storage.rs, crates/recovery-core/tests/crash_recovery_contract.rs, crates/recovery-core/Cargo.toml, docs/crash-recovery-contract.md

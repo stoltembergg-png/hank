@@ -33,6 +33,8 @@ pub enum ReplayCompletion {
     Succeeded,
     /// The callback failed; the marker must be quarantined.
     Failed,
+    /// The marker was quarantined without executing a callback and can be retried safely.
+    Deferred,
 }
 
 /// Abstract storage used by the startup coordinator.
@@ -69,6 +71,7 @@ enum ReplayState {
     InProgress,
     Completed,
     Failed,
+    Deferred,
 }
 
 /// Non-persistent storage fixture used by unit and contract tests.
@@ -146,6 +149,11 @@ impl RecoveryStorage for InMemoryStorage {
             Some(ReplayState::InProgress) => ReplayClaim::InProgress,
             Some(ReplayState::Completed) => ReplayClaim::AlreadyCompleted,
             Some(ReplayState::Failed) => ReplayClaim::PreviouslyFailed,
+            Some(ReplayState::Deferred) => {
+                self.claims
+                    .insert(recovery_id.to_owned(), ReplayState::InProgress);
+                ReplayClaim::Acquired
+            }
         })
     }
 
@@ -163,6 +171,7 @@ impl RecoveryStorage for InMemoryStorage {
         *state = match completion {
             ReplayCompletion::Succeeded => ReplayState::Completed,
             ReplayCompletion::Failed => ReplayState::Failed,
+            ReplayCompletion::Deferred => ReplayState::Deferred,
         };
         Ok(())
     }
@@ -181,7 +190,7 @@ mod tests {
     use super::{
         InMemoryStorage, RecoveryStorage, ReplayClaim, ReplayCompletion, MAX_AUDIT_ENTRIES,
     };
-    use crate::coordinator::{RecoveryAuditEntry, RecoveryError};
+    use crate::coordinator::{RecoveryAuditEntry, RecoveryAuditOutcome, RecoveryError};
     use crate::marker::RecoveryMarker;
 
     fn marker(project_id: &str) -> RecoveryMarker {
@@ -206,7 +215,7 @@ mod tests {
                 last_known_good_epoch: 0,
                 pending_classes: Default::default(),
             },
-            outcome: crate::coordinator::RecoveryOutcome::Replayed {
+            outcome: RecoveryAuditOutcome::Replayed {
                 recovery_id: "r-1".into(),
             },
         }
@@ -236,6 +245,29 @@ mod tests {
             .expect("completion");
         assert_eq!(
             storage.claim_replay("r-1").expect("completed claim"),
+            ReplayClaim::AlreadyCompleted
+        );
+    }
+
+    #[test]
+    fn deferred_claim_can_be_reacquired_and_completed() {
+        let mut storage = InMemoryStorage::new();
+        assert_eq!(
+            storage.claim_replay("r-deferred").expect("first claim"),
+            ReplayClaim::Acquired
+        );
+        storage
+            .complete_replay("r-deferred", ReplayCompletion::Deferred)
+            .expect("deferred completion");
+        assert_eq!(
+            storage.claim_replay("r-deferred").expect("retry claim"),
+            ReplayClaim::Acquired
+        );
+        storage
+            .complete_replay("r-deferred", ReplayCompletion::Succeeded)
+            .expect("successful retry");
+        assert_eq!(
+            storage.claim_replay("r-deferred").expect("completed retry"),
             ReplayClaim::AlreadyCompleted
         );
     }

@@ -67,6 +67,15 @@ modo seguro.
   entra em quarentena; revalidação só ocorre quando não há classe proibida.
 - Claims e conclusões de replay são transições duráveis por `recovery_id` no
   namespace de um único projeto; falha concluída não é automaticamente repetida.
+- O marker limpo também passa pelo claim durável: o primeiro processamento retorna
+  `Replayed` e as repetições retornam `AlreadyReplayed`.
+- Em `RecoveryMode::Resume`, um marker `Recoverable` é quarantined com conclusão
+  `Deferred`, sem callback; um startup posterior em `Safe` pode reivindicá-lo.
+  Falhas reais de callback usam conclusão `Failed` e não são repetidas automaticamente.
+- Project mismatch é rejeitado antes de classificação, claim, callback ou auditoria.
+- A auditoria retém somente um outcome redigido: `recovery_id`, discriminante,
+  classes de quarentena e contagens de referências; nunca os valores opacos.
+- `last_safe_action` é bounded e não é exportado no crash bundle.
 
 ## Suposições
 

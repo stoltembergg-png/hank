@@ -13,6 +13,8 @@ pub const MAX_PENDING_CLASSES: usize = 32;
 pub const MAX_OPAQUE_REFS: usize = 32;
 /// Maximum size of an opaque reference or marker identity in bytes.
 pub const MAX_OPAQUE_REF_LEN: usize = 128;
+/// Maximum UTF-8 byte length of the last safe action descriptor.
+pub const MAX_LAST_SAFE_ACTION_LEN: usize = 128;
 
 /// The side-effect categories that can remain pending after a crash.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -100,6 +102,7 @@ impl RecoveryMarker {
             || self.pending_classes.len() > MAX_PENDING_CLASSES
             || self.capability_set.len() > MAX_OPAQUE_REFS
             || self.credential_set.len() > MAX_OPAQUE_REFS
+            || self.last_safe_action.len() > MAX_LAST_SAFE_ACTION_LEN
             || self
                 .capability_set
                 .iter()

@@ -5,6 +5,7 @@
 //! idempotence to [`RecoveryStorage`].
 
 use std::collections::BTreeSet;
+use std::fmt::Write as _;
 
 use thiserror::Error;
 
@@ -67,13 +68,66 @@ pub struct RedactedCrashBundle {
     pub pending_classes: BTreeSet<RecoveryClass>,
 }
 
+/// Redacted outcome retained in an audit entry.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RecoveryAuditOutcome {
+    /// The recovery ID was already completed.
+    AlreadyReplayed { recovery_id: String },
+    /// Another process owns the recovery claim.
+    ReplayInProgress { recovery_id: String },
+    /// A replay or revalidation completed.
+    Replayed { recovery_id: String },
+    /// Revalidation completed with counts of opaque references only.
+    RevalidateRequired {
+        recovery_id: String,
+        capability_count: usize,
+        credential_count: usize,
+    },
+    /// Recovery was quarantined, retaining class names but no opaque values.
+    Quarantined {
+        recovery_id: String,
+        classes: BTreeSet<RecoveryClass>,
+    },
+}
+
+impl From<&RecoveryOutcome> for RecoveryAuditOutcome {
+    fn from(outcome: &RecoveryOutcome) -> Self {
+        match outcome {
+            RecoveryOutcome::AlreadyReplayed { recovery_id } => Self::AlreadyReplayed {
+                recovery_id: recovery_id.clone(),
+            },
+            RecoveryOutcome::ReplayInProgress { recovery_id } => Self::ReplayInProgress {
+                recovery_id: recovery_id.clone(),
+            },
+            RecoveryOutcome::Replayed { recovery_id } => Self::Replayed {
+                recovery_id: recovery_id.clone(),
+            },
+            RecoveryOutcome::RevalidateRequired {
+                recovery_id,
+                request,
+            } => Self::RevalidateRequired {
+                recovery_id: recovery_id.clone(),
+                capability_count: request.capability_set.len(),
+                credential_count: request.credential_set.len(),
+            },
+            RecoveryOutcome::Quarantined {
+                recovery_id,
+                classes,
+            } => Self::Quarantined {
+                recovery_id: recovery_id.clone(),
+                classes: classes.clone(),
+            },
+        }
+    }
+}
+
 /// Audit event emitted after a durable recovery transition.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecoveryAuditEntry {
     /// Redacted marker data.
     pub bundle: RedactedCrashBundle,
-    /// Resulting recovery action.
-    pub outcome: RecoveryOutcome,
+    /// Redacted result of the recovery action.
+    pub outcome: RecoveryAuditOutcome,
 }
 
 impl RedactedCrashBundle {
@@ -96,11 +150,24 @@ impl RedactedCrashBundle {
 }
 
 fn json_escape(value: &str) -> String {
-    value
-        .replace('\\', "\\\\")
-        .replace('"', "\\\"")
-        .replace('\n', "\\n")
-        .replace('\r', "\\r")
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        match character {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\u{08}' => escaped.push_str("\\b"),
+            '\t' => escaped.push_str("\\t"),
+            '\n' => escaped.push_str("\\n"),
+            '\u{0c}' => escaped.push_str("\\f"),
+            '\r' => escaped.push_str("\\r"),
+            character if character <= '\u{1f}' => {
+                write!(escaped, "\\u{character:04x}", character = character as u32)
+                    .expect("writing to String cannot fail");
+            }
+            character => escaped.push(character),
+        }
+    }
+    escaped
 }
 
 /// Errors returned by storage or recovery callbacks.
@@ -205,18 +272,18 @@ impl<S: RecoveryStorage> RecoveryCoordinator<S> {
         marker: &RecoveryMarker,
         callbacks: &mut impl RecoveryCallbacks,
     ) -> Result<RecoveryOutcome, RecoveryError> {
+        if marker.project_id != self.storage.project_id() {
+            return Err(RecoveryError::ProjectMismatch);
+        }
+
         let classification = self.classify(marker);
+        let revalidation_classes = marker.revalidatable_classes();
+        let quarantine_classes = marker.quarantined_classes();
         if classification == RecoveryClassification::Corrupt
-            || marker.project_id != self.storage.project_id()
+            || (classification == RecoveryClassification::Unknown
+                && (revalidation_classes.is_empty() || !quarantine_classes.is_empty()))
         {
             let outcome = self.quarantine(marker);
-            self.record_outcome(marker, &outcome)?;
-            return Ok(outcome);
-        }
-        if classification == RecoveryClassification::Clean {
-            let outcome = RecoveryOutcome::Replayed {
-                recovery_id: marker.recovery_id.clone(),
-            };
             self.record_outcome(marker, &outcome)?;
             return Ok(outcome);
         }
@@ -240,10 +307,9 @@ impl<S: RecoveryStorage> RecoveryCoordinator<S> {
             ReplayClaim::Acquired => {}
         }
 
-        let revalidation_classes = marker.revalidatable_classes();
         let action = if self.mode == RecoveryMode::Safe
             && !revalidation_classes.is_empty()
-            && marker.quarantined_classes().is_empty()
+            && quarantine_classes.is_empty()
         {
             let request = marker.revalidation_request();
             callbacks
@@ -254,20 +320,18 @@ impl<S: RecoveryStorage> RecoveryCoordinator<S> {
                 })
         } else {
             match (self.mode, classification) {
-                (_, RecoveryClassification::Unknown | RecoveryClassification::Corrupt) => {
-                    Ok(self.quarantine(marker))
-                }
                 (RecoveryMode::Resume, RecoveryClassification::Recoverable) => {
                     Ok(self.quarantine(marker))
                 }
-                (_, RecoveryClassification::Clean) => Ok(RecoveryOutcome::Replayed {
-                    recovery_id: marker.recovery_id.clone(),
-                }),
                 (RecoveryMode::Safe, RecoveryClassification::Recoverable) => callbacks
                     .on_replay(marker)
                     .map(|()| RecoveryOutcome::Replayed {
                         recovery_id: marker.recovery_id.clone(),
                     }),
+                (_, RecoveryClassification::Clean) => Ok(RecoveryOutcome::Replayed {
+                    recovery_id: marker.recovery_id.clone(),
+                }),
+                _ => Ok(self.quarantine(marker)),
             }
         };
 
@@ -280,8 +344,15 @@ impl<S: RecoveryStorage> RecoveryCoordinator<S> {
                 return Err(error);
             }
         };
+        let completion = if self.mode == RecoveryMode::Resume
+            && classification == RecoveryClassification::Recoverable
+        {
+            ReplayCompletion::Deferred
+        } else {
+            ReplayCompletion::Succeeded
+        };
         self.storage
-            .complete_replay(&marker.recovery_id, ReplayCompletion::Succeeded)?;
+            .complete_replay(&marker.recovery_id, completion)?;
         self.record_outcome(marker, &outcome)?;
         Ok(outcome)
     }
@@ -310,7 +381,7 @@ impl<S: RecoveryStorage> RecoveryCoordinator<S> {
     ) -> Result<(), RecoveryError> {
         self.storage.append_audit(RecoveryAuditEntry {
             bundle: self.redacted_bundle(marker),
-            outcome: outcome.clone(),
+            outcome: outcome.into(),
         })
     }
 }
@@ -479,5 +550,9 @@ mod tests {
             .expect("clean marker");
         assert!(matches!(outcome, RecoveryOutcome::Replayed { .. }));
         assert!(!coordinator.storage().audit().is_empty());
+        let second = coordinator
+            .replay(&clean, &mut NoopCallbacks)
+            .expect("second clean marker");
+        assert!(matches!(second, RecoveryOutcome::AlreadyReplayed { .. }));
     }
 }

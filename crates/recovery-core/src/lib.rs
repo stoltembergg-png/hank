@@ -9,12 +9,13 @@ mod marker;
 mod storage;
 
 pub use coordinator::{
-    NoopCallbacks, RecoveryAuditEntry, RecoveryCallbacks, RecoveryClassification,
-    RecoveryCoordinator, RecoveryError, RecoveryMode, RecoveryOutcome, RedactedCrashBundle,
+    NoopCallbacks, RecoveryAuditEntry, RecoveryAuditOutcome, RecoveryCallbacks,
+    RecoveryClassification, RecoveryCoordinator, RecoveryError, RecoveryMode, RecoveryOutcome,
+    RedactedCrashBundle,
 };
 pub use marker::{
-    RecoveryClass, RecoveryMarker, RevalidationRequest, MAX_OPAQUE_REFS, MAX_OPAQUE_REF_LEN,
-    MAX_PENDING_CLASSES,
+    RecoveryClass, RecoveryMarker, RevalidationRequest, MAX_LAST_SAFE_ACTION_LEN, MAX_OPAQUE_REFS,
+    MAX_OPAQUE_REF_LEN, MAX_PENDING_CLASSES,
 };
 pub use storage::{
     InMemoryStorage, RecoveryStorage, ReplayClaim, ReplayCompletion, MAX_AUDIT_ENTRIES,
