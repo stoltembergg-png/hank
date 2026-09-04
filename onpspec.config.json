@@ -6,10 +6,12 @@
   },
   "reporter": "exitcode",
   "reporters": {
+    "remote-credential-isolation": "tap",
     "tauri-desktop": "tap"
   },
   "testGlobs": [
     "test/**/*.js",
+    "test/**/*.mjs",
     "tests/**/*.rs",
     "crates/**/tests/**/*.rs",
     "**/*_test.rs",

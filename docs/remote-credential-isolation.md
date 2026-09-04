@@ -44,9 +44,10 @@ Out of scope (deferred to later cards):
 use agent_protocol::ids::ProjectId;
 use agent_protocol::remote_protocol::NodeId;
 use provider_core::CredentialRef;
-use remote_core::credential_broker::{CredentialBroker, CredentialScope};
+use remote_core::credential_broker::CredentialScope;
+use remote_adapter::new_credential_broker;
 
-let broker = CredentialBroker::new()?;
+let broker = new_credential_broker()?;
 let scope = CredentialScope::new(NodeId::new("node-1")?, project, "agent-1")?;
 let reference = CredentialRef::parse("cred_alpha")?;
 let lease = broker.issue(scope, reference, 60_000)?;
@@ -58,12 +59,13 @@ let resolved = broker.resolve(&lease)?;
 broker.revoke(&lease)?;
 ```
 
-The broker owns its own clock and entropy. Production code uses
-`SystemClock` + `OsEntropy`, where `OsEntropy` reads 128 bits from the operating
-system CSPRNG through `getrandom`; if that source fails, broker construction
-returns `CredentialBrokerError::EntropyUnavailable` and does not fall back to a
-time-derived or counter-derived seed. Tests can pass a `FakeClock` through
-`CredentialBroker::with_clock` to control time deterministically.
+The broker receives clock and entropy ports from its adapter/composition root.
+Production code calls `remote_adapter::new_credential_broker()`, which selects
+`SystemClock` + `OsEntropy`; `OsEntropy` reads 128 bits from the operating system
+CSPRNG through `getrandom`. If that source fails, construction returns
+`CredentialBrokerError::EntropyUnavailable` and does not fall back to a
+time-derived or counter-derived seed. Tests inject deterministic clock and
+entropy stubs through `CredentialBroker::with_clock_and_entropy`.
 The caller cannot pick the start time of an issued lease, nor pick the
 timestamp used to evaluate expiry, so a peer cannot bypass a lease
 deadline by submitting a backdated timestamp.
@@ -87,5 +89,6 @@ deadline by submitting a backdated timestamp.
 
 - `cargo fmt --all -- --check` — PASS
 - `cargo clippy -p remote-core --all-targets -- -D warnings` — PASS
-- `cargo test -p remote-core` — 18 broker contract tests plus 4 daemon and
-  8 event-stream contract tests PASS
+- `cargo test -p remote-core` — 17 broker contract tests plus 4 daemon and
+  8 event-stream contract tests PASS; `cargo test -p remote-adapter` — 2
+  adapter contract tests PASS

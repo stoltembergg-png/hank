@@ -3,7 +3,7 @@ use agent_protocol::remote_protocol::NodeId;
 use provider_core::CredentialRef;
 use remote_core::credential_broker::{
     BrokerClock, BrokerEntropy, CredentialAuditReason, CredentialBroker, CredentialBrokerError,
-    CredentialScope, OsEntropy, MAX_CREDENTIAL_LEASES,
+    CredentialScope, MAX_CREDENTIAL_LEASES,
 };
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -52,6 +52,18 @@ impl BrokerClock for FakeClock {
 }
 
 #[derive(Debug, Default)]
+struct FixedEntropy;
+
+static NEXT_TEST_SEED: AtomicU64 = AtomicU64::new(1);
+
+impl BrokerEntropy for FixedEntropy {
+    fn next_seed(&self) -> Result<[u8; 16], CredentialBrokerError> {
+        let value = NEXT_TEST_SEED.fetch_add(1, Ordering::Relaxed);
+        Ok(value.to_le_bytes().repeat(2).try_into().unwrap())
+    }
+}
+
+#[derive(Debug, Default)]
 struct FailingEntropy;
 
 impl BrokerEntropy for FailingEntropy {
@@ -61,18 +73,12 @@ impl BrokerEntropy for FailingEntropy {
 }
 
 fn broker_with_clock(clock: Arc<dyn BrokerClock>) -> CredentialBroker {
-    CredentialBroker::with_clock(clock).expect("OS entropy must be available")
+    CredentialBroker::with_clock_and_entropy(clock, Arc::new(FixedEntropy))
+        .expect("test entropy must be available")
 }
 
 fn fresh_broker() -> CredentialBroker {
     broker_with_clock(FakeClock::new(1_000))
-}
-
-#[test]
-fn os_entropy_produces_independent_seeds() {
-    let first = OsEntropy.next_seed().expect("OS CSPRNG must be available");
-    let second = OsEntropy.next_seed().expect("OS CSPRNG must be available");
-    assert_ne!(first, second, "independent OS entropy draws must differ");
 }
 
 #[test]

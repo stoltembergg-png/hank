@@ -1,0 +1,12 @@
+[package]
+name = "remote-adapter"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+description = "Concrete OS adapters for the transport-neutral remote broker"
+
+[dependencies]
+getrandom = { workspace = true }
+remote-core = { path = "../remote-core" }
