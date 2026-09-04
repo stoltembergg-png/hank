@@ -114,6 +114,59 @@ async fn pending_upgrade_requires_backup_from_observed_schema() {
     .await
     .unwrap();
     assert_eq!(table_exists, 0);
+    let state_table_exists: i64 = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '_hank_migration_runs')",
+    )
+    .fetch_one(storage.pool())
+    .await
+    .unwrap();
+    assert_eq!(state_table_exists, 0);
+}
+
+// @spec:AC-1802
+#[tokio::test]
+async fn historical_target_does_not_apply_migrations_beyond_requested_version() {
+    let (_dir, storage, _verified) = upgrade_fixture().await;
+    let result = run_migrations_hardened(storage.pool(), request("historical-target", 20))
+        .await
+        .unwrap();
+
+    assert_eq!(result.status, MigrationRunStatus::Applied);
+    assert_eq!(result.current_version, 20);
+    assert_eq!(result.target_version, 20);
+    let migration_21_exists: i64 = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'task_workspace_mappings')",
+    )
+    .fetch_one(storage.pool())
+    .await
+    .unwrap();
+    assert_eq!(migration_21_exists, 0);
+    let recorded_version: i64 =
+        sqlx::query_scalar("SELECT COALESCE(MAX(version), 0) FROM _sqlx_migrations")
+            .fetch_one(storage.pool())
+            .await
+            .unwrap();
+    assert_eq!(recorded_version, 20);
+}
+
+// @spec:AC-1803
+#[tokio::test]
+async fn restore_derived_operation_id_accepts_the_restore_id_limit() {
+    let storage = SqliteStorage::connect_in_memory().await.unwrap();
+    let operation_id = format!("restore-{}", "r".repeat(128));
+    let preflight = migration_preflight(
+        storage.pool(),
+        &MigrationRequest {
+            operation_id,
+            profile_id: "profile-a".into(),
+            target_version: embedded_migration_manifest().latest_version(),
+            verified_backup: None,
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(preflight.action, MigrationAction::CleanInstall);
 }
 
 // @spec:AC-1803

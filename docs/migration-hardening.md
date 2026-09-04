@@ -21,6 +21,11 @@ runner. It does not replace the migrations or provide a destructive downgrade pa
    failed forward-only operation: repair with a validated forward-fix or restore the
    last-known-good backup. The gate never calls a down migration.
 
+The desktop bootstrap performs the preflight first. For an existing profile that needs
+an upgrade, it creates and verifies a bounded snapshot under the application data
+directory before invoking the gate. If snapshot publication or verification fails,
+startup remains blocked and no migration is attempted.
+
 Example:
 
 ```rust,no_run

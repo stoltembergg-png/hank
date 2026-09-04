@@ -12,7 +12,11 @@ pub mod skills;
 pub mod streaming;
 
 use agent_runtime::{
-    migration_hardening::{embedded_migration_manifest, run_migrations_hardened, MigrationRequest},
+    backup::{BackupPolicy, BackupProtection, BackupRequest, DatabaseBackupService},
+    migration_hardening::{
+        embedded_migration_manifest, migration_preflight, run_migrations_hardened, MigrationAction,
+        MigrationRequest,
+    },
     sqlite::{SqliteStorage, SqliteStorageConfig},
 };
 use std::{io, path::PathBuf, time::Duration};
@@ -21,6 +25,9 @@ use tauri::{Manager, WindowEvent};
 const E2E_APP_DATA_ENV: &str = "HANK_E2E_APP_DATA_DIR";
 const E2E_RELEASE_DATA_OPT_IN_ENV: &str = "HANK_E2E_ALLOW_RELEASE_DATA_DIR";
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
+const STARTUP_PROFILE_ID: &str = "default-profile";
+const STARTUP_BACKUP_POLICY_REVISION: &str = "migration-hardening-v1";
+const STARTUP_BACKUP_MAX_BYTES: u64 = 256 * 1024 * 1024;
 
 fn database_path(app: &tauri::AppHandle) -> Result<PathBuf, io::Error> {
     if let Some(e2e_dir) = std::env::var_os(E2E_APP_DATA_ENV) {
@@ -124,22 +131,53 @@ fn main() {
                     error.to_string(),
                 )
             })?;
+            let backup_root = database_path
+                .parent()
+                .map(|parent| parent.join("backups"))
+                .ok_or_else(|| io::Error::other("database path has no backup root"))?;
             let storage = tauri::async_runtime::block_on(async move {
                 let storage = SqliteStorage::connect(SqliteStorageConfig::for_file(database_path))
                     .await
                     .map_err(|error| io::Error::other(error.to_string()))?;
                 let target_version = embedded_migration_manifest().latest_version();
-                run_migrations_hardened(
-                    storage.pool(),
-                    MigrationRequest {
-                        operation_id: format!("startup-migration-v{target_version}"),
-                        profile_id: "default-profile".into(),
-                        target_version,
-                        verified_backup: None,
-                    },
-                )
-                .await
-                .map_err(|error| io::Error::other(error.to_string()))?;
+                let mut migration_request = MigrationRequest {
+                    operation_id: format!("startup-migration-v{target_version}"),
+                    profile_id: STARTUP_PROFILE_ID.into(),
+                    target_version,
+                    verified_backup: None,
+                };
+                let preflight = migration_preflight(storage.pool(), &migration_request)
+                    .await
+                    .map_err(|error| io::Error::other(error.to_string()))?;
+                if matches!(&preflight.action, MigrationAction::Upgrade { .. }) {
+                    let backup_service = DatabaseBackupService::new(
+                        storage.clone(),
+                        BackupPolicy::new(backup_root, 4, STARTUP_BACKUP_MAX_BYTES)
+                            .map_err(|error| io::Error::other(error.to_string()))?,
+                    );
+                    let artifact = backup_service
+                        .create(BackupRequest {
+                            profile_id: STARTUP_PROFILE_ID.into(),
+                            app_version: env!("CARGO_PKG_VERSION").into(),
+                            source_revision: format!("desktop-{}", env!("CARGO_PKG_VERSION")),
+                            source_tree: preflight.manifest_digest.clone(),
+                            policy_revision: STARTUP_BACKUP_POLICY_REVISION.into(),
+                            protection: BackupProtection::OsPolicy {
+                                key_reference: "desktop-app-data-policy".into(),
+                            },
+                        })
+                        .await
+                        .map_err(|error| io::Error::other(error.to_string()))?;
+                    migration_request.verified_backup = Some(
+                        backup_service
+                            .verify(&artifact.manifest_path)
+                            .await
+                            .map_err(|error| io::Error::other(error.to_string()))?,
+                    );
+                }
+                run_migrations_hardened(storage.pool(), migration_request)
+                    .await
+                    .map_err(|error| io::Error::other(error.to_string()))?;
                 Ok::<_, io::Error>(storage)
             })
             .map_err(|error| {

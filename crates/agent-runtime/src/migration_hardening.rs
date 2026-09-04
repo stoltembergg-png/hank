@@ -10,10 +10,11 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::{Pool, Row, Sqlite};
+use std::borrow::Cow;
 use thiserror::Error;
 
 pub const MIGRATION_MANIFEST_FORMAT_VERSION: u16 = 1;
-const MAX_OPERATION_ID_BYTES: usize = 128;
+const MAX_OPERATION_ID_BYTES: usize = 136;
 const MAX_PROFILE_ID_BYTES: usize = 128;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -163,7 +164,6 @@ pub async fn migration_preflight(
     validate_request(request)?;
     let manifest = embedded_migration_manifest();
     validate_manifest(&manifest)?;
-    ensure_state_table(pool).await?;
 
     let has_history = scalar_i64(
         pool,
@@ -254,6 +254,7 @@ pub async fn run_migrations_hardened(
     request: MigrationRequest,
 ) -> Result<MigrationRunResult, MigrationError> {
     let preflight = migration_preflight(pool, &request).await?;
+    ensure_state_table(pool).await?;
     let existing = read_state(pool, &request.operation_id).await?;
     if let Some((profile_id, from_version, target_version, digest, status)) = existing {
         if profile_id != request.profile_id
@@ -337,7 +338,20 @@ pub async fn run_migrations_hardened(
         }
     }
 
-    let result = sqlx::migrate!("../../migrations").run(pool).await;
+    let migrator = sqlx::migrate!("../../migrations");
+    let bounded_migrator = sqlx::migrate::Migrator {
+        migrations: Cow::Owned(
+            migrator
+                .iter()
+                .filter(|migration| migration.version <= preflight.target_version)
+                .cloned()
+                .collect(),
+        ),
+        ignore_missing: false,
+        locking: true,
+        no_tx: false,
+    };
+    let result = bounded_migrator.run(pool).await;
     if result.is_err() {
         sqlx::query(
             "UPDATE _hank_migration_runs SET status = 'failed', failure_class = 'sqlx_execution', updated_at = ? WHERE operation_id = ?",
