@@ -477,6 +477,9 @@ jobs:
       - name: Verify backup restore
         run: node tools/ci/run-onp-spec.mjs verify backup-restore
 
+      - name: Verify migration hardening
+        run: node tools/ci/run-onp-spec.mjs verify migration-hardening
+
       - name: Verify websocket event stream
         run: node tools/ci/run-onp-spec.mjs verify websocket-event-stream
 
