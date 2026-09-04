@@ -16,8 +16,14 @@ destination write → opaque verify → legacy revoke → cleanup`.
   `MigrationLedger` guarda IDs, bindings, estados e classes de falha, nunca
   bytes de segredo ou envelope.
 - `SecretMigrationDestination` grava e verifica apenas no escopo autorizado.
-  A implementação para `SecureSecretStore<B>` continua atrás do backend
-  injetado, sem SQLite, `.env`, frontend ou fallback plaintext.
+  A verificação recebe o material esperado somente para comparação interna do
+  broker e devolve um booleano, nunca o material armazenado ao coordinator. A
+  implementação para `SecureSecretStore<B>` continua atrás do backend injetado,
+  sem SQLite, `.env`, frontend ou fallback plaintext.
+- `MigrationLedger::claim` é um lease exclusivo bounded; `save` usa CAS com o
+  lease e o relógio, e `release` encerra o claim. Assim, chamadas concorrentes
+  com o mesmo ID recebem `Conflict`, enquanto uma interrupção permite retomada
+  depois da expiração do lease.
 
 ## Failure and recovery
 
@@ -32,6 +38,9 @@ A revogação da fonte é deliberadamente a última operação destrutiva. Se a
 verificação falhar ou a revogação falhar, a fonte não é removida. Se a remoção
 do staging cifrado falhar depois do cutover, o journal retorna `cleanup_pending`
 sem desfazer o destino já verificado.
+O contrato de `LegacySecretSource::revoke` exige atomicidade: quando retorna
+erro, a fonte continua disponível e retryable; adapters concretos devem testar
+essa garantia.
 
 ## Scope of this increment
 

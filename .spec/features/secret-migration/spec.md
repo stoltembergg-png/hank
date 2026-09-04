@@ -3,6 +3,8 @@
 > feature: secret-migration
 > status: em-implementacao
 
+## User stories
+
 ### US-1900 — Migrar credenciais legadas sem expor material
 
 Como operador de um perfil atualizado, quero migrar uma credencial legada para
@@ -21,7 +23,8 @@ de um cutover confirmado e um erro preserve uma recuperação segura.
 
 - **Dado** uma requisição de migração com actor, política e destino
 - **Quando** o projeto do contexto, da fonte e do destino diverge, a autorização
-  expira ou a política não autoriza revogar a fonte
+  expira, a política não autoriza revogar a fonte ou a fonte coincide com o
+  destino
 - **Então** a operação falha fechado antes de ler ou inspecionar a fonte
 
 #### AC-1903 — Staging recebe apenas envelope cifrado bounded

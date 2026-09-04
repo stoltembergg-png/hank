@@ -2,16 +2,17 @@ use provider_core::credentials::{CredentialAccessContext, CredentialAccount, Pro
 use provider_core::{CancellationToken, CredentialRef, ProviderId};
 use secrets_core::migration::{
     EncryptedSecretEnvelope, EncryptedSecretStaging, LegacySecretDescriptor, LegacySecretSource,
-    LegacySourceId, LegacySourceKind, LegacySourceStatus, MigrationClock, MigrationDisposition,
-    MigrationFailureClass, MigrationLedger, MigrationRecord, MigrationState, SecretEnvelopeCodec,
-    SecretMigrationAuthorization, SecretMigrationCoordinator, SecretMigrationDestination,
-    SecretMigrationError, SecretMigrationId, SecretMigrationPolicy, SecretMigrationRequest,
-    StagingReceipt,
+    LegacySourceId, LegacySourceKind, LegacySourceStatus, MigrationClaim, MigrationClock,
+    MigrationDisposition, MigrationFailureClass, MigrationLease, MigrationLedger, MigrationRecord,
+    MigrationState, SecretEnvelopeCodec, SecretMigrationAuthorization, SecretMigrationCoordinator,
+    SecretMigrationDestination, SecretMigrationError, SecretMigrationId, SecretMigrationPolicy,
+    SecretMigrationRequest, StagingReceipt, MIGRATION_LEASE_TTL_MS,
 };
 use secrets_core::SecretMaterial;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Barrier, Mutex};
+use std::thread;
 
 const TEST_SECRET: &[u8] = b"[TEST-SECRET]";
 
@@ -84,6 +85,8 @@ struct LegacyState {
     read_calls: usize,
     revoke_calls: usize,
     fail_revoke: bool,
+    inspect_started: Option<Arc<std::sync::atomic::AtomicBool>>,
+    inspect_gate: Option<Arc<Barrier>>,
 }
 
 struct MockLegacySource {
@@ -109,7 +112,16 @@ impl LegacySecretSource for MockLegacySource {
     ) -> Result<LegacySourceStatus, SecretMigrationError> {
         let mut state = self.state.lock().unwrap();
         state.inspect_calls += 1;
-        Ok(state.status)
+        if let Some(started) = &state.inspect_started {
+            started.store(true, Ordering::SeqCst);
+        }
+        let gate = state.inspect_gate.clone();
+        let status = state.status;
+        drop(state);
+        if let Some(gate) = gate {
+            gate.wait();
+        }
+        Ok(status)
     }
 
     fn read(
@@ -162,10 +174,9 @@ impl SecretEnvelopeCodec for MockCodec {
     ) -> Result<EncryptedSecretEnvelope, SecretMigrationError> {
         let mut state = self.state.lock().unwrap();
         state.next_id += 1;
-        let ciphertext = vec![0xA5, (state.next_id & 0xFF) as u8];
-        state
-            .materials
-            .insert(ciphertext.clone(), material.into_bytes());
+        let plaintext = material.into_bytes();
+        let ciphertext: Vec<u8> = plaintext.iter().map(|byte| byte ^ 0xA5).collect();
+        state.materials.insert(ciphertext.clone(), plaintext);
         let envelope = EncryptedSecretEnvelope::from_sealed_bytes(ciphertext)
             .map_err(|_| SecretMigrationError::Step(MigrationFailureClass::CodecSeal))?;
         state.envelopes.push(envelope.clone());
@@ -306,6 +317,8 @@ impl SecretMigrationDestination for MockDestination {
 #[derive(Default)]
 struct MockLedger {
     records: Mutex<BTreeMap<SecretMigrationId, MigrationRecord>>,
+    leases: Mutex<BTreeMap<SecretMigrationId, MigrationLease>>,
+    next_lease: AtomicU64,
 }
 
 impl MigrationLedger for MockLedger {
@@ -321,11 +334,64 @@ impl MigrationLedger for MockLedger {
         Ok(records.entry(record.id().clone()).or_insert(record).clone())
     }
 
-    fn save(&self, record: MigrationRecord) -> Result<(), SecretMigrationError> {
-        self.records
-            .lock()
-            .unwrap()
-            .insert(record.id().clone(), record);
+    fn claim(
+        &self,
+        migration_id: &SecretMigrationId,
+        now_ms: u64,
+    ) -> Result<MigrationClaim, SecretMigrationError> {
+        let records = self.records.lock().unwrap();
+        let record = records
+            .get(migration_id)
+            .cloned()
+            .ok_or(SecretMigrationError::LedgerUnavailable)?;
+        if record.state() == MigrationState::Applied {
+            return Ok(MigrationClaim::AlreadyApplied { record });
+        }
+
+        let mut leases = self.leases.lock().unwrap();
+        if let Some(active) = leases.get(migration_id) {
+            if active.expires_at_ms() > now_ms {
+                return Err(SecretMigrationError::Conflict);
+            }
+        }
+        let lease_number = self.next_lease.fetch_add(1, Ordering::SeqCst) + 1;
+        let lease = MigrationLease::new(
+            migration_id.clone(),
+            format!("lease_{lease_number}"),
+            now_ms.saturating_add(MIGRATION_LEASE_TTL_MS),
+        )?;
+        leases.insert(migration_id.clone(), lease.clone());
+        Ok(MigrationClaim::Acquired { record, lease })
+    }
+
+    fn save(
+        &self,
+        lease: &MigrationLease,
+        now_ms: u64,
+        record: MigrationRecord,
+    ) -> Result<(), SecretMigrationError> {
+        let mut records = self.records.lock().unwrap();
+        let leases = self.leases.lock().unwrap();
+        let active = leases
+            .get(lease.migration_id())
+            .ok_or(SecretMigrationError::Conflict)?;
+        if active != lease || lease.expires_at_ms() <= now_ms || record.id() != lease.migration_id()
+        {
+            return Err(SecretMigrationError::Conflict);
+        }
+        records.insert(record.id().clone(), record);
+        Ok(())
+    }
+
+    fn release(&self, lease: &MigrationLease) -> Result<(), SecretMigrationError> {
+        let mut leases = self.leases.lock().unwrap();
+        match leases.get(lease.migration_id()) {
+            Some(active) if active == lease => {
+                leases.remove(lease.migration_id());
+            }
+            Some(_) => return Err(SecretMigrationError::Conflict),
+            None => {}
+        }
         Ok(())
     }
 }
@@ -476,6 +542,73 @@ fn duplicate_applied_migration_is_idempotent_without_second_cutover() {
     let second = coordinator.migrate(request("project_1")).unwrap();
     assert_eq!(first.disposition, MigrationDisposition::Applied);
     assert_eq!(second.disposition, MigrationDisposition::AlreadyApplied);
+    assert_eq!(source.state.lock().unwrap().read_calls, 1);
+    assert_eq!(source.state.lock().unwrap().revoke_calls, 1);
+    assert_eq!(destination.state.lock().unwrap().write_calls, 1);
+}
+
+#[test]
+// @spec:AC-1902
+fn identical_source_and_destination_are_rejected_before_legacy_read() {
+    let (coordinator, source, _codec, _staging, _destination, ledger) = coordinator();
+    let mut request = request("project_1");
+    request.destination = secrets_core::migration::MigrationDestination::new(
+        request.source.account().clone(),
+        request.source.reference().clone(),
+    )
+    .unwrap();
+
+    let error = coordinator.migrate(request).unwrap_err();
+    assert!(matches!(error, SecretMigrationError::InvalidMetadata));
+    assert_eq!(source.state.lock().unwrap().inspect_calls, 0);
+    assert_eq!(source.state.lock().unwrap().read_calls, 0);
+    assert_eq!(source.state.lock().unwrap().revoke_calls, 0);
+    assert!(ledger.records.lock().unwrap().is_empty());
+}
+
+#[test]
+// @spec:AC-1906
+fn concurrent_same_migration_id_allows_only_one_cutover() {
+    let source = MockLegacySource::new();
+    let inspect_started = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let inspect_gate = Arc::new(Barrier::new(2));
+    {
+        let mut state = source.state.lock().unwrap();
+        state.inspect_started = Some(inspect_started.clone());
+        state.inspect_gate = Some(inspect_gate.clone());
+    }
+    let codec = MockCodec::new();
+    let staging = MockStaging::new();
+    let destination = MockDestination::new();
+    let ledger = Arc::new(MockLedger::default());
+    let coordinator_a = SecretMigrationCoordinator::new(
+        FixedClock::new(1_000),
+        source.clone(),
+        codec.clone(),
+        staging.clone(),
+        destination.clone(),
+        ledger.clone(),
+    );
+    let coordinator_b = SecretMigrationCoordinator::new(
+        FixedClock::new(1_000),
+        source.clone(),
+        codec,
+        staging,
+        destination.clone(),
+        ledger,
+    );
+
+    let first = thread::spawn(move || coordinator_a.migrate(request("project_1")));
+    while !inspect_started.load(Ordering::SeqCst) {
+        thread::yield_now();
+    }
+
+    let second = coordinator_b.migrate(request("project_1"));
+    assert!(matches!(second, Err(SecretMigrationError::Conflict)));
+    inspect_gate.wait();
+
+    let first = first.join().unwrap().unwrap();
+    assert_eq!(first.disposition, MigrationDisposition::Applied);
     assert_eq!(source.state.lock().unwrap().read_calls, 1);
     assert_eq!(source.state.lock().unwrap().revoke_calls, 1);
     assert_eq!(destination.state.lock().unwrap().write_calls, 1);

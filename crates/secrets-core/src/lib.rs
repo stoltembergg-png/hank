@@ -10,6 +10,7 @@ use provider_core::credentials::{CredentialAccessContext, CredentialAccount};
 use provider_core::CredentialRef;
 use std::fmt;
 use thiserror::Error;
+use zeroize::Zeroize;
 
 pub const MAX_SECRET_BYTES: usize = 64 * 1024;
 
@@ -58,7 +59,7 @@ impl fmt::Debug for SecretMaterial {
 
 impl Drop for SecretMaterial {
     fn drop(&mut self) {
-        self.0.fill(0);
+        self.0.zeroize();
     }
 }
 

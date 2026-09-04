@@ -11,6 +11,7 @@ use provider_core::credentials::{CredentialAccessContext, CredentialAccount};
 use provider_core::CredentialRef;
 use std::fmt;
 use std::sync::Arc;
+use subtle::ConstantTimeEq;
 use thiserror::Error;
 
 pub const MAX_MIGRATION_ID_LEN: usize = 128;
@@ -18,6 +19,8 @@ pub const MAX_LEGACY_SOURCE_ID_LEN: usize = 128;
 pub const MAX_POLICY_REVISION_LEN: usize = 64;
 pub const MAX_STAGING_RECEIPT_LEN: usize = 128;
 pub const MAX_STAGED_CIPHERTEXT_BYTES: usize = 68 * 1024;
+pub const MAX_MIGRATION_LEASE_TOKEN_LEN: usize = 128;
+pub const MIGRATION_LEASE_TTL_MS: u64 = 60_000;
 const MAX_ACTOR_ID_LEN: usize = 128;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
@@ -68,6 +71,58 @@ impl StagingReceipt {
 
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+/// Opaque journal claim used to serialize one migration across processes.
+///
+/// The token is coordination metadata, not credential material, and is never
+/// included in `Debug` output.
+#[derive(Clone, PartialEq, Eq)]
+pub struct MigrationLease {
+    migration_id: SecretMigrationId,
+    token: String,
+    expires_at_ms: u64,
+}
+
+impl MigrationLease {
+    pub fn new(
+        migration_id: SecretMigrationId,
+        token: impl Into<String>,
+        expires_at_ms: u64,
+    ) -> Result<Self, SecretMigrationError> {
+        let token = token.into();
+        if token.trim().is_empty()
+            || token.len() > MAX_MIGRATION_LEASE_TOKEN_LEN
+            || token.chars().any(char::is_control)
+            || expires_at_ms == 0
+        {
+            return Err(SecretMigrationError::InvalidMetadata);
+        }
+        Ok(Self {
+            migration_id,
+            token,
+            expires_at_ms,
+        })
+    }
+
+    pub fn migration_id(&self) -> &SecretMigrationId {
+        &self.migration_id
+    }
+
+    pub fn expires_at_ms(&self) -> u64 {
+        self.expires_at_ms
+    }
+}
+
+impl fmt::Debug for MigrationLease {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("MigrationLease")
+            .field("migration_id", &self.migration_id)
+            .field("token", &"[REDACTED]")
+            .field("expires_at_ms", &self.expires_at_ms)
+            .finish()
     }
 }
 
@@ -353,6 +408,17 @@ impl MigrationRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MigrationClaim {
+    Acquired {
+        record: MigrationRecord,
+        lease: MigrationLease,
+    },
+    AlreadyApplied {
+        record: MigrationRecord,
+    },
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MigrationDisposition {
     Applied,
@@ -399,6 +465,9 @@ pub trait MigrationClock: Send + Sync {
 }
 
 /// Legacy source inspection and effect port. `inspect` must not read material.
+/// `revoke` is atomic from the coordinator's perspective: an error must leave
+/// the source available and retryable, while success must mean the source is
+/// revoked. Concrete adapters must enforce and test that contract.
 pub trait LegacySecretSource: Send + Sync {
     fn inspect(
         &self,
@@ -440,8 +509,9 @@ pub trait EncryptedSecretStaging: Send + Sync {
     fn remove(&self, receipt: &StagingReceipt) -> Result<(), SecretMigrationError>;
 }
 
-/// Destination broker port. Verification returns only a boolean and never
-/// returns destination material to the caller.
+/// Destination broker port. Verification receives expected material only so a
+/// broker can compare it locally; it returns only a boolean and never returns
+/// destination material to the coordinator.
 pub trait SecretMigrationDestination: Send + Sync {
     fn put(
         &self,
@@ -460,14 +530,30 @@ pub trait SecretMigrationDestination: Send + Sync {
 }
 
 /// Durable metadata journal. Implementations must atomically make `start`
-/// idempotent and must never persist material or envelope bytes.
+/// idempotent and must never persist material or envelope bytes. `claim` must
+/// atomically acquire an expiring exclusive lease for a non-terminal record;
+/// an active lease returns `Conflict`, while an expired lease permits restart.
+/// `save` is a compare-and-set guarded by the lease and `now_ms`; `release`
+/// clears only the caller's lease. A process interrupted after claiming is
+/// therefore recoverable after the bounded lease expires.
 pub trait MigrationLedger: Send + Sync {
     fn load(
         &self,
         migration_id: &SecretMigrationId,
     ) -> Result<Option<MigrationRecord>, SecretMigrationError>;
     fn start(&self, record: MigrationRecord) -> Result<MigrationRecord, SecretMigrationError>;
-    fn save(&self, record: MigrationRecord) -> Result<(), SecretMigrationError>;
+    fn claim(
+        &self,
+        migration_id: &SecretMigrationId,
+        now_ms: u64,
+    ) -> Result<MigrationClaim, SecretMigrationError>;
+    fn save(
+        &self,
+        lease: &MigrationLease,
+        now_ms: u64,
+        record: MigrationRecord,
+    ) -> Result<(), SecretMigrationError>;
+    fn release(&self, lease: &MigrationLease) -> Result<(), SecretMigrationError>;
 }
 
 pub struct SecretMigrationCoordinator {
@@ -507,6 +593,11 @@ impl SecretMigrationCoordinator {
         {
             return Err(SecretMigrationError::Unauthorized);
         }
+        if request.source.account == request.destination.account
+            && request.source.reference == request.destination.reference
+        {
+            return Err(SecretMigrationError::InvalidMetadata);
+        }
         if request.context.actor_id != request.policy.authorization.actor_id {
             return Err(SecretMigrationError::Unauthorized);
         }
@@ -524,8 +615,8 @@ impl SecretMigrationCoordinator {
         request: SecretMigrationRequest,
     ) -> Result<SecretMigrationResult, SecretMigrationError> {
         self.preflight(&request)?;
-        let mut record = match self.ledger.load(&request.migration_id)? {
-            Some(mut record) => {
+        match self.ledger.load(&request.migration_id)? {
+            Some(record) => {
                 if !record.matches_request(&request) {
                     return Err(SecretMigrationError::Conflict);
                 }
@@ -535,21 +626,11 @@ impl SecretMigrationCoordinator {
                         record,
                     });
                 }
-                if record.state == MigrationState::Quarantined {
-                    if !request.retry_quarantined {
-                        return Err(SecretMigrationError::Quarantined {
-                            failure: record.failure.unwrap_or(MigrationFailureClass::LedgerWrite),
-                        });
-                    }
-                    record.state = if record.staging_receipt.is_some() {
-                        MigrationState::Staged
-                    } else {
-                        MigrationState::Started
-                    };
-                    record.failure = None;
-                    self.save(&record)?;
+                if record.state == MigrationState::Quarantined && !request.retry_quarantined {
+                    return Err(SecretMigrationError::Quarantined {
+                        failure: record.failure.unwrap_or(MigrationFailureClass::LedgerWrite),
+                    });
                 }
-                record
             }
             None => {
                 let started = MigrationRecord::new(&request);
@@ -560,33 +641,72 @@ impl SecretMigrationCoordinator {
                 if !record.matches_request(&request) {
                     return Err(SecretMigrationError::Conflict);
                 }
-                record
             }
         };
 
+        let (mut record, lease) = match self
+            .ledger
+            .claim(&request.migration_id, self.clock.now_ms())?
+        {
+            MigrationClaim::AlreadyApplied { record } => {
+                if !record.matches_request(&request) {
+                    return Err(SecretMigrationError::Conflict);
+                }
+                return Ok(SecretMigrationResult {
+                    disposition: MigrationDisposition::AlreadyApplied,
+                    record,
+                });
+            }
+            MigrationClaim::Acquired { record, lease } => (record, lease),
+        };
+        if !record.matches_request(&request) {
+            self.release(&lease)?;
+            return Err(SecretMigrationError::Conflict);
+        }
+        if record.state == MigrationState::Quarantined {
+            if !request.retry_quarantined {
+                let failure = record.failure.unwrap_or(MigrationFailureClass::LedgerWrite);
+                self.release(&lease)?;
+                return Err(SecretMigrationError::Quarantined { failure });
+            }
+            record.state = if record.staging_receipt.is_some() {
+                MigrationState::Staged
+            } else {
+                MigrationState::Started
+            };
+            record.failure = None;
+            self.save(&lease, &record)?;
+        }
+
         if record.staging_receipt.is_none() {
             match self.source.inspect(&record.source) {
-                Err(_) => return self.quarantine(record, MigrationFailureClass::SourceInspect),
+                Err(_) => {
+                    return self.quarantine(&lease, record, MigrationFailureClass::SourceInspect)
+                }
                 Ok(LegacySourceStatus::Available) => {}
                 Ok(LegacySourceStatus::Missing | LegacySourceStatus::Revoked) => {
-                    return self.quarantine(record, MigrationFailureClass::SourceInspect);
+                    return self.quarantine(&lease, record, MigrationFailureClass::SourceInspect);
                 }
             }
             let material = match self.source.read(&record.source) {
                 Ok(material) => material,
-                Err(_) => return self.quarantine(record, MigrationFailureClass::SourceRead),
+                Err(_) => {
+                    return self.quarantine(&lease, record, MigrationFailureClass::SourceRead)
+                }
             };
             let envelope = match self.codec.seal(&record.id, material) {
                 Ok(envelope) => envelope,
-                Err(_) => return self.quarantine(record, MigrationFailureClass::CodecSeal),
+                Err(_) => return self.quarantine(&lease, record, MigrationFailureClass::CodecSeal),
             };
             let receipt = match self.staging.put(&record.id, envelope) {
                 Ok(receipt) => receipt,
-                Err(_) => return self.quarantine(record, MigrationFailureClass::StageWrite),
+                Err(_) => {
+                    return self.quarantine(&lease, record, MigrationFailureClass::StageWrite)
+                }
             };
             record.staging_receipt = Some(receipt);
             record.state = MigrationState::Staged;
-            self.save(&record)?;
+            self.save(&lease, &record)?;
         }
 
         let receipt = record
@@ -595,11 +715,11 @@ impl SecretMigrationCoordinator {
             .ok_or(SecretMigrationError::Step(MigrationFailureClass::StageRead))?;
         let envelope = match self.staging.get(&receipt) {
             Ok(envelope) => envelope,
-            Err(_) => return self.quarantine(record, MigrationFailureClass::StageRead),
+            Err(_) => return self.quarantine(&lease, record, MigrationFailureClass::StageRead),
         };
         let material = match self.codec.open(&envelope) {
             Ok(material) => material,
-            Err(_) => return self.quarantine(record, MigrationFailureClass::CodecOpen),
+            Err(_) => return self.quarantine(&lease, record, MigrationFailureClass::CodecOpen),
         };
         if self
             .destination
@@ -611,10 +731,10 @@ impl SecretMigrationCoordinator {
             )
             .is_err()
         {
-            return self.quarantine(record, MigrationFailureClass::DestinationWrite);
+            return self.quarantine(&lease, record, MigrationFailureClass::DestinationWrite);
         }
         record.state = MigrationState::DestinationWritten;
-        self.save(&record)?;
+        self.save(&lease, &record)?;
 
         let verified = match self.destination.verify(
             &request.context,
@@ -623,45 +743,60 @@ impl SecretMigrationCoordinator {
             &material,
         ) {
             Ok(verified) => verified,
-            Err(_) => return self.quarantine(record, MigrationFailureClass::DestinationVerify),
+            Err(_) => {
+                return self.quarantine(&lease, record, MigrationFailureClass::DestinationVerify)
+            }
         };
         if !verified {
-            return self.quarantine(record, MigrationFailureClass::DestinationVerify);
+            return self.quarantine(&lease, record, MigrationFailureClass::DestinationVerify);
         }
         record.state = MigrationState::Verified;
-        self.save(&record)?;
+        self.save(&lease, &record)?;
 
         if self.source.revoke(&record.source).is_err() {
-            return self.quarantine(record, MigrationFailureClass::SourceRevoke);
+            return self.quarantine(&lease, record, MigrationFailureClass::SourceRevoke);
         }
         record.state = MigrationState::Applied;
         record.failure = None;
-        self.save(&record)?;
+        self.save(&lease, &record)?;
 
         if self.staging.remove(&receipt).is_err() {
             record.cleanup_pending = true;
-            self.save(&record)?;
+            self.save(&lease, &record)?;
         }
+        self.release(&lease)?;
         Ok(SecretMigrationResult {
             disposition: MigrationDisposition::Applied,
             record,
         })
     }
 
-    fn save(&self, record: &MigrationRecord) -> Result<(), SecretMigrationError> {
+    fn save(
+        &self,
+        lease: &MigrationLease,
+        record: &MigrationRecord,
+    ) -> Result<(), SecretMigrationError> {
         self.ledger
-            .save(record.clone())
+            .save(lease, self.clock.now_ms(), record.clone())
+            .map_err(|_| SecretMigrationError::LedgerUnavailable)
+    }
+
+    fn release(&self, lease: &MigrationLease) -> Result<(), SecretMigrationError> {
+        self.ledger
+            .release(lease)
             .map_err(|_| SecretMigrationError::LedgerUnavailable)
     }
 
     fn quarantine(
         &self,
+        lease: &MigrationLease,
         mut record: MigrationRecord,
         failure: MigrationFailureClass,
     ) -> Result<SecretMigrationResult, SecretMigrationError> {
         record.state = MigrationState::Quarantined;
         record.failure = Some(failure);
-        self.save(&record)?;
+        self.save(lease, &record)?;
+        self.release(lease)?;
         Err(SecretMigrationError::Quarantined { failure })
     }
 }
@@ -693,7 +828,9 @@ impl<B: SecureSecretBackend> SecretMigrationDestination for SecureSecretStore<B>
         let stored = self
             .get(context.clone(), account.clone(), reference.clone())
             .map_err(SecretMigrationError::Destination)?;
-        Ok(stored.as_bytes() == expected.as_bytes())
+        let length_matches = stored.as_bytes().len() == expected.as_bytes().len();
+        let bytes_match = stored.as_bytes().ct_eq(expected.as_bytes()).unwrap_u8() == 1;
+        Ok(length_matches && bytes_match)
     }
 }
 
