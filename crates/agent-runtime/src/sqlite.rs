@@ -119,9 +119,8 @@ impl SqliteStorage {
                 }
             }
 
-            let path_str = path.to_string_lossy();
-            let mut opts = SqliteConnectOptions::from_str(&format!("sqlite://{}", path_str))
-                .map_err(|e| SqliteError::ConnectionFailed(e.to_string()))?
+            let mut opts = SqliteConnectOptions::new()
+                .filename(path)
                 .create_if_missing(config.create_if_missing)
                 .busy_timeout(config.busy_timeout);
 
