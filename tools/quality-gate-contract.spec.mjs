@@ -187,6 +187,7 @@ test('Frontend workflow has explicit lint, typecheck, test, and build gates', ()
   assert.match(frontendWorkflow, /npm_config_fetch_timeout=60000/);
   assert.match(frontendWorkflow, /npm_config_fetch_retries=0/);
   assert.match(frontendWorkflow, /Service Unavailable/);
+  assert.match(frontendWorkflow, /network timeout/);
   assert.doesNotMatch(frontendWorkflow, /npm (?:ci|audit).*--no-audit/);
   assert.doesNotMatch(frontendWorkflow, /continue-on-error\s*:\s*true/);
 });
