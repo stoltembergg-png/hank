@@ -15,7 +15,7 @@ use thiserror::Error;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use uuid::Uuid;
 
-use crate::sqlite::{SqliteStorage, SqliteStorageConfig};
+use crate::sqlite::{SqliteError, SqliteStorage, SqliteStorageConfig};
 
 pub const BACKUP_FORMAT_VERSION: u16 = 1;
 const MAX_MANIFEST_BYTES: u64 = 16 * 1024;
@@ -192,6 +192,8 @@ pub enum BackupError {
     Destination,
     #[error("backup database operation failed")]
     Database(#[source] sqlx::Error),
+    #[error("backup source storage could not be opened")]
+    Storage(#[source] SqliteError),
     #[error("backup I/O failed")]
     Io(#[source] std::io::Error),
     #[error("backup manifest serialization failed")]
@@ -307,10 +309,27 @@ impl DatabaseBackupService {
         }
         let temporary_database = path_string(paths.temporary_database_path)?;
         let vacuum_sql = format!("VACUUM INTO '{}'", sql_quote(&temporary_database));
-        sqlx::query(&vacuum_sql)
-            .execute(self.storage.pool())
-            .await
-            .map_err(BackupError::Database)?;
+        let source_config = self.storage.config().clone();
+        let snapshot_storage = SqliteStorage::connect(SqliteStorageConfig {
+            database_path: Some(
+                source_config
+                    .database_path
+                    .clone()
+                    .ok_or(BackupError::InMemorySource)?,
+            ),
+            max_connections: 1,
+            busy_timeout: source_config.busy_timeout,
+            create_if_missing: false,
+            wal_mode: source_config.wal_mode,
+            foreign_keys: source_config.foreign_keys,
+        })
+        .await
+        .map_err(BackupError::Storage)?;
+        let vacuum_result = sqlx::query(&vacuum_sql)
+            .execute(snapshot_storage.pool())
+            .await;
+        snapshot_storage.close().await;
+        vacuum_result.map_err(BackupError::Database)?;
         let database_file_handle = tokio::fs::File::open(paths.temporary_database_path)
             .await
             .map_err(BackupError::Io)?;
