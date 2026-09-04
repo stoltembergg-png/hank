@@ -4,6 +4,8 @@
 //! bytes to an injected OS keychain/Stronghold backend and fails closed when
 //! that backend is unavailable. The backend interface is the platform seam.
 
+pub mod migration;
+
 use provider_core::credentials::{CredentialAccessContext, CredentialAccount};
 use provider_core::CredentialRef;
 use std::fmt;
@@ -56,9 +58,7 @@ impl fmt::Debug for SecretMaterial {
 
 impl Drop for SecretMaterial {
     fn drop(&mut self) {
-        for byte in &mut self.0 {
-            *byte = 0;
-        }
+        self.0.fill(0);
     }
 }
 
