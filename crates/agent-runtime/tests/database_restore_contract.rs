@@ -152,6 +152,12 @@ async fn existing_target_is_replaced_and_receipt_makes_retry_idempotent() {
     assert!(!target
         .with_file_name(".profile-a.db.restore-previous.db")
         .exists());
+    assert!(!target
+        .with_file_name(".profile-a.db.restore-previous.db-wal")
+        .exists());
+    assert!(!target
+        .with_file_name(".profile-a.db.restore-previous.db-shm")
+        .exists());
 
     let second = service.restore(request).await.unwrap();
     assert_eq!(second.outcome, RestoreOutcome::AlreadyApplied);
@@ -573,5 +579,36 @@ async fn oversized_restore_cleans_staging_and_leaves_no_target() {
         Vec::new()
     };
     assert!(entries.is_empty());
+    source_storage.close().await;
+}
+
+#[cfg(unix)]
+// @spec:AC-1704
+#[tokio::test]
+async fn symlink_parent_is_rejected_without_following_the_link() {
+    use std::os::unix::fs::symlink;
+
+    let (dir, source_storage, backup) = seeded_source().await;
+    let artifact = backup.create(backup_request()).await.unwrap();
+    let target_root = dir.path().join("profiles");
+    let outside = dir.path().join("outside");
+    std::fs::create_dir_all(&outside).unwrap();
+    symlink(&outside, &target_root).unwrap();
+    let target = target_root.join("profile-a.db");
+    let service = restore_service(backup, &target_root);
+
+    let result = service
+        .restore(restore_request(
+            &artifact,
+            &target,
+            "profile-a",
+            21,
+            "restore-parent-symlink",
+            false,
+        ))
+        .await;
+
+    assert!(matches!(result, Err(RestoreError::TargetOutsideRoot)));
+    assert!(!outside.join("profile-a.db").exists());
     source_storage.close().await;
 }
