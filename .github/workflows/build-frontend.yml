@@ -35,6 +35,9 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      - name: Setup pinned npm 11
+        run: npm install --global npm@11.6.0 --no-fund --ignore-scripts --no-audit
+
       - name: Record build identity
         shell: bash
         working-directory: .
@@ -53,7 +56,40 @@ jobs:
         run: npm ci --no-fund
 
       - name: Audit frontend dependencies
-        run: npm audit --audit-level=high
+        shell: bash
+        run: |
+          set -euo pipefail
+          max_attempts=3
+          audit_status=1
+          export npm_config_fetch_timeout=60000
+          export npm_config_fetch_retries=0
+          export npm_config_audit_registry=https://registry.npmjs.com/
+          transient_pattern='^(npm warn|npm error) audit (502 Bad Gateway|503 Service Unavailable|504 Gateway Timeout|network timeout at:)|^(npm warn|npm error) (code )?(ECONNRESET|ETIMEDOUT|EAI_AGAIN)'
+          for attempt in $(seq 1 "$max_attempts"); do
+            audit_log=$(mktemp)
+            set +e
+            exec 3>&1
+            exec >"$audit_log" 2>&1
+            npm audit --audit-level=high
+            audit_status=$?
+            exec 1>&3 3>&-
+            set -e
+            cat "$audit_log"
+            if [ "$audit_status" -eq 0 ]; then
+              rm -f "$audit_log"
+              exit 0
+            fi
+            if ! grep -Eq "$transient_pattern" "$audit_log"; then
+              rm -f "$audit_log"
+              exit "$audit_status"
+            fi
+            rm -f "$audit_log"
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "npm audit transient registry failure; retrying ($((attempt + 1))/$max_attempts)"
+              sleep $((attempt * 15))
+            fi
+          done
+          exit "$audit_status"
 
       - name: Run frontend lint
         run: npm run lint
