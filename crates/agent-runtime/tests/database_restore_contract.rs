@@ -203,9 +203,16 @@ async fn interrupted_promotion_recovers_previous_before_retrying_restore() {
     tokio::fs::create_dir_all(&target_root).await.unwrap();
     let target = target_root.join("profile-a.db");
 
-    let old = SqliteStorage::connect(SqliteStorageConfig::for_file(&target))
-        .await
-        .unwrap();
+    let old = SqliteStorage::connect(SqliteStorageConfig {
+        database_path: Some(target.clone()),
+        max_connections: 1,
+        busy_timeout: std::time::Duration::from_secs(5),
+        create_if_missing: true,
+        wal_mode: false,
+        foreign_keys: true,
+    })
+    .await
+    .unwrap();
     run_migrations(old.pool()).await.unwrap();
     sqlx::query(
         "INSERT INTO projects (id, name, status, owner, created_at, updated_at, settings) \
