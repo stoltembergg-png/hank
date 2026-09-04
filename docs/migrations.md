@@ -34,6 +34,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+## Hardened profile upgrades (PR-255)
+
+Entrypoints that may upgrade an existing profile devem usar
+`agent_runtime::run_migrations_hardened` com `MigrationRequest`. O gate deriva um
+manifesto ordenado/checksumado do mesmo conjunto embutido, rejeita histórico dirty,
+drift, versões desconhecidas, schema sem histórico e downgrade, e exige um
+`BackupVerification` da versão corrente antes de um upgrade. O runner básico acima
+continua disponível para fixtures e inicialização legada; ele não substitui o gate
+em fluxos de upgrade de profile.
+
 ## Task-to-branch mapping (migration `0021_task_workspace_mappings.sql`)
 
 A migração adiciona o mapping durável e project-scoped entre task, repository,

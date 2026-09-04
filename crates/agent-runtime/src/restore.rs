@@ -6,7 +6,7 @@
 //! supplies the opaque operator authorization; no secret material is accepted.
 
 use crate::backup::{BackupVerification, DatabaseBackupService, VerificationError};
-use crate::migrations::run_migrations;
+use crate::migration_hardening::{run_migrations_hardened, MigrationRequest};
 use crate::sqlite::{SqliteError, SqliteStorage, SqliteStorageConfig};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -335,9 +335,7 @@ impl DatabaseRestoreService {
             cleanup_stage(&paths).await;
             return Err(error);
         }
-        let staged = self
-            .prepare_stage(&paths.stage, request.target_schema_version)
-            .await;
+        let staged = self.prepare_stage(&paths.stage, request, verified).await;
         let (schema_version, target_sha256) = match staged {
             Ok(value) => value,
             Err(error) => {
@@ -409,8 +407,10 @@ impl DatabaseRestoreService {
     async fn prepare_stage(
         &self,
         stage: &Path,
-        target_schema_version: i64,
+        request: &RestoreRequest,
+        verified: &BackupVerification,
     ) -> Result<(i64, String), RestoreError> {
+        let target_schema_version = request.target_schema_version;
         let storage = SqliteStorage::connect(SqliteStorageConfig {
             database_path: Some(stage.to_path_buf()),
             max_connections: 1,
@@ -421,9 +421,17 @@ impl DatabaseRestoreService {
         })
         .await
         .map_err(RestoreError::Storage)?;
-        if let Err(error) = run_migrations(storage.pool()).await {
+        let migration_request = MigrationRequest {
+            operation_id: format!("restore-{}", request.restore_id),
+            profile_id: request.target_profile_id.clone(),
+            target_version: target_schema_version,
+            verified_backup: Some(verified.clone()),
+        };
+        if let Err(error) = run_migrations_hardened(storage.pool(), migration_request).await {
             storage.close().await;
-            return Err(RestoreError::Migration(error));
+            return Err(RestoreError::Migration(SqliteError::QueryError(
+                error.to_string(),
+            )));
         }
         let schema = match schema_version(storage.pool()).await {
             Ok(value) => value,
