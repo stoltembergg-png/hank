@@ -1,8 +1,10 @@
+use std::collections::BTreeSet;
+
 use recovery_core::{
     InMemoryStorage, RecoveryCallbacks, RecoveryClass, RecoveryClassification, RecoveryCoordinator,
-    RecoveryMarker, RecoveryMode, RecoveryOutcome, RevalidationRequest, MAX_PENDING_CLASSES,
+    RecoveryError, RecoveryMarker, RecoveryMode, RecoveryOutcome, RevalidationRequest,
+    MAX_PENDING_CLASSES,
 };
-use std::collections::BTreeSet;
 
 #[derive(Default)]
 struct Recorder {
@@ -12,15 +14,12 @@ struct Recorder {
 }
 
 impl RecoveryCallbacks for Recorder {
-    fn on_replay(&mut self, _marker: &RecoveryMarker) -> Result<(), recovery_core::RecoveryError> {
+    fn on_replay(&mut self, _marker: &RecoveryMarker) -> Result<(), RecoveryError> {
         self.replay_count += 1;
         Ok(())
     }
 
-    fn on_revalidate(
-        &mut self,
-        request: &RevalidationRequest,
-    ) -> Result<(), recovery_core::RecoveryError> {
+    fn on_revalidate(&mut self, request: &RevalidationRequest) -> Result<(), RecoveryError> {
         self.revalidate_count += 1;
         self.request = Some(request.clone());
         Ok(())
@@ -29,6 +28,7 @@ impl RecoveryCallbacks for Recorder {
 
 fn marker(id: &str, classes: Vec<RecoveryClass>) -> RecoveryMarker {
     RecoveryMarker {
+        project_id: "project-default".into(),
         recovery_id: id.into(),
         epoch: 4,
         last_known_good_epoch: 3,
@@ -46,6 +46,7 @@ fn ac_1501_classifies_startup_states() {
     let coordinator = RecoveryCoordinator::new(InMemoryStorage::new());
     assert_eq!(
         coordinator.classify(&RecoveryMarker {
+            project_id: "project-default".into(),
             recovery_id: "clean".into(),
             epoch: 4,
             last_known_good_epoch: 4,
@@ -68,17 +69,11 @@ fn ac_1501_classifies_startup_states() {
         RecoveryClassification::Recoverable
     );
     assert_eq!(
-        coordinator.classify(&marker(
-            "unknown",
-            vec![
-                RecoveryClass::RemoteSessionPending,
-                RecoveryClass::ToolExecutionPending
-            ],
-        )),
+        coordinator.classify(&marker("unknown", vec![RecoveryClass::UnknownEffect])),
         RecoveryClassification::Unknown
     );
     assert_eq!(
-        coordinator.classify(&marker("corrupt", vec![RecoveryClass::DatabaseMigration])),
+        coordinator.classify(&marker("corrupt", vec![RecoveryClass::CorruptMarker])),
         RecoveryClassification::Corrupt
     );
 }
@@ -112,19 +107,18 @@ fn ac_1503_safe_mode_quarantines_unknown_state() {
     let mut coordinator =
         RecoveryCoordinator::with_mode(InMemoryStorage::new(), RecoveryMode::Safe);
     let mut callbacks = Recorder::default();
-    let marker = marker("remote-pending", vec![RecoveryClass::RemoteSessionPending]);
+    let marker = marker("unknown-effect", vec![RecoveryClass::UnknownEffect]);
 
+    let outcome = coordinator.replay(&marker, &mut callbacks).unwrap();
     assert_eq!(
-        coordinator.replay(&marker, &mut callbacks).unwrap(),
+        outcome,
         RecoveryOutcome::Quarantined {
-            recovery_id: "remote-pending".into(),
+            recovery_id: "unknown-effect".into(),
+            classes: BTreeSet::from([RecoveryClass::UnknownEffect]),
         }
     );
     assert_eq!(callbacks.replay_count, 0);
-    assert_eq!(
-        coordinator.storage().audit()[0].quarantined_ids,
-        vec!["remote-pending".to_string()]
-    );
+    assert_eq!(callbacks.revalidate_count, 0);
 }
 
 #[test]
@@ -132,7 +126,7 @@ fn ac_1504_crash_bundle_keeps_only_non_sensitive_fields() {
     // @spec:AC-1504
     let coordinator = RecoveryCoordinator::new(InMemoryStorage::new());
     let marker = marker("bundle-id", vec![RecoveryClass::JournalAppend]);
-    let json = coordinator.redact_crash_bundle(&marker).to_json();
+    let json = coordinator.redacted_bundle(&marker).to_json();
 
     assert!(json.contains("bundle-id"));
     assert!(json.contains("\"epoch\":4"));
@@ -152,6 +146,7 @@ fn ac_1505_revalidation_is_required_and_receives_opaque_sets() {
         RecoveryCoordinator::with_mode(InMemoryStorage::new(), RecoveryMode::Safe);
     let mut callbacks = Recorder::default();
     let marker = RecoveryMarker {
+        project_id: "project-default".into(),
         recovery_id: "stale-privileges".into(),
         epoch: 4,
         last_known_good_epoch: 3,
@@ -180,6 +175,41 @@ fn ac_1505_revalidation_is_required_and_receives_opaque_sets() {
         request.credential_set,
         BTreeSet::from(["cred-ref-1".into(), "cred-ref-2".into()])
     );
+}
+
+#[test]
+fn mixed_revalidation_and_quarantine_is_fail_closed() {
+    let mut coordinator = RecoveryCoordinator::new(InMemoryStorage::new());
+    let mut callbacks = Recorder::default();
+    let marker = marker(
+        "mixed",
+        vec![
+            RecoveryClass::CapabilityRotationPending,
+            RecoveryClass::DatabaseMigration,
+        ],
+    );
+    assert!(matches!(
+        coordinator.replay(&marker, &mut callbacks).unwrap(),
+        RecoveryOutcome::Quarantined { .. }
+    ));
+    assert_eq!(callbacks.revalidate_count, 0);
+}
+
+#[test]
+fn inverted_epoch_is_corrupt_and_never_replayed() {
+    let mut coordinator = RecoveryCoordinator::new(InMemoryStorage::new());
+    let mut callbacks = Recorder::default();
+    let mut marker = marker("inverted", vec![RecoveryClass::JournalAppend]);
+    marker.last_known_good_epoch = 5;
+    assert_eq!(
+        coordinator.classify(&marker),
+        RecoveryClassification::Corrupt
+    );
+    assert!(matches!(
+        coordinator.replay(&marker, &mut callbacks).unwrap(),
+        RecoveryOutcome::Quarantined { .. }
+    ));
+    assert_eq!(callbacks.replay_count, 0);
 }
 
 #[test]

@@ -16,11 +16,7 @@ modo seguro.
   `pending_classes` (lista de `RecoveryClass`)
 - **Quando** o `RecoveryCoordinator::classify(marker)` é executado
 - **Então** o resultado é `Clean` se `epoch == last_known_good_epoch` **e**
-  `pending_classes` está vazia, `Recoverable` se `pending_classes` é subconjunto de `{TransactionWrite,
-  JournalAppend}` e `epoch > 0`, `Unknown` se `pending_classes` contém
-  `RemoteSessionPending` ou `ToolExecutionPending`, e `Corrupt` se
-  `pending_classes` contém `DatabaseMigration` ou `epoch == 0` com
-  `pending_classes` não vazio.
+  `pending_classes` está vazia, `Recoverable` se `pending_classes` é subconjunto de `{TransactionWrite, JournalAppend}` e `epoch > 0`, `Unknown` se `pending_classes` contém `UnknownEffect`, e `Corrupt` se o marker excede os limites, contém `CorruptMarker`, contém `DatabaseMigration`, tem epoch invertido ou tem `epoch == 0` com pendências.
 
 #### AC-1502 — Recovery é idempotente
 
@@ -33,17 +29,18 @@ modo seguro.
 #### AC-1503 — Modo seguro recusa replay de `Unknown` ou `Corrupt`
 
 - **Dado** um coordinator configurado com `RecoveryMode::Safe` e um
-  `RecoveryMarker` cujo `pending_classes` inclui `RemoteSessionPending`
+  `RecoveryMarker` cujo `pending_classes` inclui `UnknownEffect`,
+  `DatabaseMigration` ou `CorruptMarker`
 - **Quando** `replay(marker)` é executado
 - **Então** o resultado é `RecoveryOutcome::Quarantined` e nenhum callback
-  de `on_replay` é invocado; a entrada de recovery é marcada como
-  `quarantined_ids = vec!["recovery_id"]`.
+  de `on_replay` ou `on_revalidate` é invocado; a entrada de recovery retém
+  o `recovery_id` e as classes em quarentena.
 
 #### AC-1504 — Crash bundle é redigido
 
 - **Dado** um `RecoveryMarker` que contém strings de `actor`, `pending_classes`
   e `last_safe_action: String`
-- **Quando** o `redact_crash_bundle(marker)` é serializado em JSON
+- **Quando** o `redacted_bundle(marker).to_json()` é serializado em JSON
 - **Então** o JSON resultante **não** contém o conteúdo literal de
   `last_safe_action` (é substituído por `[REDACTED]`) e mantém apenas
   `epoch`, `pending_classes`, `last_known_good_epoch` e `recovery_id`.
@@ -65,6 +62,10 @@ modo seguro.
   mais entradas é rejeitado como `Corrupt`.
 - Modo `Safe` (default) é fail-closed: qualquer estado ambíguo entra em
   quarentena e bloqueia replay automático.
+- Um marker que mistura classe revalidável com classe de quarentena sempre
+  entra em quarentena; revalidação só ocorre quando não há classe proibida.
+- Claims e conclusões de replay são transições duráveis por `recovery_id` no
+  namespace de um único projeto; falha concluída não é automaticamente repetida.
 
 ## Suposições
 
@@ -74,7 +75,11 @@ modo seguro.
 - ASM-1501: a fonte de verdade do dirty marker é o storage que escreve
   o `epoch` atômico antes de qualquer efeito irreversível. O coordinator
   confia nesse storage; ele próprio não reescreve o marker.
-- ASM-1502: nenhum trabalho é executado por este card em production
+- ASM-1502: `RecoveryStorage` é namespace-bound a um `project_id`; adapters
+  compartilhados devem separar instâncias ou namespaces por projeto.
+- ASM-1503: `claim_replay` e `complete_replay` são atômicos e duráveis no
+  adapter real; a fixture em memória modela a máquina de estados para testes.
+- ASM-1504: nenhum trabalho é executado por este card em production
   storage. O contrato é validado por unit tests com `InMemoryStorage`.
 
 ## Perguntas em aberto

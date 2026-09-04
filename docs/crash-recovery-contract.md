@@ -2,8 +2,8 @@
 
 `recovery-core` define o contrato portátil de recuperação no startup. Ele classifica
 um dirty marker antes de qualquer tentativa de retomar efeitos, aplica quarentena
-fail-closed para estados ambíguos/corrompidos e mantém um ledger de `recovery_id`
-para impedir replay duplicado no mesmo ciclo de inicialização.
+fail-closed para estados ambíguos/corrompidos e delega ao storage claims e
+conclusões duráveis de `recovery_id` por namespace de projeto, impedindo replay duplicado.
 
 ## Fronteira
 
@@ -22,9 +22,10 @@ para impedir replay duplicado no mesmo ciclo de inicialização.
 3. `Unknown`/`Corrupt`: nunca são automaticamente executados; entram em
    `Quarantined`.
 4. `CredentialRevocationPending` ou `CapabilityRotationPending` exigem
-   `RevalidateRequired`, com os conjuntos opacos enviados ao callback.
-5. O segundo replay do mesmo `recovery_id` retorna `AlreadyReplayed` e não chama
-   callback novamente.
+   `RevalidateRequired` quando não há classe de quarentena; os conjuntos opacos
+   são enviados ao callback. Markers mistos entram em `Quarantined`.
+5. O segundo replay do mesmo `recovery_id` retorna `AlreadyReplayed` após claim
+   durável e não chama callback novamente.
 
 ## Segurança e limites
 
