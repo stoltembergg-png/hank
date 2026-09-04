@@ -35,6 +35,9 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      - name: Setup pinned npm 11
+        run: npm install --global npm@11.6.0 --no-fund --ignore-scripts --no-audit
+
       - name: Record build identity
         shell: bash
         working-directory: .
