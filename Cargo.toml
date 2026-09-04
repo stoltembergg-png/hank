@@ -20,6 +20,7 @@ members = [
     "crates/test-support",
     "crates/workflow-core",
     "crates/xtask",
+    "crates/recovery-core",
 ]
 
 [workspace.package]
