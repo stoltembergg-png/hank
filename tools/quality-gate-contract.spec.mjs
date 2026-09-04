@@ -193,7 +193,7 @@ test('Frontend workflow has explicit lint, typecheck, test, and build gates', ()
   assert.ok(auditCommands.includes('max_attempts=3'));
   assert.ok(auditCommands.includes('export npm_config_fetch_timeout=60000'));
   assert.ok(auditCommands.includes('export npm_config_fetch_retries=0'));
-  assert.ok(auditCommands.includes('export npm_config_audit_registry=https://registry.npmjs.com/'));
+  assert.ok(auditCommands.includes('export npm_config_registry=https://registry.npmjs.com/'));
   assert.ok(!auditCommands.some((command) => command.includes('--no-audit')));
   const patternCommand = auditCommands.find((command) => command.startsWith('transient_pattern='));
   assert.ok(patternCommand, 'build-frontend.yml: missing bounded transient error pattern');
