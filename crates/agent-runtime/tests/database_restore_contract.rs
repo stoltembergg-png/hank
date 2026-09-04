@@ -159,8 +159,27 @@ async fn existing_target_is_replaced_and_receipt_makes_retry_idempotent() {
         .with_file_name(".profile-a.db.restore-previous.db-shm")
         .exists());
 
+    tokio::fs::write(
+        target.with_file_name(".profile-a.db.restore-stage.tmp-wal"),
+        b"stale stage sidecar",
+    )
+    .await
+    .unwrap();
+    tokio::fs::write(
+        target.with_file_name(".profile-a.db.restore-previous.db"),
+        b"stale previous artifact",
+    )
+    .await
+    .unwrap();
+
     let second = service.restore(request).await.unwrap();
     assert_eq!(second.outcome, RestoreOutcome::AlreadyApplied);
+    assert!(!target
+        .with_file_name(".profile-a.db.restore-stage.tmp-wal")
+        .exists());
+    assert!(!target
+        .with_file_name(".profile-a.db.restore-previous.db")
+        .exists());
     assert_eq!(first.target_sha256, second.target_sha256);
 
     let restored = SqliteStorage::connect(SqliteStorageConfig::for_file(&target))
