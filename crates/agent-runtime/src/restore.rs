@@ -194,9 +194,15 @@ struct RestoreReceipt {
 
 struct RestorePaths {
     target: PathBuf,
+    target_wal: PathBuf,
+    target_shm: PathBuf,
     lock: PathBuf,
     stage: PathBuf,
+    stage_wal: PathBuf,
+    stage_shm: PathBuf,
     previous: PathBuf,
+    previous_wal: PathBuf,
+    previous_shm: PathBuf,
     receipt: PathBuf,
 }
 
@@ -315,12 +321,14 @@ impl DatabaseRestoreService {
         plan: RestoreResult,
         paths: RestorePaths,
     ) -> Result<RestoreResult, RestoreError> {
-        if tokio::fs::try_exists(&paths.stage)
-            .await
-            .map_err(RestoreError::Io)?
-            || tokio::fs::try_exists(&paths.previous)
-                .await
-                .map_err(RestoreError::Io)?
+        let receipt_stage = receipt_stage_path(&paths.receipt);
+        if artifact_exists(&paths.stage).await?
+            || artifact_exists(&paths.stage_wal).await?
+            || artifact_exists(&paths.stage_shm).await?
+            || artifact_exists(&paths.previous).await?
+            || artifact_exists(&paths.previous_wal).await?
+            || artifact_exists(&paths.previous_shm).await?
+            || artifact_exists(&receipt_stage).await?
         {
             return Err(RestoreError::RestoreConflict);
         }
@@ -370,12 +378,34 @@ impl DatabaseRestoreService {
                 return Err(error);
             }
         };
-        if target_exists {
-            if let Err(error) = tokio::fs::rename(&paths.target, &paths.previous).await {
+        let target_wal_exists = match sidecar_is_regular_or_absent(&paths.target_wal).await {
+            Ok(value) => value,
+            Err(error) => {
                 cleanup_stage(&paths).await;
                 let _ = tokio::fs::remove_file(&receipt_stage).await;
-                return Err(RestoreError::Promotion(error));
+                return Err(error);
             }
+        };
+        let target_shm_exists = match sidecar_is_regular_or_absent(&paths.target_shm).await {
+            Ok(value) => value,
+            Err(error) => {
+                cleanup_stage(&paths).await;
+                let _ = tokio::fs::remove_file(&receipt_stage).await;
+                return Err(error);
+            }
+        };
+        if !target_exists && (target_wal_exists || target_shm_exists) {
+            cleanup_stage(&paths).await;
+            let _ = tokio::fs::remove_file(&receipt_stage).await;
+            return Err(RestoreError::RestoreConflict);
+        }
+        if let Err(error) =
+            move_target_to_previous(&paths, target_exists, target_wal_exists, target_shm_exists)
+                .await
+        {
+            cleanup_stage(&paths).await;
+            let _ = tokio::fs::remove_file(&receipt_stage).await;
+            return Err(error);
         }
         if let Err(error) = tokio::fs::rename(&paths.stage, &paths.target).await {
             let rollback_result = if target_exists {
@@ -395,7 +425,9 @@ impl DatabaseRestoreService {
             return Err(RestoreError::Io(error));
         }
         if target_exists {
-            let _ = tokio::fs::remove_file(&paths.previous).await;
+            let _ = remove_optional(&paths.previous).await;
+            let _ = remove_optional(&paths.previous_wal).await;
+            let _ = remove_optional(&paths.previous_shm).await;
         }
 
         Ok(RestoreResult {
@@ -496,6 +528,7 @@ impl DatabaseRestoreService {
             return Err(RestoreError::TargetInvalid);
         }
         let parent = target.parent().ok_or(RestoreError::TargetOutsideRoot)?;
+        reject_symlink_components(parent).await?;
         let canonical_parent = tokio::fs::canonicalize(parent)
             .await
             .map_err(|_| RestoreError::TargetOutsideRoot)?;
@@ -512,12 +545,23 @@ impl DatabaseRestoreService {
             Err(error) => return Err(RestoreError::Io(error)),
         }
         let target = canonical_parent.join(filename);
+        let (target_wal, target_shm) = sqlite_sidecars(&target);
+        let stage = target.with_file_name(format!(".{filename}.restore-stage.tmp"));
+        let previous = target.with_file_name(format!(".{filename}.restore-previous.db"));
+        let (stage_wal, stage_shm) = sqlite_sidecars(&stage);
+        let (previous_wal, previous_shm) = sqlite_sidecars(&previous);
         Ok(RestorePaths {
             lock: target.with_file_name(format!("{filename}.restore.lock")),
-            stage: target.with_file_name(format!(".{filename}.restore-stage.tmp")),
-            previous: target.with_file_name(format!(".{filename}.restore-previous.db")),
+            stage,
+            stage_wal,
+            stage_shm,
+            previous,
+            previous_wal,
+            previous_shm,
             receipt: target.with_file_name(format!(".{filename}.restore-receipt.json")),
             target,
+            target_wal,
+            target_shm,
         })
     }
 
@@ -555,6 +599,42 @@ pub fn restore_lock_path(target: impl AsRef<Path>) -> Result<PathBuf, RestoreErr
         return Err(RestoreError::TargetInvalid);
     }
     Ok(target.with_file_name(format!("{filename}.restore.lock")))
+}
+
+fn sqlite_sidecars(base: &Path) -> (PathBuf, PathBuf) {
+    let filename = base.file_name().unwrap_or_default().to_string_lossy();
+    (
+        base.with_file_name(format!("{filename}-wal")),
+        base.with_file_name(format!("{filename}-shm")),
+    )
+}
+
+async fn reject_symlink_components(path: &Path) -> Result<(), RestoreError> {
+    let mut current = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::Prefix(prefix) => current.push(prefix.as_os_str()),
+            Component::RootDir => current.push(Path::new("/")),
+            Component::CurDir => {}
+            Component::ParentDir => return Err(RestoreError::TargetOutsideRoot),
+            Component::Normal(part) => {
+                current.push(part);
+                let metadata = tokio::fs::symlink_metadata(&current)
+                    .await
+                    .map_err(|error| {
+                        if error.kind() == std::io::ErrorKind::NotFound {
+                            RestoreError::TargetOutsideRoot
+                        } else {
+                            RestoreError::Io(error)
+                        }
+                    })?;
+                if metadata.file_type().is_symlink() {
+                    return Err(RestoreError::TargetOutsideRoot);
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 async fn read_receipt(path: &Path) -> Result<Option<RestoreReceipt>, RestoreError> {
@@ -683,6 +763,50 @@ async fn schema_version(pool: &Pool<Sqlite>) -> Result<i64, sqlx::Error> {
         .await
 }
 
+async fn artifact_exists(path: &Path) -> Result<bool, RestoreError> {
+    match tokio::fs::symlink_metadata(path).await {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(RestoreError::Io(error)),
+    }
+}
+
+async fn sidecar_is_regular_or_absent(path: &Path) -> Result<bool, RestoreError> {
+    match tokio::fs::symlink_metadata(path).await {
+        Ok(metadata) if metadata.file_type().is_symlink() => Err(RestoreError::TargetSymlink),
+        Ok(metadata) if metadata.is_file() => Ok(true),
+        Ok(_) => Err(RestoreError::TargetInvalid),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(RestoreError::Io(error)),
+    }
+}
+
+async fn move_target_to_previous(
+    paths: &RestorePaths,
+    target_exists: bool,
+    target_wal_exists: bool,
+    target_shm_exists: bool,
+) -> Result<(), RestoreError> {
+    if !target_exists {
+        return Ok(());
+    }
+    tokio::fs::rename(&paths.target, &paths.previous)
+        .await
+        .map_err(RestoreError::Promotion)?;
+    for (source, destination, exists) in [
+        (&paths.target_wal, &paths.previous_wal, target_wal_exists),
+        (&paths.target_shm, &paths.previous_shm, target_shm_exists),
+    ] {
+        if exists {
+            if let Err(error) = tokio::fs::rename(source, destination).await {
+                let _ = rollback_previous(paths).await;
+                return Err(RestoreError::Promotion(error));
+            }
+        }
+    }
+    Ok(())
+}
+
 async fn target_is_regular_file(path: &Path) -> Result<bool, RestoreError> {
     match tokio::fs::symlink_metadata(path).await {
         Ok(metadata) if metadata.file_type().is_symlink() => Err(RestoreError::TargetSymlink),
@@ -696,22 +820,57 @@ async fn target_is_regular_file(path: &Path) -> Result<bool, RestoreError> {
 async fn rollback_previous(paths: &RestorePaths) -> Result<(), RestoreError> {
     tokio::fs::rename(&paths.previous, &paths.target)
         .await
-        .map_err(RestoreError::Rollback)
+        .map_err(RestoreError::Rollback)?;
+    if artifact_exists(&paths.previous_wal).await? {
+        tokio::fs::rename(&paths.previous_wal, &paths.target_wal)
+            .await
+            .map_err(RestoreError::Rollback)?;
+    }
+    if artifact_exists(&paths.previous_shm).await? {
+        tokio::fs::rename(&paths.previous_shm, &paths.target_shm)
+            .await
+            .map_err(RestoreError::Rollback)?;
+    }
+    Ok(())
 }
 
 async fn rollback_promoted(paths: &RestorePaths, target_exists: bool) -> Result<(), RestoreError> {
     if target_exists {
-        let _ = tokio::fs::remove_file(&paths.target).await;
+        remove_optional(&paths.target)
+            .await
+            .map_err(RestoreError::Rollback)?;
+        remove_optional(&paths.target_wal)
+            .await
+            .map_err(RestoreError::Rollback)?;
+        remove_optional(&paths.target_shm)
+            .await
+            .map_err(RestoreError::Rollback)?;
         rollback_previous(paths).await
     } else {
-        tokio::fs::remove_file(&paths.target)
+        remove_optional(&paths.target)
+            .await
+            .map_err(RestoreError::Rollback)?;
+        remove_optional(&paths.target_wal)
+            .await
+            .map_err(RestoreError::Rollback)?;
+        remove_optional(&paths.target_shm)
             .await
             .map_err(RestoreError::Rollback)
     }
 }
 
 async fn cleanup_stage(paths: &RestorePaths) {
-    let _ = tokio::fs::remove_file(&paths.stage).await;
+    let _ = remove_optional(&paths.stage).await;
+    let _ = remove_optional(&paths.stage_wal).await;
+    let _ = remove_optional(&paths.stage_shm).await;
+}
+
+async fn remove_optional(path: &Path) -> Result<(), std::io::Error> {
+    match tokio::fs::remove_file(path).await {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error),
+    }
 }
 
 async fn same_file(left: &Path, right: &Path) -> bool {
