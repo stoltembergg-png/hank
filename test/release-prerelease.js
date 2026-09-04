@@ -78,7 +78,6 @@ test('AC-626: prerelease derives required checks from manifest and active rulese
   assert.equal(names.length, 11);
   assert.deepEqual(reviewerNames, [
     'CodeRabbit',
-    'Aikido Security: check code',
   ]);
   assert.deepEqual(protectedNames, [...names, ...reviewerNames]);
   assert.match(workflow, /rules\/branches\/main/);

@@ -3,8 +3,8 @@
 A fonte versionada dos gates protegidos é `.github/required-checks.json`. O campo
 `requiredChecks` lista somente checks produzidos no commit integrado e consumidos
 pelos workflows de release; `pullRequestChecks` lista checks de proteção de PR,
-como CodeRabbit e Aikido, que são exigidos pelo Ruleset mas não são esperados em
-um SHA pós-merge.
+como CodeRabbit, que são exigidos pelo Ruleset mas não são esperados em um SHA
+pós-merge.
 
 A proteção efetiva é o Ruleset do repositório `main-required-checks` aplicado a
 `refs/heads/main`. O preflight consulta a representação pública e sem privilégio

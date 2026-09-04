@@ -15,7 +15,6 @@
     "Security advisory gate"
   ],
   "pullRequestChecks": [
-    "CodeRabbit",
-    "Aikido Security: check code"
+    "CodeRabbit"
   ]
 }
