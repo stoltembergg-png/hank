@@ -330,7 +330,10 @@ impl DatabaseBackupService {
             .await;
         snapshot_storage.close().await;
         vacuum_result.map_err(BackupError::Database)?;
-        let database_file_handle = tokio::fs::File::open(paths.temporary_database_path)
+        let database_file_handle = tokio::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(paths.temporary_database_path)
             .await
             .map_err(|error| io_context("open snapshot", error))?;
         database_file_handle
