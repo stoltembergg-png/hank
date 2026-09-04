@@ -288,6 +288,43 @@ async fn incompatible_schema_is_rejected_before_staging() {
 
 // @spec:AC-1702
 #[tokio::test]
+async fn non_current_schema_target_is_rejected_before_over_migration() {
+    let (dir, source_storage, backup) = seeded_source().await;
+    sqlx::query("DROP TABLE task_workspace_mappings")
+        .execute(source_storage.pool())
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 21")
+        .execute(source_storage.pool())
+        .await
+        .unwrap();
+    let artifact = backup.create(backup_request()).await.unwrap();
+    assert_eq!(artifact.manifest.schema_version, 20);
+    let target_root = dir.path().join("profiles");
+    let target = target_root.join("profile-a.db");
+    let service = restore_service(backup, &target_root);
+
+    let result = service
+        .restore(restore_request(
+            &artifact,
+            &target,
+            "profile-a",
+            20,
+            "restore-old-target",
+            false,
+        ))
+        .await;
+
+    assert!(matches!(
+        result,
+        Err(RestoreError::IncompatibleSchema { .. })
+    ));
+    assert!(!target.exists());
+    source_storage.close().await;
+}
+
+// @spec:AC-1702
+#[tokio::test]
 async fn digest_mismatch_never_touches_the_explicit_target() {
     let (dir, source_storage, backup) = seeded_source().await;
     let artifact = backup.create(backup_request()).await.unwrap();

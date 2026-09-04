@@ -268,7 +268,7 @@ impl DatabaseRestoreService {
 
         let requires_migration = verified.manifest.schema_version < request.target_schema_version;
         let compatible = verified.manifest.schema_version <= request.target_schema_version
-            && request.target_schema_version <= self.policy.current_schema_version;
+            && request.target_schema_version == self.policy.current_schema_version;
         let plan = RestoreResult {
             outcome: RestoreOutcome::DryRun,
             restore_id: request.restore_id.clone(),

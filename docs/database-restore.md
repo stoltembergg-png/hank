@@ -39,8 +39,10 @@ mudança no perfil ativo.
 ## Compatibilidade e last-known-good
 
 Backups com schema menor podem ser atualizados pelas migrations no stage até o schema
-explicitamente solicitado. Backups mais novos que o target, ou targets acima do schema
-atual do runtime, são incompatíveis e não são promovidos. Não há downgrade indiscriminado.
+atual do runtime. Como esta camada usa o runner completo de migrations, o target explícito
+precisa ser exatamente `current_schema_version`; um target antigo, um backup mais novo que
+o target ou um target acima do runtime são incompatíveis e não são promovidos. Não há
+downgrade indiscriminado.
 
 O arquivo anterior só é descartado depois da publicação do receipt. Em uma falha de
 promoção, o operador deve preservar e investigar os artefatos de recuperação conforme a
