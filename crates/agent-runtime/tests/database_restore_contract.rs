@@ -325,6 +325,34 @@ async fn non_current_schema_target_is_rejected_before_over_migration() {
 
 // @spec:AC-1702
 #[tokio::test]
+async fn schema_target_above_runtime_is_rejected_before_staging() {
+    let (dir, source_storage, backup) = seeded_source().await;
+    let artifact = backup.create(backup_request()).await.unwrap();
+    let target_root = dir.path().join("profiles");
+    let target = target_root.join("profile-a.db");
+    let service = restore_service(backup, &target_root);
+
+    let result = service
+        .restore(restore_request(
+            &artifact,
+            &target,
+            "profile-a",
+            22,
+            "restore-future-target",
+            false,
+        ))
+        .await;
+
+    assert!(matches!(
+        result,
+        Err(RestoreError::IncompatibleSchema { .. })
+    ));
+    assert!(!target.exists());
+    source_storage.close().await;
+}
+
+// @spec:AC-1702
+#[tokio::test]
 async fn digest_mismatch_never_touches_the_explicit_target() {
     let (dir, source_storage, backup) = seeded_source().await;
     let artifact = backup.create(backup_request()).await.unwrap();

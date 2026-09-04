@@ -443,7 +443,7 @@ impl DatabaseRestoreService {
             }
         };
         storage.close().await;
-        if integrity != "ok" || schema > target_schema_version {
+        if integrity != "ok" || schema != target_schema_version {
             return Err(RestoreError::IncompatibleSchema {
                 source_schema_version: schema,
                 target_schema_version,
