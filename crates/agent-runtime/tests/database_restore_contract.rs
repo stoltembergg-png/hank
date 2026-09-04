@@ -219,7 +219,9 @@ async fn interrupted_promotion_recovers_previous_before_retrying_restore() {
     let previous = target.with_file_name(".profile-a.db.restore-previous.db");
     tokio::fs::rename(&target, &previous).await.unwrap();
     let stale_stage_wal = target.with_file_name(".profile-a.db.restore-stage.tmp-wal");
-    tokio::fs::write(&stale_stage_wal, b"interrupted stage").await.unwrap();
+    tokio::fs::write(&stale_stage_wal, b"interrupted stage")
+        .await
+        .unwrap();
 
     let service = restore_service(backup, &target_root);
     let result = service

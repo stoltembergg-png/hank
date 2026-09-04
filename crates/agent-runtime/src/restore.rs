@@ -390,17 +390,15 @@ impl DatabaseRestoreService {
             }
         };
         if !target_exists && (target_wal_exists || target_shm_exists) {
-            let _ = cleanup_stage(&paths).await;
-            let _ = tokio::fs::remove_file(&receipt_stage).await;
-            return Err(RestoreError::RestoreConflict);
+            return Err(
+                cleanup_after_error(&paths, &receipt_stage, RestoreError::RestoreConflict).await,
+            );
         }
         if let Err(error) =
             move_target_to_previous(&paths, target_exists, target_wal_exists, target_shm_exists)
                 .await
         {
-            let _ = cleanup_stage(&paths).await;
-            let _ = tokio::fs::remove_file(&receipt_stage).await;
-            return Err(error);
+            return Err(cleanup_after_error(&paths, &receipt_stage, error).await);
         }
         if let Err(error) = tokio::fs::rename(&paths.stage, &paths.target).await {
             let rollback_result = if target_exists {
@@ -408,20 +406,28 @@ impl DatabaseRestoreService {
             } else {
                 Ok(())
             };
-            let _ = cleanup_stage(&paths).await;
-            let _ = tokio::fs::remove_file(&receipt_stage).await;
+            let cleanup_result = cleanup_stage(&paths).await;
+            let receipt_cleanup_result = remove_optional(&receipt_stage)
+                .await
+                .map_err(RestoreError::Io);
             rollback_result?;
+            cleanup_result?;
+            receipt_cleanup_result?;
             return Err(RestoreError::Promotion(error));
         }
         if let Err(error) = cleanup_stage(&paths).await {
             let rollback_result = rollback_promoted(&paths, target_exists).await;
-            let _ = tokio::fs::remove_file(&receipt_stage).await;
+            remove_optional(&receipt_stage)
+                .await
+                .map_err(RestoreError::Io)?;
             rollback_result?;
             return Err(error);
         }
         if let Err(error) = tokio::fs::rename(&receipt_stage, &paths.receipt).await {
             let rollback_result = rollback_promoted(&paths, target_exists).await;
-            let _ = tokio::fs::remove_file(&receipt_stage).await;
+            remove_optional(&receipt_stage)
+                .await
+                .map_err(RestoreError::Io)?;
             rollback_result?;
             return Err(RestoreError::Io(error));
         }
