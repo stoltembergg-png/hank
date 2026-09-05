@@ -36,6 +36,7 @@ function readText(path) {
 }
 
 // @spec:AC-2101
+// @spec:AC-2101
 test('manifest is well-formed and self-consistent @spec:AC-2101', () => {
   assert.equal(manifest.schema_version, 1);
   assert.equal(manifest.manifest_revision, 'rev-1');
@@ -59,6 +60,7 @@ test('manifest is well-formed and self-consistent @spec:AC-2101', () => {
 });
 
 // @spec:AC-2101
+// @spec:AC-2101
 test('every TM test_id is in the AC-21NN range @spec:AC-2101', () => {
   // The test_id must be in the AC-21NN range; ACs are reused across
   // TMs/NEGs because one AC often covers several fixtures.
@@ -70,6 +72,7 @@ test('every TM test_id is in the AC-21NN range @spec:AC-2101', () => {
   }
 });
 
+// @spec:AC-2105
 // @spec:AC-2105
 test('NEG-001 secret pattern is not committed in canonical artifacts @spec:AC-2105', () => {
   const pattern = /(api[_-]?key|senha|password|secret|token)\s*[:=]\s*['"][^'"\n]{8,}/i;
@@ -91,6 +94,7 @@ test('NEG-001 secret pattern is not committed in canonical artifacts @spec:AC-21
 });
 
 // @spec:AC-2105
+// @spec:AC-2105
 test('NEG-002 no continue-on-error inside jobs blocks of required workflows @spec:AC-2105', () => {
   if (!existsSync(workflowsDir)) return;
   const files = readdirSync(workflowsDir).filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'));
@@ -110,6 +114,7 @@ test('NEG-002 no continue-on-error inside jobs blocks of required workflows @spe
 });
 
 // @spec:AC-2105
+// @spec:AC-2105
 test('NEG-003 required-checks.json is coherent with manifest revision @spec:AC-2105', () => {
   if (!existsSync(requiredChecksPath)) {
     assert.fail('required-checks.json missing');
@@ -124,6 +129,7 @@ test('NEG-003 required-checks.json is coherent with manifest revision @spec:AC-2
 });
 
 // @spec:AC-2105
+// @spec:AC-2105
 test('advisory baseline either absent or schema_version 1 @spec:AC-2105', () => {
   if (!existsSync(advisoryBaseline)) return; // absence is allowed for this slice
   const j = JSON.parse(readFileSync(advisoryBaseline, 'utf8'));
@@ -131,12 +137,14 @@ test('advisory baseline either absent or schema_version 1 @spec:AC-2105', () => 
 });
 
 // @spec:AC-2106
+// @spec:AC-2106
 test('NEG-004 manifest is present at docs/security/threat-regression-manifest.json @spec:AC-2106', () => {
   assert.ok(existsSync(manifestPath));
   const text = readFileSync(manifestPath, 'utf8');
   assert.ok(text.length > 0);
 });
 
+// @spec:AC-2107
 // @spec:AC-2107
 test('runner is deterministic and produces artifact_digest bound to tree @spec:AC-2107', () => {
   // Invoke the runner twice with the same tree and assert the digest is
@@ -174,6 +182,7 @@ test('runner is deterministic and produces artifact_digest bound to tree @spec:A
   assert.equal(a.artifact_digest, recomputed, 'digest must be sha256 of canonical body');
 });
 
+// @spec:AC-2107
 // @spec:AC-2107
 test('runner_revision is bound to runner source content @spec:AC-2107', () => {
   const out = resolve(root, 'security', 'reports', 'threat-regression-rev.json');
