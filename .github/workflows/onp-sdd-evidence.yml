@@ -483,6 +483,9 @@ jobs:
       - name: Verify resource limiting
         run: node tools/ci/run-onp-spec.mjs verify resource-limiting
 
+      - name: Verify audit logs
+        run: node tools/ci/run-onp-spec.mjs verify audit-logs
+
       - name: Verify migration hardening
         run: node tools/ci/run-onp-spec.mjs verify migration-hardening
 

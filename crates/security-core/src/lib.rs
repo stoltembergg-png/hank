@@ -8,6 +8,13 @@ pub mod mcp_permission;
 pub mod plugin_permission;
 pub mod rate_limit;
 
+pub mod audit;
+pub use audit::{
+    AuditClass, AuditError, AuditEvent, AuditIntegrity, AuditLog, AuditPolicy, AuditQuery,
+    AuditQueryResult, AuditSink, InMemorySink, IntegrityClassification, Payload, PayloadValue,
+    RedactedField, RedactedValue, SinkError, REDACTED_PLACEHOLDER,
+};
+
 pub mod security_profile;
 pub use security_profile::{
     SecurityAgentProfile, SecurityEvidence, SecurityEvidenceStatus, SecurityFinding,
