@@ -480,6 +480,9 @@ jobs:
       - name: Verify rate limiting
         run: node tools/ci/run-onp-spec.mjs verify rate-limiting
 
+      - name: Verify resource limiting
+        run: node tools/ci/run-onp-spec.mjs verify resource-limiting
+
       - name: Verify migration hardening
         run: node tools/ci/run-onp-spec.mjs verify migration-hardening
 
