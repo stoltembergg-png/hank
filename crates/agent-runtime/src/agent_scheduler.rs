@@ -1,4 +1,8 @@
 use agent_core::ids::{AgentId, ProjectId, SessionId};
+use security_core::rate_limit::{
+    RateLimitClass, RateLimitDecision, RateLimitError, RateLimitIdentity, RateLimitPolicy,
+    RateLimitRequest, RateLimiter,
+};
 use thiserror::Error;
 
 const MAX_ID: usize = 128;
@@ -38,6 +42,58 @@ pub enum AgentSchedulerError {
     BudgetExhausted,
     #[error("agent scheduler request was cancelled")]
     Cancelled,
+    #[error("agent scheduler rate limit denied; retry after {retry_after_ms}ms")]
+    RateLimited { retry_after_ms: u64 },
+    #[error("agent scheduler rate limit failed: {0}")]
+    RateLimit(RateLimitError),
+}
+
+/// Rate-limit gate for authenticated scheduler/trigger inputs.
+pub struct AgentDispatchGate {
+    limiter: RateLimiter,
+}
+
+impl AgentDispatchGate {
+    pub fn new(policy: RateLimitPolicy) -> Self {
+        Self {
+            limiter: RateLimiter::new(policy),
+        }
+    }
+
+    pub fn evaluate(
+        &self,
+        input: &AgentDispatchInput,
+        now_ms: u64,
+    ) -> Result<RateLimitDecision, AgentSchedulerError> {
+        let identity = RateLimitIdentity::authenticated(
+            input.agent_id.to_string(),
+            input.project_id.to_string(),
+        )
+        .map_err(AgentSchedulerError::RateLimit)?;
+        let request = RateLimitRequest::new(
+            identity,
+            RateLimitClass::Trigger,
+            1,
+            self.limiter.policy().policy_revision(),
+            None,
+        )
+        .map_err(AgentSchedulerError::RateLimit)?;
+        self.limiter
+            .check(request, now_ms)
+            .map_err(AgentSchedulerError::RateLimit)
+    }
+
+    pub fn prepare(
+        &self,
+        input: AgentDispatchInput,
+        now_ms: u64,
+    ) -> Result<AgentDispatchRequest, AgentSchedulerError> {
+        let decision = self.evaluate(&input, now_ms)?;
+        if let RateLimitDecision::Denied { retry_after_ms, .. } = decision {
+            return Err(AgentSchedulerError::RateLimited { retry_after_ms });
+        }
+        AgentDispatchRequest::prepare(input)
+    }
 }
 
 impl AgentDispatchRequest {

@@ -3,7 +3,7 @@ use agent_protocol::remote_protocol::{Handshake, NodeId, PeerId, ProtocolRevisio
 use provider_core::CredentialRef;
 use remote_core::{
     AuthenticatedDaemon, DaemonAuditReason, DaemonError, DaemonPolicy, DaemonSessionState,
-    PeerAuthenticator, MAX_AUDIT_EVENTS,
+    PeerAuthenticator, RateLimitPolicy, MAX_AUDIT_EVENTS,
 };
 use std::str::FromStr;
 
@@ -180,4 +180,34 @@ fn audit_is_bounded_redacted_and_records_rejected_attempts() {
     assert_eq!(audit.last().unwrap().node.as_ref().unwrap().0, "node-1");
     assert_eq!(audit.last().unwrap().project, project);
     assert!(!format!("{audit:?}").contains("cred_remote_1"));
+}
+
+#[test]
+// @spec:AC-2004
+fn authenticated_remote_ingress_rate_limit_denies_before_creating_a_lease() {
+    let project = project();
+    let rate_policy = RateLimitPolicy::new("remote-rate-v1", 60_000, 1, 8).unwrap();
+    let daemon = AuthenticatedDaemon::new(
+        AcceptedAuthenticator,
+        policy(project)
+            .with_rate_limit(rate_policy)
+            .expect("rate policy is valid"),
+    );
+    let first = daemon
+        .bootstrap(Some(credential()), handshake(project), 1_000)
+        .unwrap();
+    assert_eq!(daemon.stop(first.id), Ok(DaemonSessionState::Closed));
+
+    assert_eq!(
+        daemon.bootstrap(Some(credential()), handshake(project), 1_000),
+        Err(DaemonError::RateLimited {
+            retry_after_ms: 60_000,
+        })
+    );
+    assert_eq!(daemon.session_state(1_000), DaemonSessionState::Closed);
+    assert_eq!(
+        daemon.audit().last().unwrap().reason,
+        DaemonAuditReason::RateLimited
+    );
+    assert!(daemon.audit().last().unwrap().authenticated);
 }

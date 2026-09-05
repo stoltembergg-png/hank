@@ -477,6 +477,9 @@ jobs:
       - name: Verify backup restore
         run: node tools/ci/run-onp-spec.mjs verify backup-restore
 
+      - name: Verify rate limiting
+        run: node tools/ci/run-onp-spec.mjs verify rate-limiting
+
       - name: Verify migration hardening
         run: node tools/ci/run-onp-spec.mjs verify migration-hardening
 

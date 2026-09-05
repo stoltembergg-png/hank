@@ -1,7 +1,8 @@
 use agent_core::ids::{AgentId, ProjectId, SessionId};
 use agent_runtime::agent_scheduler::{
-    AgentDispatchInput, AgentDispatchRequest, AgentSchedulerError,
+    AgentDispatchGate, AgentDispatchInput, AgentDispatchRequest, AgentSchedulerError,
 };
+use security_core::rate_limit::RateLimitPolicy;
 
 fn input() -> AgentDispatchInput {
     AgentDispatchInput {
@@ -57,4 +58,22 @@ fn cancellation_and_capability_free_request_are_bounded() {
     );
     let request = AgentDispatchRequest::prepare(input()).unwrap();
     assert!(!format!("{request:?}").contains("capability"));
+}
+
+#[test]
+// @spec:AC-2005
+fn trigger_gate_denies_without_producing_dispatch_and_isolates_projects() {
+    let gate = AgentDispatchGate::new(RateLimitPolicy::new("trigger-v1", 60_000, 1, 8).unwrap());
+    let first = input();
+    assert!(gate.prepare(first.clone(), 1_000).is_ok());
+    assert_eq!(
+        gate.prepare(first, 1_000),
+        Err(AgentSchedulerError::RateLimited {
+            retry_after_ms: 60_000,
+        })
+    );
+
+    let mut other_project = input();
+    other_project.project_id = ProjectId::new();
+    assert!(gate.prepare(other_project, 1_000).is_ok());
 }
