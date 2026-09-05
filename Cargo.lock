@@ -40,6 +40,7 @@ dependencies = [
  "chrono-tz",
  "futures-util",
  "provider-core",
+ "security-core",
  "semver",
  "serde",
  "serde_json",
@@ -1625,6 +1626,7 @@ version = "0.3.0"
 dependencies = [
  "agent-protocol",
  "provider-core",
+ "security-core",
  "sha2 0.11.0",
  "thiserror",
 ]

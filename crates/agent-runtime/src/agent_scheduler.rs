@@ -1,4 +1,8 @@
 use agent_core::ids::{AgentId, ProjectId, SessionId};
+use security_core::rate_limit::{
+    RateLimitClass, RateLimitDecision, RateLimitError, RateLimitIdentity, RateLimitPolicy,
+    RateLimitRequest, RateLimiter,
+};
 use thiserror::Error;
 
 const MAX_ID: usize = 128;
@@ -38,6 +42,68 @@ pub enum AgentSchedulerError {
     BudgetExhausted,
     #[error("agent scheduler request was cancelled")]
     Cancelled,
+    #[error("agent scheduler rate limit denied; retry after {retry_after_ms}ms")]
+    RateLimited { retry_after_ms: u64 },
+    #[error("agent scheduler rate limit failed: {0}")]
+    RateLimit(RateLimitError),
+}
+
+/// Rate-limit gate for authenticated scheduler/trigger inputs.
+pub struct AgentDispatchGate {
+    limiter: RateLimiter,
+}
+
+impl AgentDispatchGate {
+    pub fn new(policy: RateLimitPolicy) -> Self {
+        Self {
+            limiter: RateLimiter::new(policy),
+        }
+    }
+
+    pub fn evaluate(
+        &self,
+        input: &AgentDispatchInput,
+        now_ms: u64,
+    ) -> Result<RateLimitDecision, AgentSchedulerError> {
+        let request = AgentDispatchRequest::prepare(input.clone())?;
+        self.evaluate_request(&request, now_ms)
+    }
+
+    pub fn prepare(
+        &self,
+        input: AgentDispatchInput,
+        now_ms: u64,
+    ) -> Result<AgentDispatchRequest, AgentSchedulerError> {
+        let request = AgentDispatchRequest::prepare(input)?;
+        let decision = self.evaluate_request(&request, now_ms)?;
+        if let RateLimitDecision::Denied { retry_after_ms, .. } = decision {
+            return Err(AgentSchedulerError::RateLimited { retry_after_ms });
+        }
+        Ok(request)
+    }
+
+    fn evaluate_request(
+        &self,
+        request: &AgentDispatchRequest,
+        now_ms: u64,
+    ) -> Result<RateLimitDecision, AgentSchedulerError> {
+        let identity = RateLimitIdentity::authenticated(
+            request.agent_id.to_string(),
+            request.project_id.to_string(),
+        )
+        .map_err(AgentSchedulerError::RateLimit)?;
+        let rate_request = RateLimitRequest::new(
+            identity,
+            RateLimitClass::Trigger,
+            1,
+            self.limiter.policy().policy_revision(),
+            Some(request.idempotency_key.clone()),
+        )
+        .map_err(AgentSchedulerError::RateLimit)?;
+        self.limiter
+            .check(rate_request, now_ms)
+            .map_err(AgentSchedulerError::RateLimit)
+    }
 }
 
 impl AgentDispatchRequest {

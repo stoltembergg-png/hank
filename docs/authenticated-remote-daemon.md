@@ -16,6 +16,9 @@ remoto antes de qualquer adapter de socket ou listener.
 6. A auditoria bounded (max 256 eventos) registra peer/node/project, protocol revision,
    reason e flag `authenticated` — nunca segredo, token ou material de credencial.
    Tentativas de bootstrap rejeitadas também são registradas.
+7. Depois da autenticação e autorização exatas, `security-core::rate_limit` avalia a
+   classe `RemoteIngress`; excesso retorna `RateLimited`, não cria lease e mantém a
+   decisão observável na auditoria redigida.
 
 ## Limites de segurança
 

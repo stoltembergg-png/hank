@@ -8,6 +8,10 @@
 use agent_protocol::ids::ProjectId;
 use agent_protocol::remote_protocol::{Handshake, NodeId, PeerId, ProtocolRevision};
 use provider_core::CredentialRef;
+use security_core::rate_limit::{
+    RateLimitClass, RateLimitDecision, RateLimitError, RateLimitIdentity, RateLimitRequest,
+    RateLimiter,
+};
 use std::collections::{BTreeSet, VecDeque};
 use std::sync::Mutex;
 use thiserror::Error;
@@ -15,6 +19,8 @@ use thiserror::Error;
 pub mod event_stream;
 
 pub mod credential_broker;
+
+pub use security_core::rate_limit::RateLimitPolicy;
 
 /// Maximum retained redacted lifecycle events. Older events rotate out.
 pub const MAX_AUDIT_EVENTS: usize = 256;
@@ -49,6 +55,7 @@ pub struct DaemonPolicy {
     project: ProjectId,
     lease_duration_ms: u64,
     supported_capabilities: BTreeSet<String>,
+    rate_limit: RateLimitPolicy,
 }
 
 impl DaemonPolicy {
@@ -67,7 +74,20 @@ impl DaemonPolicy {
             project,
             lease_duration_ms,
             supported_capabilities: [String::from("observe")].into_iter().collect(),
+            rate_limit: RateLimitPolicy::default(),
         })
+    }
+
+    pub fn with_rate_limit(mut self, rate_limit: RateLimitPolicy) -> Result<Self, DaemonError> {
+        rate_limit
+            .validate()
+            .map_err(DaemonError::InvalidRateLimitPolicy)?;
+        self.rate_limit = rate_limit;
+        Ok(self)
+    }
+
+    pub fn rate_limit_policy(&self) -> &RateLimitPolicy {
+        &self.rate_limit
     }
 
     fn permits(&self, peer: &AuthenticatedPeer, handshake: &Handshake) -> bool {
@@ -101,6 +121,7 @@ pub enum DaemonAuditReason {
     Ready,
     AuthenticationDenied,
     AuthorizationDenied,
+    RateLimited,
     ProtocolNegotiationDenied,
     SessionActive,
     Expired,
@@ -130,6 +151,12 @@ pub enum DaemonError {
     ProtocolNegotiationDenied,
     #[error("remote daemon policy is invalid")]
     InvalidPolicy,
+    #[error("remote daemon rate limit policy is invalid: {0}")]
+    InvalidRateLimitPolicy(RateLimitError),
+    #[error("remote daemon rate limit denied; retry after {retry_after_ms}ms")]
+    RateLimited { retry_after_ms: u64 },
+    #[error("remote daemon rate limit failed: {0}")]
+    RateLimit(RateLimitError),
     #[error("remote daemon lease overflow")]
     LeaseOverflow,
     #[error("remote daemon session is already active")]
@@ -161,14 +188,17 @@ struct DaemonState {
 pub struct AuthenticatedDaemon<A> {
     authenticator: A,
     policy: DaemonPolicy,
+    rate_limiter: RateLimiter,
     state: Mutex<DaemonState>,
 }
 
 impl<A: PeerAuthenticator> AuthenticatedDaemon<A> {
     pub fn new(authenticator: A, policy: DaemonPolicy) -> Self {
+        let rate_limiter = RateLimiter::new(policy.rate_limit_policy().clone());
         Self {
             authenticator,
             policy,
+            rate_limiter,
             state: Mutex::new(DaemonState {
                 active: None,
                 next_lease_id: 1,
@@ -223,6 +253,32 @@ impl<A: PeerAuthenticator> AuthenticatedDaemon<A> {
         if !self.policy.permits(&peer, &handshake) {
             self.record_attempt(&handshake, DaemonAuditReason::AuthorizationDenied, true)?;
             return Err(DaemonError::AuthorizationDenied);
+        }
+
+        let identity = RateLimitIdentity::authenticated(
+            handshake.peer.0.clone(),
+            handshake.project.to_string(),
+        )
+        .and_then(|identity| identity.with_node(handshake.node.0.clone()))
+        .map_err(DaemonError::RateLimit)?;
+        let request = RateLimitRequest::new(
+            identity,
+            RateLimitClass::RemoteIngress,
+            1,
+            self.policy.rate_limit_policy().policy_revision(),
+            None,
+        )
+        .map_err(DaemonError::RateLimit)?;
+        match self
+            .rate_limiter
+            .check(request, now_ms)
+            .map_err(DaemonError::RateLimit)?
+        {
+            RateLimitDecision::Allowed { .. } | RateLimitDecision::Duplicate { .. } => {}
+            RateLimitDecision::Denied { retry_after_ms, .. } => {
+                self.record_attempt(&handshake, DaemonAuditReason::RateLimited, true)?;
+                return Err(DaemonError::RateLimited { retry_after_ms });
+            }
         }
 
         let expires_at_ms = now_ms

@@ -13,6 +13,7 @@ agent-protocol = { path = "../agent-protocol" }
 tool-core = { path = "../tool-core" }
 workflow-core = { path = "../workflow-core" }
 provider-core = { path = "../provider-core" }
+security-core = { path = "../security-core" }
 futures-util = { workspace = true }
 tokio = { workspace = true }
 async-trait = "0.1"
