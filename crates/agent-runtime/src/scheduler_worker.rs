@@ -110,6 +110,14 @@ impl SchedulerWorker {
         }
         let mut dispatched = 0;
         for claim_index in 0..self.max_claims_per_tick {
+            if !self
+                .persistence
+                .has_due(project, now_ms)
+                .await
+                .map_err(|_| WorkerError::Persistence)?
+            {
+                break;
+            }
             self.admit_trigger(project, now_ms, claim_index)?;
             let Some(run) = self
                 .persistence

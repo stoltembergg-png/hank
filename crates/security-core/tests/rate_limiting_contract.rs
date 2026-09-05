@@ -267,7 +267,18 @@ fn clock_regression_snapshot_restore_and_state_bounds_fail_closed() {
         Err(RateLimitError::ClockRegression)
     );
 
-    let snapshot = limiter.snapshot(100).unwrap();
+    let snapshot = limiter.snapshot(200).unwrap();
+    assert!(matches!(
+        limiter.check(request(
+            "policy-1",
+            tool_key.clone(),
+            "between-snapshot-and-live-time",
+            150,
+            RateLimitClass::Normal,
+            RetryClass::NonIdempotent,
+        )),
+        Ok(RateLimitDecision::Allowed { .. })
+    ));
     let restored = RateLimiter::from_snapshot(policy(), snapshot, 433).unwrap();
     assert!(matches!(
         restored.check(request(
@@ -380,4 +391,38 @@ fn reset_window_is_explicit_bounded_and_does_not_create_unknown_state() {
         limiter.reset_window(&project_a, 99),
         Err(RateLimitError::ClockRegression)
     );
+}
+
+#[test]
+// @spec:AC-2575
+fn inactive_full_buckets_are_evicted_before_state_exhaustion() {
+    let limiter =
+        RateLimiter::new(RateLimitPolicy::new("policy-1", 1, 1, 1_000, 1, 1, 4).unwrap()).unwrap();
+    let project_a = key(RateLimitScope::Project, "project-a", "project-a");
+    let project_b = key(RateLimitScope::Project, "project-b", "project-b");
+
+    limiter
+        .check(request(
+            "policy-1",
+            project_a.clone(),
+            "one",
+            0,
+            RateLimitClass::Normal,
+            RetryClass::NonIdempotent,
+        ))
+        .unwrap();
+    assert_eq!(limiter.reset_window(&project_a, 1_000), Ok(true));
+
+    assert!(matches!(
+        limiter.check(request(
+            "policy-1",
+            project_b,
+            "two",
+            1_000,
+            RateLimitClass::Normal,
+            RetryClass::NonIdempotent,
+        )),
+        Ok(RateLimitDecision::Allowed { .. })
+    ));
+    assert_eq!(limiter.metrics().tracked_keys, 1);
 }

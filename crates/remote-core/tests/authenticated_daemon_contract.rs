@@ -74,24 +74,61 @@ fn authenticated_remote_bootstrap_is_rate_limited_by_bound_node_scope() {
         mismatch.bootstrap(Some(credential()), handshake(project), 1_000),
         Err(DaemonError::AuthenticationDenied)
     );
-    let daemon =
+    let first_daemon = AuthenticatedDaemon::new_with_rate_limiter(
+        AcceptedAuthenticator,
+        policy(project),
+        limiter.clone(),
+    );
+    let second_daemon =
         AuthenticatedDaemon::new_with_rate_limiter(AcceptedAuthenticator, policy(project), limiter);
 
-    let first = daemon
+    let first = first_daemon
         .bootstrap(Some(credential()), handshake(project), 1_000)
         .unwrap();
-    assert_eq!(daemon.stop(first.id), Ok(DaemonSessionState::Closed));
+    assert_eq!(first_daemon.stop(first.id), Ok(DaemonSessionState::Closed));
 
     assert_eq!(
-        daemon.bootstrap(Some(credential()), handshake(project), 1_001),
+        second_daemon.bootstrap(Some(credential()), handshake(project), 1_000),
         Err(DaemonError::RateLimited {
             retry_after_ms: 1_000
         })
     );
     assert_eq!(
-        daemon.audit().last().unwrap().reason,
+        second_daemon.audit().last().unwrap().reason,
         DaemonAuditReason::RateLimited
     );
+}
+
+#[test]
+// @spec:AC-2573
+fn authenticated_remote_bootstrap_retries_with_a_stable_operation_id() {
+    let project = project();
+    let limiter = Arc::new(
+        RateLimiter::new(RateLimitPolicy::new("remote-policy-1", 1, 1, 1_000, 1, 8, 4).unwrap())
+            .unwrap(),
+    );
+    let daemon =
+        AuthenticatedDaemon::new_with_rate_limiter(AcceptedAuthenticator, policy(project), limiter);
+
+    let first = daemon
+        .bootstrap_with_request_id(
+            Some(credential()),
+            handshake(project),
+            "bootstrap-op-1",
+            1_000,
+        )
+        .unwrap();
+    assert_eq!(daemon.stop(first.id), Ok(DaemonSessionState::Closed));
+
+    let retry = daemon
+        .bootstrap_with_request_id(
+            Some(credential()),
+            handshake(project),
+            "bootstrap-op-1",
+            1_000,
+        )
+        .unwrap();
+    assert_eq!(retry.state, DaemonSessionState::Ready);
 }
 
 #[test]

@@ -342,7 +342,10 @@ impl RateLimiter {
         let key = request.key.clone();
         if !state.buckets.contains_key(&key) {
             if state.buckets.len() >= self.policy.max_tracked_keys {
-                return Err(RateLimitError::StateExhausted);
+                evict_inactive_buckets(&self.policy, &mut state.buckets, request.now_ms)?;
+                if state.buckets.len() >= self.policy.max_tracked_keys {
+                    return Err(RateLimitError::StateExhausted);
+                }
             }
             state.buckets.insert(
                 key.clone(),
@@ -457,7 +460,7 @@ impl RateLimiter {
     }
 
     pub fn snapshot(&self, captured_at_ms: u64) -> Result<RateLimitSnapshot, RateLimitError> {
-        let mut state = self
+        let state = self
             .state
             .lock()
             .map_err(|_| RateLimitError::StateUnavailable)?;
@@ -465,7 +468,6 @@ impl RateLimiter {
         for bucket in buckets.values_mut() {
             refill_bucket(&self.policy, bucket, captured_at_ms)?;
         }
-        state.buckets = buckets.clone();
         Ok(RateLimitSnapshot {
             policy_revision: self.policy.policy_revision.clone(),
             captured_at_ms,
@@ -562,6 +564,24 @@ impl RateLimiter {
         state.metrics.tracked_keys = state.buckets.len();
         Ok(())
     }
+}
+
+fn evict_inactive_buckets(
+    policy: &RateLimitPolicy,
+    buckets: &mut BTreeMap<RateLimitKey, BucketState>,
+    now_ms: u64,
+) -> Result<(), RateLimitError> {
+    let mut refreshed = buckets.clone();
+    for bucket in refreshed.values_mut() {
+        refill_bucket(policy, bucket, now_ms)?;
+    }
+    refreshed.retain(|_, bucket| {
+        !(bucket.normal_tokens == policy.capacity
+            && bucket.recovery_tokens == policy.recovery_capacity
+            && bucket.recent_requests.is_empty())
+    });
+    *buckets = refreshed;
+    Ok(())
 }
 
 fn validate_text(value: &str) -> Result<(), RateLimitError> {

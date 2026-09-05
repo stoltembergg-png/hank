@@ -149,6 +149,19 @@ impl SchedulerPersistence {
             .map(Some)
     }
 
+    pub async fn has_due(&self, project: &str, now_ms: u64) -> Result<bool, PersistenceError> {
+        validate_id(project)?;
+        let now = i64::try_from(now_ms).map_err(|_| PersistenceError::InvalidIdentity)?;
+        sqlx::query("SELECT run_id FROM scheduler_runs WHERE project_id=? AND due_at_ms <= ? AND (status='pending' OR (status='claimed' AND lease_expires_at_ms <= ?)) ORDER BY due_at_ms, run_id LIMIT 1")
+            .bind(project)
+            .bind(now)
+            .bind(now)
+            .fetch_optional(&self.pool)
+            .await
+            .map(|row| row.is_some())
+            .map_err(|_| PersistenceError::Query)
+    }
+
     pub async fn renew(
         &self,
         project: &str,

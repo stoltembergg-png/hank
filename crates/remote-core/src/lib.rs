@@ -213,6 +213,43 @@ impl<A: PeerAuthenticator> AuthenticatedDaemon<A> {
         handshake: Handshake,
         now_ms: u64,
     ) -> Result<DaemonLease, DaemonError> {
+        let request_id = format!("remote-bootstrap:{}:{}", handshake.node.0, now_ms);
+        self.bootstrap_inner(
+            credential,
+            handshake,
+            request_id,
+            RetryClass::NonIdempotent,
+            now_ms,
+        )
+    }
+
+    /// Retries one authenticated bootstrap operation without charging its
+    /// bounded receipt twice. The caller must reuse the same request ID only
+    /// for retries of that operation.
+    pub fn bootstrap_with_request_id(
+        &self,
+        credential: Option<CredentialRef>,
+        handshake: Handshake,
+        request_id: &str,
+        now_ms: u64,
+    ) -> Result<DaemonLease, DaemonError> {
+        self.bootstrap_inner(
+            credential,
+            handshake,
+            request_id.to_owned(),
+            RetryClass::Idempotent,
+            now_ms,
+        )
+    }
+
+    fn bootstrap_inner(
+        &self,
+        credential: Option<CredentialRef>,
+        handshake: Handshake,
+        request_id: String,
+        retry: RetryClass,
+        now_ms: u64,
+    ) -> Result<DaemonLease, DaemonError> {
         if handshake
             .clone()
             .negotiate(
@@ -266,11 +303,11 @@ impl<A: PeerAuthenticator> AuthenticatedDaemon<A> {
             let request = RateLimitRequest::new(
                 rate_limiter.policy().policy_revision(),
                 key,
-                format!("remote-bootstrap:{}:{}", handshake.node.0, now_ms),
+                request_id,
                 1,
                 now_ms,
                 RateLimitClass::Normal,
-                RetryClass::Idempotent,
+                retry,
             )
             .map_err(|_| DaemonError::RateLimitUnavailable)?;
             match rate_limiter

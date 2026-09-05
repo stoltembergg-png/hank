@@ -27,7 +27,9 @@ não é uma isenção ilimitada nem pode elevar capacidade por payload.
 ## Integrações atuais
 
 - `AuthenticatedDaemon::new_with_rate_limiter` aplica o limite de bootstrap
-  somente após autenticação e binding exato peer/node/project. Uma denial gera
+  somente após autenticação e binding exato peer/node/project. O bootstrap
+  padrão cobra cada operação; `bootstrap_with_request_id` permite retries
+  idempotentes com um identificador estável. Uma denial gera
   `DaemonError::RateLimited` e evento redigido `RateLimited`.
 - `SchedulerWorker::new_with_rate_limiter` admite cada trigger antes de chamar
   `claim_next_due`. Quando o limite nega, retorna `WorkerError::RateLimited` e
@@ -42,8 +44,9 @@ uma porta para um backend posterior; esta feature não grava em SQLite nem ofere
 serviço distribuído.
 
 `reset_window` só reseta uma chave já existente em um ponto monotônico fornecido
-por um operador; não cria buckets desconhecidos, aceita relógio retrocedido ou
-limpa o estado de outras chaves.
+por um operador; não cria buckets desconhecidos, não aceita relógio retrocedido
+nem limpa o estado de outras chaves. Buckets totalmente reabastecidos e sem
+receipts podem ser evictados quando o limite de chaves é alcançado.
 
 As métricas expõem somente a revisão/janela da policy e contadores (`allowed`,
 `denied`, `delayed`, retries idempotentes, recovery, chaves saturadas e tokens

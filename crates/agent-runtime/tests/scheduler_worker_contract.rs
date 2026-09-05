@@ -129,3 +129,24 @@ async fn tick_rate_limit_denies_a_second_trigger_before_claiming_a_lease() {
         .lease_owner
         .is_none());
 }
+
+// @spec:AC-2578
+#[tokio::test]
+async fn tick_does_not_charge_after_the_last_due_run_is_claimed() {
+    let (_storage, persistence, _jobs) = setup().await;
+    persistence
+        .create_run("project-a", "run-a", "job-a", 1_000)
+        .await
+        .unwrap();
+    let bus = EventBus::bounded(2);
+    let _receiver = bus.subscribe();
+    let limiter = Arc::new(
+        RateLimiter::new(RateLimitPolicy::new("scheduler-policy-1", 1, 1, 1_000, 1, 8, 4).unwrap())
+            .unwrap(),
+    );
+    let worker =
+        SchedulerWorker::new_with_rate_limiter(persistence, bus, "worker-a", 500, 2, limiter)
+            .unwrap();
+
+    assert_eq!(worker.tick("project-a", 1_000).await.unwrap(), 1);
+}
