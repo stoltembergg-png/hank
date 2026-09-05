@@ -62,23 +62,30 @@ fn reservation_is_atomic_across_project_node_and_global_scopes() {
 
     let too_large = ResourceDemand::new(1_000_001, 1, 1, 1, 1, 1).unwrap_err();
     assert_eq!(too_large, ResourceError::InvalidDemand);
-    let insufficient = ResourceDemand::new(2_000, 16_000_000, 32_000_000, 32, 8, 4).unwrap();
-    assert!(matches!(
-        book.reserve(
-            &[project.clone(), node.clone(), global.clone()],
-            insufficient,
-            100,
-            500
-        ),
-        Err(ResourceError::CapacityExceeded {
-            dimension: ResourceDimension::CpuMillis,
-            ..
-        })
-    ));
-    assert_eq!(book.usage(&project).unwrap().cpu_millis, 500);
 
     book.release(receipt.reservation_id, 101).unwrap();
     assert_eq!(book.usage(&project).unwrap().cpu_millis, 0);
+    let node_only = ResourceDemand::new(1_500, 1, 1, 1, 1, 1).unwrap();
+    let node_receipt = book
+        .reserve(std::slice::from_ref(&node), node_only, 101, 500)
+        .unwrap();
+    let cross_scope = ResourceDemand::new(1_000, 1, 1, 1, 1, 1).unwrap();
+    assert!(matches!(
+        book.reserve(
+            &[project.clone(), node.clone(), global.clone()],
+            cross_scope,
+            101,
+            500
+        ),
+        Err(ResourceError::CapacityExceeded {
+            scope: ResourceScope::Node(_),
+            dimension: ResourceDimension::CpuMillis,
+        })
+    ));
+    assert_eq!(book.usage(&project).unwrap().cpu_millis, 0);
+    assert_eq!(book.usage(&node).unwrap().cpu_millis, 1_500);
+    assert_eq!(book.usage(&global).unwrap().cpu_millis, 0);
+    book.release(node_receipt.reservation_id, 102).unwrap();
 }
 
 #[test]

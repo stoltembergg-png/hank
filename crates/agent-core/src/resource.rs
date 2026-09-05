@@ -70,15 +70,6 @@ impl ResourceUsage {
             subprocesses: self.subprocesses.checked_sub(demand.subprocesses)?,
         })
     }
-
-    fn covers(self, demand: ResourceDemand, quota: ResourceQuota) -> bool {
-        self.cpu_millis.saturating_add(demand.cpu_millis) <= quota.cpu_millis
-            && self.memory_bytes.saturating_add(demand.memory_bytes) <= quota.memory_bytes
-            && self.disk_bytes.saturating_add(demand.disk_bytes) <= quota.disk_bytes
-            && self.handles.saturating_add(demand.handles) <= quota.handles
-            && self.queue_slots.saturating_add(demand.queue_slots) <= quota.queue_slots
-            && self.subprocesses.saturating_add(demand.subprocesses) <= quota.subprocesses
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -464,7 +455,7 @@ impl ResourceReservationBook {
                 .scopes
                 .get(scope)
                 .ok_or(ResourceError::StateInconsistent)?;
-            if !state.usage.covers(reservation.demand, state.quota) {
+            if state.usage.checked_sub(reservation.demand).is_none() {
                 return Err(ResourceError::StateInconsistent);
             }
         }

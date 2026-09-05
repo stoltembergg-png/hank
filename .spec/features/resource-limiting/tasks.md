@@ -13,7 +13,8 @@
 
 - Refs: AC-2012, AC-2013, AC-2014, AC-2015
 - Arquivo: `crates/agent-core/tests/resource_limit_contract.rs`
-- Evidência: atomicidade multidimensional, project isolation, monotonicidade, capacity e timeout.
+- Evidência: atomicidade multidimensional com falha posterior em `node`, project isolation,
+  monotonicidade, capacity e timeout.
 
 ## T-2012 — Documentação e evidência ONP [concluida]
 
