@@ -5,7 +5,7 @@
 //! and a monotonic timestamp, then enforce the returned decision before any
 //! external effect.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::sync::Mutex;
 use thiserror::Error;
 
@@ -287,7 +287,8 @@ struct BucketKey {
 struct BucketState {
     tokens: u64,
     last_refill_ms: u64,
-    seen_requests: BTreeSet<String>,
+    fractional_credit: u128,
+    seen_requests: BTreeMap<String, u64>,
 }
 
 /// Thread-safe bounded state for one policy revision.
@@ -332,15 +333,19 @@ impl RateLimiter {
         let bucket = buckets.entry(key).or_insert_with(|| BucketState {
             tokens: self.policy.burst,
             last_refill_ms: now_ms,
-            seen_requests: BTreeSet::new(),
+            fractional_credit: 0,
+            seen_requests: BTreeMap::new(),
         });
         if now_ms < bucket.last_refill_ms {
             return Err(RateLimitError::ClockWentBackwards);
         }
         refill(bucket, &self.policy, now_ms)?;
+        bucket
+            .seen_requests
+            .retain(|_, admitted_at| now_ms.saturating_sub(*admitted_at) < self.policy.window_ms);
 
         if let Some(request_id) = request.idempotency_key.as_deref() {
-            if bucket.seen_requests.contains(request_id) {
+            if bucket.seen_requests.contains_key(request_id) {
                 return Ok(RateLimitDecision::Duplicate {
                     policy_revision: self.policy.policy_revision.clone(),
                     reason: RateLimitReason::IdempotentRetry,
@@ -358,12 +363,17 @@ impl RateLimiter {
                 policy_revision: self.policy.policy_revision.clone(),
                 reason: RateLimitReason::BurstExhausted,
                 remaining: bucket.tokens,
-                retry_after_ms: retry_after_ms(bucket.tokens, request.cost, &self.policy)?,
+                retry_after_ms: retry_after_ms(
+                    bucket.tokens,
+                    request.cost,
+                    bucket.fractional_credit,
+                    &self.policy,
+                )?,
             });
         }
         bucket.tokens -= request.cost;
         if let Some(request_id) = request.idempotency_key {
-            bucket.seen_requests.insert(request_id);
+            bucket.seen_requests.insert(request_id, now_ms);
         }
         Ok(RateLimitDecision::Allowed {
             policy_revision: self.policy.policy_revision.clone(),
@@ -385,11 +395,19 @@ fn refill(
     if elapsed == 0 {
         return Ok(());
     }
-    let produced = (u128::from(elapsed) * u128::from(policy.burst)) / u128::from(policy.window_ms);
+    let accrued = u128::from(elapsed)
+        .checked_mul(u128::from(policy.burst))
+        .ok_or(RateLimitError::ArithmeticOverflow)?
+        .checked_add(bucket.fractional_credit)
+        .ok_or(RateLimitError::ArithmeticOverflow)?;
+    let produced = accrued / u128::from(policy.window_ms);
     let produced = u64::try_from(produced).map_err(|_| RateLimitError::ArithmeticOverflow)?;
     bucket.tokens = bucket.tokens.saturating_add(produced).min(policy.burst);
-    if produced > 0 || bucket.tokens == policy.burst {
-        bucket.last_refill_ms = now_ms;
+    bucket.last_refill_ms = now_ms;
+    if bucket.tokens == policy.burst {
+        bucket.fractional_credit = 0;
+    } else {
+        bucket.fractional_credit = accrued % u128::from(policy.window_ms);
     }
     Ok(())
 }
@@ -397,12 +415,14 @@ fn refill(
 fn retry_after_ms(
     available: u64,
     cost: u64,
+    fractional_credit: u128,
     policy: &RateLimitPolicy,
 ) -> Result<u64, RateLimitError> {
     let needed = u128::from(cost - available);
-    let numerator = needed
+    let required = needed
         .checked_mul(u128::from(policy.window_ms))
         .ok_or(RateLimitError::ArithmeticOverflow)?;
+    let numerator = required.saturating_sub(fractional_credit);
     let retry = numerator
         .checked_add(u128::from(policy.burst - 1))
         .ok_or(RateLimitError::ArithmeticOverflow)?

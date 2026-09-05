@@ -138,6 +138,44 @@ fn retries_are_idempotent_and_recovery_has_a_finite_bucket() {
 
 #[test]
 // @spec:AC-2003
+fn idempotency_keys_expire_after_the_replay_window() {
+    let limiter = RateLimiter::new(policy());
+    let first = request(
+        identity("project-a"),
+        RateLimitClass::Recovery,
+        Some("retry-window"),
+    );
+    assert!(matches!(
+        limiter.check(first.clone(), 0),
+        Ok(RateLimitDecision::Allowed { .. })
+    ));
+    assert!(matches!(
+        limiter.check(first.clone(), 99),
+        Ok(RateLimitDecision::Duplicate { .. })
+    ));
+    assert!(matches!(
+        limiter.check(first, 100),
+        Ok(RateLimitDecision::Allowed { .. })
+    ));
+}
+
+#[test]
+// @spec:AC-2003
+fn refill_preserves_fractional_credit_between_checks() {
+    let limiter = RateLimiter::new(RateLimitPolicy::new("rate-v1", 100, 3, 8).unwrap());
+    for now_ms in [0, 34, 68, 100] {
+        assert!(matches!(
+            limiter.check(
+                request(identity("project-a"), RateLimitClass::Trigger, None),
+                now_ms
+            ),
+            Ok(RateLimitDecision::Allowed { .. })
+        ));
+    }
+}
+
+#[test]
+// @spec:AC-2003
 fn metrics_are_bounded_not_an_unlimited_exemption() {
     let limiter = RateLimiter::new(policy());
     for _ in 0..2 {

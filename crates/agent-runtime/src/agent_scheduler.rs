@@ -65,22 +65,8 @@ impl AgentDispatchGate {
         input: &AgentDispatchInput,
         now_ms: u64,
     ) -> Result<RateLimitDecision, AgentSchedulerError> {
-        let identity = RateLimitIdentity::authenticated(
-            input.agent_id.to_string(),
-            input.project_id.to_string(),
-        )
-        .map_err(AgentSchedulerError::RateLimit)?;
-        let request = RateLimitRequest::new(
-            identity,
-            RateLimitClass::Trigger,
-            1,
-            self.limiter.policy().policy_revision(),
-            None,
-        )
-        .map_err(AgentSchedulerError::RateLimit)?;
-        self.limiter
-            .check(request, now_ms)
-            .map_err(AgentSchedulerError::RateLimit)
+        let request = AgentDispatchRequest::prepare(input.clone())?;
+        self.evaluate_request(&request, now_ms)
     }
 
     pub fn prepare(
@@ -88,11 +74,35 @@ impl AgentDispatchGate {
         input: AgentDispatchInput,
         now_ms: u64,
     ) -> Result<AgentDispatchRequest, AgentSchedulerError> {
-        let decision = self.evaluate(&input, now_ms)?;
+        let request = AgentDispatchRequest::prepare(input)?;
+        let decision = self.evaluate_request(&request, now_ms)?;
         if let RateLimitDecision::Denied { retry_after_ms, .. } = decision {
             return Err(AgentSchedulerError::RateLimited { retry_after_ms });
         }
-        AgentDispatchRequest::prepare(input)
+        Ok(request)
+    }
+
+    fn evaluate_request(
+        &self,
+        request: &AgentDispatchRequest,
+        now_ms: u64,
+    ) -> Result<RateLimitDecision, AgentSchedulerError> {
+        let identity = RateLimitIdentity::authenticated(
+            request.agent_id.to_string(),
+            request.project_id.to_string(),
+        )
+        .map_err(AgentSchedulerError::RateLimit)?;
+        let rate_request = RateLimitRequest::new(
+            identity,
+            RateLimitClass::Trigger,
+            1,
+            self.limiter.policy().policy_revision(),
+            Some(request.idempotency_key.clone()),
+        )
+        .map_err(AgentSchedulerError::RateLimit)?;
+        self.limiter
+            .check(rate_request, now_ms)
+            .map_err(AgentSchedulerError::RateLimit)
     }
 }
 
