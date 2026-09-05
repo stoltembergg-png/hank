@@ -21,6 +21,8 @@
     "frontend/tests/**/*.test.ts",
     "frontend/tests/**/*.test.tsx",
     "apps/desktop/src-tauri/tests/**/*.rs",
+    "tools/**/*.spec.mjs",
+    "tools/**/*.spec.js",
     "test/release-prerelease.js"
   ],
   "srcGlobs": [
