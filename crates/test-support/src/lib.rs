@@ -13,5 +13,7 @@ pub mod evaluation;
 pub mod evaluation_corpus;
 pub mod evaluation_runner;
 pub mod fixtures;
+pub mod fuzz;
+pub mod fuzz_targets;
 pub mod ids;
 pub mod safety_reasoning_corpus;

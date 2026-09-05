@@ -3,13 +3,15 @@
   "testCommands": {
     "*": "node tools/run-feature-tests.mjs {feature}",
     "security-tests": "node tools/security/security-feature-tests.mjs",
-    "tauri-desktop": "node --test tools/tauri-desktop-onp.test.mjs"
+    "tauri-desktop": "node --test tools/tauri-desktop-onp.test.mjs",
+    "fuzz-tests": "node tools/security/fuzz-tests.spec.mjs"
   },
   "reporter": "exitcode",
   "reporters": {
     "remote-credential-isolation": "tap",
     "tauri-desktop": "tap",
-    "security-tests": "tap"
+    "security-tests": "tap",
+    "fuzz-tests": "tap"
   },
   "testGlobs": [
     "test/**/*.js",

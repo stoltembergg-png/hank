@@ -1,0 +1,64 @@
+{
+  "$schema": "https://example.invalid/nonexistent",
+  "schema_version": 1,
+  "manifest_revision": "FT-001",
+  "runner_digest": "placeholder-runner-digest-will-be-computed-at-run-time",
+  "targets": [
+    {
+      "id": "FT-001",
+      "name": "Envelope parser",
+      "kind": "envelope",
+      "parser_source": "crates/agent-protocol/src/envelope.rs",
+      "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
+      "description": "Envelope parser para mensagens de agent protocol. Regeita malformed envelope sem panic."
+    },
+    {
+      "id": "FT-002",
+      "name": "Branch policy",
+      "kind": "policy",
+      "parser_source": "crates/agent-core/src/branch_policy.rs",
+      "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
+      "description": "Branch policy parser aceita OWNER/BRANCH válido, rejeita malformado sem panic."
+    },
+    {
+      "id": "FT-003",
+      "name": "Architecture profile",
+      "kind": "state",
+      "parser_source": "crates/agent-core/src/architecture_profile.rs",
+      "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
+      "description": "Architecture profile parser para perfiles de arquitetura. Rejeita entrada malformada sem panic."
+    },
+    {
+      "id": "FT-004",
+      "name": "Capability parser",
+      "kind": "permission",
+      "parser_source": "crates/agent-protocol/src/capability.rs",
+      "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
+      "description": "Capability parser para permisões de tool/resource/action. Rejeita entrada malformada sem panic."
+    },
+    {
+      "id": "FT-005",
+      "name": "Workflow entity",
+      "kind": "state",
+      "parser_source": "crates/workflow-core/src/definition.rs",
+      "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
+      "description": "Workflow entity parser para definição de fluxos. Rejeita entrada malformada sem panic."
+    },
+    {
+      "id": "FT-006",
+      "name": "Audit event",
+      "kind": "state",
+      "parser_source": "crates/security-core/src/audit.rs",
+      "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
+      "description": "Audit event parser para eventos de auditoria. Rejeita entrada malformada sem panic."
+    },
+    {
+      "id": "FT-007",
+      "name": "Rate limit policy",
+      "kind": "policy",
+      "parser_source": "crates/security-core/src/rate_limit.rs",
+      "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
+      "description": "Rate limit policy parser para configuração de rate limit. Rejeita entrada malformada sem panic."
+    }
+  ]
+}
