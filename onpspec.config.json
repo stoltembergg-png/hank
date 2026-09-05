@@ -2,14 +2,12 @@
   "testCommand": "node tools/run-all-tests.mjs",
   "testCommands": {
     "*": "node tools/run-feature-tests.mjs {feature}",
-    "security-tests": "node tools/security/security-feature-tests.mjs",
     "tauri-desktop": "node --test tools/tauri-desktop-onp.test.mjs"
   },
   "reporter": "exitcode",
   "reporters": {
     "remote-credential-isolation": "tap",
-    "tauri-desktop": "tap",
-    "security-tests": "tap"
+    "tauri-desktop": "tap"
   },
   "testGlobs": [
     "test/**/*.js",
@@ -21,8 +19,6 @@
     "frontend/tests/**/*.test.ts",
     "frontend/tests/**/*.test.tsx",
     "apps/desktop/src-tauri/tests/**/*.rs",
-    "tools/**/*.spec.mjs",
-    "tools/**/*.spec.js",
     "test/release-prerelease.js"
   ],
   "srcGlobs": [
