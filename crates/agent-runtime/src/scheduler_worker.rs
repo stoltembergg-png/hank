@@ -1,5 +1,9 @@
 use crate::event_bus::{EventBus, EventBusError};
 use crate::scheduler_persistence::{SchedulerPersistence, SchedulerRun};
+use security_core::{
+    RateLimitClass, RateLimitDecision, RateLimitKey, RateLimitRequest, RateLimitScope, RateLimiter,
+    RetryClass,
+};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -22,6 +26,10 @@ pub enum WorkerError {
     DispatchUnavailable,
     #[error("scheduler persistence failed")]
     Persistence,
+    #[error("scheduler trigger was rate limited; retry after {retry_after_ms}ms")]
+    RateLimited { retry_after_ms: u64 },
+    #[error("scheduler rate limit state is unavailable")]
+    RateLimitUnavailable,
 }
 
 pub struct SchedulerWorker {
@@ -30,6 +38,7 @@ pub struct SchedulerWorker {
     owner_id: String,
     lease_duration_ms: u64,
     max_claims_per_tick: u32,
+    rate_limiter: Option<Arc<RateLimiter>>,
     stopped: Arc<AtomicBool>,
 }
 
@@ -40,6 +49,42 @@ impl SchedulerWorker {
         owner_id: &str,
         lease_duration_ms: u64,
         max_claims_per_tick: u32,
+    ) -> Result<Self, WorkerError> {
+        Self::new_inner(
+            persistence,
+            dispatch,
+            owner_id,
+            lease_duration_ms,
+            max_claims_per_tick,
+            None,
+        )
+    }
+
+    pub fn new_with_rate_limiter(
+        persistence: SchedulerPersistence,
+        dispatch: EventBus<DispatchEnvelope>,
+        owner_id: &str,
+        lease_duration_ms: u64,
+        max_claims_per_tick: u32,
+        rate_limiter: Arc<RateLimiter>,
+    ) -> Result<Self, WorkerError> {
+        Self::new_inner(
+            persistence,
+            dispatch,
+            owner_id,
+            lease_duration_ms,
+            max_claims_per_tick,
+            Some(rate_limiter),
+        )
+    }
+
+    fn new_inner(
+        persistence: SchedulerPersistence,
+        dispatch: EventBus<DispatchEnvelope>,
+        owner_id: &str,
+        lease_duration_ms: u64,
+        max_claims_per_tick: u32,
+        rate_limiter: Option<Arc<RateLimiter>>,
     ) -> Result<Self, WorkerError> {
         if owner_id.is_empty()
             || lease_duration_ms == 0
@@ -54,6 +99,7 @@ impl SchedulerWorker {
             owner_id: owner_id.into(),
             lease_duration_ms,
             max_claims_per_tick,
+            rate_limiter,
             stopped: Arc::new(AtomicBool::new(false)),
         })
     }
@@ -63,7 +109,8 @@ impl SchedulerWorker {
             return Err(WorkerError::Stopped);
         }
         let mut dispatched = 0;
-        for _ in 0..self.max_claims_per_tick {
+        for claim_index in 0..self.max_claims_per_tick {
+            self.admit_trigger(project, now_ms, claim_index)?;
             let Some(run) = self
                 .persistence
                 .claim_next_due(project, &self.owner_id, now_ms, self.lease_duration_ms)
@@ -84,6 +131,38 @@ impl SchedulerWorker {
             dispatched += 1;
         }
         Ok(dispatched)
+    }
+
+    fn admit_trigger(
+        &self,
+        project: &str,
+        now_ms: u64,
+        claim_index: u32,
+    ) -> Result<(), WorkerError> {
+        let Some(rate_limiter) = &self.rate_limiter else {
+            return Ok(());
+        };
+        let key = RateLimitKey::new(RateLimitScope::Project, project, project)
+            .map_err(|_| WorkerError::RateLimitUnavailable)?;
+        let request = RateLimitRequest::new(
+            rate_limiter.policy().policy_revision(),
+            key,
+            format!("scheduler-trigger:{project}:{now_ms}:{claim_index}"),
+            1,
+            now_ms,
+            RateLimitClass::Normal,
+            RetryClass::NonIdempotent,
+        )
+        .map_err(|_| WorkerError::RateLimitUnavailable)?;
+        match rate_limiter
+            .check(request)
+            .map_err(|_| WorkerError::RateLimitUnavailable)?
+        {
+            RateLimitDecision::Allowed { .. } => Ok(()),
+            RateLimitDecision::Denied { retry_after_ms, .. } => {
+                Err(WorkerError::RateLimited { retry_after_ms })
+            }
+        }
     }
 
     pub async fn renew(

@@ -5,7 +5,9 @@ use remote_core::{
     AuthenticatedDaemon, DaemonAuditReason, DaemonError, DaemonPolicy, DaemonSessionState,
     PeerAuthenticator, MAX_AUDIT_EVENTS,
 };
+use security_core::{RateLimitPolicy, RateLimiter};
 use std::str::FromStr;
+use std::sync::Arc;
 
 struct AcceptedAuthenticator;
 
@@ -53,6 +55,43 @@ fn policy(project: ProjectId) -> DaemonPolicy {
 
 fn credential() -> CredentialRef {
     CredentialRef::parse("cred_remote_1").unwrap()
+}
+
+#[test]
+// @spec:AC-2577
+fn authenticated_remote_bootstrap_is_rate_limited_by_bound_node_scope() {
+    let project = project();
+    let limiter = Arc::new(
+        RateLimiter::new(RateLimitPolicy::new("remote-policy-1", 1, 1, 1_000, 1, 8, 4).unwrap())
+            .unwrap(),
+    );
+    let mismatch = AuthenticatedDaemon::new_with_rate_limiter(
+        MismatchedAuthenticator,
+        policy(project),
+        limiter.clone(),
+    );
+    assert_eq!(
+        mismatch.bootstrap(Some(credential()), handshake(project), 1_000),
+        Err(DaemonError::AuthenticationDenied)
+    );
+    let daemon =
+        AuthenticatedDaemon::new_with_rate_limiter(AcceptedAuthenticator, policy(project), limiter);
+
+    let first = daemon
+        .bootstrap(Some(credential()), handshake(project), 1_000)
+        .unwrap();
+    assert_eq!(daemon.stop(first.id), Ok(DaemonSessionState::Closed));
+
+    assert_eq!(
+        daemon.bootstrap(Some(credential()), handshake(project), 1_001),
+        Err(DaemonError::RateLimited {
+            retry_after_ms: 1_000
+        })
+    );
+    assert_eq!(
+        daemon.audit().last().unwrap().reason,
+        DaemonAuditReason::RateLimited
+    );
 }
 
 #[test]

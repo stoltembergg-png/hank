@@ -6,6 +6,9 @@
 
 pub mod mcp_permission;
 pub mod plugin_permission;
+pub mod rate_limit;
+
+pub use rate_limit::*;
 
 pub mod security_profile;
 pub use security_profile::{

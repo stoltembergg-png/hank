@@ -8,8 +8,12 @@
 use agent_protocol::ids::ProjectId;
 use agent_protocol::remote_protocol::{Handshake, NodeId, PeerId, ProtocolRevision};
 use provider_core::CredentialRef;
+use security_core::{
+    RateLimitClass, RateLimitDecision, RateLimitKey, RateLimitRequest, RateLimitScope, RateLimiter,
+    RetryClass,
+};
 use std::collections::{BTreeSet, VecDeque};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
 pub mod event_stream;
@@ -102,6 +106,7 @@ pub enum DaemonAuditReason {
     AuthenticationDenied,
     AuthorizationDenied,
     ProtocolNegotiationDenied,
+    RateLimited,
     SessionActive,
     Expired,
     Revoked,
@@ -128,6 +133,10 @@ pub enum DaemonError {
     AuthorizationDenied,
     #[error("remote daemon protocol negotiation denied")]
     ProtocolNegotiationDenied,
+    #[error("remote daemon bootstrap was rate limited; retry after {retry_after_ms}ms")]
+    RateLimited { retry_after_ms: u64 },
+    #[error("remote daemon rate limit state is unavailable")]
+    RateLimitUnavailable,
     #[error("remote daemon policy is invalid")]
     InvalidPolicy,
     #[error("remote daemon lease overflow")]
@@ -161,14 +170,32 @@ struct DaemonState {
 pub struct AuthenticatedDaemon<A> {
     authenticator: A,
     policy: DaemonPolicy,
+    rate_limiter: Option<Arc<RateLimiter>>,
     state: Mutex<DaemonState>,
 }
 
 impl<A: PeerAuthenticator> AuthenticatedDaemon<A> {
     pub fn new(authenticator: A, policy: DaemonPolicy) -> Self {
+        Self::new_inner(authenticator, policy, None)
+    }
+
+    pub fn new_with_rate_limiter(
+        authenticator: A,
+        policy: DaemonPolicy,
+        rate_limiter: Arc<RateLimiter>,
+    ) -> Self {
+        Self::new_inner(authenticator, policy, Some(rate_limiter))
+    }
+
+    fn new_inner(
+        authenticator: A,
+        policy: DaemonPolicy,
+        rate_limiter: Option<Arc<RateLimiter>>,
+    ) -> Self {
         Self {
             authenticator,
             policy,
+            rate_limiter,
             state: Mutex::new(DaemonState {
                 active: None,
                 next_lease_id: 1,
@@ -228,6 +255,36 @@ impl<A: PeerAuthenticator> AuthenticatedDaemon<A> {
         let expires_at_ms = now_ms
             .checked_add(self.policy.lease_duration_ms)
             .ok_or(DaemonError::LeaseOverflow)?;
+
+        if let Some(rate_limiter) = &self.rate_limiter {
+            let key = RateLimitKey::new(
+                RateLimitScope::Node,
+                handshake.project.to_string(),
+                handshake.node.0.clone(),
+            )
+            .map_err(|_| DaemonError::RateLimitUnavailable)?;
+            let request = RateLimitRequest::new(
+                rate_limiter.policy().policy_revision(),
+                key,
+                format!("remote-bootstrap:{}:{}", handshake.node.0, now_ms),
+                1,
+                now_ms,
+                RateLimitClass::Normal,
+                RetryClass::Idempotent,
+            )
+            .map_err(|_| DaemonError::RateLimitUnavailable)?;
+            match rate_limiter
+                .check(request)
+                .map_err(|_| DaemonError::RateLimitUnavailable)?
+            {
+                RateLimitDecision::Allowed { .. } => {}
+                RateLimitDecision::Denied { retry_after_ms, .. } => {
+                    self.record_attempt(&handshake, DaemonAuditReason::RateLimited, true)?;
+                    return Err(DaemonError::RateLimited { retry_after_ms });
+                }
+            }
+        }
+
         let mut state = self
             .state
             .lock()

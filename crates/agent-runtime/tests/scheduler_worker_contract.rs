@@ -4,6 +4,8 @@ use agent_runtime::scheduler::{JobStore, JobTarget, MissedRunPolicy, ScheduledJo
 use agent_runtime::scheduler_persistence::SchedulerPersistence;
 use agent_runtime::scheduler_worker::{SchedulerWorker, WorkerError};
 use agent_runtime::sqlite::SqliteStorage;
+use security_core::{RateLimitPolicy, RateLimiter};
+use std::sync::Arc;
 
 async fn setup() -> (SqliteStorage, SchedulerPersistence, JobStore) {
     let storage = SqliteStorage::connect_in_memory().await.unwrap();
@@ -83,4 +85,47 @@ async fn shutdown_stops_claiming_and_renew_preserves_lease_owner() {
         worker.tick("project-a", 2_000).await,
         Err(WorkerError::Stopped)
     ));
+}
+
+// @spec:AC-2578
+#[tokio::test]
+async fn tick_rate_limit_denies_a_second_trigger_before_claiming_a_lease() {
+    let (_storage, persistence, _jobs) = setup().await;
+    persistence
+        .create_run("project-a", "run-a", "job-a", 1_000)
+        .await
+        .unwrap();
+    persistence
+        .create_run("project-a", "run-b", "job-a", 1_000)
+        .await
+        .unwrap();
+    let bus = EventBus::bounded(2);
+    let _receiver = bus.subscribe();
+    let limiter = Arc::new(
+        RateLimiter::new(RateLimitPolicy::new("scheduler-policy-1", 1, 1, 1_000, 1, 8, 4).unwrap())
+            .unwrap(),
+    );
+    let worker = SchedulerWorker::new_with_rate_limiter(
+        persistence.clone(),
+        bus,
+        "worker-a",
+        500,
+        1,
+        limiter,
+    )
+    .unwrap();
+
+    assert_eq!(worker.tick("project-a", 1_000).await.unwrap(), 1);
+    assert_eq!(
+        worker.tick("project-a", 1_001).await,
+        Err(WorkerError::RateLimited {
+            retry_after_ms: 1_000,
+        })
+    );
+    assert!(persistence
+        .get_run("project-a", "run-b")
+        .await
+        .unwrap()
+        .lease_owner
+        .is_none());
 }
