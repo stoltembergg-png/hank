@@ -83,5 +83,5 @@ evidência, não aprovação.
 
 | ID | Pergunta | Status | Resposta |
 |---|---|---|---|
-| Q-2021 | Como o `audit-sink` concreto será plugado em `agent-runtime` sem reintroduzir dependência de Tauri/SQLx na boundary pura? | aberta | — |
-| Q-2022 | Quando o forwarding para SIEM será introduzido e qual `audit-sink` adapter será o portador? | aberta | — |
+| Q-2021 | Como o `audit-sink` concreto será plugado em `agent-runtime` sem reintroduzir dependência de Tauri/SQLx na boundary pura? | respondida | Adapters concretos implementam `AuditSink` em `agent-runtime`, `remote-core`, `storage-core` e (futuramente) `telemetry-core`; `security-core` permanece pura. Cada adapter recebe um `AuditLog` já construído e nunca importa tipos Tauri/SQLx no boundary pura. A integração com `agent-runtime` será feita em card subsequente, fora do escopo de PR-259. |
+| Q-2022 | Quando o forwarding para SIEM será introduzido e qual `audit-sink` adapter será o portador? | respondida | Fora do escopo de PR-259. Quando introduzido, será por um `AuditSink` adapter dedicado em `telemetry-core` (futuro), com fila bounded, retry exponencial e classificação de severidade. Nenhum dado cruza a boundary pura sem redaction. |

@@ -11,6 +11,11 @@
 - **Plano de card:** PR-259 (Add audit logs)
 - **Referências:** US-2020, AC-2021, AC-2022, AC-2023, AC-2024, AC-2025.
 - **Dependências anteriores:** PR-250, PR-252, PR-255, PR-256, PR-257, PR-258.
+- **Arquivos:** `crates/security-core/src/audit.rs`,
+  `crates/security-core/src/lib.rs`, `crates/security-core/tests/audit_log_contract.rs`,
+  `docs/audit-logs.md`, `.spec/features/audit-logs/spec.md`,
+  `.spec/features/audit-logs/tasks.md`,
+  `.github/workflows/onp-sdd-evidence.yml`.
 
 ### Escopo desta task
 
