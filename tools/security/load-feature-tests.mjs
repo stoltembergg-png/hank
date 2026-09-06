@@ -31,7 +31,13 @@ const tests = [
 const result = spawnSync('cargo', ['test', '-p', 'test-support', '--test', 'load_contract', '--locked', '--offline'], {
   cwd: root,
   encoding: 'utf8',
-  env: { ...process.env, CARGO_TERM_COLOR: 'never', RUSTFLAGS: '' },
+  env: {
+    ...process.env,
+    CARGO_TERM_COLOR: 'never',
+    CARGO_INCREMENTAL: '0',
+    CARGO_BUILD_JOBS: '1',
+    RUSTFLAGS: '',
+  },
   timeout: 120_000,
   killSignal: 'SIGTERM',
 });
