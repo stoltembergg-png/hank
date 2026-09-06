@@ -265,6 +265,11 @@ jobs:
           HANK_ALLOW_GENERATED_EVIDENCE: '1'
         run: node tools/ci/run-onp-spec.mjs verify provider-compatibility-tests
 
+      - name: Verify release signing
+        env:
+          HANK_ALLOW_GENERATED_EVIDENCE: '1'
+        run: node tools/ci/run-onp-spec.mjs verify release-signing
+
       - name: Verify workflow state persistence
         run: node tools/ci/run-onp-spec.mjs verify workflow-state-persistence
 
