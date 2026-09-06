@@ -10,8 +10,13 @@ function git(args) {
   return value.stdout.trim();
 }
 const dirty = git(['status', '--porcelain', '--untracked-files=all']);
-if (dirty && dirty !== '?? security/reports/load.json') {
-  process.stderr.write('load feature tests require a clean checkout\n');
+const unexpectedDirty = dirty.split('\n').filter((line) => {
+  if (!line) return false;
+  const path = line.slice(3);
+  return !path.startsWith('.spec/verification/') && path !== 'security/reports/load.json';
+});
+if (unexpectedDirty.length > 0) {
+  process.stderr.write('load feature tests require a clean source checkout\n');
   process.exit(1);
 }
 const headSha = git(['rev-parse', 'HEAD']);
