@@ -12,7 +12,7 @@ function git(args) {
 const dirty = git(['status', '--porcelain', '--untracked-files=all']);
 const unexpectedDirty = dirty.split('\n').filter((line) => {
   if (!line) return false;
-  const path = line.slice(3);
+  const path = line.slice(2).trimStart();
   return !path.startsWith('.spec/verification/') && path !== 'security/reports/load.json';
 });
 if (unexpectedDirty.length > 0) {
