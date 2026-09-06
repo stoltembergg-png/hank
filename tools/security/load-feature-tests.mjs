@@ -9,13 +9,21 @@ function git(args) {
   if (value.status !== 0) process.exit(1);
   return value.stdout.trim();
 }
-const dirty = git(['status', '--porcelain', '--untracked-files=all']);
-const unexpectedDirty = dirty.split('\n').filter((line) => {
-  if (!line) return false;
-  const path = line.slice(2).trimStart();
-  return !path.startsWith('.spec/verification/')
-    && !path.startsWith('security/reports/');
-});
+const status = git(['status', '--porcelain=v1', '-z', '--untracked-files=all']);
+const entries = status ? status.split('\0').filter(Boolean) : [];
+const allowed = (path) => path.startsWith('.spec/verification/') || path.startsWith('security/reports/');
+const unexpectedDirty = [];
+for (let index = 0; index < entries.length; index += 1) {
+  const entry = entries[index];
+  const code = entry.slice(0, 2);
+  const path = entry.slice(3);
+  if (!allowed(path)) unexpectedDirty.push(path);
+  if (code.includes('R') || code.includes('C')) {
+    const original = entries[index + 1] ?? '';
+    index += 1;
+    if (!allowed(original)) unexpectedDirty.push(original);
+  }
+}
 if (unexpectedDirty.length > 0) {
   process.stderr.write('load feature tests require a clean source checkout\n');
   process.exit(1);
@@ -29,16 +37,22 @@ const tests = [
   ['repeated_runs_are_deterministic_and_redacted', 'AC-2304'],
   ['invalid_manifest_fails_closed', 'AC-2305'],
 ];
+const safeEnv = {
+  PATH: process.env.PATH,
+  HOME: process.env.HOME,
+  CI: '1',
+  CARGO_HOME: process.env.CARGO_HOME,
+  RUSTUP_HOME: process.env.RUSTUP_HOME,
+  CARGO_TERM_COLOR: 'never',
+  CARGO_INCREMENTAL: '0',
+  CARGO_BUILD_JOBS: '1',
+  CARGO_NET_OFFLINE: 'true',
+  RUSTFLAGS: '',
+};
 const result = spawnSync('cargo', ['test', '-p', 'test-support', '--test', 'load_contract', '--locked', '--offline'], {
   cwd: root,
   encoding: 'utf8',
-  env: {
-    ...process.env,
-    CARGO_TERM_COLOR: 'never',
-    CARGO_INCREMENTAL: '0',
-    CARGO_BUILD_JOBS: '1',
-    RUSTFLAGS: '',
-  },
+  env: safeEnv,
   timeout: 120_000,
   killSignal: 'SIGTERM',
 });

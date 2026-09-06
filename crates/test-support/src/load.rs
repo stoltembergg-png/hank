@@ -5,6 +5,7 @@
 
 use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 
 pub const MAX_PROFILES: usize = 3;
 pub const CANONICAL_FIXTURE_DIGEST: &str =
@@ -108,37 +109,82 @@ pub enum LoadStatus {
     InvalidManifest,
 }
 
-#[must_use]
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum ManifestValidationError {
+    EmptyRevision,
+    WarmupOutOfBounds,
+    RepetitionsOutOfBounds,
+    ProfilesMismatch,
+    FixtureDigestMismatch,
+    InvalidProfileLimits,
+    PlanWarmupOutOfBounds,
+    PlanRepetitionsOutOfBounds,
+}
+
+impl Display for ManifestValidationError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{self:?}")
+    }
+}
+
+impl std::error::Error for ManifestValidationError {}
+
 pub fn validate_manifest(manifest: &WorkloadManifest) -> bool {
-    !manifest.revision.is_empty()
-        && manifest.warmup_iterations <= 8
-        && (1..=8).contains(&manifest.repetitions)
-        && manifest.profiles == LoadProfile::all()
-        && manifest.fixture_digest == CANONICAL_FIXTURE_DIGEST
-        && manifest.profiles.iter().all(|profile| {
-            let limits = profile.limits();
-            limits.concurrency > 0
-                && limits.requests >= limits.concurrency
-                && limits.queue > 0
-                && limits.duration_ms > 0
-        })
+    validate_manifest_result(manifest).is_ok()
+}
+
+pub fn validate_manifest_result(
+    manifest: &WorkloadManifest,
+) -> Result<(), ManifestValidationError> {
+    if manifest.revision.is_empty() {
+        return Err(ManifestValidationError::EmptyRevision);
+    }
+    if manifest.warmup_iterations > 8 {
+        return Err(ManifestValidationError::WarmupOutOfBounds);
+    }
+    if !(1..=8).contains(&manifest.repetitions) {
+        return Err(ManifestValidationError::RepetitionsOutOfBounds);
+    }
+    if manifest.profiles != LoadProfile::all() {
+        return Err(ManifestValidationError::ProfilesMismatch);
+    }
+    if manifest.fixture_digest != CANONICAL_FIXTURE_DIGEST {
+        return Err(ManifestValidationError::FixtureDigestMismatch);
+    }
+    if !manifest.profiles.iter().all(|profile| {
+        let limits = profile.limits();
+        limits.concurrency > 0
+            && limits.requests >= limits.concurrency
+            && limits.queue > 0
+            && limits.duration_ms > 0
+    }) {
+        return Err(ManifestValidationError::InvalidProfileLimits);
+    }
+    Ok(())
 }
 
 /// Runs a bounded admission model with no wall-clock or host-resource sampling.
-#[must_use]
-pub fn run_profile(profile: LoadProfile, seed: u64, fixture_digest: &str) -> LoadMetrics {
+pub fn run_profile(
+    profile: LoadProfile,
+    seed: u64,
+    fixture_digest: &str,
+) -> Result<LoadMetrics, ManifestValidationError> {
     run_profile_with_plan(profile, seed, fixture_digest, 0, 1)
 }
 
-#[must_use]
 pub fn run_profile_with_plan(
     profile: LoadProfile,
     seed: u64,
     fixture_digest: &str,
     warmup_iterations: usize,
     repetitions: usize,
-) -> LoadMetrics {
-    let repetitions = repetitions.max(1);
+) -> Result<LoadMetrics, ManifestValidationError> {
+    if warmup_iterations > 8 {
+        return Err(ManifestValidationError::PlanWarmupOutOfBounds);
+    }
+    if !(1..=8).contains(&repetitions) {
+        return Err(ManifestValidationError::PlanRepetitionsOutOfBounds);
+    }
     let limits = profile.limits();
     let available = limits.concurrency.saturating_add(limits.queue);
     let admitted_one = limits.requests.min(available);
@@ -183,14 +229,13 @@ pub fn run_profile_with_plan(
         status,
     };
     metrics.artifact_digest = digest_metrics(&metrics);
-    metrics
+    Ok(metrics)
 }
 
-#[must_use]
-pub fn run_manifest(manifest: &WorkloadManifest) -> Vec<LoadMetrics> {
-    if !validate_manifest(manifest) {
-        return Vec::new();
-    }
+pub fn run_manifest(
+    manifest: &WorkloadManifest,
+) -> Result<Vec<LoadMetrics>, ManifestValidationError> {
+    validate_manifest_result(manifest)?;
     manifest
         .profiles
         .iter()
@@ -244,13 +289,16 @@ mod tests {
     fn default_manifest_is_bounded_and_valid() {
         let manifest = WorkloadManifest::default();
         assert!(validate_manifest(&manifest));
-        assert_eq!(run_manifest(&manifest).len(), MAX_PROFILES);
+        assert_eq!(
+            run_manifest(&manifest).expect("valid manifest").len(),
+            MAX_PROFILES
+        );
     }
 
     #[test]
     fn admission_is_bounded_and_deterministic() {
-        let first = run_profile(LoadProfile::L, 42, "fixture");
-        let second = run_profile(LoadProfile::L, 42, "fixture");
+        let first = run_profile(LoadProfile::L, 42, "fixture").expect("valid plan");
+        let second = run_profile(LoadProfile::L, 42, "fixture").expect("valid plan");
         assert_eq!(first, second);
         assert_eq!(
             first.admitted,
@@ -268,6 +316,9 @@ mod tests {
             ..WorkloadManifest::default()
         };
         assert!(!validate_manifest(&manifest));
-        assert!(run_manifest(&manifest).is_empty());
+        assert_eq!(
+            run_manifest(&manifest).expect_err("invalid manifest must fail"),
+            ManifestValidationError::RepetitionsOutOfBounds
+        );
     }
 }

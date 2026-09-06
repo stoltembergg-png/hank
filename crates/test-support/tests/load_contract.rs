@@ -1,6 +1,6 @@
 use test_support::load::{
-    digest_fixture, run_manifest, run_profile, validate_manifest, LoadProfile, LoadStatus,
-    WorkloadManifest, CANONICAL_FIXTURE_DIGEST, MAX_PROFILES,
+    digest_fixture, run_manifest, run_profile, run_profile_with_plan, validate_manifest,
+    LoadProfile, LoadStatus, WorkloadManifest, CANONICAL_FIXTURE_DIGEST, MAX_PROFILES,
 };
 
 // @spec:AC-2301
@@ -19,7 +19,7 @@ fn manifest_declares_bounded_profiles_and_fixture_digest() {
 // @spec:AC-2302
 #[test]
 fn admission_and_backpressure_are_explicit() {
-    let metrics = run_profile(LoadProfile::L, 23_000, "fixture");
+    let metrics = run_profile(LoadProfile::L, 23_000, "fixture").expect("valid plan");
     assert_eq!(metrics.status, LoadStatus::AdmissionBound);
     assert_eq!(metrics.admitted + metrics.rejected, metrics.requests);
     assert!(metrics.peak_queue <= LoadProfile::L.limits().queue);
@@ -29,7 +29,7 @@ fn admission_and_backpressure_are_explicit() {
 // @spec:AC-2303
 #[test]
 fn cancellation_and_completion_are_accounted() {
-    let metrics = run_profile(LoadProfile::M, 23_001, "fixture");
+    let metrics = run_profile(LoadProfile::M, 23_001, "fixture").expect("valid plan");
     assert_eq!(metrics.completed + metrics.cancelled, metrics.admitted);
     assert!(metrics.bounded_duration_ms <= LoadProfile::M.limits().duration_ms);
     assert!(!metrics.artifact_digest.is_empty());
@@ -39,8 +39,8 @@ fn cancellation_and_completion_are_accounted() {
 #[test]
 fn repeated_runs_are_deterministic_and_redacted() {
     let manifest = WorkloadManifest::default();
-    let first = run_manifest(&manifest);
-    let second = run_manifest(&manifest);
+    let first = run_manifest(&manifest).expect("valid manifest");
+    let second = run_manifest(&manifest).expect("valid manifest");
     assert_eq!(first, second);
     assert_eq!(first[0].warmup_iterations, manifest.warmup_iterations);
     assert_eq!(first[0].repetitions, manifest.repetitions);
@@ -57,5 +57,22 @@ fn invalid_manifest_fails_closed() {
         ..WorkloadManifest::default()
     };
     assert!(!validate_manifest(&manifest));
-    assert!(run_manifest(&manifest).is_empty());
+    assert_eq!(
+        run_manifest(&manifest).expect_err("invalid manifest must fail"),
+        test_support::load::ManifestValidationError::ProfilesMismatch
+    );
+}
+
+#[test]
+fn invalid_plan_returns_typed_error() {
+    assert_eq!(
+        run_profile_with_plan(LoadProfile::S, 1, "fixture", 9, 1)
+            .expect_err("warmup bound must fail"),
+        test_support::load::ManifestValidationError::PlanWarmupOutOfBounds
+    );
+    assert_eq!(
+        run_profile_with_plan(LoadProfile::S, 1, "fixture", 0, 0)
+            .expect_err("repetition bound must fail"),
+        test_support::load::ManifestValidationError::PlanRepetitionsOutOfBounds
+    );
 }
