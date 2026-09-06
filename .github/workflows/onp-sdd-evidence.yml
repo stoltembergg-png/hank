@@ -256,7 +256,14 @@ jobs:
         run: node tools/ci/run-onp-spec.mjs verify workflow-crash-recovery
 
       - name: Verify agent loop tests
+        env:
+          HANK_ALLOW_GENERATED_EVIDENCE: '1'
         run: node tools/ci/run-onp-spec.mjs verify agent-loop-tests
+
+      - name: Verify provider compatibility tests
+        env:
+          HANK_ALLOW_GENERATED_EVIDENCE: '1'
+        run: node tools/ci/run-onp-spec.mjs verify provider-compatibility-tests
 
       - name: Verify workflow state persistence
         run: node tools/ci/run-onp-spec.mjs verify workflow-state-persistence

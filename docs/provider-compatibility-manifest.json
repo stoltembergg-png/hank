@@ -1,0 +1,44 @@
+{
+  "revision": "PR-265",
+  "schema_version": 1,
+  "network": "forbidden",
+  "credentials": "mocked",
+  "providers": [
+    {
+      "id": "openai",
+      "fixture": "openai-complete-stream-tool.json",
+      "support": "supported",
+      "features": ["complete", "stream", "tool_use", "usage_cost"]
+    },
+    {
+      "id": "anthropic",
+      "fixture": "anthropic-complete-stream-tool.json",
+      "support": "supported",
+      "features": ["complete", "stream", "tool_use", "usage_cost"]
+    },
+    {
+      "id": "gemini",
+      "fixture": "gemini-error-capability.json",
+      "support": "bounded",
+      "features": ["complete", "error", "capability_state"]
+    },
+    {
+      "id": "openrouter",
+      "fixture": "openrouter-fallback.json",
+      "support": "bounded",
+      "features": ["fallback", "rate_limit", "redaction"]
+    },
+    {
+      "id": "ollama",
+      "fixture": "ollama-local-model.json",
+      "support": "bounded",
+      "features": ["complete", "offline_fixture", "capability_state"]
+    },
+    {
+      "id": "openai-compatible",
+      "fixture": "openai-compatible-negative.json",
+      "support": "expected-fail",
+      "features": ["invalid_request", "unsupported_capability"]
+    }
+  ]
+}
