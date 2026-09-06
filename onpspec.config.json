@@ -7,7 +7,8 @@
     "fuzz-tests": "node tools/security/fuzz-feature-tests.mjs",
     "load-tests": "node tools/security/load-feature-tests.mjs",
     "workflow-crash-recovery": "node tools/security/workflow-crash-recovery-feature-tests.mjs",
-    "agent-loop-tests": "node tools/security/agent-loop-feature-tests.mjs"
+    "agent-loop-tests": "node tools/security/agent-loop-feature-tests.mjs",
+    "provider-compatibility-tests": "node tools/security/provider-compatibility-feature-tests.mjs"
   },
   "reporter": "exitcode",
   "reporters": {
@@ -17,7 +18,8 @@
     "fuzz-tests": "tap",
     "load-tests": "tap",
     "workflow-crash-recovery": "tap",
-    "agent-loop-tests": "tap"
+    "agent-loop-tests": "tap",
+    "provider-compatibility-tests": "tap"
   },
   "testGlobs": [
     "test/**/*.js",
