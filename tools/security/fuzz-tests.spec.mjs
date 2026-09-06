@@ -86,9 +86,17 @@ test('fuzz-manifest FT-00N IDs são únicos e não se repetem @spec:AC-2202', ()
 });
 
 test('fuzz-runner mansa com git credentials em path? @spec:NEG-001', () => {
-  const withFakeSecret = { ...process.env, AWS_ACCESS_KEY_ID: '[REDACTED]' };
+  const safeEnv = {
+    PATH: process.env.PATH,
+    HOME: process.env.HOME,
+    CI: '1',
+    CARGO_NET_OFFLINE: 'true',
+    AWS_ACCESS_KEY_ID: '[REDACTED]',
+    AWS_SECRET_ACCESS_KEY: '[REDACTED]',
+    AWS_SESSION_TOKEN: '[REDACTED]',
+  };
   const runner = spawnSync('node', ['tools/security/fuzz-runner.mjs'], {
-    cwd: root, encoding: 'utf8', env: withFakeSecret,
+    cwd: root, encoding: 'utf8', env: safeEnv,
   });
   assert.equal(runner.status, 0, 'fuzz-runner deve manter-se inerte com fake credencial no ambiente');
 });
