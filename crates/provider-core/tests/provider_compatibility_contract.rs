@@ -119,11 +119,15 @@ fn provider_and_model_identity_must_match_fixture() {
         100,
     )
     .is_ok());
-    let mismatch = report("fixture-openai", "other-model", CapabilityState::Supported);
+    let provider_mismatch = report(
+        "fixture-anthropic",
+        "fixture-model",
+        CapabilityState::Supported,
+    );
     assert!(FallbackCandidate::new(
         account,
         ModelId::parse("fixture-model").unwrap(),
-        mismatch,
+        provider_mismatch,
         HealthStatus::Healthy,
         128,
         100,
@@ -131,8 +135,8 @@ fn provider_and_model_identity_must_match_fixture() {
     .is_err());
 }
 
-// @spec:AC-2655
 // @spec:AC-2654
+// @spec:AC-2655
 #[test]
 fn fixture_contract_never_requires_live_credentials_or_network() {
     let serialized = serde_json::to_string(&report(
