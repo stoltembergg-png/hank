@@ -51,6 +51,7 @@ export function validateAttestation(attestation, expected = {}) {
   requiredString(attestation.signer?.keyId, 'signer key id');
   if (!HEX64.test(attestation.identity.commit) || !HEX64.test(attestation.identity.tree)) throw new Error('invalid git identity');
   for (const [field, expectedValue] of Object.entries(expected)) {
+    if (field === 'trustedKeyring' || field === 'artifactBytes') continue;
     const actual = field === 'signerKeyId' ? attestation.signer?.keyId : attestation.identity?.[field];
     if (expectedValue !== undefined && actual !== expectedValue) throw new Error(`${field} mismatch`);
   }
@@ -62,6 +63,11 @@ export function validateAttestation(attestation, expected = {}) {
 
 export function verifyAttestation(attestation, publicKey, expected = {}) {
   validateAttestation(attestation, expected);
+  if (expected.trustedKeyring) {
+    const trusted = expected.trustedKeyring[attestation.signer.keyId];
+    if (!trusted || trusted.revoked || trusted.publicKey !== publicKey.export({ type: 'spki', format: 'der' }).toString('base64')) throw new Error('untrusted or revoked signer');
+  }
+  if (expected.artifactBytes !== undefined && artifactDigest(expected.artifactBytes) !== attestation.artifact.digest) throw new Error('artifact digest mismatch');
   const valid = verify(null, canonicalPayload(attestation), publicKey, Buffer.from(attestation.signature.value, 'base64'));
   if (!valid) throw new Error('signature verification failed');
   return { valid: true, artifactDigest: attestation.artifact.digest, signerKeyId: attestation.signer.keyId };

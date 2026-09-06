@@ -14,18 +14,21 @@ const base = {
   signer: { keyId: 'fixture-ed25519-v1' },
 };
 
+function keyring(revoked = false) {
+  return { 'fixture-ed25519-v1': { revoked, publicKey: publicKey.export({ type: 'spki', format: 'der' }).toString('base64') } };
+}
+
 function signed() { return signAttestation(structuredClone(base), privateKey); }
 
 test('AC-2661: valid artifact tuple verifies with independent public key @spec:AC-2661', () => {
-  const result = verifyAttestation(signed(), publicKey, { commit: base.identity.commit, tree: base.identity.tree, channel: 'stable' });
+  const result = verifyAttestation(signed(), publicKey, { commit: base.identity.commit, tree: base.identity.tree, channel: 'stable', trustedKeyring: keyring(), artifactBytes: 'fixture' });
   assert.equal(result.valid, true);
   assert.equal(result.artifactDigest, base.artifact.digest);
 });
 
 test('AC-2662: substituted digest is rejected @spec:AC-2662', () => {
   const attestation = signed();
-  attestation.artifact.digest = artifactDigest('substituted');
-  assert.throws(() => verifyAttestation(attestation, publicKey), /signature verification failed/);
+  assert.throws(() => verifyAttestation(attestation, publicKey, { artifactBytes: 'substituted' }), /artifact digest mismatch/);
 });
 
 test('AC-2663: wrong commit, tree, channel, or policy is rejected @spec:AC-2663', () => {
@@ -38,8 +41,7 @@ test('AC-2663: wrong commit, tree, channel, or policy is rejected @spec:AC-2663'
 
 test('AC-2664: stale or revoked signer identity is rejected @spec:AC-2664', () => {
   const attestation = signed();
-  attestation.signer.keyId = 'revoked-ed25519-v0';
-  assert.throws(() => verifyAttestation(attestation, publicKey, { signerKeyId: 'fixture-ed25519-v1' }), /signature verification failed|signerKeyId/);
+  assert.throws(() => verifyAttestation(attestation, publicKey, { trustedKeyring: keyring(true) }), /untrusted or revoked signer/);
 });
 
 test('AC-2665: malformed or incomplete proof fails closed @spec:AC-2665', () => {
