@@ -36,6 +36,7 @@ const tests = [
   ['cancellation_and_completion_are_accounted', 'AC-2303'],
   ['repeated_runs_are_deterministic_and_redacted', 'AC-2304'],
   ['invalid_manifest_fails_closed', 'AC-2305'],
+  ['invalid_plan_returns_typed_error', 'AC-2305'],
 ];
 const safeEnv = {
   PATH: process.env.PATH,
