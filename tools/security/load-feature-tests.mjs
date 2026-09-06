@@ -25,7 +25,7 @@ for (let index = 0; index < entries.length; index += 1) {
   }
 }
 if (unexpectedDirty.length > 0) {
-  process.stderr.write('load feature tests require a clean source checkout\n');
+  process.stderr.write(`load feature tests require a clean source checkout; unexpected paths: ${unexpectedDirty.join(', ')}\n`);
   process.exit(1);
 }
 const headSha = git(['rev-parse', 'HEAD']);
