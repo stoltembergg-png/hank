@@ -55,6 +55,7 @@ fn targets_enumerated_and_registered_ac_2202() {
     }
 }
 
+// @spec:AC-2203
 #[test]
 fn reproducible_seed_and_corpus_ac_2203() {
     let harness_a = default_harness("runner-digest-fixture");
@@ -80,6 +81,7 @@ fn reproducible_seed_and_corpus_ac_2203() {
     assert_ne!(r1, digest_runner(b"different"));
 }
 
+// @spec:AC-2204
 #[test]
 fn crash_artifact_reproduces_ac_2204() {
     let harness = default_harness("runner-digest-fixture");
@@ -114,6 +116,7 @@ fn crash_artifact_reproduces_ac_2204() {
     assert_eq!(replay.iterations_run, crash.iteration + 1);
 }
 
+// @spec:AC-2205
 #[test]
 fn bounded_resource_time_limits_ac_2205() {
     let harness_zero = FuzzHarness::new(
@@ -172,6 +175,7 @@ fn runner_output_is_single_tap_ac_2206() {
     }
 }
 
+// @spec:AC-2207
 #[test]
 fn no_credentials_or_unsafe_corpus_in_repo_ac_2207() {
     let flat: Vec<Vec<u8>> = default_corpus().into_iter().flatten().collect();

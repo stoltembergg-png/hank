@@ -2,63 +2,84 @@
   "$schema": "https://example.invalid/nonexistent",
   "schema_version": 1,
   "manifest_revision": "FT-001",
-  "runner_digest": "placeholder-runner-digest-will-be-computed-at-run-time",
+  "runner_digest": "7e1c732b3d57fcc7369cbbcb39fc45584f3ff14ef0a378a2d0be3dab012bc604",
   "targets": [
     {
       "id": "FT-001",
       "name": "Envelope parser",
       "kind": "envelope",
+      "parser": "EnvelopeTarget::run",
       "parser_source": "crates/agent-protocol/src/envelope.rs",
       "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
-      "description": "Envelope parser para mensagens de agent protocol. Regeita malformed envelope sem panic."
+      "smoke_iterations": 8,
+      "corpus_path": "synthetic:inline",
+      "description": "Envelope parser para mensagens de agent protocol; rejeita envelope malformado sem panic."
     },
     {
       "id": "FT-002",
       "name": "Branch policy",
       "kind": "policy",
+      "parser": "BranchPolicyTarget::run",
       "parser_source": "crates/agent-core/src/branch_policy.rs",
       "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
-      "description": "Branch policy parser aceita OWNER/BRANCH válido, rejeita malformado sem panic."
+      "smoke_iterations": 8,
+      "corpus_path": "synthetic:inline",
+      "description": "Branch policy parser aceita OWNER/BRANCH válido e rejeita entrada malformada sem panic."
     },
     {
       "id": "FT-003",
       "name": "Architecture profile",
       "kind": "state",
+      "parser": "StateTarget::run",
       "parser_source": "crates/agent-core/src/architecture_profile.rs",
       "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
-      "description": "Architecture profile parser para perfiles de arquitetura. Rejeita entrada malformada sem panic."
+      "smoke_iterations": 8,
+      "corpus_path": "synthetic:inline",
+      "description": "State parser para perfis de arquitetura; rejeita entrada malformada sem panic."
     },
     {
       "id": "FT-004",
       "name": "Capability parser",
       "kind": "permission",
+      "parser": "PermissionTarget::run",
       "parser_source": "crates/agent-protocol/src/capability.rs",
       "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
-      "description": "Capability parser para permisões de tool/resource/action. Rejeita entrada malformada sem panic."
+      "smoke_iterations": 8,
+      "corpus_path": "synthetic:inline",
+      "description": "Permission parser para action/resource; rejeita entrada malformada sem panic."
     },
     {
       "id": "FT-005",
       "name": "Workflow entity",
       "kind": "state",
+      "parser": "StateTarget::run",
       "parser_source": "crates/workflow-core/src/definition.rs",
       "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
-      "description": "Workflow entity parser para definição de fluxos. Rejeita entrada malformada sem panic."
+      "smoke_iterations": 8,
+      "corpus_path": "synthetic:inline",
+      "description": "Workflow entity parser para definição de fluxos; rejeita entrada malformada sem panic."
     },
     {
       "id": "FT-006",
       "name": "Audit event",
-      "kind": "state",
+      "kind": "hash_chain",
+      "parser": "HashChainTarget::run",
       "parser_source": "crates/security-core/src/audit.rs",
       "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
-      "description": "Audit event parser para eventos de auditoria. Rejeita entrada malformada sem panic."
+      "smoke_iterations": 8,
+      "corpus_path": "synthetic:inline",
+      "description": "Audit event parser para eventos de auditoria; rejeita entrada malformada sem panic."
     },
     {
       "id": "FT-007",
       "name": "Rate limit policy",
-      "kind": "policy",
+      "kind": "rate_limit",
+      "parser": "RateLimitTarget::run",
       "parser_source": "crates/security-core/src/rate_limit.rs",
       "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
-      "description": "Rate limit policy parser para configuração de rate limit. Rejeita entrada malformada sem panic."
+      "smoke_iterations": 8,
+      "corpus_path": "synthetic:inline",
+      "description": "Rate limit policy parser para configuração de rate limit; rejeita entrada malformada sem panic."
     }
   ]
 }

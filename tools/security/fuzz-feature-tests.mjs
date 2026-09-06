@@ -17,7 +17,7 @@ const rustTest = 'fuzz_contract';
 function runRust() {
   const r = spawnSync(
     'cargo',
-    ['test', '-p', rustPackage, '--test', rustTest, '--locked', '--offline'],
+    ['test', '-p', rustPackage, '--test', rustTest, '--locked'],
     { cwd: root, encoding: 'utf8', env: { ...process.env, RUSTFLAGS: '' } },
   );
   if (r.status !== 0) {

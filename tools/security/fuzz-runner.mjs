@@ -21,6 +21,17 @@ import { createHash } from 'node:crypto';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..', '..');
+const EXPECTED_MANIFEST_REVISION = 'FT-001';
+const EXPECTED_TARGET_IDS = ['FT-001', 'FT-002', 'FT-003', 'FT-004', 'FT-005', 'FT-006', 'FT-007'];
+const VALID_KINDS = new Set([
+  'envelope',
+  'policy',
+  'state',
+  'permission',
+  'release_metadata',
+  'hash_chain',
+  'rate_limit',
+]);
 
 const args = process.argv.slice(2);
 let outPath = resolve(root, 'security', 'reports', 'fuzz.json');
@@ -43,21 +54,60 @@ if (manifest.schema_version !== 1) {
   console.error(`manifest schema_version inválido: ${manifest.schema_version}`);
   process.exit(1);
 }
+if (manifest.manifest_revision !== EXPECTED_MANIFEST_REVISION) {
+  console.error(`manifest_revision inválida: ${manifest.manifest_revision}`);
+  process.exit(1);
+}
 if (!manifest.targets || !Array.isArray(manifest.targets)) {
   console.error('manifest sem targets válidos');
   process.exit(1);
 }
+if (manifest.targets.length !== EXPECTED_TARGET_IDS.length) {
+  console.error(`quantidade de targets inválida: ${manifest.targets.length}`);
+  process.exit(1);
+}
+const targetIds = manifest.targets.map((target) => target.id);
+if (targetIds.some((id, index) => id !== EXPECTED_TARGET_IDS[index])) {
+  console.error('targets fora da enumeração canônica FT-001..FT-007');
+  process.exit(1);
+}
+for (const target of manifest.targets) {
+  if (!VALID_KINDS.has(target.kind)) {
+    console.error(`kind inválido para ${target.id}: ${target.kind}`);
+    process.exit(1);
+  }
+  if (typeof target.parser !== 'string' || typeof target.parser_source !== 'string') {
+    console.error(`parser ausente para ${target.id}`);
+    process.exit(1);
+  }
+  if (!Array.isArray(target.invariants) || target.invariants.length === 0) {
+    console.error(`invariants ausentes para ${target.id}`);
+    process.exit(1);
+  }
+  if (!Number.isInteger(target.smoke_iterations) || target.smoke_iterations < 8) {
+    console.error(`smoke_iterations inválido para ${target.id}`);
+    process.exit(1);
+  }
+}
 
-// --- Runner digest (hash do manifest) ---
+// --- Runner digest (hash do próprio runner) ---
 
-const manifestBytes = readFileSync(manifestPath);
-const runnerDigest = createHash('sha256').update(manifestBytes).digest('hex');
+const runnerSource = readFileSync(fileURLToPath(import.meta.url));
+const runnerDigest = createHash('sha256').update(runnerSource).digest('hex');
+if (manifest.runner_digest !== runnerDigest) {
+  console.error('runner_digest mismatch: RUNNER_DIGEST_MISMATCH');
+  process.exit(1);
+}
 const treeSha = spawnSync('git', ['rev-parse', 'HEAD^{tree}'], {
   cwd: root, encoding: 'utf8',
 }).stdout.trim();
 const headSha = spawnSync('git', ['rev-parse', 'HEAD'], {
   cwd: root, encoding: 'utf8',
 }).stdout.trim();
+if (!treeSha || !headSha) {
+  console.error('git revision metadata ausente');
+  process.exit(1);
+}
 
 // --- Executar contrato Rust ---
 
@@ -67,7 +117,7 @@ const cargoTest = spawnSync(
     'test',
     '-p', 'test-support',
     '--test', 'fuzz_contract',
-    '--locked', '--offline',
+    '--locked',
   ],
   {
     cwd: root,

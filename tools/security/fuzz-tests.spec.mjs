@@ -60,9 +60,12 @@ test('fuzz-manifest descreve cada target com parser_source e invariants @spec:AC
   const manifestPath = resolve(root, 'docs', 'security', 'fuzz-manifest.json');
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   for (const t of manifest.targets) {
+    assert.ok(t.parser, `${t.id}: parser deve existir`);
     assert.ok(t.parser_source, `${t.id}: parser_source deve existir`);
     assert.ok(Array.isArray(t.invariants), `${t.id}: invariants deve ser array`);
     assert.ok(t.invariants.length > 0, `${t.id}: invariants não pode estar vazio`);
+    assert.ok(Number.isInteger(t.smoke_iterations) && t.smoke_iterations >= 8, `${t.id}: smoke_iterations deve ser >= 8`);
+    assert.ok(t.corpus_path, `${t.id}: corpus_path deve existir`);
     assert.ok(typeof t.description === 'string', `${t.id}: description deve ser string`);
   }
 });
