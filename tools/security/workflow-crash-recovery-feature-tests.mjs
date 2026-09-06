@@ -4,6 +4,30 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+function gitText(args) {
+  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+  if (result.status !== 0) process.exit(1);
+  return result.stdout;
+}
+function identity() {
+  return {
+    head: gitText(['rev-parse', 'HEAD']).trim(),
+    tree: gitText(['rev-parse', 'HEAD^{tree}']).trim(),
+    status: gitText(['status', '--porcelain=v1', '-z', '--untracked-files=all']),
+  };
+}
+function statusAllowed(status) {
+  return status.split('\0').filter(Boolean).every((entry) => {
+    const path = entry.slice(3);
+    return path.startsWith('.spec/verification/') || path.startsWith('security/reports/');
+  });
+}
+const before = identity();
+if (before.status && process.env.HANK_ALLOW_GENERATED_EVIDENCE !== '1') {
+  process.stderr.write('workflow recovery runner requires a clean checkout\n');
+  process.exit(1);
+}
 const tests = [
   ['lease_fencing_rejects_competing_runner', 'AC-1051'],
   ['recovery_is_bounded_and_increments_generation', 'AC-1052'],
@@ -27,12 +51,16 @@ if (observed.length !== expected.length || expected.some(([name], i) => observed
   process.stderr.write('workflow recovery test set diverged\n');
   process.exit(1);
 }
-const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout.trim();
-const tree = spawnSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: root, encoding: 'utf8' }).stdout.trim();
+const after = identity();
+if (after.head !== before.head || after.tree !== before.tree || after.status !== before.status
+  || (after.status && process.env.HANK_ALLOW_GENERATED_EVIDENCE !== '1' && !statusAllowed(after.status))) {
+  process.stderr.write('workflow recovery runner identity changed during execution\n');
+  process.exit(1);
+}
 console.log('TAP version 13');
 tests.forEach(([name, ac], i) => console.log(`ok ${i + 1} - rust::${name} @spec:${ac}`));
 console.log(`1..${tests.length}`);
-console.log(`# head_sha ${head}`);
-console.log(`# tree_sha ${tree}`);
+console.log(`# head_sha ${before.head}`);
+console.log(`# tree_sha ${before.tree}`);
 console.log(`# pass ${tests.length}`);
 console.log('# fail 0');

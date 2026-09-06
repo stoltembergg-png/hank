@@ -1,8 +1,8 @@
 use agent_runtime::sqlite::SqliteStorage;
 use agent_runtime::workflow_recovery::{LeaseError, RecoveryStatus, RecoveryStore};
-use sqlx::Executor;
+use sqlx::{Executor, Pool, Sqlite};
 
-async fn store_with_run() -> RecoveryStore {
+async fn store_with_run() -> (RecoveryStore, Pool<Sqlite>) {
     let storage = SqliteStorage::connect_in_memory().await.unwrap();
     storage
         .pool()
@@ -37,19 +37,22 @@ async fn store_with_run() -> RecoveryStore {
         )
         .await
         .unwrap();
-    RecoveryStore::new(storage.pool().clone())
+    (
+        RecoveryStore::new(storage.pool().clone()),
+        storage.pool().clone(),
+    )
 }
 
 // @spec:AC-1051
 #[tokio::test]
 async fn lease_fencing_rejects_competing_runner() {
-    let store = store_with_run().await;
+    let (store, _) = store_with_run().await;
     let lease = store
         .acquire_lease("project", "run", "runner-a", 10, 100)
         .await
         .unwrap();
-    assert!(store
-        .fence("project", "run", "runner-a", lease.generation, 20)
+    assert!(!store
+        .fence("project", "run", "runner-b", lease.generation, 20)
         .await
         .unwrap());
     assert_eq!(
@@ -67,7 +70,13 @@ async fn lease_fencing_rejects_competing_runner() {
 // @spec:AC-1052
 #[tokio::test]
 async fn recovery_is_bounded_and_increments_generation() {
-    let store = store_with_run().await;
+    let (store, pool) = store_with_run().await;
+    pool.execute("INSERT INTO workflow_runs (project_id, run_id, workflow_id, workflow_version, state, generation, sequence, created_at_ms, updated_at_ms, lease_owner, lease_expires_at_ms) VALUES ('project', 'run-2', 'workflow', 1, 'running', 0, 0, 1, 1, 'runner-z', 11)")
+        .await
+        .unwrap();
+    pool.execute("INSERT INTO workflow_node_states (project_id, run_id, node_id, state, generation, recovery_class, unknown_effect, updated_at_ms) VALUES ('project', 'run-2', 'node', 'running', 0, 'pending', 0, 1)")
+        .await
+        .unwrap();
     let old = store
         .acquire_lease("project", "run", "runner-a", 10, 1)
         .await
@@ -84,7 +93,7 @@ async fn recovery_is_bounded_and_increments_generation() {
 // @spec:AC-1052
 #[tokio::test]
 async fn recovery_marks_unknown_without_execution() {
-    let store = store_with_run().await;
+    let (store, _) = store_with_run().await;
     store
         .acquire_lease("project", "run", "runner-a", 10, 1)
         .await
@@ -102,7 +111,7 @@ async fn recovery_marks_unknown_without_execution() {
 // @spec:AC-1053
 #[tokio::test]
 async fn repeated_recovery_does_not_duplicate_active_lease() {
-    let store = store_with_run().await;
+    let (store, _) = store_with_run().await;
     store
         .acquire_lease("project", "run", "runner-a", 10, 1)
         .await
@@ -122,7 +131,16 @@ async fn repeated_recovery_does_not_duplicate_active_lease() {
 // @spec:AC-1053
 #[tokio::test]
 async fn invalid_recovery_inputs_fail_without_mutation() {
-    let store = store_with_run().await;
+    let (store, pool) = store_with_run().await;
+    let before_run: (i64, Option<String>) =
+        sqlx::query_as("SELECT generation, lease_owner FROM workflow_runs WHERE run_id = 'run'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    let before_reports: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM workflow_recovery_reports")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(
         store.acquire_lease("project", "run", "runner", 1, 0).await,
         Err(LeaseError::Budget)
@@ -135,6 +153,17 @@ async fn invalid_recovery_inputs_fail_without_mutation() {
         store
             .acquire_lease("project", "run", "bad\nrunner", 1, 10)
             .await,
-        Err(LeaseError::InvalidIdentity)
+        Err(LeaseError::InvalidIdentity),
     );
+    let after_run: (i64, Option<String>) =
+        sqlx::query_as("SELECT generation, lease_owner FROM workflow_runs WHERE run_id = 'run'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    let after_reports: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM workflow_recovery_reports")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(after_run, before_run);
+    assert_eq!(after_reports, before_reports);
 }

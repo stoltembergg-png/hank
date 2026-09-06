@@ -251,6 +251,8 @@ jobs:
         run: node tools/ci/run-onp-spec.mjs verify workflow-logs
 
       - name: Verify workflow crash recovery
+        env:
+          HANK_ALLOW_GENERATED_EVIDENCE: '1'
         run: node tools/ci/run-onp-spec.mjs verify workflow-crash-recovery
 
       - name: Verify workflow state persistence
