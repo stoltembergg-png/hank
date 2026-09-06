@@ -68,11 +68,23 @@ pub enum Invariant {
     AllocationBound { max_bytes: usize },
 }
 
+/// Classification for a target that returns an error.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TargetError {
+    Rejected(String),
+    InvariantViolation(String),
+}
+
 /// A single fuzz target.
 pub trait FuzzTarget: Send + Sync {
     fn id(&self) -> TargetId;
     fn kind(&self) -> TargetKind;
     fn run(&self, input: &[u8]) -> Result<(), String>;
+    /// Classify a returned error without conflating rejection with failure.
+    fn classify_error(&self, message: &str) -> TargetError {
+        TargetError::Rejected(message.to_string())
+    }
     fn invariants(&self) -> &[Invariant];
     fn smoke_iterations(&self) -> usize;
 }
@@ -105,6 +117,9 @@ impl Default for FuzzLimits {
 #[serde(rename_all = "snake_case")]
 pub enum IterationOutcome {
     Pass,
+    Rejected {
+        message: String,
+    },
     Panic {
         message: String,
         stack_digest: String,
@@ -124,6 +139,7 @@ pub struct FuzzReport {
     pub kind: TargetKind,
     pub iterations: usize,
     pub passes: usize,
+    pub rejections: usize,
     pub panics: usize,
     pub timeouts: usize,
     pub ooms: usize,
@@ -240,6 +256,7 @@ impl FuzzHarness {
                 kind,
                 iterations: 0,
                 passes: 0,
+                rejections: 0,
                 panics: 0,
                 timeouts: 0,
                 ooms: 0,
@@ -258,6 +275,7 @@ impl FuzzHarness {
 
         let start = Instant::now();
         let mut passes = 0usize;
+        let mut rejections = 0usize;
         let mut panics = 0usize;
         let mut timeouts = 0usize;
         let mut ooms = 0usize;
@@ -274,25 +292,34 @@ impl FuzzHarness {
                 if iter_start.elapsed() > per_iter_timeout {
                     return IterationOutcome::Timeout;
                 }
-                if input.len() > self.limits.max_memory_mb * 1024 * 1024 {
+                if input.len() > self.limits.max_memory_mb.saturating_mul(1024 * 1024) {
                     return IterationOutcome::Oom;
                 }
                 match target.run(&input) {
                     Ok(()) => IterationOutcome::Pass,
-                    Err(message) => {
-                        let inv = pick_invariant(&invariants);
-                        IterationOutcome::InvariantViolation {
-                            invariant: inv,
-                            message,
+                    Err(message) => match target.classify_error(&message) {
+                        TargetError::Rejected(message) => IterationOutcome::Rejected { message },
+                        TargetError::InvariantViolation(message) => {
+                            let inv = pick_invariant(&invariants);
+                            IterationOutcome::InvariantViolation {
+                                invariant: inv,
+                                message,
+                            }
                         }
-                    }
+                    },
                 }
             }));
 
             let outcome = match outcome {
-                Ok(o) => o,
+                Ok(outcome)
+                    if !matches!(outcome, IterationOutcome::Panic { .. })
+                        && iter_start.elapsed() > per_iter_timeout =>
+                {
+                    IterationOutcome::Timeout
+                }
+                Ok(outcome) => outcome,
                 Err(payload) => {
-                    let message = panic_message(&payload);
+                    let message = panic_message(payload.as_ref());
                     let stack_digest = sha256_hex(message.as_bytes());
                     IterationOutcome::Panic {
                         message,
@@ -303,6 +330,7 @@ impl FuzzHarness {
 
             match &outcome {
                 IterationOutcome::Pass => passes += 1,
+                IterationOutcome::Rejected { .. } => rejections += 1,
                 IterationOutcome::Panic {
                     message,
                     stack_digest,
@@ -357,6 +385,7 @@ impl FuzzHarness {
             kind,
             iterations: smoke,
             passes,
+            rejections,
             panics,
             timeouts,
             ooms,
@@ -382,13 +411,17 @@ impl FuzzHarness {
         iteration: usize,
     ) -> ReplayResult {
         let mut rng = SplitMix64::new(seed);
-        let iterations_to_run = iteration + 1;
+        let iterations_to_run = iteration.saturating_add(1);
+        let mut reproducible = false;
         for iter in 0..iterations_to_run {
             let input = synthesize_input(corpus, &mut rng, iter);
-            let _ = catch_unwind(AssertUnwindSafe(|| target.run(&input)));
+            let replayed = catch_unwind(AssertUnwindSafe(|| target.run(&input)));
+            if iter == iteration {
+                reproducible = replayed.is_err();
+            }
         }
         ReplayResult {
-            reproducible: true,
+            reproducible,
             iterations_run: iterations_to_run,
         }
     }
@@ -400,18 +433,20 @@ pub fn run_all_targets(
     targets: &[Box<dyn FuzzTarget>],
     corpus_per_target: &[Vec<Vec<u8>>],
     seed: u64,
-) -> Vec<FuzzReport> {
-    assert_eq!(
-        targets.len(),
-        corpus_per_target.len(),
-        "targets and corpus_per_target must align"
-    );
+) -> Result<Vec<FuzzReport>, String> {
+    if targets.len() != corpus_per_target.len() {
+        return Err(format!(
+            "targets and corpus_per_target must align: {} != {}",
+            targets.len(),
+            corpus_per_target.len()
+        ));
+    }
     let mut reports = Vec::with_capacity(targets.len());
     for (target, corpus) in targets.iter().zip(corpus_per_target.iter()) {
         let report = harness.run_target(target.as_ref(), corpus, seed);
         reports.push(report);
     }
-    reports
+    Ok(reports)
 }
 
 /// Compute a deterministic SHA-256 digest of the corpus bytes.
@@ -451,7 +486,7 @@ fn pick_invariant(invariants: &[Invariant]) -> Invariant {
     invariants.first().cloned().unwrap_or(Invariant::NoPanic)
 }
 
-fn panic_message(payload: &Box<dyn std::any::Any + Send>) -> String {
+fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
     if let Some(s) = payload.downcast_ref::<&'static str>() {
         (*s).to_string()
     } else if let Some(s) = payload.downcast_ref::<String>() {

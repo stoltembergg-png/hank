@@ -29,7 +29,7 @@ reexecutável e sem exfiltração de credenciais.
 
 - **Dado** um manifest com `targets[].id` no formato `FT-NNN`
 - **Quando** o runner enumerar os targets
-- **Então** cada FT-NNN deve corresponder a um `FuzzTarget` Rust registrado em `crates/test-support/src/fuzz.rs`, com nome, kind permitido, parser puro, invariants e `smoke_iterations` maior ou igual a 8.
+- **Então** cada FT-NNN deve corresponder a um `FuzzTarget` Rust registrado em `crates/test-support/src/fuzz_targets.rs` e validado contra o registry, com nome, kind canônico, parser puro, invariants e `smoke_iterations` maior ou igual a 8.
 
 #### AC-2203 — Seed e corpus reproduzíveis
 

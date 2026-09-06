@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync, execSync } from 'node:child_process';
-import { readFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -44,7 +44,14 @@ test('fuzz-runner.mjs roda e produz relatório JSON @spec:AC-2206', () => {
   assert.ok(report.head_sha, 'report.head_sha deve estar definido');
   assert.ok(report.runner_digest, 'report.runner_digest deve estar definido');
   assert.ok(report.manifest_revision, 'report.manifest_revision deve estar definido');
-  assert.ok(report.timestamp_iso, 'report.timestamp_iso deve estar definido');
+  assert.ok(report.snapshot_sha, 'report.snapshot_sha deve estar definido');
+  assert.equal(report.contract_test_count, 10, 'todos os 10 testes Rust devem ser executados');
+  assert.deepEqual(report.failed_tests, [], 'nenhum teste Rust pode falhar');
+  assert.equal(
+    report.runner_digest,
+    createHash('sha256').update(readFileSync(resolve(root, 'tools/security/fuzz-runner.mjs'))).digest('hex'),
+    'report deve estar vinculado ao digest do runner',
+  );
 });
 
 test('fuzz-manifest contém 7 targets FT-001..FT-007 @spec:AC-2202', () => {
@@ -83,7 +90,7 @@ test('fuzz-runner mansa com git credentials em path? @spec:NEG-001', () => {
   // runner não lê de paths que contenham patterns comuns de credencial.
   const withFakeSecret = {
     ...process.env,
-    AWS_ACCESS_KEY_ID: 'AKIAFAKE00000000000',
+    AWS_ACCESS_KEY_ID: '[REDACTED]',
   };
   const runner = spawnSync(
     'node', ['tools/security/fuzz-runner.mjs'], {

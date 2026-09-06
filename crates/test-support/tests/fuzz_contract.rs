@@ -20,15 +20,35 @@ fn run_default() -> Vec<FuzzReport> {
     let harness = default_harness("runner-digest-fixture");
     let targets = default_targets();
     let corpus = default_corpus();
-    run_all_targets(&harness, &targets, &corpus, SEED)
+    run_all_targets(&harness, &targets, &corpus, SEED).expect("default target registry aligns")
 }
 
 #[test]
 fn manifest_is_well_formed_and_self_consistent_ac_2201() {
     let manifest = FuzzManifest::from_json(
-        br#"{"schema_version":1,"manifest_revision":"rev-1","runner_digest":"abc","targets":[{"id":"FT-001","kind":"envelope","parser":"p","invariants":["no_panic"],"smoke_iterations":8,"corpus_path":"p","description":"d"}]}"#
-    ).expect("valid manifest");
+        br#"{
+          "schema_version":1,
+          "manifest_revision":"rev-1",
+          "runner_digest":"abc",
+          "targets":[
+            {"id":"FT-001","kind":"envelope","parser":"p","parser_source":"s","invariants":["no_panic"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
+            {"id":"FT-002","kind":"policy","parser":"p","parser_source":"s","invariants":["no_panic"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
+            {"id":"FT-003","kind":"state","parser":"p","parser_source":"s","invariants":["no_panic"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
+            {"id":"FT-004","kind":"permission","parser":"p","parser_source":"s","invariants":["no_panic"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
+            {"id":"FT-005","kind":"release_metadata","parser":"p","parser_source":"s","invariants":["no_panic"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
+            {"id":"FT-006","kind":"hash_chain","parser":"p","parser_source":"s","invariants":["no_panic"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
+            {"id":"FT-007","kind":"rate_limit","parser":"p","parser_source":"s","invariants":["no_panic"],"smoke_iterations":8,"corpus_path":"p","description":"d"}
+          ]
+        }"#,
+    )
+    .expect("valid manifest");
     manifest.validate().expect("validation passes");
+    let registered = default_targets();
+    let registered_refs: Vec<&dyn test_support::fuzz::FuzzTarget> =
+        registered.iter().map(|t| t.as_ref()).collect();
+    manifest
+        .validate_against_targets(&registered_refs)
+        .expect("registry matches");
     manifest
         .verify_runner_digest("abc")
         .expect("digest matches");
@@ -62,8 +82,8 @@ fn reproducible_seed_and_corpus_ac_2203() {
     let harness_b = default_harness("runner-digest-fixture");
     let targets = default_targets();
     let corpus = default_corpus();
-    let reports_a = run_all_targets(&harness_a, &targets, &corpus, SEED);
-    let reports_b = run_all_targets(&harness_b, &targets, &corpus, SEED);
+    let reports_a = run_all_targets(&harness_a, &targets, &corpus, SEED).expect("aligned");
+    let reports_b = run_all_targets(&harness_b, &targets, &corpus, SEED).expect("aligned");
     for (a, b) in reports_a.iter().zip(reports_b.iter()) {
         assert_eq!(a.corpus_digest, b.corpus_digest);
         assert_eq!(a.runner_digest, b.runner_digest);
@@ -141,6 +161,38 @@ fn bounded_resource_time_limits_ac_2205() {
     );
     let report = harness_raised.run_target(&EnvelopeTarget, &[b"{}".to_vec()], SEED);
     assert!(report.iterations >= 8);
+
+    struct SlowTarget;
+    impl test_support::fuzz::FuzzTarget for SlowTarget {
+        fn id(&self) -> TargetId {
+            TargetId::new("FT-SLOW")
+        }
+        fn kind(&self) -> TargetKind {
+            TargetKind::State
+        }
+        fn run(&self, _input: &[u8]) -> Result<(), String> {
+            std::thread::sleep(std::time::Duration::from_millis(2));
+            Ok(())
+        }
+        fn invariants(&self) -> &[test_support::fuzz::Invariant] {
+            &[test_support::fuzz::Invariant::NoPanic]
+        }
+        fn smoke_iterations(&self) -> usize {
+            1
+        }
+    }
+    let slow_harness = FuzzHarness::new(
+        FuzzLimits {
+            smoke_iterations: 1,
+            per_iter_timeout_ms: 1,
+            ..FuzzLimits::default()
+        },
+        "tree",
+        "head",
+        "runner",
+    );
+    let slow_report = slow_harness.run_target(&SlowTarget, &[b"{}".to_vec()], SEED);
+    assert_eq!(slow_report.status, FuzzStatus::Timeout);
 }
 
 #[test]
@@ -184,6 +236,14 @@ fn no_credentials_or_unsafe_corpus_in_repo_ac_2207() {
     let bad = vec![b"contains secret-pattern-marker".to_vec()];
     let pat = NegativePattern::new("NEG-001", b"secret-pattern-marker");
     assert!(verify_no_secrets(&bad, &[pat]).is_err());
+    for (id, sample) in [
+        ("NEG-002", b"AKIA".as_slice()),
+        ("NEG-003", b"-----BEGIN".as_slice()),
+        ("NEG-004", b"Bearer ".as_slice()),
+    ] {
+        let pat = NegativePattern::new(id, sample);
+        assert!(verify_no_secrets(&[sample.to_vec()], &[pat]).is_err());
+    }
     let _targets = default_targets();
 }
 
@@ -210,7 +270,7 @@ fn regression_replay_crash_is_total() {
     let corpus = vec![b"{}".to_vec()];
     let r = harness.replay_crash(&EnvelopeTarget, &corpus, SEED, 3);
     assert_eq!(r.iterations_run, 4);
-    assert!(r.reproducible);
+    assert!(!r.reproducible);
 }
 
 #[test]

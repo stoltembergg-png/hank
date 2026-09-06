@@ -23,15 +23,27 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..', '..');
 const EXPECTED_MANIFEST_REVISION = 'FT-001';
 const EXPECTED_TARGET_IDS = ['FT-001', 'FT-002', 'FT-003', 'FT-004', 'FT-005', 'FT-006', 'FT-007'];
-const VALID_KINDS = new Set([
-  'envelope',
-  'policy',
-  'state',
-  'permission',
-  'release_metadata',
-  'hash_chain',
-  'rate_limit',
-]);
+const EXPECTED_TARGET_KINDS = {
+  'FT-001': 'envelope',
+  'FT-002': 'policy',
+  'FT-003': 'state',
+  'FT-004': 'permission',
+  'FT-005': 'release_metadata',
+  'FT-006': 'hash_chain',
+  'FT-007': 'rate_limit',
+};
+const EXPECTED_CONTRACT_TESTS = [
+  'manifest_is_well_formed_and_self_consistent_ac_2201',
+  'targets_enumerated_and_registered_ac_2202',
+  'reproducible_seed_and_corpus_ac_2203',
+  'crash_artifact_reproduces_ac_2204',
+  'bounded_resource_time_limits_ac_2205',
+  'runner_output_is_single_tap_ac_2206',
+  'no_credentials_or_unsafe_corpus_in_repo_ac_2207',
+  'regression_zero_iterations_is_fail_closed_ac_2205',
+  'regression_replay_crash_is_total',
+  'regression_each_target_kind_is_exercised',
+];
 
 const args = process.argv.slice(2);
 let outPath = resolve(root, 'security', 'reports', 'fuzz.json');
@@ -72,8 +84,8 @@ if (targetIds.some((id, index) => id !== EXPECTED_TARGET_IDS[index])) {
   process.exit(1);
 }
 for (const target of manifest.targets) {
-  if (!VALID_KINDS.has(target.kind)) {
-    console.error(`kind inválido para ${target.id}: ${target.kind}`);
+  if (target.kind !== EXPECTED_TARGET_KINDS[target.id]) {
+    console.error(`kind divergente para ${target.id}: ${target.kind}`);
     process.exit(1);
   }
   if (typeof target.parser !== 'string' || typeof target.parser_source !== 'string') {
@@ -98,16 +110,25 @@ if (manifest.runner_digest !== runnerDigest) {
   console.error('runner_digest mismatch: RUNNER_DIGEST_MISMATCH');
   process.exit(1);
 }
-const treeSha = spawnSync('git', ['rev-parse', 'HEAD^{tree}'], {
-  cwd: root, encoding: 'utf8',
-}).stdout.trim();
-const headSha = spawnSync('git', ['rev-parse', 'HEAD'], {
-  cwd: root, encoding: 'utf8',
-}).stdout.trim();
-if (!treeSha || !headSha) {
-  console.error('git revision metadata ausente');
-  process.exit(1);
-}
+const runGit = (gitArgs) => {
+  const result = spawnSync('git', gitArgs, { cwd: root, encoding: 'utf8' });
+  if (result.status !== 0) {
+    console.error(`git metadata failed: ${gitArgs.join(' ')}`);
+    process.exit(1);
+  }
+  return result.stdout;
+};
+const treeSha = runGit(['rev-parse', 'HEAD^{tree}']).trim();
+const headSha = runGit(['rev-parse', 'HEAD']).trim();
+const stagedDiff = runGit(['diff', '--binary', '--cached', 'HEAD']);
+const workingDiff = runGit(['diff', '--binary', 'HEAD']);
+const snapshotSha = createHash('sha256')
+  .update(headSha)
+  .update('\u0000')
+  .update(stagedDiff)
+  .update('\u0000')
+  .update(workingDiff)
+  .digest('hex');
 
 // --- Executar contrato Rust ---
 
@@ -117,28 +138,39 @@ const cargoTest = spawnSync(
     'test',
     '-p', 'test-support',
     '--test', 'fuzz_contract',
-    '--locked',
+    '--locked', '--offline',
   ],
   {
     cwd: root,
     encoding: 'utf8',
-    env: { ...process.env, RUSTFLAGS: '' },
+    env: { ...process.env, CARGO_TERM_COLOR: 'never', RUSTFLAGS: '' },
   },
 );
 
-const contractPassed = cargoTest.status === 0;
+const cargoPassed = cargoTest.status === 0;
+const cargoStdout = cargoTest.stdout ?? '';
+const executedTests = [...cargoStdout.matchAll(/^test (\S+) \.\.\. (ok|FAILED|ignored)$/gm)]
+  .map((match) => ({ name: match[1], outcome: match[2] }));
+const failedTests = executedTests
+  .filter((test) => test.outcome !== 'ok')
+  .map((test) => test.name);
+const observedNames = executedTests.map((test) => test.name);
+const contractTestsMatch = observedNames.length === EXPECTED_CONTRACT_TESTS.length
+  && EXPECTED_CONTRACT_TESTS.every((name) => observedNames.includes(name));
+const contractPassed = cargoPassed && contractTestsMatch && failedTests.length === 0;
 const report = {
   status: contractPassed ? 'pass' : 'fail',
   schema_version: 1,
   tree_sha: treeSha,
   head_sha: headSha,
+  snapshot_sha: snapshotSha,
+  working_tree_dirty: stagedDiff.length > 0 || workingDiff.length > 0,
   runner_digest: runnerDigest,
   manifest_revision: manifest.manifest_revision,
   cargo_exit_code: cargoTest.status ?? -1,
-  cargo_output: cargoTest.stdout ?? '',
-  cargo_stderr: contractPassed ? undefined : (cargoTest.stderr ?? ''),
+  contract_test_count: executedTests.length,
+  failed_tests: failedTests,
   target_count: manifest.targets.length,
-  timestamp_iso: new Date().toISOString(),
 };
 
 // --- Relatório ---
@@ -147,6 +179,6 @@ mkdirSync(resolve(root, 'security', 'reports'), { recursive: true });
 writeFileSync(outPath, JSON.stringify(report, null, 2) + '\n', 'utf8');
 console.log(`fuzz: status=${report.status} tree=${treeSha.slice(0,12)}... head=${headSha.slice(0,12)}... runner_digest=${runnerDigest.slice(0,12)}...`);
 if (report.status !== 'pass') {
-  console.error(report.cargo_stderr);
+  console.error(cargoTest.stderr ?? 'fuzz contract did not pass');
   process.exit(1);
 }

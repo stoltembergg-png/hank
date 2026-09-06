@@ -17,8 +17,8 @@ const rustTest = 'fuzz_contract';
 function runRust() {
   const r = spawnSync(
     'cargo',
-    ['test', '-p', rustPackage, '--test', rustTest, '--locked'],
-    { cwd: root, encoding: 'utf8', env: { ...process.env, RUSTFLAGS: '' } },
+    ['test', '-p', rustPackage, '--test', rustTest, '--locked', '--offline'],
+    { cwd: root, encoding: 'utf8', env: { ...process.env, CARGO_TERM_COLOR: 'never', RUSTFLAGS: '' } },
   );
   if (r.status !== 0) {
     process.stderr.write(r.stderr ?? '');
@@ -26,12 +26,8 @@ function runRust() {
   }
 
   const text = r.stdout ?? '';
-  const m = text.match(/test result: ok\. (\d+) passed/);
-  if (!m) {
-    process.stderr.write('could not parse cargo test result\n');
-    process.exit(1);
-  }
-  const passed = parseInt(m[1], 10);
+  const observed = [...text.matchAll(/^test (\S+) \.\.\. (ok|FAILED|ignored)$/gm)]
+    .map((match) => ({ name: match[1], outcome: match[2] }));
 
   // Map each Rust test in fuzz_contract.rs to the AC it covers.
   const rustAcs = [
@@ -47,16 +43,27 @@ function runRust() {
     ['regression_each_target_kind_is_exercised', 'AC-2202'],
   ];
 
+  const expectedNames = rustAcs.map(([name]) => name).sort();
+  const observedNames = observed.map((test) => test.name).sort();
+  if (observed.length !== rustAcs.length
+      || expectedNames.some((name, index) => name !== observedNames[index])) {
+    process.stderr.write('cargo test set diverged from fuzz contract registry\n');
+    process.exit(1);
+  }
+  if (observed.some((test) => test.outcome !== 'ok')) {
+    process.stderr.write('one or more fuzz contract tests did not pass\n');
+    process.exit(1);
+  }
+
   console.log('TAP version 13');
   for (let i = 0; i < rustAcs.length; i += 1) {
     const [name, ac] = rustAcs[i];
-    const ok = i < passed;
-    console.log(`${ok ? 'ok' : 'not ok'} ${i + 1} - rust::${name} @spec:${ac}`);
+    console.log(`ok ${i + 1} - rust::${name} @spec:${ac}`);
   }
   console.log(`1..${rustAcs.length}`);
   console.log(`# tests ${rustAcs.length}`);
-  console.log(`# pass ${Math.min(passed, rustAcs.length)}`);
-  console.log(`# fail ${Math.max(0, rustAcs.length - passed)}`);
+  console.log(`# pass ${rustAcs.length}`);
+  console.log('# fail 0');
 }
 
 runRust();

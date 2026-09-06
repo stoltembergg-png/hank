@@ -29,6 +29,7 @@ pub struct FuzzManifestTarget {
     pub id: String,
     pub kind: TargetKind,
     pub parser: String,
+    pub parser_source: String,
     pub invariants: Vec<Invariant>,
     pub smoke_iterations: usize,
     pub corpus_path: String,
@@ -40,7 +41,8 @@ impl FuzzManifest {
     pub fn from_json(bytes: &[u8]) -> Result<Self, String> {
         serde_json::from_slice(bytes).map_err(|e| e.to_string())
     }
-    /// Validate the manifest: schema_version must be 1, no empty ids.
+    /// Validate the manifest: schema_version must be 1 and the canonical
+    /// seven target ids/kinds must be present in deterministic order.
     pub fn validate(&self) -> Result<(), String> {
         if self.schema_version != 1 {
             return Err(format!(
@@ -54,12 +56,71 @@ impl FuzzManifest {
         if self.runner_digest.is_empty() {
             return Err("runner_digest is empty".to_string());
         }
-        for t in &self.targets {
-            if t.id.is_empty() {
-                return Err("target id is empty".to_string());
+        if self.targets.len() != 7 {
+            return Err(format!("expected 7 targets, got {}", self.targets.len()));
+        }
+        for (index, t) in self.targets.iter().enumerate() {
+            let expected_id = format!("FT-{:03}", index + 1);
+            if t.id != expected_id {
+                return Err(format!("target {} is out of canonical order", t.id));
             }
-            if t.smoke_iterations == 0 {
-                return Err(format!("target {} has zero smoke_iterations", t.id));
+            let expected_kind = match index {
+                0 => TargetKind::Envelope,
+                1 => TargetKind::Policy,
+                2 => TargetKind::State,
+                3 => TargetKind::Permission,
+                4 => TargetKind::ReleaseMetadata,
+                5 => TargetKind::HashChain,
+                6 => TargetKind::RateLimit,
+                _ => unreachable!(),
+            };
+            if t.kind != expected_kind {
+                return Err(format!("target {} has a divergent kind", t.id));
+            }
+            if t.parser.is_empty() || t.parser_source.is_empty() {
+                return Err(format!("target {} has an empty parser", t.id));
+            }
+            if t.invariants.is_empty() {
+                return Err(format!("target {} has no invariants", t.id));
+            }
+            if t.smoke_iterations < 8 {
+                return Err(format!("target {} has fewer than 8 smoke_iterations", t.id));
+            }
+            if t.corpus_path.is_empty() {
+                return Err(format!("target {} has an empty corpus_path", t.id));
+            }
+        }
+        Ok(())
+    }
+
+    /// Bind manifest entries to the registered Rust targets before execution.
+    pub fn validate_against_targets(&self, targets: &[&dyn FuzzTarget]) -> Result<(), String> {
+        if targets.len() != self.targets.len() {
+            return Err(format!(
+                "manifest/registry length mismatch: {} != {}",
+                self.targets.len(),
+                targets.len()
+            ));
+        }
+        for (manifest, target) in self.targets.iter().zip(targets.iter()) {
+            let target_id = target.id();
+            if manifest.id != target_id.as_str() {
+                return Err(format!(
+                    "manifest target {} does not match registry {}",
+                    manifest.id, target_id
+                ));
+            }
+            if manifest.kind != target.kind() {
+                return Err(format!(
+                    "target {} kind diverges from registry",
+                    manifest.id
+                ));
+            }
+            if manifest.smoke_iterations != target.smoke_iterations() {
+                return Err(format!(
+                    "target {} smoke_iterations diverges from registry",
+                    manifest.id
+                ));
             }
         }
         Ok(())
@@ -428,11 +489,16 @@ pub fn default_corpus() -> Vec<Vec<Vec<u8>>> {
 /// from PR-260 (`NEG-001`) is the canonical source; this is a
 /// re-statement for self-containment.
 pub fn default_negative_patterns() -> Vec<NegativePattern> {
-    vec![NegativePattern::new(
-        "NEG-001",
-        // Sentinel that should never appear in synthetic input.
-        b"\x00SECRET-SENTINEL\x00",
-    )]
+    vec![
+        NegativePattern::new(
+            "NEG-001",
+            // Sentinel that should never appear in synthetic input.
+            b"\x00SECRET-SENTINEL\x00",
+        ),
+        NegativePattern::new("NEG-002", b"AKIA"),
+        NegativePattern::new("NEG-003", b"-----BEGIN"),
+        NegativePattern::new("NEG-004", b"Bearer "),
+    ]
 }
 
 /// The default harness used by the contract test.
