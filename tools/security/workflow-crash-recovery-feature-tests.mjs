@@ -3,7 +3,9 @@ import { spawnSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const root = process.env.HANK_RUNNER_ROOT
+  ? resolve(process.env.HANK_RUNNER_ROOT)
+  : resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 function gitText(args) {
   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
@@ -18,10 +20,16 @@ function identity() {
   };
 }
 function statusAllowed(status) {
-  return status.split('\0').filter(Boolean).every((entry) => {
-    const path = entry.slice(3);
-    return path.startsWith('.spec/verification/') || path.startsWith('security/reports/');
-  });
+  const fields = status.split('\0').filter(Boolean);
+  for (let i = 0; i < fields.length; i += 1) {
+    const entry = fields[i];
+    const code = entry.slice(0, 2);
+    const paths = [entry.slice(3)];
+    if (code[0] === 'R' || code[0] === 'C') paths.push(fields[++i] ?? '');
+    if (paths.some((path) => !path.startsWith('.spec/verification/')
+      && !path.startsWith('security/reports/'))) return false;
+  }
+  return true;
 }
 const before = identity();
 const generatedEvidenceAllowed = process.env.HANK_ALLOW_GENERATED_EVIDENCE === '1';
