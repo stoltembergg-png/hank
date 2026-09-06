@@ -24,7 +24,8 @@ function statusAllowed(status) {
   });
 }
 const before = identity();
-if (before.status && process.env.HANK_ALLOW_GENERATED_EVIDENCE !== '1') {
+const generatedEvidenceAllowed = process.env.HANK_ALLOW_GENERATED_EVIDENCE === '1';
+if (before.status && (!generatedEvidenceAllowed || !statusAllowed(before.status))) {
   process.stderr.write('workflow recovery runner requires a clean checkout\n');
   process.exit(1);
 }
@@ -53,7 +54,7 @@ if (observed.length !== expected.length || expected.some(([name], i) => observed
 }
 const after = identity();
 if (after.head !== before.head || after.tree !== before.tree || after.status !== before.status
-  || (after.status && process.env.HANK_ALLOW_GENERATED_EVIDENCE !== '1' && !statusAllowed(after.status))) {
+  || (after.status && !statusAllowed(after.status))) {
   process.stderr.write('workflow recovery runner identity changed during execution\n');
   process.exit(1);
 }

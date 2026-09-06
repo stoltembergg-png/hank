@@ -88,6 +88,17 @@ async fn recovery_is_bounded_and_increments_generation() {
     assert_eq!(report.candidates.len(), 1);
     assert_eq!(report.candidates[0].previous_generation, old.generation);
     assert_eq!(report.candidates[0].new_generation, old.generation + 1);
+    let untouched: (i64, Option<String>) =
+        sqlx::query_as("SELECT generation, lease_owner FROM workflow_runs WHERE run_id = 'run-2'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    let reports: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM workflow_recovery_reports")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(untouched, (0, Some("runner-z".into())));
+    assert_eq!(reports.0, 1);
 }
 
 // @spec:AC-1052
