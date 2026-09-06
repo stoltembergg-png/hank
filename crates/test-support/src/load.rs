@@ -7,6 +7,8 @@ use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Serialize};
 
 pub const MAX_PROFILES: usize = 3;
+pub const CANONICAL_FIXTURE_DIGEST: &str =
+    "8caf08c83a68555b411c01ee6dd6b34c140123f98c81e735ca38a2ae599fa031";
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
@@ -91,6 +93,8 @@ pub struct LoadMetrics {
     pub max_in_flight: usize,
     pub bounded_duration_ms: u64,
     pub seed: u64,
+    pub warmup_iterations: usize,
+    pub repetitions: usize,
     pub fixture_digest: String,
     pub artifact_digest: String,
     pub status: LoadStatus,
@@ -109,8 +113,8 @@ pub fn validate_manifest(manifest: &WorkloadManifest) -> bool {
     !manifest.revision.is_empty()
         && manifest.warmup_iterations <= 8
         && (1..=8).contains(&manifest.repetitions)
-        && !manifest.profiles.is_empty()
-        && manifest.profiles.len() <= MAX_PROFILES
+        && manifest.profiles == LoadProfile::all()
+        && manifest.fixture_digest == CANONICAL_FIXTURE_DIGEST
         && manifest.profiles.iter().all(|profile| {
             let limits = profile.limits();
             limits.concurrency > 0
@@ -123,20 +127,43 @@ pub fn validate_manifest(manifest: &WorkloadManifest) -> bool {
 /// Runs a bounded admission model with no wall-clock or host-resource sampling.
 #[must_use]
 pub fn run_profile(profile: LoadProfile, seed: u64, fixture_digest: &str) -> LoadMetrics {
+    run_profile_with_plan(profile, seed, fixture_digest, 0, 1)
+}
+
+#[must_use]
+pub fn run_profile_with_plan(
+    profile: LoadProfile,
+    seed: u64,
+    fixture_digest: &str,
+    warmup_iterations: usize,
+    repetitions: usize,
+) -> LoadMetrics {
+    let repetitions = repetitions.max(1);
     let limits = profile.limits();
     let available = limits.concurrency.saturating_add(limits.queue);
-    let admitted = limits.requests.min(available);
-    let rejected = limits.requests.saturating_sub(admitted);
-    let cancelled = admitted / 8;
-    let completed = admitted.saturating_sub(cancelled);
-    let peak_queue = admitted
+    let admitted_one = limits.requests.min(available);
+    let rejected_one = limits.requests.saturating_sub(admitted_one);
+    let cancelled_one = admitted_one / 8;
+    let completed_one = admitted_one.saturating_sub(cancelled_one);
+    let peak_queue = admitted_one
         .saturating_sub(limits.concurrency)
         .min(limits.queue);
-    let status = if rejected > 0 {
+    let status = if rejected_one > 0 {
         LoadStatus::AdmissionBound
     } else {
         LoadStatus::Pass
     };
+    let _warmup_work = (0..warmup_iterations).map(|_| admitted_one).sum::<usize>();
+    let mut admitted = 0usize;
+    let mut rejected = 0usize;
+    let mut cancelled = 0usize;
+    let mut completed = 0usize;
+    for _ in 0..repetitions {
+        admitted += admitted_one;
+        rejected += rejected_one;
+        cancelled += cancelled_one;
+        completed += completed_one;
+    }
     let mut metrics = LoadMetrics {
         profile,
         concurrency: limits.concurrency,
@@ -147,8 +174,10 @@ pub fn run_profile(profile: LoadProfile, seed: u64, fixture_digest: &str) -> Loa
         cancelled,
         peak_queue,
         max_in_flight: limits.concurrency.min(admitted),
-        bounded_duration_ms: limits.duration_ms,
+        bounded_duration_ms: limits.duration_ms * repetitions as u64,
         seed,
+        warmup_iterations,
+        repetitions,
         fixture_digest: fixture_digest.into(),
         artifact_digest: String::new(),
         status,
@@ -167,10 +196,12 @@ pub fn run_manifest(manifest: &WorkloadManifest) -> Vec<LoadMetrics> {
         .iter()
         .enumerate()
         .map(|(index, profile)| {
-            run_profile(
+            run_profile_with_plan(
                 *profile,
                 manifest.seed + index as u64,
                 &manifest.fixture_digest,
+                manifest.warmup_iterations,
+                manifest.repetitions,
             )
         })
         .collect()
@@ -183,7 +214,7 @@ pub fn digest_fixture(value: &str) -> String {
 
 fn digest_metrics(metrics: &LoadMetrics) -> String {
     let material = format!(
-        "{:?}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
+        "{:?}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
         metrics.profile,
         metrics.seed,
         metrics.requests,
@@ -194,6 +225,8 @@ fn digest_metrics(metrics: &LoadMetrics) -> String {
         metrics.peak_queue,
         metrics.max_in_flight,
         metrics.bounded_duration_ms,
+        metrics.warmup_iterations,
+        metrics.repetitions,
         metrics.fixture_digest
     );
     digest_fixture(&material)

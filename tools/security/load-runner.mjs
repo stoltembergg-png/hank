@@ -9,13 +9,27 @@ const manifestPath = resolve(root, 'docs/performance/load-manifest.json');
 const defaultOut = resolve(root, 'security/reports/load.json');
 const outArg = process.argv.indexOf('--out');
 const outPath = outArg >= 0 && process.argv[outArg + 1] ? resolve(root, process.argv[outArg + 1]) : defaultOut;
+function runGit(args) {
+  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+  if (result.status !== 0) process.exit(1);
+  return result.stdout.trim();
+}
+const dirty = runGit(['status', '--porcelain', '--untracked-files=all']);
+if (dirty) {
+  process.stderr.write('load runner requires a clean checkout before execution\\n');
+  process.exit(1);
+}
+const headSha = runGit(['rev-parse', 'HEAD']);
+const treeSha = runGit(['rev-parse', 'HEAD^{tree}']);
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 const expectedProfiles = ['S', 'M', 'L'];
+const expectedFixtureDigest = '8caf08c83a68555b411c01ee6dd6b34c140123f98c81e735ca38a2ae599fa031';
 const valid = manifest.revision === 'PR-262'
   && manifest.seed === 26200
   && manifest.warmup_iterations <= 8
   && manifest.repetitions >= 1 && manifest.repetitions <= 8
   && JSON.stringify(manifest.profiles) === JSON.stringify(expectedProfiles)
+  && manifest.fixture_digest === expectedFixtureDigest
   && manifest.host_metrics === false
   && manifest.production_traffic === false
   && manifest.credentials === false
@@ -36,6 +50,8 @@ const passed = result.status === 0;
 const receipt = {
   schema_version: 1,
   revision: manifest.revision,
+  head_sha: headSha,
+  tree_sha: treeSha,
   profiles: manifest.profiles,
   seed: manifest.seed,
   fixture_digest: manifest.fixture_digest,

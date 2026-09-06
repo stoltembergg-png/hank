@@ -1,6 +1,6 @@
 use test_support::load::{
     digest_fixture, run_manifest, run_profile, validate_manifest, LoadProfile, LoadStatus,
-    WorkloadManifest, MAX_PROFILES,
+    WorkloadManifest, CANONICAL_FIXTURE_DIGEST, MAX_PROFILES,
 };
 
 // @spec:AC-2301
@@ -13,6 +13,7 @@ fn manifest_declares_bounded_profiles_and_fixture_digest() {
         manifest.fixture_digest,
         digest_fixture("PR-262:synthetic:redacted")
     );
+    assert_eq!(manifest.fixture_digest, CANONICAL_FIXTURE_DIGEST);
 }
 
 // @spec:AC-2302
@@ -41,6 +42,8 @@ fn repeated_runs_are_deterministic_and_redacted() {
     let first = run_manifest(&manifest);
     let second = run_manifest(&manifest);
     assert_eq!(first, second);
+    assert_eq!(first[0].warmup_iterations, manifest.warmup_iterations);
+    assert_eq!(first[0].repetitions, manifest.repetitions);
     let serialized = serde_json::to_string(&first).expect("metrics serialize");
     assert!(!serialized.contains("password"));
     assert!(!serialized.contains("token"));

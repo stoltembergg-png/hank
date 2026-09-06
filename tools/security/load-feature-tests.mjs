@@ -4,6 +4,18 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+function git(args) {
+  const value = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+  if (value.status !== 0) process.exit(1);
+  return value.stdout.trim();
+}
+const dirty = git(['status', '--porcelain', '--untracked-files=all']);
+if (dirty && dirty !== '?? security/reports/load.json') {
+  process.stderr.write('load feature tests require a clean checkout\n');
+  process.exit(1);
+}
+const headSha = git(['rev-parse', 'HEAD']);
+const treeSha = git(['rev-parse', 'HEAD^{tree}']);
 const tests = [
   ['manifest_declares_bounded_profiles_and_fixture_digest', 'AC-2301'],
   ['admission_and_backpressure_are_explicit', 'AC-2302'],
@@ -34,6 +46,8 @@ if (observed.length !== expected.length || expected.some(([name], index) => obse
 console.log('TAP version 13');
 tests.forEach(([name, ac], index) => console.log(`ok ${index + 1} - rust::${name} @spec:${ac}`));
 console.log(`1..${tests.length}`);
+console.log(`# head_sha ${headSha}`);
+console.log(`# tree_sha ${treeSha}`);
 console.log(`# tests ${tests.length}`);
 console.log(`# pass ${tests.length}`);
 console.log('# fail 0');
