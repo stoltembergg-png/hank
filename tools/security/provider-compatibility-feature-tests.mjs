@@ -57,10 +57,19 @@ try {
   if (canonical(manifest.providers) !== canonical(expectedProviders)) {
     throw new Error('provider compatibility manifest entries diverge from canonical matrix');
   }
-  const statusEntries = gitStatus().split('\0').filter(Boolean);
-  const unexpected = statusEntries
-    .map((entry) => entry.slice(3))
-    .filter((path) => !allowedGeneratedPath(path));
+  const records = gitStatus().split('\0').filter(Boolean);
+  const paths = [];
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index];
+    const status = record.slice(0, 2);
+    paths.push(record.slice(3));
+    if (status.includes('R') || status.includes('C')) {
+      const originalPath = records[++index];
+      if (originalPath === undefined) throw new Error('incomplete rename/copy record');
+      paths.push(originalPath);
+    }
+  }
+  const unexpected = paths.filter((path) => !allowedGeneratedPath(path));
   if (unexpected.length) throw new Error(`provider compatibility runner rejects unexpected paths: ${unexpected.join(', ')}`);
   const headSha = git(['rev-parse', 'HEAD']);
   const treeSha = git(['rev-parse', 'HEAD^{tree}']);
@@ -71,7 +80,7 @@ try {
 
   const results = [];
   for (const [pkg, test, ac] of expected) {
-    const result = spawnSync('cargo', ['test', '-p', pkg, '--test', test, '--locked'], {
+    const result = spawnSync('cargo', ['test', '-p', pkg, '--test', test, '--locked', '--offline'], {
       cwd: root,
       encoding: 'utf8',
       env: { PATH: process.env.PATH, HOME: process.env.HOME, CARGO_HOME: process.env.CARGO_HOME, RUSTUP_HOME: process.env.RUSTUP_HOME, CARGO_TERM_COLOR: 'never', HANK_PROVIDER_NETWORK: 'disabled' },

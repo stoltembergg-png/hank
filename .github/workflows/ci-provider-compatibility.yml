@@ -21,5 +21,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - name: Prime locked dependency cache
+        run: cargo fetch --locked
       - name: Run provider compatibility matrix
         run: node tools/security/provider-compatibility-feature-tests.mjs
