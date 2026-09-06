@@ -6,7 +6,7 @@
 
 use test_support::fuzz::{
     digest_corpus, digest_runner, run_all_targets, verify_no_secrets, FuzzHarness, FuzzLimits,
-    FuzzReport, FuzzStatus, NegativePattern, TargetId, TargetKind,
+    FuzzReport, FuzzStatus, NegativePattern, TargetError, TargetId, TargetKind,
 };
 use test_support::fuzz_targets::{
     default_corpus, default_harness, default_negative_patterns, default_targets,
@@ -193,6 +193,31 @@ fn bounded_resource_time_limits_ac_2205() {
     );
     let slow_report = slow_harness.run_target(&SlowTarget, &[b"{}".to_vec()], SEED);
     assert_eq!(slow_report.status, FuzzStatus::Timeout);
+
+    struct InvariantTarget;
+    impl test_support::fuzz::FuzzTarget for InvariantTarget {
+        fn id(&self) -> TargetId {
+            TargetId::new("FT-INVARIANT")
+        }
+        fn kind(&self) -> TargetKind {
+            TargetKind::State
+        }
+        fn run(&self, _input: &[u8]) -> Result<(), String> {
+            Err("invariant failed".to_string())
+        }
+        fn classify_error(&self, message: &str) -> TargetError {
+            TargetError::InvariantViolation(message.to_string())
+        }
+        fn invariants(&self) -> &[test_support::fuzz::Invariant] {
+            &[test_support::fuzz::Invariant::AcceptsValid]
+        }
+        fn smoke_iterations(&self) -> usize {
+            1
+        }
+    }
+    let invariant_report = harness_raised.run_target(&InvariantTarget, &[b"{}".to_vec()], SEED);
+    assert_eq!(invariant_report.status, FuzzStatus::InvariantViolation);
+    assert_eq!(invariant_report.invariant_violations, 1);
 }
 
 #[test]
