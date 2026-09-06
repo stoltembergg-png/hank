@@ -86,17 +86,17 @@ test('fuzz-manifest FT-00N IDs são únicos e não se repetem @spec:AC-2202', ()
 });
 
 test('fuzz-runner mansa com git credentials em path? @spec:NEG-001', () => {
-  // Neg-001: não deve expor segredos no runner; verificamos que o
-  // runner não lê de paths que contenham patterns comuns de credencial.
-  const withFakeSecret = {
-    ...process.env,
-    AWS_ACCESS_KEY_ID: '[REDACTED]',
-  };
-  const runner = spawnSync(
-    'node', ['tools/security/fuzz-runner.mjs'], {
-      cwd: root, encoding: 'utf8',
-      env: withFakeSecret,
-    },
-  );
+  const withFakeSecret = { ...process.env, AWS_ACCESS_KEY_ID: '[REDACTED]' };
+  const runner = spawnSync('node', ['tools/security/fuzz-runner.mjs'], {
+    cwd: root, encoding: 'utf8', env: withFakeSecret,
+  });
   assert.equal(runner.status, 0, 'fuzz-runner deve manter-se inerte com fake credencial no ambiente');
+});
+
+test('runner aplica watchdog bounded ao contrato Rust @spec:AC-2205', () => {
+  const source = readFileSync(resolve(root, 'tools/security/fuzz-runner.mjs'), 'utf8');
+  assert.match(source, /timeout:\s*CARGO_TIMEOUT_MS/);
+  assert.match(source, /cargoTimedOut/);
+  assert.match(source, /cargo_timeout_ms/);
+  assert.match(source, /cargo_timed_out/);
 });

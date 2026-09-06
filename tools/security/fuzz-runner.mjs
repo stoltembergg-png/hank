@@ -21,6 +21,7 @@ import { createHash } from 'node:crypto';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..', '..');
+const CARGO_TIMEOUT_MS = 120_000;
 const EXPECTED_MANIFEST_REVISION = 'FT-001';
 const EXPECTED_TARGET_IDS = ['FT-001', 'FT-002', 'FT-003', 'FT-004', 'FT-005', 'FT-006', 'FT-007'];
 const EXPECTED_TARGET_KINDS = {
@@ -152,9 +153,12 @@ const cargoTest = spawnSync(
     cwd: root,
     encoding: 'utf8',
     env: { ...process.env, CARGO_TERM_COLOR: 'never', RUSTFLAGS: '' },
+    timeout: CARGO_TIMEOUT_MS,
+    killSignal: 'SIGTERM',
   },
 );
 
+const cargoTimedOut = cargoTest.error?.code === 'ETIMEDOUT';
 const cargoPassed = cargoTest.status === 0;
 const cargoStdout = cargoTest.stdout ?? '';
 const executedTests = [...cargoStdout.matchAll(/^test (\S+) \.\.\. (ok|FAILED|ignored)$/gm)]
@@ -176,6 +180,8 @@ const report = {
   runner_digest: runnerDigest,
   manifest_revision: manifest.manifest_revision,
   cargo_exit_code: cargoTest.status ?? -1,
+  cargo_timeout_ms: CARGO_TIMEOUT_MS,
+  cargo_timed_out: cargoTimedOut,
   contract_test_count: executedTests.length,
   failed_tests: failedTests,
   target_count: manifest.targets.length,
