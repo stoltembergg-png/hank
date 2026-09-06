@@ -1,0 +1,47 @@
+{
+  "feature": "release-signing",
+  "timestamp": "2026-09-06T21:31:03.129Z",
+  "gitRev": "11b6f59",
+  "command": "node tools/security/release-signing-feature-tests.mjs",
+  "reporter": "tap",
+  "exitCode": 0,
+  "testsParsed": 7,
+  "results": {
+    "AC-2661": {
+      "status": "pass",
+      "testName": "AC-2661: valid artifact tuple verifies with independent public key @spec:AC-2661",
+      "method": "tap"
+    },
+    "AC-2662": {
+      "status": "pass",
+      "testName": "AC-2662: substituted digest is rejected @spec:AC-2662",
+      "method": "tap"
+    },
+    "AC-2663": {
+      "status": "pass",
+      "testName": "AC-2663: wrong commit, tree, channel, or policy is rejected @spec:AC-2663",
+      "method": "tap"
+    },
+    "AC-2664": {
+      "status": "pass",
+      "testName": "AC-2664: stale or revoked signer identity is rejected @spec:AC-2664",
+      "method": "tap"
+    },
+    "AC-2665": {
+      "status": "pass",
+      "testName": "AC-2665: malformed or incomplete proof fails closed @spec:AC-2665",
+      "method": "tap"
+    },
+    "AC-2666": {
+      "status": "pass",
+      "testName": "AC-2666: oversized identity fields are rejected @spec:AC-2666",
+      "method": "tap"
+    },
+    "AC-2667": {
+      "status": "pass",
+      "testName": "AC-2667: digest is deterministic and length bounded @spec:AC-2667",
+      "method": "tap"
+    }
+  },
+  "principles": {}
+}

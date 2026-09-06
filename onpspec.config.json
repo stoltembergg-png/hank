@@ -8,6 +8,7 @@
     "load-tests": "node tools/security/load-feature-tests.mjs",
     "workflow-crash-recovery": "node tools/security/workflow-crash-recovery-feature-tests.mjs",
     "agent-loop-tests": "node tools/security/agent-loop-feature-tests.mjs",
+    "release-signing": "node tools/security/release-signing-feature-tests.mjs",
     "provider-compatibility-tests": "node tools/security/provider-compatibility-feature-tests.mjs"
   },
   "reporter": "exitcode",
@@ -19,6 +20,7 @@
     "load-tests": "tap",
     "workflow-crash-recovery": "tap",
     "agent-loop-tests": "tap",
+    "release-signing": "tap",
     "provider-compatibility-tests": "tap"
   },
   "testGlobs": [
