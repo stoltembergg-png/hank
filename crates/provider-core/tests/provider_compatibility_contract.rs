@@ -131,6 +131,7 @@ fn provider_and_model_identity_must_match_fixture() {
     .is_err());
 }
 
+// @spec:AC-2655
 // @spec:AC-2654
 #[test]
 fn fixture_contract_never_requires_live_credentials_or_network() {
