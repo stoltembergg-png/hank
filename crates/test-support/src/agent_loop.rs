@@ -68,7 +68,8 @@ pub fn run_loop(steps: &[LoopStep], policy: LoopPolicy) -> Result<LoopReport, Lo
     }
     let mut events = Vec::new();
     let mut spent: u32 = 0;
-    let mut seen = Vec::new();
+    let mut seen_tools = Vec::new();
+    let mut seen_delegations = Vec::new();
     let mut status = LoopStatus::TurnLimit;
     if policy.cancelled {
         status = LoopStatus::Cancelled;
@@ -94,7 +95,7 @@ pub fn run_loop(steps: &[LoopStep], policy: LoopPolicy) -> Result<LoopReport, Lo
                     status = LoopStatus::PermissionDenied;
                     break;
                 }
-                if seen.iter().any(|value: &String| value == key) {
+                if seen_tools.iter().any(|value: &String| value == key) {
                     status = LoopStatus::DuplicateReplay;
                     events.push(LoopEvent {
                         turn,
@@ -104,11 +105,14 @@ pub fn run_loop(steps: &[LoopStep], policy: LoopPolicy) -> Result<LoopReport, Lo
                     });
                     continue;
                 }
-                if spent.saturating_add(*cost) > policy.budget {
+                if spent
+                    .checked_add(*cost)
+                    .is_none_or(|total| total > policy.budget)
+                {
                     status = LoopStatus::BudgetExceeded;
                     break;
                 }
-                seen.push(key.clone());
+                seen_tools.push(key.clone());
                 spent += *cost;
                 events.push(LoopEvent {
                     turn,
@@ -122,11 +126,11 @@ pub fn run_loop(steps: &[LoopStep], policy: LoopPolicy) -> Result<LoopReport, Lo
                     status = LoopStatus::DepthDenied;
                     break;
                 }
-                if seen.iter().any(|value| value == target) {
+                if seen_delegations.iter().any(|value| value == target) {
                     status = LoopStatus::CycleDenied;
                     break;
                 }
-                seen.push(target.clone());
+                seen_delegations.push(target.clone());
                 events.push(LoopEvent {
                     turn,
                     kind: "delegate".into(),
@@ -135,7 +139,10 @@ pub fn run_loop(steps: &[LoopStep], policy: LoopPolicy) -> Result<LoopReport, Lo
                 });
             }
             LoopStep::Retry { cost } => {
-                if spent.saturating_add(*cost) > policy.budget {
+                if spent
+                    .checked_add(*cost)
+                    .is_none_or(|total| total > policy.budget)
+                {
                     status = LoopStatus::BudgetExceeded;
                     break;
                 }

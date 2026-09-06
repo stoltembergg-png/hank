@@ -11,6 +11,22 @@ const tests = [
   ['cancellation_and_stale_event_do_not_advance', 'AC-2504'],
   ['invalid_policy_and_turn_bound_fail_closed', 'AC-2505'],
 ];
+const gitText = (args) => {
+  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+  if (result.status !== 0) process.exit(1);
+  return result.stdout;
+};
+const identity = () => ({
+  head: gitText(['rev-parse', 'HEAD']).trim(),
+  tree: gitText(['rev-parse', 'HEAD^{tree}']).trim(),
+  status: gitText(['status', '--porcelain=v1', '-z', '--untracked-files=all']),
+});
+const statusAllowed = (status) => status.split('\0').filter(Boolean).every((entry) => {
+  const path = entry.slice(3);
+  return path.startsWith('.spec/verification/') || path.startsWith('security/reports/');
+});
+const before = identity();
+if (before.status && !statusAllowed(before.status)) process.exit(1);
 const run = spawnSync('cargo', ['test', '-p', 'test-support', '--test', 'agent_loop_contract', '--locked'], {
   cwd: root,
   encoding: 'utf8',
@@ -27,6 +43,9 @@ if (observed.length !== expected.length || expected.some(([name], index) => obse
   process.stderr.write('agent loop test set diverged\n');
   process.exit(1);
 }
+const after = identity();
+if (after.head !== before.head || after.tree !== before.tree || after.status !== before.status
+  || (after.status && !statusAllowed(after.status))) process.exit(1);
 const git = (args) => {
   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
   if (result.status !== 0) process.exit(1);

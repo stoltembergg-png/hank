@@ -94,10 +94,36 @@ fn permission_cycle_depth_and_budget_stop_fail_closed() {
         .status,
         LoopStatus::DepthDenied
     );
+    let collision = run_loop(
+        &[
+            LoopStep::Tool {
+                key: "same".into(),
+                cost: 1,
+                allowed: true,
+            },
+            LoopStep::Delegate {
+                target: "same".into(),
+                depth: 1,
+            },
+        ],
+        policy(),
+    )
+    .unwrap();
+    assert_eq!(collision.status, LoopStatus::TurnLimit);
+    assert_eq!(collision.events.len(), 2);
     assert_eq!(
-        run_loop(&[LoopStep::Retry { cost: 11 }], policy())
-            .unwrap()
-            .status,
+        run_loop(
+            &[
+                LoopStep::Retry { cost: u32::MAX },
+                LoopStep::Retry { cost: 1 },
+            ],
+            LoopPolicy {
+                budget: u32::MAX,
+                ..policy()
+            }
+        )
+        .unwrap()
+        .status,
         LoopStatus::BudgetExceeded
     );
 }

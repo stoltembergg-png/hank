@@ -26,11 +26,11 @@ sem alegar qualidade de modelo ou disponibilidade de provider.
 
 - **Dado** um pedido de tool repetido
 - **Quando** o loop reprocessar o pedido
-- **Então** registra replay sem cobrar novamente nem duplicar o efeito.
+- **Então** registra replay sem cobrar novamente nem duplicar o custo ou o evento de efeito modelado.
 
 #### AC-2503 — Policy e limites
 
-- **Dado** tool negada, ciclo, profundidade ou budget excedido
+- **Dado** tool negada, ciclo, profundidade ou orçamento excedido
 - **Quando** o loop avaliar o passo
 - **Então** interrompe fail-closed sem avançar.
 
