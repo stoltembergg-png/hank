@@ -27,7 +27,9 @@ test('AC-2673: wrong platform or digest rejects before install @spec:AC-2673', a
   const root = await mkdtemp(path.join(os.tmpdir(), 'hank-installer-'));
   await assert.rejects(simulateInstall({ root, artifact: { ...valid(), os: 'freebsd' } }), /artifact identity mismatch|target/);
   await assert.rejects(simulateInstall({ root, artifact: { ...valid(), digest: artifactDigest('wrong') }, expectedIdentity: identity }), /artifact identity mismatch/);
+  await assert.rejects(simulateInstall({ root, artifact: { ...valid(), identity: { ...identity, repository: 'other/repository' } }, expectedIdentity: identity }), /repository identity mismatch/);
   await assert.rejects(simulateInstall({ root, artifact: { ...valid(), identity: { ...identity, commit: 'c'.repeat(64) } }, expectedIdentity: identity }), /commit identity mismatch/);
+  await assert.rejects(simulateInstall({ root, artifact: { ...valid(), identity: { ...identity, tree: 'c'.repeat(64) } }, expectedIdentity: identity }), /tree identity mismatch/);
 });
 
 test('AC-2674: uninstall removes app but preserves profile @spec:AC-2674', async () => {
