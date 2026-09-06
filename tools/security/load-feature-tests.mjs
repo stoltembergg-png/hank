@@ -9,7 +9,12 @@ function git(args) {
   if (value.status !== 0) process.exit(1);
   return value.stdout.trim();
 }
-const status = git(['status', '--porcelain=v1', '-z', '--untracked-files=all']);
+function gitRaw(args) {
+  const value = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+  if (value.status !== 0) process.exit(1);
+  return value.stdout;
+}
+const status = gitRaw(['status', '--porcelain=v1', '-z', '--untracked-files=all']);
 const entries = status ? status.split('\0').filter(Boolean) : [];
 const allowed = (path) => path.startsWith('.spec/verification/') || path.startsWith('security/reports/');
 const unexpectedDirty = [];
