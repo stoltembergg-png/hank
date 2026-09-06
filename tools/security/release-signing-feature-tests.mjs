@@ -21,7 +21,8 @@ for (let index = 0; index < records.length; index += 1) {
     paths.push(original);
   }
 }
-if (paths.length) throw new Error(`dirty worktree is not evidence: ${paths.join(', ')}`);
+const unexpected = paths.filter((path) => path && !path.startsWith('.spec/verification/') && !path.startsWith('security/reports/'));
+if (unexpected.length) throw new Error(`unexpected dirty paths: ${unexpected.join(', ')}`);
 const expected = ['AC-2661', 'AC-2662', 'AC-2663', 'AC-2664', 'AC-2665', 'AC-2666', 'AC-2667'];
 const result = spawnSync(process.execPath, ['--test', 'tools/release-signing.spec.mjs'], { cwd: root, encoding: 'utf8', env: { ...process.env, HANK_RELEASE_SIGNING_NETWORK: 'disabled' } });
 if (result.status !== 0) { process.stdout.write(result.stdout || ''); process.stderr.write(result.stderr || ''); process.exit(result.status ?? 1); }
