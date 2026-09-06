@@ -1,7 +1,7 @@
 {
   "feature": "installers",
-  "timestamp": "2026-09-06T23:13:48.469Z",
-  "gitRev": "940b6ed",
+  "timestamp": "2026-09-06T23:31:51.981Z",
+  "gitRev": "42b175b",
   "command": "node tools/security/installer-feature-tests.mjs",
   "reporter": "tap",
   "exitCode": 0,
