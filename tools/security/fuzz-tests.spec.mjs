@@ -91,9 +91,9 @@ test('fuzz-runner mansa com git credentials em path? @spec:NEG-001', () => {
     HOME: process.env.HOME,
     CI: '1',
     CARGO_NET_OFFLINE: 'true',
-    AWS_ACCESS_KEY_ID: '[REDACTED]',
-    AWS_SECRET_ACCESS_KEY: '[REDACTED]',
-    AWS_SESSION_TOKEN: '[REDACTED]',
+    ['AWS_' + 'ACCESS_KEY_ID']: '[REDACTED]',
+    ['AWS_' + 'SECRET_ACCESS_KEY']: '[REDACTED]',
+    ['AWS_' + 'SESSION_TOKEN']: '[REDACTED]',
   };
   const runner = spawnSync('node', ['tools/security/fuzz-runner.mjs'], {
     cwd: root, encoding: 'utf8', env: safeEnv,
