@@ -2,7 +2,7 @@
   "$schema": "https://example.invalid/nonexistent",
   "schema_version": 1,
   "manifest_revision": "FT-001",
-  "runner_digest": "d4d7fe1f350e6e83c8dc031c8d2c0ba52ad78616dfa5e950dd13619e6426cc56",
+  "runner_digest": "0cc8156b9f37f43274082cf3b22e34320e0e015c04f810759bb4c0173ac8b33f",
   "targets": [
     {
       "id": "FT-001",
@@ -65,7 +65,7 @@
       "kind": "hash_chain",
       "parser": "HashChainTarget::run",
       "parser_source": "crates/security-core/src/audit.rs",
-      "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
+      "invariants": ["no_panic", {"length_within":{"min_len":64,"max_len":64}}, "rejects_malformed", "accepts_valid"],
       "smoke_iterations": 8,
       "corpus_path": "synthetic:inline",
       "description": "Audit event parser para eventos de auditoria; rejeita entrada malformada sem panic."

@@ -31,13 +31,13 @@ fn manifest_is_well_formed_and_self_consistent_ac_2201() {
           "manifest_revision":"rev-1",
           "runner_digest":"abc",
           "targets":[
-            {"id":"FT-001","kind":"envelope","parser":"p","parser_source":"s","invariants":["no_panic"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
-            {"id":"FT-002","kind":"policy","parser":"p","parser_source":"s","invariants":["no_panic"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
-            {"id":"FT-003","kind":"state","parser":"p","parser_source":"s","invariants":["no_panic"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
-            {"id":"FT-004","kind":"permission","parser":"p","parser_source":"s","invariants":["no_panic"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
-            {"id":"FT-005","kind":"release_metadata","parser":"p","parser_source":"s","invariants":["no_panic"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
-            {"id":"FT-006","kind":"hash_chain","parser":"p","parser_source":"s","invariants":["no_panic"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
-            {"id":"FT-007","kind":"rate_limit","parser":"p","parser_source":"s","invariants":["no_panic"],"smoke_iterations":8,"corpus_path":"p","description":"d"}
+            {"id":"FT-001","kind":"envelope","parser":"p","parser_source":"s","invariants":["no_panic","rejects_malformed","accepts_valid"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
+            {"id":"FT-002","kind":"policy","parser":"p","parser_source":"s","invariants":["no_panic","rejects_malformed","accepts_valid"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
+            {"id":"FT-003","kind":"state","parser":"p","parser_source":"s","invariants":["no_panic","rejects_malformed","accepts_valid"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
+            {"id":"FT-004","kind":"permission","parser":"p","parser_source":"s","invariants":["no_panic","rejects_malformed","accepts_valid"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
+            {"id":"FT-005","kind":"release_metadata","parser":"p","parser_source":"s","invariants":["no_panic","rejects_malformed","accepts_valid"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
+            {"id":"FT-006","kind":"hash_chain","parser":"p","parser_source":"s","invariants":["no_panic",{"length_within":{"min_len":64,"max_len":64}},"rejects_malformed","accepts_valid"],"smoke_iterations":8,"corpus_path":"p","description":"d"},
+            {"id":"FT-007","kind":"rate_limit","parser":"p","parser_source":"s","invariants":["no_panic","rejects_malformed","accepts_valid"],"smoke_iterations":8,"corpus_path":"p","description":"d"}
           ]
         }"#,
     )
@@ -72,6 +72,15 @@ fn targets_enumerated_and_registered_ac_2202() {
         ));
         assert!(!t.invariants().is_empty());
         assert!(t.smoke_iterations() > 0);
+    }
+    let corpora = default_corpus();
+    for (target, corpus) in targets.iter().zip(corpora.iter()) {
+        let valid_input = corpus.first().expect("each target has a valid seed");
+        assert!(
+            target.run(valid_input).is_ok(),
+            "{} valid seed must be accepted",
+            target.id()
+        );
     }
 }
 

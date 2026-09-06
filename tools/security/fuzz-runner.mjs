@@ -15,7 +15,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
@@ -122,6 +122,14 @@ const treeSha = runGit(['rev-parse', 'HEAD^{tree}']).trim();
 const headSha = runGit(['rev-parse', 'HEAD']).trim();
 const stagedDiff = runGit(['diff', '--binary', '--cached', 'HEAD']);
 const workingDiff = runGit(['diff', '--binary', 'HEAD']);
+const untracked = runGit(['ls-files', '--others', '--exclude-standard'])
+  .split('\n')
+  .map((path) => path.trim())
+  .filter((path) => path && path !== relative(root, outPath));
+if (untracked.length > 0) {
+  console.error(`untracked input files present: ${untracked.join(', ')}`);
+  process.exit(1);
+}
 const snapshotSha = createHash('sha256')
   .update(headSha)
   .update('\u0000')

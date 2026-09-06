@@ -116,6 +116,12 @@ impl FuzzManifest {
                     manifest.id
                 ));
             }
+            if manifest.invariants.as_slice() != target.invariants() {
+                return Err(format!(
+                    "target {} invariants diverge from registry",
+                    manifest.id
+                ));
+            }
             if manifest.smoke_iterations != target.smoke_iterations() {
                 return Err(format!(
                     "target {} smoke_iterations diverges from registry",
@@ -179,7 +185,11 @@ impl FuzzTarget for EnvelopeTarget {
         Ok(())
     }
     fn invariants(&self) -> &[Invariant] {
-        &[Invariant::NoPanic, Invariant::RejectsMalformed]
+        &[
+            Invariant::NoPanic,
+            Invariant::RejectsMalformed,
+            Invariant::AcceptsValid,
+        ]
     }
     fn smoke_iterations(&self) -> usize {
         8
@@ -228,7 +238,11 @@ impl FuzzTarget for BranchPolicyTarget {
         Ok(())
     }
     fn invariants(&self) -> &[Invariant] {
-        &[Invariant::NoPanic, Invariant::RejectsMalformed]
+        &[
+            Invariant::NoPanic,
+            Invariant::RejectsMalformed,
+            Invariant::AcceptsValid,
+        ]
     }
     fn smoke_iterations(&self) -> usize {
         8
@@ -272,7 +286,11 @@ impl FuzzTarget for StateTarget {
         Ok(())
     }
     fn invariants(&self) -> &[Invariant] {
-        &[Invariant::NoPanic, Invariant::RejectsMalformed]
+        &[
+            Invariant::NoPanic,
+            Invariant::RejectsMalformed,
+            Invariant::AcceptsValid,
+        ]
     }
     fn smoke_iterations(&self) -> usize {
         8
@@ -314,7 +332,11 @@ impl FuzzTarget for PermissionTarget {
         Ok(())
     }
     fn invariants(&self) -> &[Invariant] {
-        &[Invariant::NoPanic, Invariant::RejectsMalformed]
+        &[
+            Invariant::NoPanic,
+            Invariant::RejectsMalformed,
+            Invariant::AcceptsValid,
+        ]
     }
     fn smoke_iterations(&self) -> usize {
         8
@@ -361,7 +383,11 @@ impl FuzzTarget for ReleaseMetadataTarget {
         Ok(())
     }
     fn invariants(&self) -> &[Invariant] {
-        &[Invariant::NoPanic, Invariant::RejectsMalformed]
+        &[
+            Invariant::NoPanic,
+            Invariant::RejectsMalformed,
+            Invariant::AcceptsValid,
+        ]
     }
     fn smoke_iterations(&self) -> usize {
         8
@@ -398,6 +424,7 @@ impl FuzzTarget for HashChainTarget {
                 max_len: 64,
             },
             Invariant::RejectsMalformed,
+            Invariant::AcceptsValid,
         ]
     }
     fn smoke_iterations(&self) -> usize {
@@ -446,7 +473,11 @@ impl FuzzTarget for RateLimitTarget {
         Ok(())
     }
     fn invariants(&self) -> &[Invariant] {
-        &[Invariant::NoPanic, Invariant::RejectsMalformed]
+        &[
+            Invariant::NoPanic,
+            Invariant::RejectsMalformed,
+            Invariant::AcceptsValid,
+        ]
     }
     fn smoke_iterations(&self) -> usize {
         8

@@ -47,7 +47,7 @@ reexecutável e sem exfiltração de credenciais.
 
 - **Dado** qualquer execução de target
 - **Quando** o harness iniciar uma iteração
-- **Então** o limite total deve ser bounded por `smoke_iterations × per_iter_timeout_ms`, a memória configurada deve permanecer bounded e qualquer excedente deve resultar em timeout ou OOM explícito, nunca em execução ilimitada.
+- **Então** cada iteração retornada deve ser comparada a `per_iter_timeout_ms`, a entrada deve respeitar o orçamento de alocação derivado de `max_memory_mb`, e excedentes devem resultar em timeout ou OOM explícito; o contrato não mede memória do host nem promete interromper um target que nunca retorna, que fica limitado pelo timeout bounded do job CI.
 
 #### AC-2206 — Saída do runner é TAP único
 
