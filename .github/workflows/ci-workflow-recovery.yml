@@ -27,4 +27,4 @@ jobs:
         with:
           node-version: 22.22.2
       - name: Run bounded recovery contract
-        run: node tools/security/workflow-recovery-feature-tests.mjs
+        run: node tools/security/workflow-crash-recovery-feature-tests.mjs
