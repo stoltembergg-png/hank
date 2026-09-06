@@ -18,5 +18,5 @@
 ## T-2673 — Integrate installer contract into CI and ONP [concluída]
 
 - Refs: AC-2671, AC-2672, AC-2673, AC-2675, AC-2676
-- Arquivos: tools/security/installer-feature-tests.mjs, .github/workflows/ci-installers.yml, .github/workflows/onp-sdd-evidence.yml, onpspec.config.json
+- Arquivos: tools/security/installer-feature-tests.mjs, tools/security/bind-installer-evidence.mjs, .github/workflows/ci-installers.yml, .github/workflows/onp-sdd-evidence.yml, onpspec.config.json
 - Testes: strict TAP runner, workflow integrity and ONP verify.

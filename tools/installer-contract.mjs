@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export const SCHEMA_VERSION = 1;
@@ -28,14 +28,18 @@ export function validateInstallerManifest(manifest) {
     if (!actual || actual.format !== expected.format || actual.profilePolicy !== 'preserve') throw new Error(`missing target ${expected.os}/${expected.arch}`);
     if (!Array.isArray(actual.sidecars) || actual.sidecars.some((sidecar) => canonicalRelativePath(sidecar) !== sidecar)) throw new Error('invalid sidecar path');
   }
-  if (manifest.security?.installShellFromMetadata !== false || manifest.security?.secretsEmbedded !== false) throw new Error('unsafe installer policy');
+  const requiredSecurity = { installShellFromMetadata: false, secretsEmbedded: false, signatureRequired: true, digestRequired: true, profileDeletionByDefault: false, migrationBeforeUse: true };
+  if (!manifest.security || Object.entries(requiredSecurity).some(([key, value]) => manifest.security[key] !== value)) throw new Error('unsafe installer policy');
   return true;
 }
 
-export async function simulateInstall({ root, artifact, profile = { 'profile.json': '{"version":1}' } }) {
+export async function simulateInstall({ root, artifact, profile = { 'profile.json': '{"version":1}' }, expectedIdentity }) {
   validateInstallerManifest(artifact.manifest);
   const target = artifact.manifest.targets.find((entry) => entry.os === artifact.os && entry.arch === artifact.arch);
   if (!target || artifact.digest !== artifactDigest(artifact.bytes)) throw new Error('artifact identity mismatch');
+  for (const field of ['repository', 'commit', 'tree']) {
+    if (typeof artifact.identity?.[field] !== 'string' || artifact.identity[field] !== expectedIdentity?.[field]) throw new Error(`${field} identity mismatch`);
+  }
   await mkdir(path.join(root, 'app'), { recursive: true });
   await writeFile(path.join(root, 'app', 'artifact.bin'), artifact.bytes);
   await mkdir(path.join(root, 'profile'), { recursive: true });
@@ -45,6 +49,6 @@ export async function simulateInstall({ root, artifact, profile = { 'profile.jso
 
 export async function simulateUninstall({ root }) {
   await rm(path.join(root, 'app'), { recursive: true, force: true });
-  const profileExists = await readFile(path.join(root, 'profile', 'profile.json'), 'utf8').then(() => true, () => false);
-  return { outcome: 'uninstalled', profilePreserved: profileExists };
+  const profileEntries = await readdir(path.join(root, 'profile'));
+  return { outcome: 'uninstalled', profilePreserved: profileEntries.length > 0 };
 }
