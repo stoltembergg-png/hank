@@ -269,6 +269,8 @@ jobs:
         env:
           HANK_ALLOW_GENERATED_EVIDENCE: '1'
         run: node tools/ci/run-onp-spec.mjs verify release-signing
+      - name: Bind release signing evidence identity
+        run: node tools/security/bind-release-signing-evidence.mjs
 
       - name: Verify workflow state persistence
         run: node tools/ci/run-onp-spec.mjs verify workflow-state-persistence

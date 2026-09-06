@@ -18,5 +18,5 @@
 ## T-2663 — Add release signing CI and ONP evidence [concluída]
 
 - Refs: AC-2661, AC-2662, AC-2663, AC-2664, AC-2665, AC-2666, AC-2667
-- Arquivos: tools/security/release-signing-feature-tests.mjs, .github/workflows/ci-release-signing.yml, .github/workflows/onp-sdd-evidence.yml, onpspec.config.json
+- Arquivos: tools/security/release-signing-feature-tests.mjs, tools/security/bind-release-signing-evidence.mjs, .github/workflows/ci-release-signing.yml, .github/workflows/onp-sdd-evidence.yml, onpspec.config.json
 - Testes: bounded TAP runner, workflow integrity and ONP verify.
