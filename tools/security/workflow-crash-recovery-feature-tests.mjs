@@ -44,7 +44,7 @@ const tests = [
   ['repeated_recovery_does_not_duplicate_active_lease', 'AC-1053'],
   ['invalid_recovery_inputs_fail_without_mutation', 'AC-1053'],
 ];
-const run = spawnSync('cargo', ['test', '-p', 'agent-runtime', '--test', 'workflow_recovery_contract', '--locked', '--offline'], {
+const run = spawnSync('cargo', ['test', '-p', 'agent-runtime', '--test', 'workflow_recovery_contract', '--locked'], {
   cwd: root,
   encoding: 'utf8',
   env: { PATH: process.env.PATH, HOME: process.env.HOME, CARGO_HOME: process.env.CARGO_HOME, RUSTUP_HOME: process.env.RUSTUP_HOME, CARGO_TERM_COLOR: 'never', CARGO_INCREMENTAL: '0', CARGO_BUILD_JOBS: '1', RUSTFLAGS: '' },
