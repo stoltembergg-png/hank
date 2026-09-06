@@ -194,6 +194,19 @@ fn bounded_resource_time_limits_ac_2205() {
     let slow_report = slow_harness.run_target(&SlowTarget, &[b"{}".to_vec()], SEED);
     assert_eq!(slow_report.status, FuzzStatus::Timeout);
 
+    let oom_harness = FuzzHarness::new(
+        FuzzLimits {
+            smoke_iterations: 1,
+            max_memory_mb: 0,
+            ..FuzzLimits::default()
+        },
+        "tree",
+        "head",
+        "runner",
+    );
+    let oom_report = oom_harness.run_target(&EnvelopeTarget, &[b"{}".to_vec()], SEED);
+    assert_eq!(oom_report.status, FuzzStatus::Oom);
+
     struct InvariantTarget;
     impl test_support::fuzz::FuzzTarget for InvariantTarget {
         fn id(&self) -> TargetId {
