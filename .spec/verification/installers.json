@@ -1,0 +1,47 @@
+{
+  "feature": "installers",
+  "timestamp": "2026-09-06T23:13:48.469Z",
+  "gitRev": "940b6ed",
+  "command": "node tools/security/installer-feature-tests.mjs",
+  "reporter": "tap",
+  "exitCode": 0,
+  "testsParsed": 7,
+  "results": {
+    "AC-2671": {
+      "status": "pass",
+      "testName": "AC-2671: declared OS/arch matrix is complete and bounded @spec:AC-2671",
+      "method": "tap"
+    },
+    "AC-2672": {
+      "status": "pass",
+      "testName": "AC-2672: clean install creates only declared app/profile paths @spec:AC-2672",
+      "method": "tap"
+    },
+    "AC-2673": {
+      "status": "pass",
+      "testName": "AC-2673: wrong platform or digest rejects before install @spec:AC-2673",
+      "method": "tap"
+    },
+    "AC-2674": {
+      "status": "pass",
+      "testName": "AC-2674: uninstall removes app but preserves profile @spec:AC-2674",
+      "method": "tap"
+    },
+    "AC-2675": {
+      "status": "pass",
+      "testName": "AC-2675: package paths are canonical and traversal is rejected @spec:AC-2675",
+      "method": "tap"
+    },
+    "AC-2676": {
+      "status": "pass",
+      "testName": "AC-2676: unsafe metadata and embedded secrets reject manifest @spec:AC-2676",
+      "method": "tap"
+    },
+    "AC-2677": {
+      "status": "pass",
+      "testName": "AC-2677: profile migration is required before use and remains preserved @spec:AC-2677",
+      "method": "tap"
+    }
+  },
+  "principles": {}
+}
