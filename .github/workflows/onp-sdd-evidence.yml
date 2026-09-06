@@ -495,9 +495,6 @@ jobs:
       - name: Verify load tests
         run: node tools/ci/run-onp-spec.mjs verify load-tests
 
-      - name: Verify workflow recovery tests
-        run: node tools/ci/run-onp-spec.mjs verify workflow-recovery-tests
-
       - name: Verify migration hardening
         run: node tools/ci/run-onp-spec.mjs verify migration-hardening
 

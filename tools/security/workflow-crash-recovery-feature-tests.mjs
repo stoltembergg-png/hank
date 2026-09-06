@@ -5,11 +5,11 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const tests = [
-  ['lease_fencing_rejects_competing_runner', 'AC-2401'],
-  ['recovery_is_bounded_and_increments_generation', 'AC-2402'],
-  ['recovery_marks_unknown_without_execution', 'AC-2403'],
-  ['repeated_recovery_does_not_duplicate_active_lease', 'AC-2404'],
-  ['invalid_recovery_inputs_fail_without_mutation', 'AC-2405'],
+  ['lease_fencing_rejects_competing_runner', 'AC-1051'],
+  ['recovery_is_bounded_and_increments_generation', 'AC-1052'],
+  ['recovery_marks_unknown_without_execution', 'AC-1052'],
+  ['repeated_recovery_does_not_duplicate_active_lease', 'AC-1053'],
+  ['invalid_recovery_inputs_fail_without_mutation', 'AC-1053'],
 ];
 const run = spawnSync('cargo', ['test', '-p', 'agent-runtime', '--test', 'workflow_recovery_contract', '--locked', '--offline'], {
   cwd: root,

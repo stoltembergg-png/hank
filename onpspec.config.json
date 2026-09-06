@@ -6,7 +6,7 @@
     "tauri-desktop": "node --test tools/tauri-desktop-onp.test.mjs",
     "fuzz-tests": "node tools/security/fuzz-feature-tests.mjs",
     "load-tests": "node tools/security/load-feature-tests.mjs",
-    "workflow-recovery-tests": "node tools/security/workflow-recovery-feature-tests.mjs"
+    "workflow-crash-recovery": "node tools/security/workflow-crash-recovery-feature-tests.mjs"
   },
   "reporter": "exitcode",
   "reporters": {
@@ -15,7 +15,7 @@
     "security-tests": "tap",
     "fuzz-tests": "tap",
     "load-tests": "tap",
-    "workflow-recovery-tests": "tap"
+    "workflow-crash-recovery": "tap"
   },
   "testGlobs": [
     "test/**/*.js",

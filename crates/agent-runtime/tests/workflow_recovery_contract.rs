@@ -40,7 +40,7 @@ async fn store_with_run() -> RecoveryStore {
     RecoveryStore::new(storage.pool().clone())
 }
 
-// @spec:AC-2401
+// @spec:AC-1051
 #[tokio::test]
 async fn lease_fencing_rejects_competing_runner() {
     let store = store_with_run().await;
@@ -64,7 +64,7 @@ async fn lease_fencing_rejects_competing_runner() {
         .unwrap());
 }
 
-// @spec:AC-2402
+// @spec:AC-1052
 #[tokio::test]
 async fn recovery_is_bounded_and_increments_generation() {
     let store = store_with_run().await;
@@ -81,7 +81,7 @@ async fn recovery_is_bounded_and_increments_generation() {
     assert_eq!(report.candidates[0].new_generation, old.generation + 1);
 }
 
-// @spec:AC-2403
+// @spec:AC-1052
 #[tokio::test]
 async fn recovery_marks_unknown_without_execution() {
     let store = store_with_run().await;
@@ -99,7 +99,7 @@ async fn recovery_marks_unknown_without_execution() {
     assert!(!candidate.executed);
 }
 
-// @spec:AC-2404
+// @spec:AC-1053
 #[tokio::test]
 async fn repeated_recovery_does_not_duplicate_active_lease() {
     let store = store_with_run().await;
@@ -119,7 +119,7 @@ async fn repeated_recovery_does_not_duplicate_active_lease() {
     assert!(second.candidates.is_empty());
 }
 
-// @spec:AC-2405
+// @spec:AC-1053
 #[tokio::test]
 async fn invalid_recovery_inputs_fail_without_mutation() {
     let store = store_with_run().await;
