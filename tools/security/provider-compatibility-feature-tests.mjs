@@ -35,6 +35,14 @@ function git(args) {
 function canonical(value) {
   return JSON.stringify(value, Object.keys(value).sort());
 }
+function gitStatus() {
+  const result = spawnSync('git', ['status', '--porcelain=v1', '-z'], { cwd: root, encoding: 'utf8' });
+  if (result.status !== 0) throw new Error('git status failed');
+  return result.stdout;
+}
+function allowedGeneratedPath(path) {
+  return path.startsWith('.spec/verification/') || path.startsWith('security/reports/');
+}
 function fail(message) {
   process.stderr.write(`${message}\n`);
   process.stdout.write(`1..${expected.length}\n`);
@@ -49,8 +57,11 @@ try {
   if (canonical(manifest.providers) !== canonical(expectedProviders)) {
     throw new Error('provider compatibility manifest entries diverge from canonical matrix');
   }
-  const status = git(['status', '--porcelain=v1']);
-  if (status) throw new Error('provider compatibility runner requires a clean source checkout');
+  const statusEntries = gitStatus().split('\0').filter(Boolean);
+  const unexpected = statusEntries
+    .map((entry) => entry.slice(3))
+    .filter((path) => !allowedGeneratedPath(path));
+  if (unexpected.length) throw new Error(`provider compatibility runner rejects unexpected paths: ${unexpected.join(', ')}`);
   const headSha = git(['rev-parse', 'HEAD']);
   const treeSha = git(['rev-parse', 'HEAD^{tree}']);
   const sourceDigest = createHash('sha256')
