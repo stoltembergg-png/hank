@@ -60,7 +60,7 @@ try {
 
   const results = [];
   for (const [pkg, test, ac] of expected) {
-    const result = spawnSync('cargo', ['test', '-p', pkg, '--test', test, '--locked', '--offline'], {
+    const result = spawnSync('cargo', ['test', '-p', pkg, '--test', test, '--locked'], {
       cwd: root,
       encoding: 'utf8',
       env: { PATH: process.env.PATH, HOME: process.env.HOME, CARGO_HOME: process.env.CARGO_HOME, RUSTUP_HOME: process.env.RUSTUP_HOME, CARGO_TERM_COLOR: 'never', HANK_PROVIDER_NETWORK: 'disabled' },
