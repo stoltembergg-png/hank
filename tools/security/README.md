@@ -1,16 +1,18 @@
 # tools/security
 
-Pura tooling para a camada de regressão de segurança (PR-260).
+Tooling pura para as lanes de regressão de segurança.
 
-- `threat-regression.mjs` — runner Node, sem I/O fora do workspace, que
-  carrega o manifest, valida schema, executa as verificações `NEG-001..004`
-  e produz `security/reports/threat-regression.json` com `tree_sha`,
-  `runner_revision` e `artifact_digest` estáveis.
-- `threat-regression.spec.mjs` — suíte `node --test` que valida o
-  contrato do runner e da matriz. Cada teste carrega tag `@spec:AC-21NN`
-  para o ONP.
+- `threat-regression.mjs` — runner da matriz de ameaças da PR-260; valida o
+  manifest, executa as verificações negativas e produz um receipt bounded.
+- `security-feature-tests.mjs` — wrapper TAP Rust da PR-260.
+- `fuzz-runner.mjs` — valida o manifest FT-001..FT-007, executa exatamente os
+  10 testes do contrato Rust e grava um receipt determinístico da PR-261.
+- `fuzz-feature-tests.mjs` — wrapper TAP usado pelo ONP; verifica nomes e
+  resultados individuais antes de emitir as tags `@spec`.
+- `fuzz-tests.spec.mjs` — contratos Node do manifest, digest e relatório.
 
-Os runners são executados em `ubuntu-24.04` pelo workflow
-`.github/workflows/ci-security.yml`. O runner nunca afirma ausência de
-vulnerabilidade; ele apenas confirma que o manifest e a suíte
-permanecem coerentes.
+A lane de fuzz usa somente corpus sintético/redacted e não contata providers,
+serviços de produção ou stores de credenciais. CI executa `cargo fetch --locked`
+uma vez e depois usa `CARGO_NET_OFFLINE=true`/`--offline` para o contrato.
+Receipts não preservam stdout, stderr, timestamps ou valores sensíveis; os
+identificadores de credencial usados em testes são sempre `[REDACTED]`.

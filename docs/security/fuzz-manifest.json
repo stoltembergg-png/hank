@@ -1,0 +1,85 @@
+{
+  "$schema": "https://example.invalid/nonexistent",
+  "schema_version": 1,
+  "manifest_revision": "FT-001",
+  "runner_digest": "93f46fa6b04b3e8d3cd03643ce813377b0bf64db45be795b7ee991159aef9540",
+  "targets": [
+    {
+      "id": "FT-001",
+      "name": "Envelope parser",
+      "kind": "envelope",
+      "parser": "EnvelopeTarget::run",
+      "parser_source": "crates/test-support/src/fuzz_targets.rs",
+      "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
+      "smoke_iterations": 8,
+      "corpus_path": "synthetic:inline",
+      "description": "Target sintético de envelope; valida o contrato do harness sem alegar cobertura do parser de produção."
+    },
+    {
+      "id": "FT-002",
+      "name": "Branch policy",
+      "kind": "policy",
+      "parser": "BranchPolicyTarget::run",
+      "parser_source": "crates/test-support/src/fuzz_targets.rs",
+      "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
+      "smoke_iterations": 8,
+      "corpus_path": "synthetic:inline",
+      "description": "Target sintético de branch policy; valida o contrato do harness sem alegar cobertura do parser de produção."
+    },
+    {
+      "id": "FT-003",
+      "name": "Architecture profile",
+      "kind": "state",
+      "parser": "StateTarget::run",
+      "parser_source": "crates/test-support/src/fuzz_targets.rs",
+      "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
+      "smoke_iterations": 8,
+      "corpus_path": "synthetic:inline",
+      "description": "Target sintético de architecture state; valida o contrato do harness sem alegar cobertura do parser de produção."
+    },
+    {
+      "id": "FT-004",
+      "name": "Capability parser",
+      "kind": "permission",
+      "parser": "PermissionTarget::run",
+      "parser_source": "crates/test-support/src/fuzz_targets.rs",
+      "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
+      "smoke_iterations": 8,
+      "corpus_path": "synthetic:inline",
+      "description": "Target sintético de capability permission; valida o contrato do harness sem alegar cobertura do parser de produção."
+    },
+    {
+      "id": "FT-005",
+      "name": "Release metadata",
+      "kind": "release_metadata",
+      "parser": "ReleaseMetadataTarget::run",
+      "parser_source": "crates/test-support/src/fuzz_targets.rs",
+      "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
+      "smoke_iterations": 8,
+      "corpus_path": "synthetic:inline",
+      "description": "Target sintético de release metadata; valida o contrato do harness sem alegar cobertura do parser de produção."
+    },
+    {
+      "id": "FT-006",
+      "name": "Audit event",
+      "kind": "hash_chain",
+      "parser": "HashChainTarget::run",
+      "parser_source": "crates/test-support/src/fuzz_targets.rs",
+      "invariants": ["no_panic", {"length_within":{"min_len":64,"max_len":64}}, "rejects_malformed", "accepts_valid"],
+      "smoke_iterations": 8,
+      "corpus_path": "synthetic:inline",
+      "description": "Target sintético de audit hash chain; valida o contrato do harness sem alegar cobertura do parser de produção."
+    },
+    {
+      "id": "FT-007",
+      "name": "Rate limit policy",
+      "kind": "rate_limit",
+      "parser": "RateLimitTarget::run",
+      "parser_source": "crates/test-support/src/fuzz_targets.rs",
+      "invariants": ["no_panic", "rejects_malformed", "accepts_valid"],
+      "smoke_iterations": 8,
+      "corpus_path": "synthetic:inline",
+      "description": "Target sintético de rate limit; valida o contrato do harness sem alegar cobertura do parser de produção."
+    }
+  ]
+}
