@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "revision": "PR-262",
+  "seed": 26200,
+  "warmup_iterations": 1,
+  "repetitions": 2,
+  "profiles": ["S", "M", "L"],
+  "fixture_digest": "8caf08c83a68555b411c01ee6dd6b34c140123f98c81e735ca38a2ae599fa031",
+  "scope": "synthetic-admission-model",
+  "host_metrics": false,
+  "production_traffic": false,
+  "credentials": false
+}

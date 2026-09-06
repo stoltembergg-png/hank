@@ -492,6 +492,9 @@ jobs:
       - name: Verify fuzz tests
         run: node tools/ci/run-onp-spec.mjs verify fuzz-tests
 
+      - name: Verify load tests
+        run: node tools/ci/run-onp-spec.mjs verify load-tests
+
       - name: Verify migration hardening
         run: node tools/ci/run-onp-spec.mjs verify migration-hardening
 
