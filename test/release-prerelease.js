@@ -264,6 +264,8 @@ test('PR-370: publish binds the native Windows installer before creating the rel
   assert.match(workflow, /verify-artifacts --manifest/);
   assert.match(workflow, /sha256sum \"\$\{names\[@\]\}\" > SHA256SUMS/);
   assert.match(workflow, /gh release create \"\$TAG\"[\s\S]*hank-\$\{TAG\}-setup\.exe/);
+  assert.match(workflow, /gh release download \"\$TAG\" --repo \"\$REPOSITORY\" --pattern release-manifest\.json/);
+  assert.match(workflow, /cmp \/tmp\/prerelease\/release-manifest\.json \/tmp\/existing-prerelease\/release-manifest\.json/);
   assert.match(workflow, /install-smoke:/);
   assert.match(workflow, /install-smoke-windows\.ps1/);
   assert.match(workflow, /Download and verify published release assets/);

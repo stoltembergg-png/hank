@@ -422,6 +422,10 @@ jobs:
             test -n "$release" || { echo 'tag exists without release; refusing reuse'; exit 1; }
             target=$(printf '%s' "$release" | jq -r '.target_commitish')
             test "$target" = "$SHA" || { echo 'existing release targets a different commit'; exit 1; }
+            rm -rf /tmp/existing-prerelease
+            mkdir -p /tmp/existing-prerelease
+            gh release download "$TAG" --repo "$REPOSITORY" --pattern release-manifest.json --dir /tmp/existing-prerelease
+            cmp /tmp/prerelease/release-manifest.json /tmp/existing-prerelease/release-manifest.json
             echo 'matching release already exists; idempotent no-op'
           else
             gh release create "$TAG" "/tmp/prerelease/hank-${TAG}.tar.gz" "/tmp/windows-bundle/hank-${TAG}-setup.exe" /tmp/prerelease/RELEASE_NOTES.md /tmp/prerelease/TEST_INSTRUCTIONS.md /tmp/prerelease/SHA256SUMS /tmp/prerelease/release-manifest.json /tmp/prerelease/manifest.sha256 \
