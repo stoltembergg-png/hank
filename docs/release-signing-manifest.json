@@ -5,6 +5,7 @@
   "keyPolicy": {"privateKey": "protected-environment-only", "rotation": "key-id-versioned", "revocation": "fail-closed"},
   "identityFields": ["repository", "event", "ref", "commit", "tree", "workflow", "policy", "channel", "os"],
   "verification": {"independent": true, "wrongDigest": "reject", "wrongIdentity": "reject", "staleOrRevokedSigner": "reject", "missingProof": "reject"},
+  "protectedWorkflow": {"environment": "release-signing", "privateKeySecret": "HANK_RELEASE_SIGNING_PRIVATE_KEY_PEM", "publicKeyVariable": "HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM", "signerKeyIdVariable": "HANK_RELEASE_SIGNER_KEY_ID", "missingConfiguration": "fail-closed"},
   "fixtures": ["tools/release-signing.spec.mjs"],
   "network": "forbidden",
   "credentials": "synthetic-only"

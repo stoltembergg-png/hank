@@ -21,8 +21,11 @@
    `artifactDigests` para o archive, o `.exe` e o AppImage; a publicação falha se
    qualquer digest não corresponder ao arquivo baixado.
 7. Somente o job `publish` possui `contents: write`; os jobs de preflight e package são read-only.
-8. Publica com `gh release create --prerelease --target <SHA>` e lê de volta tag, target e flag prerelease.
-9. Em rerun, um release existente só vira no-op se target e manifesto forem idênticos. Tag órfã ou divergente falha.
+8. O job `sign` roda no ambiente protegido `release-signing`, assina cada binário com a chave
+   configurada e o `publish` verifica as attestations contra commit, tree e signer antes de criar
+   qualquer release. Chave ausente ou evidência divergente falha fechado.
+9. Publica com `gh release create --prerelease --target <SHA>` e lê de volta tag, target e flag prerelease.
+10. Em rerun, um release existente só vira no-op se target e manifesto forem idênticos. Tag órfã ou divergente falha.
 
 ## Milestones e promoção estável
 
@@ -54,10 +57,12 @@ gh workflow run release-milestone.yml --ref main \
 
 ## Teste de uma prerelease
 
-Baixe `hank-<tag>.tar.gz`, `hank-<tag>-setup.exe`, `release-manifest.json`,
-`manifest.sha256` e `SHA256SUMS` da página da release. Verifique os hashes dos dois
+Baixe `hank-<tag>.tar.gz`, `hank-<tag>-setup.exe`, `hank-<tag>-x86_64.AppImage`, as
+attestations `*.attestation.json`, `release-signing-metadata.json`, `release-manifest.json`,
+`manifest.sha256` e `SHA256SUMS` da página da release. Verifique os hashes de todos os
 artefatos e o manifesto (o workflow de promoção repete essa leitura antes de aceitar
-uma prerelease), confirme `provenance.exactCommit` e `provenance.source == "main"`,
+uma prerelease), confirme `provenance.exactCommit` e `provenance.source == "main"`, e valide
+as attestations com a chave pública indicada pela política de release antes de executar o pacote.
 depois execute:
 
 ```bash

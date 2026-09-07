@@ -49,6 +49,7 @@ jobs:
           PRERELEASE_TAG: ${{ inputs.prerelease_tag }}
           STABLE_VERSION: ${{ inputs.stable_version }}
           MILESTONE: ${{ inputs.milestone }}
+          HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM: ${{ vars.HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
@@ -91,11 +92,23 @@ jobs:
             --pattern "hank-${PRERELEASE_TAG}.tar.gz" \
             --pattern "hank-${PRERELEASE_TAG}-setup.exe" \
             --pattern "hank-${PRERELEASE_TAG}-x86_64.AppImage" \
+            --pattern "hank-${PRERELEASE_TAG}.tar.gz.attestation.json" \
+            --pattern "hank-${PRERELEASE_TAG}-setup.exe.attestation.json" \
+            --pattern "hank-${PRERELEASE_TAG}-x86_64.AppImage.attestation.json" \
+            --pattern release-signing-metadata.json \
             --dir "$RUNNER_TEMP/prerelease"
           (cd "$RUNNER_TEMP/prerelease" && sha256sum -c manifest.sha256 && sha256sum -c SHA256SUMS)
           node tools/release-prerelease.mjs verify-artifacts \
             --manifest "$RUNNER_TEMP/prerelease/release-manifest.json" \
             --directory "$RUNNER_TEMP/prerelease"
+          tree=$(jq -r '.tree' "$RUNNER_TEMP/prerelease/release-manifest.json")
+          node tools/release-artifact-signing.mjs verify \
+            --directory "$RUNNER_TEMP/prerelease" \
+            --attestationDirectory "$RUNNER_TEMP/prerelease" \
+            --artifacts "hank-${PRERELEASE_TAG}.tar.gz,hank-${PRERELEASE_TAG}-setup.exe,hank-${PRERELEASE_TAG}-x86_64.AppImage" \
+            --commit "$sha" \
+            --tree "$tree" \
+            --requireTrustedKey 1
           
           # Capture the validated manifest hash for later verification
           prerelease_manifest_hash=$(sha256sum "$RUNNER_TEMP/prerelease/release-manifest.json" | awk '{print $1}')
@@ -165,6 +178,10 @@ jobs:
             --pattern "hank-${PRERELEASE_TAG}.tar.gz" \
             --pattern "hank-${PRERELEASE_TAG}-setup.exe" \
             --pattern "hank-${PRERELEASE_TAG}-x86_64.AppImage" \
+            --pattern "hank-${PRERELEASE_TAG}.tar.gz.attestation.json" \
+            --pattern "hank-${PRERELEASE_TAG}-setup.exe.attestation.json" \
+            --pattern "hank-${PRERELEASE_TAG}-x86_64.AppImage.attestation.json" \
+            --pattern release-signing-metadata.json \
             --pattern RELEASE_NOTES.md \
             --dir "$RUNNER_TEMP/prerelease"
           
@@ -172,6 +189,14 @@ jobs:
           mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}.tar.gz" "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz"
           mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}-setup.exe" "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe"
           mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}-x86_64.AppImage" "$RUNNER_TEMP/stable/hank-${stable_tag}-x86_64.AppImage"
+          for name in \
+            "hank-${PRERELEASE_TAG}.tar.gz.attestation.json" \
+            "hank-${PRERELEASE_TAG}-setup.exe.attestation.json" \
+            "hank-${PRERELEASE_TAG}-x86_64.AppImage.attestation.json"; do
+            stable_name="${name/$PRERELEASE_TAG/$stable_tag}"
+            mv "$RUNNER_TEMP/prerelease/$name" "$RUNNER_TEMP/stable/$stable_name"
+          done
+          cp "$RUNNER_TEMP/prerelease/release-signing-metadata.json" "$RUNNER_TEMP/stable/release-signing-metadata.json"
           
           # Use the validated manifest from verify job, not a re-downloaded one
           node tools/release-prerelease.mjs promote-manifest \
@@ -233,6 +258,10 @@ jobs:
               "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-x86_64.AppImage" \
+              "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz.attestation.json" \
+              "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe.attestation.json" \
+              "$RUNNER_TEMP/stable/hank-${stable_tag}-x86_64.AppImage.attestation.json" \
+              "$RUNNER_TEMP/stable/release-signing-metadata.json" \
               "$RUNNER_TEMP/stable/RELEASE_NOTES.md" \
               "$RUNNER_TEMP/stable/TEST_INSTRUCTIONS.md" \
               "$RUNNER_TEMP/stable/SHA256SUMS" \

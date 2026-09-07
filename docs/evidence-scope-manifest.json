@@ -61,6 +61,8 @@
         "docs/release-signing-manifest.json",
         "tools/release-signing.mjs",
         "tools/release-signing.spec.mjs",
+        "tools/release-artifact-signing.mjs",
+        "tools/release-artifact-signing.spec.mjs",
         "tools/security/release-signing-feature-tests.mjs",
         ".github/workflows/ci-release-signing.yml"
       ]

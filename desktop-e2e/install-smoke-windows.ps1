@@ -16,6 +16,12 @@ $manifestHashPath = Join-Path $releaseRoot 'manifest.sha256'
 $checksumsPath = Join-Path $releaseRoot 'SHA256SUMS'
 $installerPath = Join-Path $releaseRoot "hank-$ReleaseTag-setup.exe"
 $appImagePath = Join-Path $releaseRoot "hank-$ReleaseTag-x86_64.AppImage"
+$signingMetadataPath = Join-Path $releaseRoot 'release-signing-metadata.json'
+$signingAttestationPaths = @(
+  (Join-Path $releaseRoot "hank-$ReleaseTag.tar.gz.attestation.json"),
+  (Join-Path $releaseRoot "hank-$ReleaseTag-setup.exe.attestation.json"),
+  (Join-Path $releaseRoot "hank-$ReleaseTag-x86_64.AppImage.attestation.json")
+)
 $reportPath = if ($ReportPath) { [IO.Path]::GetFullPath($ReportPath) } else { Join-Path $releaseRoot 'install-smoke-report.json' }
 $report = [ordered]@{
   status = 'failed'
@@ -31,7 +37,7 @@ $report = [ordered]@{
   upgradeRollback = 'NO_PROOF'
   error = $null
 }
-foreach ($required in @($manifestPath, $manifestHashPath, $checksumsPath, $installerPath, $appImagePath)) {
+foreach ($required in @($manifestPath, $manifestHashPath, $checksumsPath, $installerPath, $appImagePath, $signingMetadataPath) + $signingAttestationPaths) {
   if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "release asset is missing: $required" }
 }
 
@@ -75,6 +81,13 @@ if (-not $nodeBinary) {
 if (-not $nodeBinary -or -not (Test-Path -LiteralPath $nodeBinary -PathType Leaf)) { throw 'Node.js executable is required for release install smoke' }
 & $nodeBinary (Join-Path $repositoryRoot 'tools/release-prerelease.mjs') verify-artifacts --manifest $manifestPath --directory $releaseRoot
 if ($LASTEXITCODE -ne 0) { throw "manifest artifact verification failed with exit code $LASTEXITCODE" }
+& $nodeBinary (Join-Path $repositoryRoot 'tools/release-artifact-signing.mjs') verify `
+  --directory $releaseRoot `
+  --attestationDirectory $releaseRoot `
+  --artifacts "hank-$ReleaseTag.tar.gz,hank-$ReleaseTag-setup.exe,hank-$ReleaseTag-x86_64.AppImage" `
+  --commit $ExpectedCommit `
+  --tree $ExpectedTree
+if ($LASTEXITCODE -ne 0) { throw "release signing verification failed with exit code $LASTEXITCODE" }
 
 $installRoot = Join-Path $env:RUNNER_TEMP ("hank-release-install-smoke-" + [guid]::NewGuid().ToString('N'))
 $profileRoot = Join-Path $env:RUNNER_TEMP ("hank-release-install-profile-" + [guid]::NewGuid().ToString('N'))

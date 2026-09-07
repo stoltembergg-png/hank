@@ -413,9 +413,85 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  sign:
+    name: Sign release artifacts in protected environment
+    needs: [preflight, package, windows-package, linux-package]
+    runs-on: ubuntu-24.04
+    environment: release-signing
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Setup pinned Node.js 20
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 20.19.1
+
+      - name: Download release artifacts for signing
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: prerelease-${{ needs.preflight.outputs.tag }}
+          path: /tmp/prerelease
+
+      - name: Download Windows installer for signing
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: windows-installer-${{ needs.preflight.outputs.tag }}
+          path: /tmp/windows-bundle
+
+      - name: Download Linux AppImage for signing
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: linux-appimage-${{ needs.preflight.outputs.tag }}
+          path: /tmp/linux-bundle
+
+      - name: Sign exact release artifacts
+        env:
+          HANK_RELEASE_SIGNING_PRIVATE_KEY_PEM: ${{ secrets.HANK_RELEASE_SIGNING_PRIVATE_KEY_PEM }}
+          HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM: ${{ vars.HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM }}
+          HANK_RELEASE_SIGNER_KEY_ID: ${{ vars.HANK_RELEASE_SIGNER_KEY_ID }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+          SHA: ${{ needs.preflight.outputs.sha }}
+          TREE: ${{ needs.preflight.outputs.tree }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/release-assets /tmp/release-signing
+          cp "/tmp/prerelease/hank-${TAG}.tar.gz" /tmp/release-assets/
+          cp "/tmp/windows-bundle/hank-${TAG}-setup.exe" /tmp/release-assets/
+          cp "/tmp/linux-bundle/hank-${TAG}-x86_64.AppImage" /tmp/release-assets/
+          node tools/release-artifact-signing.mjs sign \
+            --directory /tmp/release-assets \
+            --attestationDirectory /tmp/release-signing \
+            --artifacts "hank-${TAG}.tar.gz,hank-${TAG}-setup.exe,hank-${TAG}-x86_64.AppImage" \
+            --repository "$GITHUB_REPOSITORY" \
+            --event "$GITHUB_EVENT_NAME" \
+            --ref "$GITHUB_REF" \
+            --commit "$SHA" \
+            --tree "$TREE" \
+            --workflow "$GITHUB_WORKFLOW" \
+            --policy release-prerelease-v1 \
+            --channel prerelease \
+            --os multi \
+            --signerKeyId "$HANK_RELEASE_SIGNER_KEY_ID"
+
+      - name: Upload protected signing evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: release-signing-${{ needs.preflight.outputs.tag }}
+          path: /tmp/release-signing/
+          if-no-files-found: error
+          retention-days: 7
+
   publish:
     name: Publish immutable GitHub prerelease
-    needs: [preflight, package, windows-package, linux-package]
+    needs: [preflight, package, windows-package, linux-package, sign]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -446,6 +522,12 @@ jobs:
           name: linux-appimage-${{ needs.preflight.outputs.tag }}
           path: /tmp/linux-bundle
 
+      - name: Download protected signing evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: release-signing-${{ needs.preflight.outputs.tag }}
+          path: /tmp/release-signing
+
       - name: Bind and verify release artifacts
         env:
           TAG: ${{ needs.preflight.outputs.tag }}
@@ -454,6 +536,8 @@ jobs:
           CARD: ${{ needs.preflight.outputs.card }}
           PRS: ${{ needs.preflight.outputs.prs }}
           CLASSIFICATION: ${{ needs.preflight.outputs.classification }}
+          HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM: ${{ vars.HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM }}
+          HANK_RELEASE_SIGNER_KEY_ID: ${{ vars.HANK_RELEASE_SIGNER_KEY_ID }}
         run: |
           set -euo pipefail
           installer="/tmp/windows-bundle/hank-${TAG}-setup.exe"
@@ -463,7 +547,22 @@ jobs:
           cp "$installer" "/tmp/prerelease/hank-${TAG}-setup.exe"
           cp "$appimage" "/tmp/prerelease/hank-${TAG}-x86_64.AppImage"
           names=("hank-${TAG}.tar.gz" "hank-${TAG}-setup.exe" "hank-${TAG}-x86_64.AppImage")
-          (cd /tmp/prerelease && sha256sum "${names[@]}" > SHA256SUMS)
+          signing_files=(
+            "hank-${TAG}.tar.gz.attestation.json"
+            "hank-${TAG}-setup.exe.attestation.json"
+            "hank-${TAG}-x86_64.AppImage.attestation.json"
+            "release-signing-metadata.json"
+          )
+          for file in "${signing_files[@]}"; do cp "/tmp/release-signing/$file" "/tmp/prerelease/$file"; done
+          node tools/release-artifact-signing.mjs verify \
+            --directory /tmp/prerelease \
+            --attestationDirectory /tmp/prerelease \
+            --artifacts "$(IFS=,; echo "${names[*]}")" \
+            --commit "$SHA" \
+            --tree "$TREE" \
+            --requireTrustedKey 1 \
+            --signerKeyId "$HANK_RELEASE_SIGNER_KEY_ID"
+          (cd /tmp/prerelease && sha256sum "${names[@]}" "${signing_files[@]}" > SHA256SUMS)
           node --input-type=module - <<'NODE' > /tmp/manifest-input.json
           import fs from 'node:fs';
           import { buildArtifactDigests } from './tools/release-prerelease.mjs';
@@ -473,13 +572,17 @@ jobs:
             `hank-${tag}-setup.exe`,
             `hank-${tag}-x86_64.AppImage`,
           ];
+          const signingFiles = [
+            ...names.map((name) => `${name}.attestation.json`),
+            'release-signing-metadata.json',
+          ];
           const changelog = fs.readFileSync('/tmp/prerelease/RELEASE_NOTES.md', 'utf8');
           const testInstructions = fs.readFileSync('/tmp/prerelease/TEST_INSTRUCTIONS.md', 'utf8');
           process.stdout.write(JSON.stringify({
             tag, version: tag.slice(1), sha: process.env.SHA, tree: process.env.TREE,
             card: process.env.CARD, classification: JSON.parse(process.env.CLASSIFICATION),
             relatedPullRequests: JSON.parse(process.env.PRS),
-            artifacts: [...names, 'RELEASE_NOTES.md', 'TEST_INSTRUCTIONS.md', 'SHA256SUMS'],
+            artifacts: [...names, ...signingFiles, 'RELEASE_NOTES.md', 'TEST_INSTRUCTIONS.md', 'SHA256SUMS'],
             artifactDigests: buildArtifactDigests({ directory: '/tmp/prerelease', names }),
             changelog, testInstructions,
           }));
@@ -508,7 +611,15 @@ jobs:
             cmp /tmp/prerelease/release-manifest.json /tmp/existing-prerelease/release-manifest.json
             echo 'matching release already exists; idempotent no-op'
           else
-            gh release create "$TAG" "/tmp/prerelease/hank-${TAG}.tar.gz" "/tmp/windows-bundle/hank-${TAG}-setup.exe" "/tmp/linux-bundle/hank-${TAG}-x86_64.AppImage" /tmp/prerelease/RELEASE_NOTES.md /tmp/prerelease/TEST_INSTRUCTIONS.md /tmp/prerelease/SHA256SUMS /tmp/prerelease/release-manifest.json /tmp/prerelease/manifest.sha256 \
+            gh release create "$TAG" \
+              "/tmp/prerelease/hank-${TAG}.tar.gz" \
+              "/tmp/windows-bundle/hank-${TAG}-setup.exe" \
+              "/tmp/linux-bundle/hank-${TAG}-x86_64.AppImage" \
+              "/tmp/prerelease/hank-${TAG}.tar.gz.attestation.json" \
+              "/tmp/prerelease/hank-${TAG}-setup.exe.attestation.json" \
+              "/tmp/prerelease/hank-${TAG}-x86_64.AppImage.attestation.json" \
+              /tmp/prerelease/release-signing-metadata.json \
+              /tmp/prerelease/RELEASE_NOTES.md /tmp/prerelease/TEST_INSTRUCTIONS.md /tmp/prerelease/SHA256SUMS /tmp/prerelease/release-manifest.json /tmp/prerelease/manifest.sha256 \
               --target "$SHA" --title "$TAG (prerelease)" --notes-file /tmp/prerelease/RELEASE_NOTES.md --prerelease
           fi
 
@@ -573,6 +684,10 @@ jobs:
             --pattern "hank-$env:TAG.tar.gz" `
             --pattern "hank-$env:TAG-setup.exe" `
             --pattern "hank-$env:TAG-x86_64.AppImage" `
+            --pattern "hank-$env:TAG.tar.gz.attestation.json" `
+            --pattern "hank-$env:TAG-setup.exe.attestation.json" `
+            --pattern "hank-$env:TAG-x86_64.AppImage.attestation.json" `
+            --pattern release-signing-metadata.json `
             --dir $releaseDirectory
           if ($LASTEXITCODE -ne 0) { throw "release asset download failed with exit code $LASTEXITCODE" }
           & powershell -NoProfile -ExecutionPolicy Bypass -File desktop-e2e\install-smoke-windows.ps1 `
@@ -660,6 +775,10 @@ jobs:
             --pattern "hank-${TAG}.tar.gz" \
             --pattern "hank-${TAG}-setup.exe" \
             --pattern "hank-${TAG}-x86_64.AppImage" \
+            --pattern "hank-${TAG}.tar.gz.attestation.json" \
+            --pattern "hank-${TAG}-setup.exe.attestation.json" \
+            --pattern "hank-${TAG}-x86_64.AppImage.attestation.json" \
+            --pattern release-signing-metadata.json \
             --dir "$HANK_RELEASE_DIR"
           HANK_RELEASE_TAG="$TAG" HANK_EXPECTED_COMMIT="$SHA" HANK_EXPECTED_TREE="$TREE" \
             bash desktop-e2e/install-smoke-linux.sh

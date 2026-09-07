@@ -263,7 +263,7 @@ test('PR-370: publish binds the native Windows installer before creating the rel
   assert.match(workflow, /buildArtifactDigests/);
   assert.match(workflow, /verify-artifacts --manifest/);
   assert.match(workflow, /`hank-\$\{tag\}-x86_64\.AppImage`/);
-  assert.match(workflow, /sha256sum \"\$\{names\[@\]\}\" > SHA256SUMS/);
+  assert.match(workflow, /sha256sum \"\$\{names\[@\]\}\" \"\$\{signing_files\[@\]\}\" > SHA256SUMS/);
   assert.match(workflow, /gh release create \"\$TAG\"[\s\S]*hank-\$\{TAG\}-setup\.exe/);
   assert.match(workflow, /gh release create \"\$TAG\"[\s\S]*hank-\$\{TAG\}-x86_64\.AppImage/);
   assert.match(workflow, /gh release download \"\$TAG\" --repo \"\$REPOSITORY\" --pattern release-manifest\.json/);
@@ -275,10 +275,17 @@ test('PR-370: publish binds the native Windows installer before creating the rel
   assert.match(workflow, /hank-\$\{TAG\}-x86_64\.AppImage/);
   assert.match(workflow, /linux-install-smoke:/);
   assert.match(workflow, /install-smoke-linux\.sh/);
-  assert.match(workflow, /needs: \[preflight, package, windows-package, linux-package\]/);
+  assert.match(workflow, /sign:/);
+  assert.match(workflow, /environment: release-signing/);
+  assert.match(workflow, /HANK_RELEASE_SIGNING_PRIVATE_KEY_PEM/);
+  assert.match(workflow, /release-artifact-signing\.mjs sign/);
+  assert.match(workflow, /needs: \[preflight, package, windows-package, linux-package, sign\]/);
+  assert.match(workflow, /release-signing-metadata\.json/);
   const milestone = readFileSync('.github/workflows/release-milestone.yml', 'utf8');
   assert.match(milestone, /sha256sum -c SHA256SUMS/);
   assert.match(milestone, /verify-artifacts/);
+  assert.match(milestone, /release-artifact-signing\.mjs verify/);
+  assert.match(milestone, /release-signing-metadata\.json/);
 });
 
 test('AC-628/PR-370: binds and verifies release artifact digests fail-closed', () => {

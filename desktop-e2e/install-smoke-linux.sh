@@ -44,6 +44,12 @@ done
 sha256sum -c "$manifest_sha"
 sha256sum -c "$checksums"
 node "$PWD/tools/release-prerelease.mjs" verify-artifacts --manifest "$manifest" --directory "$release_root"
+node "$PWD/tools/release-artifact-signing.mjs" verify \
+  --directory "$release_root" \
+  --attestationDirectory "$release_root" \
+  --artifacts "hank-${HANK_RELEASE_TAG}.tar.gz,hank-${HANK_RELEASE_TAG}-setup.exe,hank-${HANK_RELEASE_TAG}-x86_64.AppImage" \
+  --commit "$HANK_EXPECTED_COMMIT" \
+  --tree "$HANK_EXPECTED_TREE"
 node --input-type=module - "$manifest" "$HANK_RELEASE_TAG" "$HANK_EXPECTED_COMMIT" "$HANK_EXPECTED_TREE" <<'NODE'
 import fs from 'node:fs';
 const [manifestPath, expectedTag, expectedCommit, expectedTree] = process.argv.slice(2);

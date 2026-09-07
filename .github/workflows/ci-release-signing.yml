@@ -28,5 +28,7 @@ jobs:
         run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
       - name: Verify release signing contract
         run: node tools/security/release-signing-feature-tests.mjs
+      - name: Verify artifact signer and verifier contract
+        run: node --test tools/release-artifact-signing.spec.mjs
       - name: Bind exact source identity into evidence
         run: node tools/security/bind-release-signing-evidence.mjs
