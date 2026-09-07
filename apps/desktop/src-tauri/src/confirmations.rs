@@ -187,6 +187,7 @@ pub fn command_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 
         crate::chat::cancel_chat_command,
         crate::chat::list_chat_messages,
         crate::chat::get_chat_usage,
+        crate::lifecycle::build_identity,
         crate::scheduler::list_scheduled_jobs,
         crate::scheduler::create_scheduled_job,
         crate::scheduler::update_scheduled_job,

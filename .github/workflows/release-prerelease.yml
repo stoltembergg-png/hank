@@ -279,6 +279,9 @@ jobs:
 
       - name: Build Windows NSIS installer
         shell: pwsh
+        env:
+          HANK_BUILD_COMMIT_SHA: ${{ needs.preflight.outputs.sha }}
+          HANK_BUILD_TREE_SHA: ${{ needs.preflight.outputs.tree }}
         run: |
           $config = Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/src-tauri/tauri.conf.json'
           npm --prefix frontend exec -- tauri build --ci --config $config --bundles nsis
@@ -348,8 +351,10 @@ jobs:
           $env:HANK_DESKTOP_E2E_ARTIFACTS = Join-Path $env:RUNNER_TEMP 'hank-desktop-lifecycle-artifacts'
           $env:HANK_WEBDRIVER_PORT = '4444'
           $env:HANK_EXPECTED_VERSION = $env:TAG.Substring(1)
+          $env:HANK_EXPECTED_NATIVE_VERSION = (Get-Content -Raw apps/desktop/src-tauri/Cargo.toml | Select-String -Pattern '^version\s*=\s*"([^"]+)"' | ForEach-Object { $_.Matches[0].Groups[1].Value })
           $env:HANK_EXPECTED_COMMIT_SHA = $env:COMMIT_SHA
           $env:HANK_EXPECTED_TREE_SHA = $env:TREE_SHA
+          $env:HANK_REQUIRE_ARTIFACT_PROVENANCE = '1'
           $env:RUST_LOG = 'info'
           New-Item -ItemType Directory -Force -Path $env:HANK_DESKTOP_E2E_ARTIFACTS, $env:HANK_E2E_APP_DATA_DIR | Out-Null
           & powershell -NoProfile -ExecutionPolicy Bypass -File desktop-e2e\run-windows.ps1

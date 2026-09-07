@@ -25,8 +25,12 @@ const artifactIdentity = {
   treeSha: process.env.HANK_EXPECTED_TREE_SHA ?? null,
   buildTimestamp: process.env.HANK_BUILD_TIMESTAMP ?? (await fs.stat(binary)).mtime.toISOString(),
   platform: process.platform,
+  nativeBuild: null,
 };
-await fs.writeFile(path.join(diagnostics, 'artifact-identity.json'), JSON.stringify(artifactIdentity, null, 2));
+async function writeArtifactIdentity() {
+  await fs.writeFile(path.join(diagnostics, 'artifact-identity.json'), JSON.stringify(artifactIdentity, null, 2));
+}
+await writeArtifactIdentity();
 
 class WebDriverSession {
   constructor() { this.sessionId = undefined; }
@@ -77,10 +81,10 @@ class WebDriverSession {
       script: `const done = arguments[arguments.length - 1];
         const invoke = window.__TAURI_INTERNALS__?.invoke;
         if (typeof invoke !== 'function') { done({ ok: false, error: 'Tauri invoke bridge unavailable' }); return; }
-        invoke(arguments[0], { input: arguments[1] })
+        invoke(arguments[0], arguments[1] === undefined ? undefined : { input: arguments[1] })
           .then((value) => done({ ok: true, value }))
           .catch((error) => done({ ok: false, error: String(error) }));`,
-      args: [command, input],
+      args: input === undefined ? [command] : [command, input],
     });
     if (!result?.ok) throw new Error(`Tauri command ${command} failed: ${result?.error ?? 'unknown error'}`);
     return result.value;
@@ -121,6 +125,21 @@ async function start() {
   browser = await new WebDriverSession().start();
   await element('[data-hank-frontend-mounted="true"]');
   await element('[data-hank-frontend-ready="true"]');
+  const nativeBuild = await browser.invoke('build_identity');
+  artifactIdentity.nativeBuild = nativeBuild;
+  await writeArtifactIdentity();
+  if (process.env.HANK_REQUIRE_ARTIFACT_PROVENANCE === '1') {
+    const expectedCommit = process.env.HANK_EXPECTED_COMMIT_SHA;
+    const expectedTree = process.env.HANK_EXPECTED_TREE_SHA;
+    if (!expectedCommit || !expectedTree) throw new Error('artifact provenance expectation is incomplete');
+    if (nativeBuild.commit_sha !== expectedCommit || nativeBuild.tree_sha !== expectedTree) {
+      throw new Error(`artifact provenance mismatch: expected ${expectedCommit}/${expectedTree}, got ${JSON.stringify(nativeBuild)}`);
+    }
+    const expectedVersion = process.env.HANK_EXPECTED_NATIVE_VERSION;
+    if (expectedVersion && nativeBuild.version !== expectedVersion) {
+      throw new Error(`artifact version mismatch: expected ${expectedVersion}, got ${nativeBuild.version}`);
+    }
+  }
   await assertText('[aria-label^="Estado da aplicação"] .status', 'ready');
   await element('[aria-label="Gerenciamento de Projetos"]');
 }

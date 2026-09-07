@@ -143,6 +143,7 @@ mod tauri_tests {
             "crate::chat::cancel_chat_command",
             "crate::chat::list_chat_messages",
             "crate::chat::get_chat_usage",
+            "crate::lifecycle::build_identity",
             "crate::scheduler::list_scheduled_jobs",
             "crate::scheduler::create_scheduled_job",
             "crate::scheduler::update_scheduled_job",
@@ -156,7 +157,7 @@ mod tauri_tests {
 
         assert_eq!(
             registered.split(',').count(),
-            28,
+            29,
             "a ponte deve registrar exatamente os comandos tipados previstos"
         );
 
@@ -191,6 +192,27 @@ mod tauri_tests {
             bridge.contains("input_tokens: None") && bridge.contains("output_tokens: None"),
             "usage ausente não pode ser convertido em zeros"
         );
+    }
+
+    #[test]
+    fn ac_016_build_identity_is_read_only_and_ci_bindable() {
+        // @spec:AC-016 @spec:AC-2661
+        let lifecycle = fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/lifecycle.rs"),
+        )
+        .expect("lifecycle.rs não encontrado");
+        for required in [
+            "pub struct BuildIdentity",
+            "build_identity",
+            "HANK_BUILD_COMMIT_SHA",
+            "HANK_BUILD_TREE_SHA",
+            "CARGO_PKG_VERSION",
+            "Read-only build provenance",
+        ] {
+            assert!(lifecycle.contains(required), "proveniência de build ausente: {required}");
+        }
+        assert!(!lifecycle.contains("std::fs::read"));
+        assert!(!lifecycle.contains("reqwest::"));
     }
 
     #[test]

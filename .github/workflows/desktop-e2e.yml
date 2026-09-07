@@ -75,6 +75,20 @@ jobs:
         run: npm ci --no-fund
         working-directory: desktop-e2e
 
+      - name: Bind build provenance (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          echo "HANK_BUILD_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "HANK_BUILD_TREE_SHA=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_ENV"
+
+      - name: Bind build provenance (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          "HANK_BUILD_COMMIT_SHA=$(git rev-parse HEAD)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "HANK_BUILD_TREE_SHA=$(git rev-parse 'HEAD^{tree}')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Build frontend production bundle
         run: npm run build
         working-directory: frontend
