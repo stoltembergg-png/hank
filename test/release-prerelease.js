@@ -450,3 +450,9 @@ test('AC-779: prerelease provenance is explicit and bounded by the previous stab
     rmSync(fixture, { recursive: true, force: true });
   }
 });
+
+test('release contract runners emit complete TAP plans', () => {
+  for (const runner of ['tools/security/updater-feature-tests.mjs', 'tools/security/installer-feature-tests.mjs', 'tools/security/release-signing-feature-tests.mjs']) {
+    assert.match(readFileSync(runner, 'utf8'), /--test-reporter=tap/);
+  }
+});
