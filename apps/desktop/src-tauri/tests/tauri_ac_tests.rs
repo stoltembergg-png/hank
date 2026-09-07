@@ -232,6 +232,38 @@ mod tauri_tests {
     }
 
     #[test]
+    fn ac_secret_backend_is_native_and_fail_closed() {
+        // @spec:AC-069
+        let source = fs::read_to_string(source_path()).expect("main.rs não encontrado");
+        assert!(
+            source.contains("pub mod platform_store;"),
+            "o shell deve registrar o adapter de armazenamento nativo"
+        );
+
+        let backend = fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/platform_store.rs"),
+        )
+        .expect("platform_store.rs não encontrado");
+        for required in [
+            "SecureSecretBackend",
+            "CredWriteW",
+            "CredReadW",
+            "CredDeleteW",
+            "BackendStatus::Unavailable",
+            "TARGET_PREFIX",
+            "fn wipe",
+        ] {
+            assert!(backend.contains(required), "adapter nativo ausente: {required}");
+        }
+        for forbidden in ["std::fs::", "sqlx::query", "localStorage"] {
+            assert!(
+                !backend.contains(forbidden),
+                "backend não pode usar fallback plaintext: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
     fn ac_016_build_identity_is_read_only_and_ci_bindable() {
         // @spec:AC-016 @spec:AC-2661
         let lifecycle = fs::read_to_string(

@@ -8,6 +8,7 @@ pub mod memory;
 pub mod notifications;
 pub mod projects;
 pub mod scheduler;
+pub mod platform_store;
 pub mod sessions;
 pub mod skills;
 pub mod streaming;
