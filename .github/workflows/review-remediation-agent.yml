@@ -122,10 +122,8 @@ jobs:
           name: review-remediation-collect-${{ github.event.review.id || github.event.check_run.id || 'none' }}
 
       - name: Require MiMo environment secret
-        # Keep the legacy variable boundary; the actual repository secret is resolved indirectly.
-        # HANK_REVIEW_REMEDIATION_MIMO_API_KEY: ${{ secrets.HANK_REVIEW_REMEDIATION_MIMO_API_KEY }}
         env:
-          HANK_REVIEW_REMEDIATION_MIMO_API_KEY: ${{ secrets[format('{0}_{1}', 'XIAOMI', 'MIMO_API_KEY')] }}
+          HANK_REVIEW_REMEDIATION_MIMO_API_KEY: ${{ secrets.XIAOMI_MIMO_API_KEY }}
         run: |
           set -euo pipefail
           if [[ -z "${HANK_REVIEW_REMEDIATION_MIMO_API_KEY:-}" ]]; then
@@ -136,7 +134,7 @@ jobs:
       - name: Call MiMo for bounded viability judgment
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          XIAOMI_MIMO_API_KEY: ${{ secrets[format('{0}_{1}', 'XIAOMI', 'MIMO_API_KEY')] }}
+          XIAOMI_MIMO_API_KEY: ${{ secrets.XIAOMI_MIMO_API_KEY }}
           MIMO_ENDPOINT: https://api.xiaomimimo.com/v1
           MIMO_MODEL: mimo-v2.5
         run: |
