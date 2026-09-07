@@ -344,6 +344,7 @@ jobs:
           $env:HANK_DESKTOP_BIN = $executable
           $env:HANK_E2E_APP_DATA_DIR = Join-Path $env:RUNNER_TEMP 'hank-desktop-lifecycle-data'
           $env:HANK_E2E_ALLOW_RELEASE_DATA_DIR = '1'
+          $env:HANK_E2E_MOCK_PROVIDER = '1'
           $env:HANK_DESKTOP_E2E_ARTIFACTS = Join-Path $env:RUNNER_TEMP 'hank-desktop-lifecycle-artifacts'
           $env:HANK_WEBDRIVER_PORT = '4444'
           $env:HANK_EXPECTED_VERSION = $env:TAG.Substring(1)

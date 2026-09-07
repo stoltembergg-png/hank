@@ -171,9 +171,14 @@ try {
   phase = 'session-open';
   await browser.click(await element('.session-open-button'));
   await element('[aria-label="Conversa Release validation conversation"]');
-  await assertText('.session-workbench-notice', 'Envio de mensagens ainda não está integrado ao desktop.');
-  await element('.session-workbench-composer textarea:disabled');
-  await screenshot('04-session-opened');
+  phase = 'chat';
+  await element('[aria-label="Chat da sessão"]');
+  const chatInput = await element('#chat-message');
+  await browser.value(chatInput, 'release smoke');
+  await browser.click(await element('[aria-label="Chat da sessão"] button[type="submit"]'));
+  await browser.waitForText('mock response: release smoke');
+  await assertText('.chat-status', 'Concluída');
+  await screenshot('04-chat-completed');
   await browser.click(await element('[aria-label="Conversa Release validation conversation"] button'));
   await element('[aria-label="Conversas de release-agent"]');
   const projects = await browser.invoke('list_projects', {
@@ -202,6 +207,23 @@ try {
     throw new Error(`sessions: UI-created session was not returned by the real bridge: ${JSON.stringify(sessions)}`);
   }
   if (sessions.sessions[0]?.status !== 'active') throw new Error('sessions: created session was not active');
+  if (sessions.sessions[0]?.message_count !== 2) {
+    throw new Error(`chat: persisted session message count was not updated: ${JSON.stringify(sessions.sessions[0])}`);
+  }
+  const chatMessages = await browser.invoke('list_chat_messages', {
+    project_id: project.id,
+    agent_id: agent.id,
+    session_id: sessions.sessions[0].id,
+    caller: { caller_id: 'desktop-webview', class: 'desktop' },
+    limit: 100,
+    offset: 0,
+  });
+  if (chatMessages.messages?.length !== 2 || chatMessages.messages[0]?.role !== 'user' || chatMessages.messages[1]?.role !== 'assistant') {
+    throw new Error(`chat: persisted message history is invalid: ${JSON.stringify(chatMessages)}`);
+  }
+  if (!chatMessages.messages[1].text.includes('mock response: release smoke')) {
+    throw new Error(`chat: assistant response was not persisted: ${JSON.stringify(chatMessages)}`);
+  }
   await screenshot('03-agents');
   await browser.click(await element('[aria-label="Conteúdo do projeto"] button[role="tab"]:first-child'));
 
