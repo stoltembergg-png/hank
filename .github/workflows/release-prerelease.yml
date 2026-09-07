@@ -106,7 +106,7 @@ jobs:
           test "$(printf '%s' "$previous_release" | jq -r .prerelease)" = false
           range="$PREVIOUS_STABLE_TAG..$SHA"
           commits=$(gh api --paginate "repos/$REPOSITORY/compare/$PREVIOUS_STABLE_TAG...$SHA" --jq '.commits[].sha')
-          prs=$(for commit_sha in $commits; do gh api "repos/$REPOSITORY/commits/$commit_sha/pulls" --jq '.[].number'; done | jq -Rsc 'split("\\n") | map(select(length > 0) | tonumber) | unique | sort')
+          prs=$(for commit_sha in $commits; do gh api "repos/$REPOSITORY/commits/$commit_sha/pulls" --jq '.[].number'; done | jq -Rsc 'split("\n") | map(select(length > 0) | tonumber) | unique | sort')
           test "$prs" != "[]"
           card_number=${RELEASE_CARD#PR-}
           node --input-type=module -e "const prs=JSON.parse(process.argv[1]); const card=Number(process.argv[2]); if (!prs.includes(card)) process.exit(1)" "$prs" "$card_number"
