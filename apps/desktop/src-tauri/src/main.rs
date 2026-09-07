@@ -13,6 +13,7 @@ pub mod sessions;
 pub mod skills;
 pub mod streaming;
 pub mod provider_settings;
+pub mod workflows;
 
 use agent_runtime::{
     backup::{BackupPolicy, BackupProtection, BackupRequest, DatabaseBackupService},
@@ -207,6 +208,7 @@ fn main() {
             app.manage(memory::bridge_state(&storage));
             app.manage(skills::bridge_state(&storage));
             app.manage(provider_settings::bridge_state(&storage));
+            app.manage(workflows::bridge_state(&storage));
             startup
                 .advance(lifecycle::StartupStage::RuntimeReady)
                 .map_err(startup_transition_failure)?;

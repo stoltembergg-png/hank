@@ -196,6 +196,9 @@ pub fn command_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 
         crate::provider_settings::get_provider_oauth_status,
         crate::provider_settings::complete_provider_oauth,
         crate::provider_settings::disconnect_provider_account,
+        crate::workflows::validate_workflow,
+        crate::workflows::save_workflow,
+        crate::workflows::get_workflow,
         crate::lifecycle::frontend_ready
     ]
 }

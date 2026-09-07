@@ -152,6 +152,9 @@ mod tauri_tests {
             "crate::provider_settings::get_provider_oauth_status",
             "crate::provider_settings::complete_provider_oauth",
             "crate::provider_settings::disconnect_provider_account",
+            "crate::workflows::validate_workflow",
+            "crate::workflows::save_workflow",
+            "crate::workflows::get_workflow",
             "crate::lifecycle::frontend_ready",
         ] {
             assert!(
@@ -162,7 +165,7 @@ mod tauri_tests {
 
         assert_eq!(
             registered.split(',').count(),
-            34,
+            37,
             "a ponte deve registrar exatamente os comandos tipados previstos"
         );
 
@@ -259,6 +262,34 @@ mod tauri_tests {
             assert!(
                 !backend.contains(forbidden),
                 "backend não pode usar fallback plaintext: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn ac_workflow_bridge_is_typed_project_scoped_and_revision_safe() {
+        // @spec:AC-1084 @spec:AC-1085
+        let source = fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/workflows.rs"),
+        )
+        .expect("workflows.rs não encontrado");
+        for required in [
+            "WorkflowCommandInput",
+            "validate_workflow",
+            "save_workflow",
+            "get_workflow",
+            "WorkflowGraph",
+            "load_latest_definition",
+            "expected_version",
+            "ProjectStatus::Active",
+            "deny_unknown_fields",
+        ] {
+            assert!(source.contains(required), "ponte de workflow ausente: {required}");
+        }
+        for forbidden in ["sqlx::query", "std::fs::read", "provider"] {
+            assert!(
+                !source.contains(forbidden),
+                "ponte de workflow não pode contornar fronteiras: {forbidden}"
             );
         }
     }

@@ -3,6 +3,7 @@ import { ProjectList } from './components/ProjectList';
 import { ProjectDetailView } from './components/ProjectDetailView';
 import { ProductShell, type ProductShellSection } from './components/ProductShell';
 import { ProviderSettingsPage } from './providers/settings/ProviderSettingsPage';
+import { desktopWorkflowApiOrUndefined } from './api/workflows';
 import { APP_VERSION } from './version';
 import type { ProjectSummary } from './types/project';
 import {
@@ -84,6 +85,7 @@ function App() {
     : activeSection === 'workflows'
       ? 'workflows'
       : 'overview';
+  const workflowApi = desktopWorkflowApiOrUndefined();
 
   return (
     <div
@@ -114,6 +116,7 @@ function App() {
             onBack={closeProject}
             onProjectUpdated={updateSelectedProject}
             onProjectArchived={updateSelectedProject}
+            workflowApi={workflowApi}
           />
         ) : (
           <ProjectList onProjectOpen={openProject} />

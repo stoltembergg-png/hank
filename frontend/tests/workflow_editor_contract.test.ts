@@ -39,4 +39,24 @@ describe('workflow editor contract', () => {
     await expect(model.submit(api, 7)).rejects.toThrow('duplicate_submit');
     expect(api.save).not.toHaveBeenCalled();
   });
+
+  // @spec:AC-1084
+  it('hydrates a project-scoped snapshot without accepting invalid graph data', () => {
+    const model = new WorkflowEditorModel('project-a', 'workflow-a', 3, 3, 7);
+    expect(model.replace({
+      project_id: 'project-a',
+      workflow_id: 'workflow-a',
+      nodes: [node('a'), node('b')],
+      edges: [{ source: 'a', target: 'b' }],
+    })).toBe(true);
+    expect(model.nodes).toHaveLength(2);
+    expect(model.edges).toHaveLength(1);
+    expect(model.replace({
+      project_id: 'project-other',
+      workflow_id: 'workflow-a',
+      nodes: [],
+      edges: [],
+    })).toBe(false);
+    expect(model.nodes).toHaveLength(2);
+  });
 });

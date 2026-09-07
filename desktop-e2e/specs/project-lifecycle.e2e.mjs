@@ -314,6 +314,30 @@ try {
   await screenshot('03-agents');
   await browser.click(await element('[aria-label="Conteúdo do projeto"] button[role="tab"]:first-child'));
 
+  phase = 'workflow-save';
+  await browser.click(await element('[aria-label="Workflows"]'));
+  await element('[aria-label="Workflows do projeto"]');
+  await browser.click(await element('[aria-label="Adicionar nó Agent"]'));
+  await browser.click(await element('[aria-label="Salvar workflow"]'));
+  await browser.waitForText('Workflow salvo na versão 1.');
+  await browser.waitForText('Agent 1');
+  const staleWorkflowValidation = await browser.invoke('validate_workflow', {
+    project_id: project.id,
+    workflow_id: 'wf-00000000-0000-4000-8000-000000000001',
+    expected_version: 0,
+    draft: {
+      project_id: project.id,
+      workflow_id: 'wf-00000000-0000-4000-8000-000000000001',
+      nodes: [{ id: 'agent-1', kind: 'agent', label: 'Agent 1' }],
+      edges: [],
+    },
+  });
+  if (staleWorkflowValidation.valid || staleWorkflowValidation.reason !== 'stale_version') {
+    throw new Error(`workflow: stale validation was accepted: ${JSON.stringify(staleWorkflowValidation)}`);
+  }
+  await screenshot('04-workflow-saved');
+  await browser.click(await element('[aria-label="Conteúdo do projeto"] button[role="tab"]:first-child'));
+
   phase = 'update';
   await browser.click(await element('button.btn-edit'));
   await browser.value(await element('#edit-project-name'), updatedName);
@@ -331,6 +355,13 @@ try {
   await browser.waitForText(updatedDescription);
   await browser.waitForText(owner);
   await screenshot('05-after-restart-1');
+
+  phase = 'workflow-reload';
+  await browser.click(await element('[aria-label="Workflows"]'));
+  await element('[aria-label="Workflows do projeto"]');
+  await browser.waitForText('Agent 1');
+  await assertText('.workflow-surface-notice', 'A persistência está disponível');
+  await browser.click(await element('[aria-label="Conteúdo do projeto"] button[role="tab"]:first-child'));
 
   phase = 'archive';
   await browser.click(await element('button[aria-label="Arquivar este projeto"]'));
