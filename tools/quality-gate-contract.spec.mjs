@@ -235,7 +235,11 @@ test('CodeQL workflow is pinned, scoped, and fail-closed', () => {
   assert.match(codeqlWorkflow, /languages:\s*\$\{\{\s*matrix\.language\s*\}\}/);
   assert.match(codeqlWorkflow, /github\/codeql-action\/init@[0-9a-f]{40}/);
   assert.match(codeqlWorkflow, /github\/codeql-action\/autobuild@[0-9a-f]{40}/);
-  assert.match(codeqlWorkflow, /github\/codeql-action\/analyze@[0-9a-f]{40}/);
+  const pins = [...codeqlWorkflow.matchAll(
+    /github\/codeql-action\/(?:init|autobuild|analyze)@([0-9a-f]{40})/g,
+  )].map((match) => match[1]);
+  assert.equal(pins.length, 3);
+  assert.equal(new Set(pins).size, 1);
   assert.match(codeqlWorkflow, /matrix\.language == 'rust'/);
   assert.doesNotMatch(codeqlWorkflow, /continue-on-error\s*:\s*true/);
 });
