@@ -1,9 +1,10 @@
 //! Authenticated remote daemon control-plane contracts.
 //!
-//! This crate is deliberately transport-neutral. It models only the fail-closed
-//! bootstrap, binding, lease, revocation and redacted-audit boundaries needed
-//! before a concrete daemon adapter may bind a socket. It does not open a
-//! listener, handle raw secrets, or dispatch remote tools.
+//! This crate is deliberately transport-neutral. It models the fail-closed
+//! bootstrap, binding, lease, revocation, redacted-audit and typed remote-tool
+//! dispatch boundaries needed before a concrete daemon adapter may bind a
+//! socket. It does not open a listener, handle raw secrets, or provide a
+//! production network transport.
 
 use agent_protocol::ids::ProjectId;
 use agent_protocol::remote_protocol::{Handshake, NodeId, PeerId, ProtocolRevision};
@@ -19,6 +20,8 @@ use thiserror::Error;
 pub mod event_stream;
 
 pub mod credential_broker;
+
+pub mod tool_dispatch;
 
 pub use security_core::rate_limit::RateLimitPolicy;
 
@@ -113,6 +116,16 @@ pub struct DaemonLease {
     pub id: u64,
     pub state: DaemonSessionState,
     pub expires_at_ms: u64,
+}
+
+/// Contexto autenticado de uma lease ativa, usado por adapters de comando.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DaemonLeaseContext {
+    pub lease: DaemonLease,
+    pub peer: PeerId,
+    pub node: NodeId,
+    pub project: ProjectId,
+    pub revision: ProtocolRevision,
 }
 
 /// Redacted audit reasons for daemon lifecycle and admission events.
@@ -328,6 +341,40 @@ impl<A: PeerAuthenticator> AuthenticatedDaemon<A> {
         };
         close_expired(&mut state, now_ms);
         state_from(&state)
+    }
+
+    /// Returns the authenticated identity bound to an active lease.
+    ///
+    /// Adapters must call this at dispatch time rather than trusting a target
+    /// carried by an earlier request. Expired, revoked and unknown leases fail
+    /// closed and cannot be reused for a replacement session.
+    pub fn lease_context(
+        &self,
+        lease_id: u64,
+        now_ms: u64,
+    ) -> Result<DaemonLeaseContext, DaemonError> {
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| DaemonError::StateUnavailable)?;
+        close_expired(&mut state, now_ms);
+        let Some(active) = state.active.as_ref() else {
+            return Err(DaemonError::StaleLease);
+        };
+        if active.id != lease_id {
+            return Err(DaemonError::StaleLease);
+        }
+        Ok(DaemonLeaseContext {
+            lease: DaemonLease {
+                id: active.id,
+                state: DaemonSessionState::Ready,
+                expires_at_ms: active.expires_at_ms,
+            },
+            peer: active.peer.clone(),
+            node: active.node.clone(),
+            project: active.project,
+            revision: active.revision,
+        })
     }
 
     /// Closes the exact lease only when its deadline has been reached.

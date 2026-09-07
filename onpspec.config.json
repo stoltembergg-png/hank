@@ -12,7 +12,8 @@
     "installers": "node tools/security/installer-feature-tests.mjs",
     "release-signing": "node tools/security/release-signing-feature-tests.mjs",
     "provider-compatibility-tests": "node tools/security/provider-compatibility-feature-tests.mjs",
-    "evidence-scope-reconciliation": "node tools/security/evidence-scope-feature-tests.mjs"
+    "evidence-scope-reconciliation": "node tools/security/evidence-scope-feature-tests.mjs",
+    "remote-tool-execution": "node --test test/remote-tool-execution-onp.test.mjs"
   },
   "reporter": "exitcode",
   "reporters": {
@@ -27,7 +28,8 @@
     "installers": "tap",
     "release-signing": "tap",
     "provider-compatibility-tests": "tap",
-    "evidence-scope-reconciliation": "tap"
+    "evidence-scope-reconciliation": "tap",
+    "remote-tool-execution": "tap"
   },
   "testGlobs": [
     "test/**/*.js",

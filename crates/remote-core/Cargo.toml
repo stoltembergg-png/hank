@@ -11,5 +11,12 @@ description = "Bounded authenticated remote daemon control-plane contracts"
 agent-protocol = { path = "../agent-protocol" }
 provider-core = { path = "../provider-core" }
 security-core = { path = "../security-core" }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tool-core = { path = "../tool-core" }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+agent-core = { path = "../agent-core" }
