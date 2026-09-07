@@ -57,7 +57,7 @@ export class DesktopProviderSettingsApiClient implements ProviderSettingsApiClie
   async list(projectId: string): Promise<ProviderAccountStatus[]> {
     const invoke = bridgeInvoker();
     if (!invoke) return [];
-    return invoke<ProviderAccountStatus[]>('list_provider_accounts', { project_id: projectId });
+    return invoke<ProviderAccountStatus[]>('list_provider_accounts', { input: { project_id: projectId } });
   }
 
   async startOAuth(input: OAuthStartInput): Promise<OAuthStartResult> {

@@ -100,6 +100,11 @@ pub struct OAuthFlowStatus {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct ListProviderAccountsInput {
+    pub project_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct StartProviderOAuthInput {
     pub project_id: String,
     pub provider_id: String,
@@ -388,10 +393,10 @@ pub fn bridge_state(storage: &SqliteStorage) -> ProviderSettingsBridgeState {
 #[tauri::command]
 pub async fn list_provider_accounts(
     state: State<'_, ProviderSettingsBridgeState>,
-    project_id: String,
+    input: ListProviderAccountsInput,
 ) -> Result<Vec<ProviderAccountStatus>, ProviderSettingsBridgeError> {
     state.ensure_enabled()?;
-    let (_project, scope) = state.load_project(&project_id).await?;
+    let (_project, scope) = state.load_project(&input.project_id).await?;
     let account = ProviderSettingsBridgeState::fixture_account(&scope)?;
     let key = ProviderSettingsBridgeState::key(&account);
     let mut accounts = state.accounts.lock().map_err(|_| {

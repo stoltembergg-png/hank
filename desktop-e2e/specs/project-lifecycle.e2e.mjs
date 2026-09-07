@@ -255,6 +255,54 @@ try {
   if (chatUsage.usage?.source !== 'missing' || chatUsage.usage?.confidence !== 'unavailable' || chatUsage.usage?.missing_usage_count !== 1) {
     throw new Error(`chat: usage must remain explicitly unavailable when the stream omits provider usage: ${JSON.stringify(chatUsage)}`);
   }
+
+  phase = 'provider-oauth-negative';
+  const providerAccounts = await browser.invoke('list_provider_accounts', {
+    project_id: project.id,
+  });
+  const mockAccount = providerAccounts.find((account) => account.provider_id === 'mock' && account.account_id === 'account_mock');
+  if (!mockAccount || mockAccount.state !== 'revoked' || mockAccount.has_credential_ref) {
+    throw new Error(`provider: fixture account must start revoked without a credential ref: ${JSON.stringify(providerAccounts)}`);
+  }
+  const oauth = await browser.invoke('start_provider_oauth', {
+    project_id: project.id,
+    provider_id: 'mock',
+    account_id: 'account_mock',
+  });
+  if (!/^flow_\d+$/.test(oauth.flow_id) || oauth.state !== 'pending') {
+    throw new Error(`provider: OAuth flow did not start in pending state: ${JSON.stringify(oauth)}`);
+  }
+  const pending = await browser.invoke('get_provider_oauth_status', {
+    project_id: project.id,
+    flow_id: oauth.flow_id,
+  });
+  if (pending.state !== 'pending') throw new Error(`provider: fresh OAuth flow was not pending: ${JSON.stringify(pending)}`);
+  let callbackRejected = false;
+  try {
+    await browser.invoke('complete_provider_oauth', {
+      project_id: project.id,
+      callback_url: `hank://oauth/callback?flow=${oauth.flow_id}&provider=mock&account=account_mock&state=state_invalid&code=fixture`,
+    });
+  } catch (error) {
+    callbackRejected = String(error).includes('state_mismatch');
+  }
+  if (!callbackRejected) throw new Error('provider: callback with an invalid state was accepted');
+  const invalid = await browser.invoke('get_provider_oauth_status', {
+    project_id: project.id,
+    flow_id: oauth.flow_id,
+  });
+  if (invalid.state !== 'invalid' || invalid.error_code !== 'state_mismatch') {
+    throw new Error(`provider: invalid callback did not produce a stable redacted status: ${JSON.stringify(invalid)}`);
+  }
+  const revoked = await browser.invoke('disconnect_provider_account', {
+    project_id: project.id,
+    provider_id: 'mock',
+    account_id: 'account_mock',
+  });
+  if (revoked.state !== 'revoked' || revoked.has_credential_ref) {
+    throw new Error(`provider: disconnect did not clear fixture account state: ${JSON.stringify(revoked)}`);
+  }
+
   await screenshot('03-agents');
   await browser.click(await element('[aria-label="Conteúdo do projeto"] button[role="tab"]:first-child'));
 
