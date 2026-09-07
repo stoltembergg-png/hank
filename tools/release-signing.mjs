@@ -1,7 +1,7 @@
 import { createHash, sign, verify } from 'node:crypto';
 
 export const SCHEMA_VERSION = 1;
-const HEX64 = /^[0-9a-f]{64}$/;
+const GIT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 function requiredString(value, field) {
   if (typeof value !== 'string' || value.length === 0 || value.length > 256) {
@@ -35,6 +35,7 @@ export function canonicalPayload(attestation) {
       os: attestation.identity.os,
     },
     signer: { keyId: attestation.signer.keyId },
+    update: attestation.update ?? null,
   };
   return Buffer.from(JSON.stringify(fields));
 }
@@ -49,7 +50,7 @@ export function validateAttestation(attestation, expected = {}) {
     requiredString(attestation.identity?.[field], `identity ${field}`);
   }
   requiredString(attestation.signer?.keyId, 'signer key id');
-  if (!HEX64.test(attestation.identity.commit) || !HEX64.test(attestation.identity.tree)) throw new Error('invalid git identity');
+  if (!GIT_ID.test(attestation.identity.commit) || !GIT_ID.test(attestation.identity.tree)) throw new Error('invalid git identity');
   for (const [field, expectedValue] of Object.entries(expected)) {
     if (field === 'trustedKeyring' || field === 'artifactBytes') continue;
     const actual = field === 'signerKeyId' ? attestation.signer?.keyId : attestation.identity?.[field];

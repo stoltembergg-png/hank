@@ -18,5 +18,5 @@
 ## T-2683 — Integrate updater contract into CI and ONP [concluída]
 
 - Refs: AC-2681, AC-2682, AC-2683, AC-2684, AC-2685, AC-2686, AC-2687
-- Arquivos: tools/security/updater-feature-tests.mjs, .github/workflows/ci-auto-updater.yml, .github/workflows/onp-sdd-evidence.yml, onpspec.config.json
+- Arquivos: tools/security/updater-feature-tests.mjs, tools/security/bind-updater-evidence.mjs, .github/workflows/ci-auto-updater.yml, .github/workflows/onp-sdd-evidence.yml, onpspec.config.json
 - Testes: strict TAP runner, workflow integrity and ONP verify.
