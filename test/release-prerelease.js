@@ -290,8 +290,8 @@ test('AC-777: milestone promotion converts only the matching prerelease manifest
 
 test('AC-778: milestone release workflow is explicit and sources the version map @spec:AC-778', () => {
   const milestones = JSON.parse(readFileSync('release-milestones.json', 'utf8'));
-  assert.equal(milestones.active.milestone, 'M5-M6');
-  assert.equal(milestones.active.version, '0.3.0');
+  assert.equal(milestones.active.milestone, 'M16');
+  assert.equal(milestones.active.version, '1.0.0');
   assert.equal(milestones.milestones.find((entry) => entry.id === 'M3-M4').version, '0.2.0');
 
   const workflow = readFileSync('.github/workflows/release-milestone.yml', 'utf8');

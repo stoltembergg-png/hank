@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "active": {
-    "milestone": "M5-M6",
-    "version": "0.3.0",
-    "title": "Agent Tools + Python Runtime"
+    "milestone": "M16",
+    "version": "1.0.0",
+    "title": "Production Hardening"
   },
   "milestones": [
     { "id": "M0-M2", "version": "0.1.0", "title": "Engineering Foundation + Core + Agent Domain" },
