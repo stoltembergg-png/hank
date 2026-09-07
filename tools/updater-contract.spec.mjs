@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { artifactDigest, signAttestation } from './release-signing.mjs';
@@ -17,6 +17,7 @@ const metadata = () => {
     artifact: { name: 'hank.AppImage', digest: artifactDigest(bytes), size: bytes.length },
     identity: { repository: 'stoltembergg-png/hank', event: 'release', ref: 'refs/tags/v4', commit: 'a'.repeat(64), tree: 'b'.repeat(64), workflow: 'release.yml', policy: 'updater-v1', channel: 'stable', os: 'linux-x86_64' },
     signer: { keyId },
+    update: { version: 4, expiresAt: 200, os: 'linux', arch: 'x86_64' },
   }, privateKey);
   return { schemaVersion: 1, version: 4, channel: 'stable', os: 'linux', arch: 'x86_64', size: bytes.length, expiresAt: 200, bytes, attestation };
 };
@@ -31,7 +32,7 @@ test('AC-2681: valid signed metadata stages an update @spec:AC-2681', async () =
 test('AC-2682: invalid signature or digest blocks staging @spec:AC-2682', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'hank-updater-'));
   const update = metadata(); update.bytes = Buffer.from('substituted');
-  await assert.rejects(stageUpdate({ root, metadata: update, policy, publicKey, consent: true }), /artifact digest mismatch|signature verification failed/);
+  await assert.rejects(stageUpdate({ root, metadata: update, policy, publicKey, consent: true }), /artifact digest mismatch|update byte size rejected|signature verification failed/);
 });
 
 test('AC-2683: wrong channel or platform blocks staging @spec:AC-2683', async () => {
@@ -61,5 +62,6 @@ test('AC-2686: explicit consent is required and profile is untouched @spec:AC-26
 test('AC-2687: interrupted or failed staging leaves no partial artifact @spec:AC-2687', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'hank-updater-'));
   const update = metadata(); update.size = 999;
-  await assert.rejects(stageUpdate({ root, metadata: update, policy, publicKey, consent: true }), /size mismatch|signature/);
+  await assert.rejects(stageUpdate({ root, metadata: update, policy, publicKey, consent: true }), /size mismatch|size rejected|signature/);
+  await assert.rejects(stat(path.join(root, 'staging')));
 });
