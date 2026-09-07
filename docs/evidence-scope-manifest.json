@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "kind": "contract-evidence-scope",
+  "policy": {
+    "contractStatus": "PASS means the declared offline contract ran successfully",
+    "productionStatus": "NO_PROOF means production behavior was not exercised",
+    "visualStatus": "A generated result card is evidence of the contract run only",
+    "staleSnapshots": "NO_PROOF until sourceCommit and sourceTree match the current run"
+  },
+  "entries": [
+    {
+      "logicalCard": "PR-261",
+      "mergedPullRequest": 447,
+      "feature": "fuzz-tests",
+      "title": "Bounded fuzz harness",
+      "contractBoundary": "offline-synthetic",
+      "contractStatus": "PASS",
+      "productionStatus": "NO_PROOF",
+      "visualStatus": "contract-result-card-only",
+      "provenClaims": [
+        "The bounded harness exercises seven registered synthetic targets.",
+        "Malformed and valid synthetic inputs are checked without panic.",
+        "Runner identity, limits, corpus policy and redaction are contract-validated."
+      ],
+      "notProven": [
+        "Fuzzing the production parser implementation.",
+        "Exhaustive vulnerability absence or penetration testing.",
+        "Production traffic, credentials, providers or external services."
+      ],
+      "testCommand": "node tools/security/fuzz-feature-tests.mjs",
+      "sources": [
+        "docs/fuzz-tests.md",
+        "docs/security/fuzz-manifest.json",
+        "tools/security/fuzz-runner.mjs",
+        "tools/security/fuzz-tests.spec.mjs",
+        ".github/workflows/ci-fuzz.yml"
+      ]
+    },
+    {
+      "logicalCard": "PR-266",
+      "mergedPullRequest": 452,
+      "feature": "release-signing",
+      "title": "Release signing provenance contract",
+      "contractBoundary": "offline-synthetic-key-fixtures",
+      "contractStatus": "PASS",
+      "productionStatus": "NO_PROOF",
+      "visualStatus": "contract-result-card-only",
+      "provenClaims": [
+        "Ed25519 attestation and independent verification are contract-validated.",
+        "Digest, repository, commit, tree, channel, policy and signer mismatches fail closed.",
+        "Fixtures generate an ephemeral synthetic key pair in memory."
+      ],
+      "notProven": [
+        "A real release artifact was signed.",
+        "A production signing key or protected release environment was exercised.",
+        "An artifact was published or distributed."
+      ],
+      "testCommand": "node tools/security/release-signing-feature-tests.mjs",
+      "sources": [
+        "docs/release-signing.md",
+        "docs/release-signing-manifest.json",
+        "tools/release-signing.mjs",
+        "tools/release-signing.spec.mjs",
+        "tools/security/release-signing-feature-tests.mjs",
+        ".github/workflows/ci-release-signing.yml"
+      ]
+    },
+    {
+      "logicalCard": "PR-267",
+      "mergedPullRequest": 453,
+      "feature": "installers",
+      "title": "Installer identity contract",
+      "contractBoundary": "contract-only-platform-matrix",
+      "contractStatus": "PASS",
+      "productionStatus": "NO_PROOF",
+      "visualStatus": "contract-result-card-only",
+      "provenClaims": [
+        "Linux, Windows and macOS targets are represented by a bounded contract matrix.",
+        "Artifact identity, canonical paths, simulated install state, uninstall policy and profile preservation are checked.",
+        "Unsafe metadata, traversal, wrong platform and digest mismatch are rejected."
+      ],
+      "notProven": [
+        "A real installer was built or executed on any declared platform.",
+        "Native launch, uninstall or migration smoke tests on Linux, Windows or macOS.",
+        "Platform support beyond the contract-only matrix."
+      ],
+      "testCommand": "node tools/security/installer-feature-tests.mjs",
+      "sources": [
+        "docs/installer-tests.md",
+        "docs/installer-manifest.json",
+        "tools/installer-contract.mjs",
+        "tools/installer-contract.spec.mjs",
+        "tools/security/installer-feature-tests.mjs",
+        ".github/workflows/ci-installers.yml"
+      ]
+    }
+  ]
+}

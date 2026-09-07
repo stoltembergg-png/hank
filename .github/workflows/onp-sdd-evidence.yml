@@ -286,6 +286,13 @@ jobs:
       - name: Bind release signing evidence identity
         run: node tools/security/bind-release-signing-evidence.mjs
 
+      - name: Verify contract evidence scope
+        env:
+          HANK_ALLOW_GENERATED_EVIDENCE: '1'
+        run: node tools/ci/run-onp-spec.mjs verify evidence-scope-reconciliation
+      - name: Generate contract evidence visual report
+        run: node tools/security/generate-evidence-scope-report.mjs
+
       - name: Verify workflow state persistence
         run: node tools/ci/run-onp-spec.mjs verify workflow-state-persistence
 
