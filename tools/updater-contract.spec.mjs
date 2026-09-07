@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,10 +13,12 @@ const bytes = Buffer.from('signed-update-fixture');
 const keyId = 'updater-fixture-v1';
 const keyring = { [keyId]: { revoked: false, publicKey: publicKey.export({ type: 'spki', format: 'der' }).toString('base64') } };
 const policy = { channel: 'stable', os: 'linux', arch: 'x86_64', currentVersion: 3, minimumVersion: 3, maxBytes: 1024, now: 100, trustedKeyring: keyring };
+const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+const sourceTree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim();
 const metadata = () => {
   const attestation = signAttestation({
     artifact: { name: 'hank.AppImage', digest: artifactDigest(bytes), size: bytes.length },
-    identity: { repository: 'stoltembergg-png/hank', event: 'release', ref: 'refs/tags/v4', commit: 'a'.repeat(64), tree: 'b'.repeat(64), workflow: 'release.yml', policy: 'updater-v1', channel: 'stable', os: 'linux-x86_64' },
+    identity: { repository: 'stoltembergg-png/hank', event: 'release', ref: 'refs/tags/v4', commit: sourceCommit, tree: sourceTree, workflow: 'release.yml', policy: 'updater-v1', channel: 'stable', os: 'linux-x86_64' },
     signer: { keyId },
     update: { version: 4, expiresAt: 200, os: 'linux', arch: 'x86_64' },
   }, privateKey);
@@ -31,8 +34,8 @@ test('AC-2681: valid signed metadata stages an update @spec:AC-2681', async () =
 
 test('AC-2682: invalid signature or digest blocks staging @spec:AC-2682', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'hank-updater-'));
-  const update = metadata(); update.bytes = Buffer.from('substituted');
-  await assert.rejects(stageUpdate({ root, metadata: update, policy, publicKey, consent: true }), /artifact digest mismatch|update byte size rejected|signature verification failed/);
+  const update = metadata(); update.bytes = Buffer.from('substituted'); update.size = update.bytes.length;
+  await assert.rejects(stageUpdate({ root, metadata: update, policy, publicKey, consent: true }), /artifact digest mismatch/);
 });
 
 test('AC-2683: wrong channel or platform blocks staging @spec:AC-2683', async () => {
@@ -61,7 +64,6 @@ test('AC-2686: explicit consent is required and profile is untouched @spec:AC-26
 
 test('AC-2687: interrupted or failed staging leaves no partial artifact @spec:AC-2687', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'hank-updater-'));
-  const update = metadata(); update.size = 999;
-  await assert.rejects(stageUpdate({ root, metadata: update, policy, publicKey, consent: true }), /size mismatch|size rejected|signature/);
+  await assert.rejects(stageUpdate({ root, metadata: metadata(), policy, publicKey, consent: true, failAfterWrite: true }), /injected post-write failure/);
   await assert.rejects(stat(path.join(root, 'staging')));
 });
