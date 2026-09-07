@@ -455,4 +455,7 @@ test('release contract runners emit complete TAP plans', () => {
   for (const runner of ['tools/security/updater-feature-tests.mjs', 'tools/security/installer-feature-tests.mjs', 'tools/security/release-signing-feature-tests.mjs']) {
     assert.match(readFileSync(runner, 'utf8'), /--test-reporter=tap/);
   }
+  const evidenceRunner = readFileSync('tools/security/evidence-scope-feature-tests.mjs', 'utf8');
+  assert.match(evidenceRunner, /fileURLToPath\(root\)/);
+  assert.doesNotMatch(evidenceRunner, /root\.pathname/);
 });

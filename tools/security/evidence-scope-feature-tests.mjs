@@ -2,10 +2,11 @@
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { buildReport, readManifest, assertSourceClean } from '../evidence-scope-contract.mjs';
 
 const root = new URL('../..', import.meta.url);
-const rootPath = root.pathname;
+const rootPath = fileURLToPath(root);
 const reportPath = `${rootPath}/security/reports/evidence-scope.json`;
 fs.mkdirSync(`${rootPath}/security/reports`, { recursive: true });
 assertSourceClean({ projectRoot: rootPath });
