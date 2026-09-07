@@ -4,6 +4,8 @@
   "description": "Minimal capability for the Hank desktop window",
   "windows": ["main"],
   "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
     "notification:allow-is-permission-granted",
     "notification:allow-permission-state",
     "notification:allow-request-permission",

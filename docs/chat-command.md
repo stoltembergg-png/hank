@@ -4,7 +4,7 @@ PR-089 adds a versioned typed ChatCommand boundary in `agent-protocol` plus a th
 
 ## Protocol envelope
 
-`ChatCommand` carries schema version, command/caller identity, typed Project/Agent/Session IDs, bounded user text, generation and cancellation ID. It rejects empty/control/oversized/secret-like content and unknown schema state fail-closed.
+`ChatCommand` carries schema version, command/stream/caller identity, typed Project/Agent/Session IDs, bounded user text, generation and cancellation ID. The stream ID is preserved by the desktop bridge so the command and emitted events share one correlation identity. It rejects empty/control/oversized/secret-like content and unknown schema state fail-closed.
 
 `ChatCommandRegistry` bounds accepted commands, deduplicates command IDs, rejects stale generations per Session and exposes only status/diagnostic metadata. Typed IDs remain typed in the envelope; registry internal keys use canonical strings without changing public ID ordering traits.
 

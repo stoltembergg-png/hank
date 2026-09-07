@@ -34,6 +34,7 @@ impl CallerIdentity {
 pub struct ChatCommand {
     pub schema_version: u32,
     pub command_id: String,
+    pub stream_id: String,
     pub caller: CallerIdentity,
     pub project_id: ProjectId,
     pub agent_id: AgentId,
@@ -49,6 +50,7 @@ impl ChatCommand {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         command_id: impl Into<String>,
+        stream_id: impl Into<String>,
         caller: CallerIdentity,
         project_id: ProjectId,
         agent_id: AgentId,
@@ -58,9 +60,11 @@ impl ChatCommand {
         cancellation_id: impl Into<String>,
     ) -> Result<Self, ChatCommandError> {
         let command_id = command_id.into();
+        let stream_id = stream_id.into();
         let text = text.into();
         let cancellation_id = cancellation_id.into();
         if !valid_id(&command_id)
+            || !valid_id(&stream_id)
             || !valid_id(&cancellation_id)
             || text.is_empty()
             || text.len() > MAX_TEXT_BYTES
@@ -73,6 +77,7 @@ impl ChatCommand {
         Ok(Self {
             schema_version: Self::SCHEMA_VERSION,
             command_id,
+            stream_id,
             caller,
             project_id,
             agent_id,

@@ -27,7 +27,11 @@ fn desktop_notification_plugin_is_registered_with_minimal_capability() {
         .filter_map(Value::as_str)
         .collect::<Vec<_>>();
     assert_eq!(
-        names,
+        names
+            .iter()
+            .copied()
+            .filter(|name| name.starts_with("notification:"))
+            .collect::<Vec<_>>(),
         [
             "notification:allow-is-permission-granted",
             "notification:allow-permission-state",
@@ -35,6 +39,8 @@ fn desktop_notification_plugin_is_registered_with_minimal_capability() {
             "notification:allow-notify",
         ]
     );
+    assert!(names.contains(&"core:event:allow-listen"));
+    assert!(names.contains(&"core:event:allow-unlisten"));
     assert!(!names.contains(&"notification:default"));
 }
 

@@ -295,6 +295,7 @@ async fn send_chat_command_for_state(
     }
     let command = ChatCommand::new(
         command.command_id.clone(),
+        command.stream_id.clone(),
         command.caller.clone(),
         command.project_id,
         command.agent_id,
@@ -463,7 +464,7 @@ async fn execute_chat_turn(
         .await
         .map_err(|error| map_message_storage(error, &command.command_id))?;
 
-    let stream_id = format!("stream-{}", command.command_id);
+    let stream_id = command.stream_id.clone();
     let subscription = ChatStreamSubscription::new(
         stream_id.clone(),
         command.command_id.clone(),

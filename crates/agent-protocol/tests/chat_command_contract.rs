@@ -6,6 +6,7 @@ use agent_protocol::ids::{AgentId, ProjectId, SessionId};
 fn command() -> ChatCommand {
     ChatCommand::new(
         "command-1",
+        "stream-1",
         CallerIdentity::new("caller-1", "desktop").unwrap(),
         ProjectId::new(),
         AgentId::new(),
@@ -23,6 +24,7 @@ fn valid_command_is_versioned_bounded_and_bound_to_typed_identity() {
     assert_eq!(command.schema_version, 1);
     assert_eq!(command.status(), ChatCommandStatus::Accepted);
     assert_eq!(command.text, "hello");
+    assert_eq!(command.stream_id, "stream-1");
     let debug = format!("{command:?}");
     assert!(!debug.contains("api_key"));
     assert!(!debug.contains("secret"));
@@ -42,6 +44,7 @@ fn registry_rejects_duplicate_and_stale_generation_deterministically() {
     );
     let high = ChatCommand::new(
         "command-high",
+        "stream-high",
         first.caller.clone(),
         first.project_id,
         first.agent_id,
@@ -54,6 +57,7 @@ fn registry_rejects_duplicate_and_stale_generation_deterministically() {
     assert_eq!(registry.accept(&high).unwrap(), ChatCommandStatus::Accepted);
     let stale = ChatCommand::new(
         "command-2",
+        "stream-2",
         first.caller.clone(),
         first.project_id,
         first.agent_id,
@@ -71,6 +75,7 @@ fn malformed_unknown_oversized_and_secret_like_commands_fail_closed() {
     assert!(matches!(
         ChatCommand::new(
             "",
+            "stream",
             CallerIdentity::new("caller", "desktop").unwrap(),
             ProjectId::new(),
             AgentId::new(),
@@ -83,6 +88,7 @@ fn malformed_unknown_oversized_and_secret_like_commands_fail_closed() {
     ));
     assert!(ChatCommand::new(
         "command-1",
+        "stream-1",
         CallerIdentity::new("caller", "desktop").unwrap(),
         ProjectId::new(),
         AgentId::new(),
@@ -94,6 +100,7 @@ fn malformed_unknown_oversized_and_secret_like_commands_fail_closed() {
     .is_err());
     assert!(ChatCommand::new(
         "command-1",
+        "stream-1",
         CallerIdentity::new("caller", "desktop").unwrap(),
         ProjectId::new(),
         AgentId::new(),
@@ -113,6 +120,7 @@ fn capacity_and_cancellation_metadata_are_bounded() {
     registry.accept(&first).unwrap();
     let second = ChatCommand::new(
         "command-2",
+        "stream-2",
         first.caller.clone(),
         first.project_id,
         first.agent_id,
