@@ -265,6 +265,13 @@ jobs:
           HANK_ALLOW_GENERATED_EVIDENCE: '1'
         run: node tools/ci/run-onp-spec.mjs verify provider-compatibility-tests
 
+      - name: Verify installers
+        env:
+          HANK_ALLOW_GENERATED_EVIDENCE: '1'
+        run: node tools/ci/run-onp-spec.mjs verify installers
+      - name: Bind installer evidence identity
+        run: node tools/security/bind-installer-evidence.mjs
+
       - name: Verify release signing
         env:
           HANK_ALLOW_GENERATED_EVIDENCE: '1'

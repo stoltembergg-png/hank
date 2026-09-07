@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "review": "PR-267",
+  "product": "hank-desktop",
+  "versionSource": "apps/desktop/src-tauri/tauri.conf.json",
+  "targets": [
+    {"os": "linux", "arch": "x86_64", "format": "appimage", "support": "contract-only", "profilePolicy": "preserve", "sidecars": []},
+    {"os": "windows", "arch": "x86_64", "format": "nsis", "support": "contract-only", "profilePolicy": "preserve", "sidecars": []},
+    {"os": "macos", "arch": "aarch64", "format": "dmg", "support": "contract-only", "profilePolicy": "preserve", "sidecars": []}
+  ],
+  "security": {
+    "installShellFromMetadata": false,
+    "secretsEmbedded": false,
+    "signatureRequired": true,
+    "digestRequired": true,
+    "profileDeletionByDefault": false,
+    "migrationBeforeUse": true
+  },
+  "identity": ["artifact", "digest", "repository", "commit", "tree", "os", "arch", "packageTool", "policy"],
+  "publication": "forbidden-in-PR-267"
+}
