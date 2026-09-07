@@ -18,8 +18,8 @@
 5. Calcula a tag determinística usando o SHA completo e recusa tags existentes.
 6. Gera changelog, instruções, hashes, archive e manifesto imutável depois de
    incorporar o instalador Windows produzido pelo job nativo. O manifesto registra
-   `artifactDigests` para o archive e o `.exe`; a publicação falha se qualquer digest
-   não corresponder ao arquivo baixado.
+   `artifactDigests` para o archive, o `.exe` e o AppImage; a publicação falha se
+   qualquer digest não corresponder ao arquivo baixado.
 7. Somente o job `publish` possui `contents: write`; os jobs de preflight e package são read-only.
 8. Publica com `gh release create --prerelease --target <SHA>` e lê de volta tag, target e flag prerelease.
 9. Em rerun, um release existente só vira no-op se target e manifesto forem idênticos. Tag órfã ou divergente falha.
