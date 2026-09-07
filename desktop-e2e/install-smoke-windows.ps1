@@ -27,6 +27,8 @@ $report = [ordered]@{
   artifactDigests = $null
   installerDigest = $null
   installedExecutable = $null
+  uninstall = 'pending'
+  upgradeRollback = 'NO_PROOF'
   error = $null
 }
 foreach ($required in @($manifestPath, $manifestHashPath, $checksumsPath, $installerPath, $appImagePath)) {
@@ -120,6 +122,7 @@ try {
     $uninstallProcess = Start-Process -FilePath $uninstaller -ArgumentList @('/S') -Wait -PassThru
     if ($uninstallProcess.ExitCode -ne 0) { throw "NSIS uninstall failed with exit code $($uninstallProcess.ExitCode)" }
     if (Test-Path -LiteralPath $installedExecutable -PathType Leaf) { throw 'installed executable remained after uninstall' }
+    $report.uninstall = 'passed'
   } catch {
     $cleanupError = $_.Exception.Message
     $report.status = 'failed'

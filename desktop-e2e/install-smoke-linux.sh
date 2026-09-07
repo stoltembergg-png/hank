@@ -30,7 +30,7 @@ cleanup() {
     fi
   fi
   mkdir -p "$(dirname "$report_path")"
-  printf '{"status":"%s","releaseTag":"%s","expectedCommit":"%s","expectedTree":"%s","platform":"linux-x86_64","appImage":"hank-%s-x86_64.AppImage","appImageDigest":"%s","upgradeRollback":"NO_PROOF"}\n' \
+  printf '{"status":"%s","releaseTag":"%s","expectedCommit":"%s","expectedTree":"%s","platform":"linux-x86_64","appImage":"hank-%s-x86_64.AppImage","appImageDigest":"%s","uninstall":"not_applicable_portable","upgradeRollback":"NO_PROOF"}\n' \
     "$status" "$HANK_RELEASE_TAG" "$HANK_EXPECTED_COMMIT" "$HANK_EXPECTED_TREE" "$HANK_RELEASE_TAG" \
     "$(sha256sum "$appimage" 2>/dev/null | awk '{print $1}')" > "$report_path"
   exit "$code"
