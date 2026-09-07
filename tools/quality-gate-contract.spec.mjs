@@ -236,7 +236,7 @@ test('CodeQL workflow is pinned, scoped, and fail-closed', () => {
   assert.match(codeqlWorkflow, /github\/codeql-action\/init@[0-9a-f]{40}/);
   assert.match(codeqlWorkflow, /github\/codeql-action\/autobuild@[0-9a-f]{40}/);
   const pins = [...codeqlWorkflow.matchAll(
-    /github\/codeql-action\/(?:init|autobuild|analyze)@([0-9a-f]{40})/g,
+    /^\s*uses:\s+github\/codeql-action\/(?:init|autobuild|analyze)@([0-9a-f]{40})\s*$/gm,
   )].map((match) => match[1]);
   assert.equal(pins.length, 3);
   assert.equal(new Set(pins).size, 1);
