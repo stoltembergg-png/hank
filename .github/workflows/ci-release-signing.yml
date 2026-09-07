@@ -30,5 +30,7 @@ jobs:
         run: node tools/security/release-signing-feature-tests.mjs
       - name: Verify artifact signer and verifier contract
         run: node --test tools/release-artifact-signing.spec.mjs
+      - name: Verify deterministic SBOM contract
+        run: node --test tools/release-sbom.spec.mjs
       - name: Bind exact source identity into evidence
         run: node tools/security/bind-release-signing-evidence.mjs

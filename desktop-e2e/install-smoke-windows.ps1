@@ -16,6 +16,7 @@ $manifestHashPath = Join-Path $releaseRoot 'manifest.sha256'
 $checksumsPath = Join-Path $releaseRoot 'SHA256SUMS'
 $installerPath = Join-Path $releaseRoot "hank-$ReleaseTag-setup.exe"
 $appImagePath = Join-Path $releaseRoot "hank-$ReleaseTag-x86_64.AppImage"
+$sbomPath = Join-Path $releaseRoot 'SBOM.spdx.json'
 $signingMetadataPath = Join-Path $releaseRoot 'release-signing-metadata.json'
 $signingAttestationPaths = @(
   (Join-Path $releaseRoot "hank-$ReleaseTag.tar.gz.attestation.json"),
@@ -32,12 +33,14 @@ $report = [ordered]@{
   installer = "hank-$ReleaseTag-setup.exe"
   artifactDigests = $null
   installerDigest = $null
+  sbom = 'SBOM.spdx.json'
+  sbomDigest = $null
   installedExecutable = $null
   uninstall = 'pending'
   upgradeRollback = 'NO_PROOF'
   error = $null
 }
-foreach ($required in @($manifestPath, $manifestHashPath, $checksumsPath, $installerPath, $appImagePath, $signingMetadataPath) + $signingAttestationPaths) {
+foreach ($required in @($manifestPath, $manifestHashPath, $checksumsPath, $installerPath, $appImagePath, $sbomPath, $signingMetadataPath) + $signingAttestationPaths) {
   if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "release asset is missing: $required" }
 }
 
@@ -72,6 +75,7 @@ if ($manifest.sha -ne $ExpectedCommit -or $manifest.tree -ne $ExpectedTree) {
 }
 $report.artifactDigests = $manifest.artifactDigests
 $report.installerDigest = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$report.sbomDigest = (Get-FileHash -LiteralPath $sbomPath -Algorithm SHA256).Hash.ToLowerInvariant()
 
 $nodeBinary = $env:HANK_NODE_BIN
 if (-not $nodeBinary) {
@@ -88,6 +92,12 @@ if ($LASTEXITCODE -ne 0) { throw "manifest artifact verification failed with exi
   --commit $ExpectedCommit `
   --tree $ExpectedTree
 if ($LASTEXITCODE -ne 0) { throw "release signing verification failed with exit code $LASTEXITCODE" }
+& $nodeBinary (Join-Path $repositoryRoot 'tools/release-sbom.mjs') verify `
+  --file $sbomPath `
+  --commit $ExpectedCommit `
+  --tree $ExpectedTree `
+  --version $manifest.version
+if ($LASTEXITCODE -ne 0) { throw "SBOM provenance verification failed with exit code $LASTEXITCODE" }
 
 $installRoot = Join-Path $env:RUNNER_TEMP ("hank-release-install-smoke-" + [guid]::NewGuid().ToString('N'))
 $profileRoot = Join-Path $env:RUNNER_TEMP ("hank-release-install-profile-" + [guid]::NewGuid().ToString('N'))

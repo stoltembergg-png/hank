@@ -89,6 +89,7 @@ jobs:
             --pattern release-manifest.json \
             --pattern manifest.sha256 \
             --pattern SHA256SUMS \
+            --pattern SBOM.spdx.json \
             --pattern "hank-${PRERELEASE_TAG}.tar.gz" \
             --pattern "hank-${PRERELEASE_TAG}-setup.exe" \
             --pattern "hank-${PRERELEASE_TAG}-x86_64.AppImage" \
@@ -109,6 +110,11 @@ jobs:
             --commit "$sha" \
             --tree "$tree" \
             --requireTrustedKey 1
+          node tools/release-sbom.mjs verify \
+            --file "$RUNNER_TEMP/prerelease/SBOM.spdx.json" \
+            --commit "$sha" \
+            --tree "$tree" \
+            --version "$(jq -r '.version' "$RUNNER_TEMP/prerelease/release-manifest.json")"
           
           # Capture the validated manifest hash for later verification
           prerelease_manifest_hash=$(sha256sum "$RUNNER_TEMP/prerelease/release-manifest.json" | awk '{print $1}')
@@ -178,6 +184,7 @@ jobs:
             --pattern "hank-${PRERELEASE_TAG}.tar.gz" \
             --pattern "hank-${PRERELEASE_TAG}-setup.exe" \
             --pattern "hank-${PRERELEASE_TAG}-x86_64.AppImage" \
+            --pattern SBOM.spdx.json \
             --pattern "hank-${PRERELEASE_TAG}.tar.gz.attestation.json" \
             --pattern "hank-${PRERELEASE_TAG}-setup.exe.attestation.json" \
             --pattern "hank-${PRERELEASE_TAG}-x86_64.AppImage.attestation.json" \
@@ -189,6 +196,7 @@ jobs:
           mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}.tar.gz" "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz"
           mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}-setup.exe" "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe"
           mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}-x86_64.AppImage" "$RUNNER_TEMP/stable/hank-${stable_tag}-x86_64.AppImage"
+          mv "$RUNNER_TEMP/prerelease/SBOM.spdx.json" "$RUNNER_TEMP/stable/SBOM.spdx.json"
           for name in \
             "hank-${PRERELEASE_TAG}.tar.gz.attestation.json" \
             "hank-${PRERELEASE_TAG}-setup.exe.attestation.json" \
@@ -258,6 +266,7 @@ jobs:
               "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-x86_64.AppImage" \
+              "$RUNNER_TEMP/stable/SBOM.spdx.json" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz.attestation.json" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe.attestation.json" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-x86_64.AppImage.attestation.json" \

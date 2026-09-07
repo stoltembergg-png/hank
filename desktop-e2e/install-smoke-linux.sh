@@ -14,6 +14,7 @@ checksums="$release_root/SHA256SUMS"
 archive="$release_root/hank-${HANK_RELEASE_TAG}.tar.gz"
 installer="$release_root/hank-${HANK_RELEASE_TAG}-setup.exe"
 appimage="$release_root/hank-${HANK_RELEASE_TAG}-x86_64.AppImage"
+sbom="$release_root/SBOM.spdx.json"
 report_path="${HANK_INSTALL_SMOKE_REPORT:-$release_root/install-smoke-report.json}"
 status=FAIL
 exit_code=1
@@ -30,14 +31,15 @@ cleanup() {
     fi
   fi
   mkdir -p "$(dirname "$report_path")"
-  printf '{"status":"%s","releaseTag":"%s","expectedCommit":"%s","expectedTree":"%s","platform":"linux-x86_64","appImage":"hank-%s-x86_64.AppImage","appImageDigest":"%s","uninstall":"not_applicable_portable","upgradeRollback":"NO_PROOF"}\n' \
+  printf '{"status":"%s","releaseTag":"%s","expectedCommit":"%s","expectedTree":"%s","platform":"linux-x86_64","appImage":"hank-%s-x86_64.AppImage","appImageDigest":"%s","sbom":"SBOM.spdx.json","sbomDigest":"%s","uninstall":"not_applicable_portable","upgradeRollback":"NO_PROOF"}\n' \
     "$status" "$HANK_RELEASE_TAG" "$HANK_EXPECTED_COMMIT" "$HANK_EXPECTED_TREE" "$HANK_RELEASE_TAG" \
-    "$(sha256sum "$appimage" 2>/dev/null | awk '{print $1}')" > "$report_path"
+    "$(sha256sum "$appimage" 2>/dev/null | awk '{print $1}')" \
+    "$(sha256sum "$sbom" 2>/dev/null | awk '{print $1}')" > "$report_path"
   exit "$code"
 }
 trap cleanup EXIT
 
-for required in "$manifest" "$manifest_sha" "$checksums" "$archive" "$installer" "$appimage"; do
+for required in "$manifest" "$manifest_sha" "$checksums" "$archive" "$installer" "$appimage" "$sbom"; do
   test -f "$required"
 done
 
@@ -50,6 +52,12 @@ node "$PWD/tools/release-artifact-signing.mjs" verify \
   --artifacts "hank-${HANK_RELEASE_TAG}.tar.gz,hank-${HANK_RELEASE_TAG}-setup.exe,hank-${HANK_RELEASE_TAG}-x86_64.AppImage" \
   --commit "$HANK_EXPECTED_COMMIT" \
   --tree "$HANK_EXPECTED_TREE"
+sbom_version=$(jq -r '.version' "$manifest")
+node "$PWD/tools/release-sbom.mjs" verify \
+  --file "$sbom" \
+  --commit "$HANK_EXPECTED_COMMIT" \
+  --tree "$HANK_EXPECTED_TREE" \
+  --version "$sbom_version"
 node --input-type=module - "$manifest" "$HANK_RELEASE_TAG" "$HANK_EXPECTED_COMMIT" "$HANK_EXPECTED_TREE" <<'NODE'
 import fs from 'node:fs';
 const [manifestPath, expectedTag, expectedCommit, expectedTree] = process.argv.slice(2);

@@ -200,7 +200,9 @@ jobs:
           mkdir -p /tmp/prerelease
           prs_csv=$(node --input-type=module -e "process.stdout.write(JSON.parse(process.argv[1]).join(','))" "$PRS")
           node tools/release-prerelease.mjs changelog --tag "$TAG" --card "$CARD" --prs "$prs_csv" --range "$RANGE" --sha "$SHA" --tree "$TREE" > /tmp/prerelease/RELEASE_NOTES.md
-          printf '%s\n' "Download the archive and release-manifest.json. Verify manifest.sha256 matches the downloaded manifest, confirm exact commit $SHA, then run cargo test --workspace --locked and npm --prefix frontend test. This is a prerelease and is not a stable release." > /tmp/prerelease/TEST_INSTRUCTIONS.md
+          node tools/release-sbom.mjs generate --root . --commit "$SHA" --tree "$TREE" --version "${TAG#v}" --output /tmp/prerelease/SBOM.spdx.json
+          node tools/release-sbom.mjs verify --file /tmp/prerelease/SBOM.spdx.json --commit "$SHA" --tree "$TREE" --version "${TAG#v}"
+          printf '%s\n' "Download the archive, SBOM.spdx.json and release-manifest.json. Verify manifest.sha256 and SHA256SUMS, confirm exact commit $SHA, validate the SPDX SBOM identity, then run cargo test --workspace --locked and npm --prefix frontend test. This is a prerelease and is not a stable release." > /tmp/prerelease/TEST_INSTRUCTIONS.md
           tar --exclude='./.git' --exclude='./frontend/node_modules' --exclude='./target' --exclude='./apps/desktop/src-tauri/target' -czf "/tmp/prerelease/hank-${TAG}.tar.gz" .
 
       - name: Upload prerelease bundle
@@ -546,7 +548,9 @@ jobs:
           test -f "$appimage"
           cp "$installer" "/tmp/prerelease/hank-${TAG}-setup.exe"
           cp "$appimage" "/tmp/prerelease/hank-${TAG}-x86_64.AppImage"
-          names=("hank-${TAG}.tar.gz" "hank-${TAG}-setup.exe" "hank-${TAG}-x86_64.AppImage")
+          sbom="SBOM.spdx.json"
+          test -f "/tmp/prerelease/$sbom"
+          names=("hank-${TAG}.tar.gz" "hank-${TAG}-setup.exe" "hank-${TAG}-x86_64.AppImage" "$sbom")
           signing_files=(
             "hank-${TAG}.tar.gz.attestation.json"
             "hank-${TAG}-setup.exe.attestation.json"
@@ -562,6 +566,11 @@ jobs:
             --tree "$TREE" \
             --requireTrustedKey 1 \
             --signerKeyId "$HANK_RELEASE_SIGNER_KEY_ID"
+          node tools/release-sbom.mjs verify \
+            --file "/tmp/prerelease/$sbom" \
+            --commit "$SHA" \
+            --tree "$TREE" \
+            --version "${TAG#v}"
           (cd /tmp/prerelease && sha256sum "${names[@]}" "${signing_files[@]}" > SHA256SUMS)
           node --input-type=module - <<'NODE' > /tmp/manifest-input.json
           import fs from 'node:fs';
@@ -571,9 +580,11 @@ jobs:
             `hank-${tag}.tar.gz`,
             `hank-${tag}-setup.exe`,
             `hank-${tag}-x86_64.AppImage`,
+            'SBOM.spdx.json',
           ];
+          const signedNames = names.filter((name) => name !== 'SBOM.spdx.json');
           const signingFiles = [
-            ...names.map((name) => `${name}.attestation.json`),
+            ...signedNames.map((name) => `${name}.attestation.json`),
             'release-signing-metadata.json',
           ];
           const changelog = fs.readFileSync('/tmp/prerelease/RELEASE_NOTES.md', 'utf8');
@@ -615,6 +626,7 @@ jobs:
               "/tmp/prerelease/hank-${TAG}.tar.gz" \
               "/tmp/windows-bundle/hank-${TAG}-setup.exe" \
               "/tmp/linux-bundle/hank-${TAG}-x86_64.AppImage" \
+              "/tmp/prerelease/SBOM.spdx.json" \
               "/tmp/prerelease/hank-${TAG}.tar.gz.attestation.json" \
               "/tmp/prerelease/hank-${TAG}-setup.exe.attestation.json" \
               "/tmp/prerelease/hank-${TAG}-x86_64.AppImage.attestation.json" \
@@ -681,6 +693,7 @@ jobs:
             --pattern release-manifest.json `
             --pattern manifest.sha256 `
             --pattern SHA256SUMS `
+            --pattern SBOM.spdx.json `
             --pattern "hank-$env:TAG.tar.gz" `
             --pattern "hank-$env:TAG-setup.exe" `
             --pattern "hank-$env:TAG-x86_64.AppImage" `
@@ -772,6 +785,7 @@ jobs:
             --pattern release-manifest.json \
             --pattern manifest.sha256 \
             --pattern SHA256SUMS \
+            --pattern SBOM.spdx.json \
             --pattern "hank-${TAG}.tar.gz" \
             --pattern "hank-${TAG}-setup.exe" \
             --pattern "hank-${TAG}-x86_64.AppImage" \

@@ -281,11 +281,19 @@ test('PR-370: publish binds the native Windows installer before creating the rel
   assert.match(workflow, /release-artifact-signing\.mjs sign/);
   assert.match(workflow, /needs: \[preflight, package, windows-package, linux-package, sign\]/);
   assert.match(workflow, /release-signing-metadata\.json/);
+  assert.match(workflow, /release-sbom\.mjs generate/);
+  assert.match(workflow, /release-sbom\.mjs verify/);
+  assert.match(workflow, /SBOM\.spdx\.json/);
   const milestone = readFileSync('.github/workflows/release-milestone.yml', 'utf8');
   assert.match(milestone, /sha256sum -c SHA256SUMS/);
   assert.match(milestone, /verify-artifacts/);
   assert.match(milestone, /release-artifact-signing\.mjs verify/);
   assert.match(milestone, /release-signing-metadata\.json/);
+  assert.match(milestone, /release-sbom\.mjs verify/);
+  assert.match(milestone, /SBOM\.spdx\.json/);
+  const sbomDocs = readFileSync('docs/release-sbom.md', 'utf8');
+  assert.match(sbomDocs, /SPDX 2\.3/);
+  assert.match(sbomDocs, /artifactDigests/);
 });
 
 test('AC-628/PR-370: binds and verifies release artifact digests fail-closed', () => {
@@ -293,23 +301,26 @@ test('AC-628/PR-370: binds and verifies release artifact digests fail-closed', (
   const tarball = join(directory, 'hank-v0.1.0-dev.' + sha + '.tar.gz');
   const installer = join(directory, 'hank-v0.1.0-dev.' + sha + '-setup.exe');
   const appImage = join(directory, 'hank-v0.1.0-dev.' + sha + '-x86_64.AppImage');
+  const sbom = join(directory, 'SBOM.spdx.json');
   writeFileSync(tarball, 'archive bytes');
   writeFileSync(installer, 'installer bytes');
   writeFileSync(appImage, 'appimage bytes');
+  writeFileSync(sbom, 'sbom bytes');
   const names = [
     'hank-v0.1.0-dev.' + sha + '.tar.gz',
     'hank-v0.1.0-dev.' + sha + '-setup.exe',
     'hank-v0.1.0-dev.' + sha + '-x86_64.AppImage',
+    'SBOM.spdx.json',
   ];
   try {
     const digests = buildArtifactDigests({ directory, names });
-    assert.deepEqual(Object.keys(digests), [...names].sort());
+    assert.deepEqual(Object.keys(digests), [...names].sort((left, right) => left.localeCompare(right)));
     const manifest = buildManifest({
       tag: tag(), version: '0.1.0-dev.' + sha, sha, tree, card: 'PR-200',
       classification: ['functional'], relatedPullRequests: [200], artifacts: names,
       artifactDigests: digests, changelog: 'changes', testInstructions: 'test',
     });
-    assert.deepEqual(verifyArtifactDigests({ manifest, directory }), { verified: 3, artifacts: [...names].sort() });
+    assert.deepEqual(verifyArtifactDigests({ manifest, directory }), { verified: 4, artifacts: [...names].sort((left, right) => left.localeCompare(right)) });
     writeFileSync(installer, 'substituted installer bytes');
     assert.throws(() => verifyArtifactDigests({ manifest, directory }), /artifact digest mismatch/);
     assert.throws(() => buildManifest({

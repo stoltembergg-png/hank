@@ -16,10 +16,10 @@
 3. Verifica a mesma versão em `Cargo.toml`, `apps/desktop/src-tauri/Cargo.toml`, `frontend/package.json`, `tauri.conf.json`, `release-manifest.json` e `frontend/src/version.ts`.
 4. Aguarda todos os checks pós-merge obrigatórios concluírem com `success`.
 5. Calcula a tag determinística usando o SHA completo e recusa tags existentes.
-6. Gera changelog, instruções, hashes, archive e manifesto imutável depois de
-   incorporar o instalador Windows produzido pelo job nativo. O manifesto registra
-   `artifactDigests` para o archive, o `.exe` e o AppImage; a publicação falha se
-   qualquer digest não corresponder ao arquivo baixado.
+6. Gera changelog, instruções, hashes, archive, SBOM SPDX 2.3 e manifesto imutável
+   depois de incorporar os artefatos nativos. O SBOM é determinístico e vinculado ao
+   commit/tree/versão; o manifesto registra `artifactDigests` para archive, `.exe`,
+   AppImage e SBOM. A publicação falha se qualquer digest não corresponder ao arquivo.
 7. Somente o job `publish` possui `contents: write`; os jobs de preflight e package são read-only.
 8. O job `sign` roda no ambiente protegido `release-signing`, assina cada binário com a chave
    configurada e o `publish` verifica as attestations contra commit, tree e signer antes de criar
@@ -57,13 +57,20 @@ gh workflow run release-milestone.yml --ref main \
 
 ## Teste de uma prerelease
 
-Baixe `hank-<tag>.tar.gz`, `hank-<tag>-setup.exe`, `hank-<tag>-x86_64.AppImage`, as
+Baixe `hank-<tag>.tar.gz`, `hank-<tag>-setup.exe`, `hank-<tag>-x86_64.AppImage`,
+`SBOM.spdx.json`, as
 attestations `*.attestation.json`, `release-signing-metadata.json`, `release-manifest.json`,
 `manifest.sha256` e `SHA256SUMS` da página da release. Verifique os hashes de todos os
 artefatos e o manifesto (o workflow de promoção repete essa leitura antes de aceitar
 uma prerelease), confirme `provenance.exactCommit` e `provenance.source == "main"`, e valide
-as attestations com a chave pública indicada pela política de release antes de executar o pacote.
-depois execute:
+as attestations com a chave pública indicada pela política de release e valide o SBOM:
+
+```bash
+node tools/release-sbom.mjs verify --file SBOM.spdx.json \
+  --commit <exact-commit-sha> --tree <exact-tree-sha> --version <release-version>
+```
+
+Depois execute:
 
 ```bash
 cargo test --workspace --locked

@@ -48,7 +48,8 @@
       "provenClaims": [
         "Ed25519 attestation and independent verification are contract-validated.",
         "Digest, repository, commit, tree, channel, policy and signer mismatches fail closed.",
-        "Fixtures generate an ephemeral synthetic key pair in memory."
+        "Fixtures generate an ephemeral synthetic key pair in memory.",
+        "The deterministic SPDX SBOM generator and identity verifier are contract-validated."
       ],
       "notProven": [
         "A real release artifact was signed.",
@@ -58,11 +59,14 @@
       "testCommand": "node tools/security/release-signing-feature-tests.mjs",
       "sources": [
         "docs/release-signing.md",
+        "docs/release-sbom.md",
         "docs/release-signing-manifest.json",
         "tools/release-signing.mjs",
         "tools/release-signing.spec.mjs",
         "tools/release-artifact-signing.mjs",
         "tools/release-artifact-signing.spec.mjs",
+        "tools/release-sbom.mjs",
+        "tools/release-sbom.spec.mjs",
         "tools/security/release-signing-feature-tests.mjs",
         ".github/workflows/ci-release-signing.yml"
       ]
