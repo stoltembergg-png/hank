@@ -1,0 +1,47 @@
+{
+  "feature": "auto-updater",
+  "timestamp": "2026-09-07T00:07:56.732Z",
+  "gitRev": "b36fa6c",
+  "command": "node tools/security/updater-feature-tests.mjs",
+  "reporter": "tap",
+  "exitCode": 0,
+  "testsParsed": 7,
+  "results": {
+    "AC-2681": {
+      "status": "pass",
+      "testName": "AC-2681: valid signed metadata stages an update @spec:AC-2681",
+      "method": "tap"
+    },
+    "AC-2682": {
+      "status": "pass",
+      "testName": "AC-2682: invalid signature or digest blocks staging @spec:AC-2682",
+      "method": "tap"
+    },
+    "AC-2683": {
+      "status": "pass",
+      "testName": "AC-2683: wrong channel or platform blocks staging @spec:AC-2683",
+      "method": "tap"
+    },
+    "AC-2684": {
+      "status": "pass",
+      "testName": "AC-2684: downgrade and minimum version are rejected @spec:AC-2684",
+      "method": "tap"
+    },
+    "AC-2685": {
+      "status": "pass",
+      "testName": "AC-2685: expiry and size limits are rejected @spec:AC-2685",
+      "method": "tap"
+    },
+    "AC-2686": {
+      "status": "pass",
+      "testName": "AC-2686: explicit consent is required and profile is untouched @spec:AC-2686",
+      "method": "tap"
+    },
+    "AC-2687": {
+      "status": "pass",
+      "testName": "AC-2687: interrupted or failed staging leaves no partial artifact @spec:AC-2687",
+      "method": "tap"
+    }
+  },
+  "principles": {}
+}
