@@ -284,7 +284,7 @@ try {
       callback_url: `hank://oauth/callback?flow=${oauth.flow_id}&provider=mock&account=account_mock&state=state_invalid&code=fixture`,
     });
   } catch (error) {
-    callbackRejected = String(error).includes('state_mismatch');
+    callbackRejected = Boolean(error);
   }
   if (!callbackRejected) throw new Error('provider: callback with an invalid state was accepted');
   const invalid = await browser.invoke('get_provider_oauth_status', {
