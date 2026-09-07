@@ -1,7 +1,7 @@
 # Spec: contract evidence scope reconciliation
 
 > feature: evidence-scope-reconciliation
-> status: em-andamento
+> status: implementada
 
 ## Histórias
 
