@@ -8,6 +8,7 @@
     "load-tests": "node tools/security/load-feature-tests.mjs",
     "workflow-crash-recovery": "node tools/security/workflow-crash-recovery-feature-tests.mjs",
     "agent-loop-tests": "node tools/security/agent-loop-feature-tests.mjs",
+    "auto-updater": "node tools/security/updater-feature-tests.mjs",
     "installers": "node tools/security/installer-feature-tests.mjs",
     "release-signing": "node tools/security/release-signing-feature-tests.mjs",
     "provider-compatibility-tests": "node tools/security/provider-compatibility-feature-tests.mjs"
@@ -21,6 +22,7 @@
     "load-tests": "tap",
     "workflow-crash-recovery": "tap",
     "agent-loop-tests": "tap",
+    "auto-updater": "tap",
     "installers": "tap",
     "release-signing": "tap",
     "provider-compatibility-tests": "tap"

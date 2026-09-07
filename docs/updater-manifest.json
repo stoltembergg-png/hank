@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "review": "PR-268",
+  "channels": ["stable", "beta"],
+  "network": {"httpsOnly": true, "allowlistRequired": true, "arbitraryEndpoints": false},
+  "policy": {"explicitConsent": true, "maxBytes": 104857600, "downgrade": "reject", "expiry": "reject", "profile": "preserve", "unattended": false},
+  "verification": ["signature", "digest", "size", "channel", "platform", "minimumVersion", "expiry", "signerRevocation"],
+  "staging": {"beforeInstall": true, "partialArtifact": "reject", "currentVersionRunnable": true},
+  "publication": "forbidden-in-PR-268"
+}

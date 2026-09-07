@@ -265,6 +265,11 @@ jobs:
           HANK_ALLOW_GENERATED_EVIDENCE: '1'
         run: node tools/ci/run-onp-spec.mjs verify provider-compatibility-tests
 
+      - name: Verify auto updater
+        env:
+          HANK_ALLOW_GENERATED_EVIDENCE: '1'
+        run: node tools/ci/run-onp-spec.mjs verify auto-updater
+
       - name: Verify installers
         env:
           HANK_ALLOW_GENERATED_EVIDENCE: '1'
