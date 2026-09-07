@@ -83,6 +83,8 @@ mod tauri_tests {
             "script-src 'self'",
             "style-src 'self'",
             "connect-src 'self'",
+            "ipc:",
+            "http://ipc.localhost",
         ] {
             assert!(csp.contains(directive), "diretiva CSP ausente: {directive}");
         }
