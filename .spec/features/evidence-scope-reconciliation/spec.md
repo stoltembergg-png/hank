@@ -60,4 +60,4 @@ Nenhuma.
 - O runner produz evidência vinculada a commit/tree exatos.
 - O workflow publica JSON, SVG, HTML e TAP como artefatos.
 - O resumo do check contém o link da execução e o limite `NOT PRODUCTION PROOF`.
-- O verify ONP e o audit passam sem promover produção não executada.
+- O verify ONP da feature passa; o audit global é executado separadamente e qualquer falha fora deste escopo permanece explícita.

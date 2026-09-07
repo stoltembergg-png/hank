@@ -47,6 +47,9 @@ const identity = { sourceCommit: 'a'.repeat(40), sourceTree: 'b'.repeat(40), gen
   assert.equal(report.sourceTree, identity.sourceTree);
   assert.throws(() => buildReport({ manifest, ...identity, testSummary: { ...summary, skipped: 1 } }), /one passing result/);
   assert.throws(() => buildReport({ manifest, ...identity, sourceCommit: 'short', testSummary: summary }), /full Git commit/);
+  for (const invalid of ['c'.repeat(41), 'd'.repeat(63)]) {
+    assert.throws(() => buildReport({ manifest, ...identity, sourceTree: invalid, testSummary: summary }), /full Git commit/);
+  }
 });
 
 // @spec:AC-3006

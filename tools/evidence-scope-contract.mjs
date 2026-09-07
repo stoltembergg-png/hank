@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const manifestPath = path.join(root, 'docs', 'evidence-scope-manifest.json');
-const SHA = /^[0-9a-f]{40,64}$/i;
+const SHA = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i;
 
 const expected = new Map([
   ['PR-261', { feature: 'fuzz-tests', pullRequest: 447, boundary: 'offline-synthetic' }],

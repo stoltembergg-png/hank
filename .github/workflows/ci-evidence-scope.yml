@@ -70,7 +70,7 @@ jobs:
             security/reports/evidence-scope.tap
             security/reports/evidence-scope.svg
             security/reports/evidence-scope.html
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 7
 
       - name: Require evidence artifact digest
