@@ -27,8 +27,14 @@ O mapa versionado em `release-milestones.json` é a fonte da associação entre 
 
 - M0–M2 → `v0.1.0`
 - M3–M4 → `v0.2.0`
-- M5–M6 → `v0.3.0` (ativo)
+- M5–M6 → `v0.3.0` (released)
 - M7–M8 → `v0.4.0`
+- M9 → `v0.5.0`
+- M10–M11 → `v0.6.0`
+- M12 → `v0.7.0`
+- M13 → `v0.8.0`
+- M14–M15 → `v0.9.0`
+- M16 → `v1.0.0` (ativo)
 
 Após a prerelease correspondente passar pelos checks obrigatórios, o mantenedor deve disparar manualmente `Publish stable milestone release`, informando a tag prerelease exata, a versão e o milestone. O workflow valida o commit e o manifesto, transforma os nomes dos artefatos para a tag estável e publica `prerelease: false`. Não existe promoção automática, seleção implícita de milestone ou sobrescrita de tag.
 
@@ -36,9 +42,9 @@ Exemplo:
 
 ```bash
 gh workflow run release-milestone.yml --ref main \
-  -f prerelease_tag=v0.3.0-dev.<SHA> \
-  -f stable_version=0.3.0 \
-  -f milestone=M5-M6
+  -f prerelease_tag=v1.0.0-dev.<SHA> \
+  -f stable_version=1.0.0 \
+  -f milestone=M16
 ```
 
 ## Teste de uma prerelease

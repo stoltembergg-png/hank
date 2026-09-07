@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "agent-core"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "agent-protocol",
  "chrono",
@@ -18,7 +18,7 @@ dependencies = [
 
 [[package]]
 name = "agent-protocol"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "chrono",
  "semver",
@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "agent-runtime"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "agent-core",
  "agent-protocol",
@@ -155,7 +155,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auth-core"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "base64 0.23.1",
  "provider-core",
@@ -1335,7 +1335,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "plugin-core"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "semver",
  "thiserror",
@@ -1370,7 +1370,7 @@ dependencies = [
 
 [[package]]
 name = "provider-adapter-anthropic"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "provider-core",
  "serde",
@@ -1380,7 +1380,7 @@ dependencies = [
 
 [[package]]
 name = "provider-adapter-gemini"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "provider-core",
  "serde",
@@ -1390,7 +1390,7 @@ dependencies = [
 
 [[package]]
 name = "provider-adapter-ollama"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "provider-core",
  "serde",
@@ -1400,7 +1400,7 @@ dependencies = [
 
 [[package]]
 name = "provider-adapter-openai"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "provider-adapter-openai-compatible",
  "provider-core",
@@ -1410,7 +1410,7 @@ dependencies = [
 
 [[package]]
 name = "provider-adapter-openai-compatible"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "provider-core",
  "serde",
@@ -1420,7 +1420,7 @@ dependencies = [
 
 [[package]]
 name = "provider-adapter-openrouter"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "provider-adapter-openai-compatible",
  "provider-core",
@@ -1430,7 +1430,7 @@ dependencies = [
 
 [[package]]
 name = "provider-core"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "futures-core",
  "futures-util",
@@ -1569,7 +1569,7 @@ dependencies = [
 
 [[package]]
 name = "recovery-core"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "thiserror",
 ]
@@ -1614,7 +1614,7 @@ dependencies = [
 
 [[package]]
 name = "remote-adapter"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "getrandom 0.4.3",
  "remote-core",
@@ -1622,7 +1622,7 @@ dependencies = [
 
 [[package]]
 name = "remote-core"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "agent-protocol",
  "provider-core",
@@ -1804,7 +1804,7 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "secrets-core"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "provider-core",
  "subtle",
@@ -1814,7 +1814,7 @@ dependencies = [
 
 [[package]]
 name = "security-core"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "sha2 0.11.0",
  "thiserror",
@@ -2289,7 +2289,7 @@ dependencies = [
 
 [[package]]
 name = "test-support"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "agent-core",
  "agent-protocol",
@@ -2921,7 +2921,7 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 
 [[package]]
 name = "workflow-core"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "agent-protocol",
  "serde",
@@ -2938,7 +2938,7 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 
 [[package]]
 name = "xtask"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "cargo_metadata",
