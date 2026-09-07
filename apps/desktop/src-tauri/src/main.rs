@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 pub mod agents;
+pub mod chat;
 pub mod confirmations;
 pub mod lifecycle;
 pub mod memory;
@@ -199,6 +200,7 @@ fn main() {
             app.manage(projects::bridge_state(&storage));
             app.manage(agents::bridge_state(&storage));
             app.manage(sessions::bridge_state(&storage));
+            app.manage(chat::bridge_state(&storage));
             app.manage(scheduler::bridge_state(&storage));
             app.manage(memory::bridge_state(&storage));
             app.manage(skills::bridge_state(&storage));

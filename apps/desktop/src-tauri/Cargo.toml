@@ -12,6 +12,7 @@ anyhow = "1.0"
 agent-protocol = { path = "../../../crates/agent-protocol" }
 agent-core = { path = "../../../crates/agent-core" }
 agent-runtime = { path = "../../../crates/agent-runtime" }
+provider-core = { path = "../../../crates/provider-core" }
 tool-core = { path = "../../../crates/tool-core" }
 uuid = { version = "1.0", features = ["v4"] }
 thiserror = "2.0"

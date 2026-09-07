@@ -101,6 +101,7 @@ mod tauri_tests {
             source.contains("pub mod projects;"),
             "módulo de Projects ausente"
         );
+        assert!(source.contains("pub mod chat;"), "módulo de Chat ausente");
         assert!(
             source.contains(".invoke_handler(confirmations::command_handler())"),
             "bridge deve registrar o handler tipado"
@@ -138,6 +139,9 @@ mod tauri_tests {
             "crate::agents::create_agent",
             "crate::sessions::list_sessions",
             "crate::sessions::create_session",
+            "crate::chat::send_chat_command",
+            "crate::chat::cancel_chat_command",
+            "crate::chat::list_chat_messages",
             "crate::scheduler::list_scheduled_jobs",
             "crate::scheduler::create_scheduled_job",
             "crate::scheduler::update_scheduled_job",
@@ -151,7 +155,7 @@ mod tauri_tests {
 
         assert_eq!(
             registered.split(',').count(),
-            24,
+            27,
             "a ponte deve registrar exatamente os comandos tipados previstos"
         );
 

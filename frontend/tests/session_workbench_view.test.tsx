@@ -17,14 +17,20 @@ const session: SessionSummary = {
 };
 
 describe('Session workbench view', () => {
-  it('exibe metadados da sessão e mantém o envio bloqueado sem bridge de execução', () => {
+  it('exibe metadados da sessão e conecta o composer ao transporte de chat', () => {
     const onBack = vi.fn();
+    const transport = {
+      send: vi.fn().mockResolvedValue(undefined),
+      cancel: vi.fn().mockResolvedValue(undefined),
+      subscribe: vi.fn().mockReturnValue(() => undefined),
+    };
 
     render(
       <SessionWorkbench
         session={session}
         agentName="release-agent"
         onBack={onBack}
+        transport={transport}
       />,
     );
 
@@ -33,9 +39,8 @@ describe('Session workbench view', () => {
     expect(screen.getByRole('group', { name: 'Resumo da sessão' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Área da conversa' })).toBeInTheDocument();
     expect(document.querySelector('.session-workbench-agent-avatar')).not.toBeNull();
-    expect(screen.getByText('2 mensagens registradas')).toBeInTheDocument();
-    expect(screen.getByText('Envio de mensagens ainda não está integrado ao desktop.')).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: 'Mensagem' })).toBeDisabled();
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Mensagem' })).not.toBeDisabled();
     expect(screen.getByRole('button', { name: 'Enviar mensagem' })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Voltar para conversas' }));

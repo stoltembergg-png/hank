@@ -127,6 +127,7 @@ describe('ChatPage', () => {
     await waitFor(() => expect(transport.cancelMock).toHaveBeenCalledWith({
       command_id: 'command-1',
       session_id: session.session_id,
+      caller: session.caller,
     }));
     act(() => {
       transport.emit(event('command-1', 'stream-1', 0, { kind: 'start' }));

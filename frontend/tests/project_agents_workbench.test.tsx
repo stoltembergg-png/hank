@@ -99,7 +99,7 @@ describe('Project Agents workbench', () => {
     });
   });
 
-  it('opens a selected session in the read-only session workbench', async () => {
+  it('opens a selected session in the interactive session workbench', async () => {
     const agentApiClient = createAgentApi();
     const sessionApiClient = createSessionApi();
     const props = {
@@ -119,7 +119,8 @@ describe('Project Agents workbench', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Abrir conversa' }));
 
     expect(await screen.findByRole('heading', { name: 'Validar a próxima release' })).toBeInTheDocument();
-    expect(screen.getByText('Envio de mensagens ainda não está integrado ao desktop.')).toBeInTheDocument();
+    expect(screen.getByRole('main', { name: 'Chat da sessão' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Mensagem' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Voltar para conversas' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Voltar para conversas' }));

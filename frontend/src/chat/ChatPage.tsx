@@ -19,9 +19,20 @@ export type ChatCommandRequest = ChatSessionScope & {
   text: string;
 };
 
+export type ChatHistoryMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+};
+
 export type ChatTransport = {
   send: (request: ChatCommandRequest) => Promise<void>;
-  cancel: (input: { command_id: string; session_id: string }) => Promise<void>;
+  cancel: (input: {
+    command_id: string;
+    session_id: string;
+    caller: ChatSessionScope['caller'];
+  }) => Promise<void>;
+  loadMessages?: (session: ChatSessionScope) => Promise<ChatHistoryMessage[]>;
   subscribe: (listener: (event: unknown) => void) => () => void;
 };
 
@@ -45,6 +56,7 @@ export function ChatPage({
   usage,
   toolCalls = [],
   onApproveToolCall,
+  initialMessages = [],
 }: {
   session: ChatSessionScope;
   transport: ChatTransport;
@@ -53,9 +65,10 @@ export function ChatPage({
   usage?: UsageReadModel;
   toolCalls?: ToolCallViewModel[];
   onApproveToolCall?: (call: ToolCallViewModel) => void;
+  initialMessages?: ChatHistoryMessage[];
 }) {
   const [draft, setDraft] = useState('');
-  const [messages, setMessages] = useState<RenderedMessage[]>([]);
+  const [messages, setMessages] = useState<RenderedMessage[]>(initialMessages);
   const [status, setStatus] = useState<ChatStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [lastText, setLastText] = useState<string | null>(null);
@@ -96,6 +109,21 @@ export function ChatPage({
       }
     });
   }, [transport]);
+
+  useEffect(() => {
+    if (!transport.loadMessages) return undefined;
+    let disposed = false;
+    void transport.loadMessages(session)
+      .then((loaded) => {
+        if (!disposed && !activeTurn.current) setMessages(loaded);
+      })
+      .catch(() => {
+        if (!disposed) setError('Não foi possível carregar o histórico da sessão.');
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [session, transport]);
 
   const busy = status === 'sending' || status === 'streaming' || status === 'cancelling';
 
@@ -148,6 +176,7 @@ export function ChatPage({
       await transport.cancel({
         command_id: turn.request.command_id,
         session_id: session.session_id,
+        caller: session.caller,
       });
     } catch {
       setStatus('error');
