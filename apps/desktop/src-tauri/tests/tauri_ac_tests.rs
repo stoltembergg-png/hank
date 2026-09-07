@@ -147,6 +147,11 @@ mod tauri_tests {
             "crate::scheduler::list_scheduled_jobs",
             "crate::scheduler::create_scheduled_job",
             "crate::scheduler::update_scheduled_job",
+            "crate::provider_settings::list_provider_accounts",
+            "crate::provider_settings::start_provider_oauth",
+            "crate::provider_settings::get_provider_oauth_status",
+            "crate::provider_settings::complete_provider_oauth",
+            "crate::provider_settings::disconnect_provider_account",
             "crate::lifecycle::frontend_ready",
         ] {
             assert!(
@@ -157,7 +162,7 @@ mod tauri_tests {
 
         assert_eq!(
             registered.split(',').count(),
-            29,
+            34,
             "a ponte deve registrar exatamente os comandos tipados previstos"
         );
 
@@ -191,6 +196,38 @@ mod tauri_tests {
         assert!(
             bridge.contains("input_tokens: None") && bridge.contains("output_tokens: None"),
             "usage ausente não pode ser convertido em zeros"
+        );
+    }
+
+    #[test]
+    fn ac_provider_settings_bridge_is_typed_and_fail_closed() {
+        // @spec:AC-072 @spec:AC-070 @spec:AC-071
+        let bridge = fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/provider_settings.rs"),
+        )
+        .expect("provider_settings.rs não encontrado");
+        for required in [
+            "list_provider_accounts",
+            "start_provider_oauth",
+            "get_provider_oauth_status",
+            "complete_provider_oauth",
+            "disconnect_provider_account",
+            "OAuthCallbackHandler",
+            "HANK_E2E_MOCK_PROVIDER",
+            "ProviderSettingsErrorCode::Unavailable",
+            "project_scope",
+        ] {
+            assert!(bridge.contains(required), "ponte de providers ausente: {required}");
+        }
+        for forbidden in ["api_key", "authorization_code", "access_token", "refresh_token"] {
+            assert!(
+                !bridge.contains(forbidden),
+                "material de credencial não pode cruzar a ponte: {forbidden}"
+            );
+        }
+        assert!(
+            bridge.contains("cfg!(debug_assertions)"),
+            "fixture OAuth deve ser restrito ao build de desenvolvimento"
         );
     }
 

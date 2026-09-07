@@ -191,6 +191,11 @@ pub fn command_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 
         crate::scheduler::list_scheduled_jobs,
         crate::scheduler::create_scheduled_job,
         crate::scheduler::update_scheduled_job,
+        crate::provider_settings::list_provider_accounts,
+        crate::provider_settings::start_provider_oauth,
+        crate::provider_settings::get_provider_oauth_status,
+        crate::provider_settings::complete_provider_oauth,
+        crate::provider_settings::disconnect_provider_account,
         crate::lifecycle::frontend_ready
     ]
 }
