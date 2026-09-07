@@ -3,7 +3,11 @@
   "active": {
     "milestone": "M16",
     "version": "1.0.0",
-    "title": "Production Hardening"
+    "title": "Production Hardening",
+    "releaseBoundary": {
+      "previousStableTag": "v0.3.0",
+      "card": "PR-270"
+    }
   },
   "milestones": [
     { "id": "M0-M2", "version": "0.1.0", "title": "Engineering Foundation + Core + Agent Domain" },

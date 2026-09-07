@@ -27,6 +27,7 @@ jobs:
       card: ${{ steps.provenance.outputs.card }}
       prs: ${{ steps.provenance.outputs.prs }}
       classification: ${{ steps.provenance.outputs.classification }}
+      range: ${{ steps.provenance.outputs.range }}
     steps:
       - name: Checkout exact main commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -42,11 +43,17 @@ jobs:
           test "$(git branch --show-current)" != "HEAD" || git show-ref --verify --quiet refs/remotes/origin/main
           test "$(git merge-base HEAD origin/main)" = "$GITHUB_SHA"
 
-      - name: Load active milestone version
+      - name: Load active milestone version and release boundary
         run: |
           set -euo pipefail
-          version=$(node --input-type=module -e "import fs from 'node:fs'; const config = JSON.parse(fs.readFileSync('release-milestones.json', 'utf8')); if (config.schemaVersion !== 1 || !config.active?.version) process.exit(1); process.stdout.write(config.active.version)")
-          echo "BASE_VERSION=$version" >> "$GITHUB_ENV"
+          metadata=$(node --input-type=module -e "import fs from 'node:fs'; const config = JSON.parse(fs.readFileSync('release-milestones.json', 'utf8')); const active = config.active; const boundary = active?.releaseBoundary; if (config.schemaVersion !== 1 || !active?.version || !active?.milestone || !boundary?.previousStableTag || !boundary?.card || !/^PR-[0-9]+$/.test(boundary.card)) process.exit(1); process.stdout.write(JSON.stringify({version: active.version, milestone: active.milestone, previousStableTag: boundary.previousStableTag, card: boundary.card}))")
+          printf '%s\n' "$metadata" | jq -e '.version and .milestone and .previousStableTag and (.card | test("^PR-[0-9]+$"))' >/dev/null
+          {
+            echo "BASE_VERSION=$(printf '%s' "$metadata" | jq -r .version)"
+            echo "MILESTONE=$(printf '%s' "$metadata" | jq -r .milestone)"
+            echo "PREVIOUS_STABLE_TAG=$(printf '%s' "$metadata" | jq -r .previousStableTag)"
+            echo "RELEASE_CARD=$(printf '%s' "$metadata" | jq -r .card)"
+          } >> "$GITHUB_ENV"
 
       - name: Verify version manifests
         run: node tools/release-prerelease.mjs verify-version
@@ -83,23 +90,39 @@ jobs:
           test "$target" = "$SHA" || { echo 'existing release targets a different commit; refusing reuse'; exit 1; }
           echo 'matching tag and release found; rerun will be idempotent'
 
-      - name: Verify merged PR provenance
+      - name: Verify release boundary and merged PR provenance
         id: provenance
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           SHA: ${{ steps.identity.outputs.sha }}
+          PREVIOUS_STABLE_TAG: ${{ env.PREVIOUS_STABLE_TAG }}
+          RELEASE_CARD: ${{ env.RELEASE_CARD }}
         run: |
           set -euo pipefail
-          prs=$(gh api "repos/$REPOSITORY/commits/$SHA/pulls" --jq '[.[].number] | @json')
+          previous_sha=$(git rev-parse "${PREVIOUS_STABLE_TAG}^{commit}")
+          git merge-base --is-ancestor "$previous_sha" "$SHA"
+          previous_release=$(gh api "repos/$REPOSITORY/releases/tags/$PREVIOUS_STABLE_TAG")
+          test "$(printf '%s' "$previous_release" | jq -r .prerelease)" = false
+          range="$PREVIOUS_STABLE_TAG..$SHA"
+          commits=$(gh api --paginate "repos/$REPOSITORY/compare/$PREVIOUS_STABLE_TAG...$SHA" --jq '.commits[].sha')
+          prs=$(for commit_sha in $commits; do gh api "repos/$REPOSITORY/commits/$commit_sha/pulls" --jq '.[].number'; done | jq -Rsc 'split("\\n") | map(select(length > 0) | tonumber) | unique | sort')
           test "$prs" != "[]"
-          card=$(node --input-type=module -e "const p=JSON.parse(process.argv[1]); if (!p.length) process.exit(1); process.stdout.write('PR-' + p[0])" "$prs")
-          git log -20 --format=%s > /tmp/release-subjects.txt
+          card_number=${RELEASE_CARD#PR-}
+          node --input-type=module -e "const prs=JSON.parse(process.argv[1]); const card=Number(process.argv[2]); if (!prs.includes(card)) process.exit(1)" "$prs" "$card_number"
+          card_json=$(gh api "repos/$REPOSITORY/pulls/$card_number")
+          test "$(printf '%s' "$card_json" | jq -r .state)" = closed
+          test "$(printf '%s' "$card_json" | jq -r .merged_at)" != null
+          card_sha=$(printf '%s' "$card_json" | jq -r .merge_commit_sha)
+          test "$card_sha" != null
+          git merge-base --is-ancestor "$card_sha" "$SHA"
+          git log "$range" --format=%s > /tmp/release-subjects.txt
           classification=$(node tools/release-prerelease.mjs classify --file /tmp/release-subjects.txt)
           {
             echo "prs=$prs"
-            echo "card=$card"
+            echo "card=$RELEASE_CARD"
             echo "classification=$classification"
+            echo "range=$range"
           } >> "$GITHUB_OUTPUT"
 
       - name: Require prerelease manifest matches active ruleset
@@ -170,11 +193,13 @@ jobs:
           CARD: ${{ needs.preflight.outputs.card }}
           PRS: ${{ needs.preflight.outputs.prs }}
           CLASSIFICATION: ${{ needs.preflight.outputs.classification }}
+          RANGE: ${{ needs.preflight.outputs.range }}
+          TREE: ${{ needs.preflight.outputs.tree }}
         run: |
           set -euo pipefail
           mkdir -p /tmp/prerelease
           prs_csv=$(node --input-type=module -e "process.stdout.write(JSON.parse(process.argv[1]).join(','))" "$PRS")
-          node tools/release-prerelease.mjs changelog --tag "$TAG" --card "$CARD" --prs "$prs_csv" > /tmp/prerelease/RELEASE_NOTES.md
+          node tools/release-prerelease.mjs changelog --tag "$TAG" --card "$CARD" --prs "$prs_csv" --range "$RANGE" --sha "$SHA" --tree "$TREE" > /tmp/prerelease/RELEASE_NOTES.md
           printf '%s\n' "Download the archive and release-manifest.json. Verify manifest.sha256 matches the downloaded manifest, confirm exact commit $SHA, then run cargo test --workspace --locked and npm --prefix frontend test. This is a prerelease and is not a stable release." > /tmp/prerelease/TEST_INSTRUCTIONS.md
           tar --exclude='./.git' --exclude='./frontend/node_modules' --exclude='./target' --exclude='./apps/desktop/src-tauri/target' -czf "/tmp/prerelease/hank-${TAG}.tar.gz" .
           (cd /tmp/prerelease && sha256sum "hank-${TAG}.tar.gz" > SHA256SUMS)
