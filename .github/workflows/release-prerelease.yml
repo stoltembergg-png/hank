@@ -450,3 +450,59 @@ jobs:
             echo "- Prerelease: true"
             echo "- Tag overwrite: prohibited"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  install-smoke:
+    name: Clean-room Windows install smoke
+    needs: [preflight, publish]
+    runs-on: windows-2022
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Setup pinned Node.js 20
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 20.19.1
+
+      - name: Download and verify published release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+          SHA: ${{ needs.preflight.outputs.sha }}
+          TREE: ${{ needs.preflight.outputs.tree }}
+        run: |
+          $releaseDirectory = Join-Path $env:RUNNER_TEMP 'hank-release-assets'
+          New-Item -ItemType Directory -Force -Path $releaseDirectory | Out-Null
+          gh release download $env:TAG --repo $env:REPOSITORY `
+            --pattern release-manifest.json `
+            --pattern manifest.sha256 `
+            --pattern SHA256SUMS `
+            --pattern "hank-$env:TAG.tar.gz" `
+            --pattern "hank-$env:TAG-setup.exe" `
+            --dir $releaseDirectory
+          if ($LASTEXITCODE -ne 0) { throw "release asset download failed with exit code $LASTEXITCODE" }
+          & powershell -NoProfile -ExecutionPolicy Bypass -File desktop-e2e\install-smoke-windows.ps1 `
+            -ReleaseDirectory $releaseDirectory `
+            -ReleaseTag $env:TAG `
+            -ExpectedCommit $env:SHA `
+            -ExpectedTree $env:TREE `
+            -ReportPath (Join-Path $env:RUNNER_TEMP 'hank-install-smoke-report.json')
+          if ($LASTEXITCODE -ne 0) { throw "clean-room install smoke failed with exit code $LASTEXITCODE" }
+
+      - name: Upload clean-room install evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: release-install-smoke-${{ needs.preflight.outputs.tag }}
+          path: ${{ runner.temp }}/hank-install-smoke-report.json
+          if-no-files-found: warn
+          retention-days: 14

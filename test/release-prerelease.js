@@ -264,6 +264,9 @@ test('PR-370: publish binds the native Windows installer before creating the rel
   assert.match(workflow, /verify-artifacts --manifest/);
   assert.match(workflow, /sha256sum \"\$\{names\[@\]\}\" > SHA256SUMS/);
   assert.match(workflow, /gh release create \"\$TAG\"[\s\S]*hank-\$\{TAG\}-setup\.exe/);
+  assert.match(workflow, /install-smoke:/);
+  assert.match(workflow, /install-smoke-windows\.ps1/);
+  assert.match(workflow, /Download and verify published release assets/);
   const milestone = readFileSync('.github/workflows/release-milestone.yml', 'utf8');
   assert.match(milestone, /sha256sum -c SHA256SUMS/);
   assert.match(milestone, /verify-artifacts/);
