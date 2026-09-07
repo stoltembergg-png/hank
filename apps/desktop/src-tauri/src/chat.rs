@@ -879,4 +879,14 @@ mod tests {
         assert!(source.contains("ProviderUnavailable"));
         assert!(source.contains("HANK_E2E_MOCK_PROVIDER"));
     }
+
+    #[test]
+    fn normalized_fixture_result_has_explicit_provider_capability_metadata() {
+        let output = chat_output("command-1", "stream-command-1".into(), "completed");
+        assert_eq!(output.provider_id, MOCK_PROVIDER_ID);
+        assert_eq!(output.model_id, MOCK_MODEL_ID);
+        assert_eq!(output.provider_state, "selected");
+        assert_eq!(output.capability, "confirmed");
+        assert_eq!(output.attempt_number, 1);
+    }
 }
