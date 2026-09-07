@@ -17,6 +17,7 @@ const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf
 const sourceTree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim();
 const metadata = () => {
   const attestation = signAttestation({
+    schemaVersion: 2,
     artifact: { name: 'hank.AppImage', digest: artifactDigest(bytes), size: bytes.length },
     identity: { repository: 'stoltembergg-png/hank', event: 'release', ref: 'refs/tags/v4', commit: sourceCommit, tree: sourceTree, workflow: 'release.yml', policy: 'updater-v1', channel: 'stable', os: 'linux-x86_64' },
     signer: { keyId },
