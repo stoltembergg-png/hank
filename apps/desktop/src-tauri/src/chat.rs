@@ -27,8 +27,8 @@ use agent_runtime::SqliteStorage;
 use agent_protocol::ids::TraceId;
 use provider_core::capabilities::{CapabilityFeature, CapabilityRequirement, ModelModality};
 use provider_core::credentials::{
-    AccountId, CredentialAccessContext, CredentialAccount, CredentialRef, CredentialService,
-    CredentialServiceError, InMemoryCredentialService, ProjectScopeId,
+    AccountId, CredentialAccessContext, CredentialAccount, CredentialService, CredentialServiceError,
+    InMemoryCredentialService, ProjectScopeId,
 };
 use provider_core::fallback::FallbackPolicy;
 use provider_core::registry::ProviderRegistry;
@@ -36,7 +36,7 @@ use provider_core::request::{
     CancellationMetadata, NormalizedMessage, NormalizedRequest, RequestBudget,
     MessageRole as ProviderMessageRole,
 };
-use provider_core::{CancellationToken, MockProvider, ModelId, ProviderId};
+use provider_core::{CancellationToken, CredentialRef, MockProvider, ModelId, ProviderId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -497,12 +497,14 @@ async fn execute_chat_turn(
             record_missing_usage(
                 state,
                 &command.command_id,
-                &execution_id,
-                &format!("{}:attempt_1", command.command_id),
-                project_id,
-                agent_id,
-                session_id,
-                UsageOutcome::Cancelled,
+                MissingUsage {
+                    execution_id: execution_id.clone(),
+                    attempt_id: format!("{}:attempt_1", command.command_id),
+                    project_id,
+                    agent_id,
+                    session_id,
+                    outcome: UsageOutcome::Cancelled,
+                },
             )?;
             persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
             publish(&mut bridge, &subscription, 1, ChatStreamPayload::Cancel { reason: ChatCancelReason::User }, &command.command_id)?;
@@ -514,12 +516,14 @@ async fn execute_chat_turn(
             record_missing_usage(
                 state,
                 &command.command_id,
-                &execution_id,
-                &format!("{}:attempt_1", command.command_id),
-                project_id,
-                agent_id,
-                session_id,
-                UsageOutcome::Failed,
+                MissingUsage {
+                    execution_id: execution_id.clone(),
+                    attempt_id: format!("{}:attempt_1", command.command_id),
+                    project_id,
+                    agent_id,
+                    session_id,
+                    outcome: UsageOutcome::Failed,
+                },
             )?;
             persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
             publish(&mut bridge, &subscription, 1, ChatStreamPayload::Error { code: agent_protocol::chat_stream::ChatErrorCode::ProviderFailure }, &command.command_id)?;
@@ -540,15 +544,17 @@ async fn execute_chat_turn(
             record_missing_usage(
                 state,
                 &command.command_id,
-                &execution_id,
-                provider_events
-                    .first()
-                    .map(|event| event.attempt_id.as_str())
-                    .unwrap_or("missing-attempt"),
-                project_id,
-                agent_id,
-                session_id,
-                UsageOutcome::Completed,
+                MissingUsage {
+                    execution_id: execution_id.clone(),
+                    attempt_id: provider_events
+                        .first()
+                        .map(|event| event.attempt_id.clone())
+                        .unwrap_or_else(|| "missing-attempt".into()),
+                    project_id,
+                    agent_id,
+                    session_id,
+                    outcome: UsageOutcome::Completed,
+                },
             )?;
             persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
             for event in provider_events {
@@ -566,15 +572,17 @@ async fn execute_chat_turn(
             record_missing_usage(
                 state,
                 &command.command_id,
-                &execution_id,
-                provider_events
-                    .first()
-                    .map(|event| event.attempt_id.as_str())
-                    .unwrap_or("missing-attempt"),
-                project_id,
-                agent_id,
-                session_id,
-                UsageOutcome::Cancelled,
+                MissingUsage {
+                    execution_id: execution_id.clone(),
+                    attempt_id: provider_events
+                        .first()
+                        .map(|event| event.attempt_id.clone())
+                        .unwrap_or_else(|| "missing-attempt".into()),
+                    project_id,
+                    agent_id,
+                    session_id,
+                    outcome: UsageOutcome::Cancelled,
+                },
             )?;
             persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
             publish(&mut bridge, &subscription, next_event, ChatStreamPayload::Cancel { reason: ChatCancelReason::User }, &command.command_id)?;
@@ -587,15 +595,17 @@ async fn execute_chat_turn(
             record_missing_usage(
                 state,
                 &command.command_id,
-                &execution_id,
-                provider_events
-                    .first()
-                    .map(|event| event.attempt_id.as_str())
-                    .unwrap_or("missing-attempt"),
-                project_id,
-                agent_id,
-                session_id,
-                UsageOutcome::Failed,
+                MissingUsage {
+                    execution_id: execution_id.clone(),
+                    attempt_id: provider_events
+                        .first()
+                        .map(|event| event.attempt_id.clone())
+                        .unwrap_or_else(|| "missing-attempt".into()),
+                    project_id,
+                    agent_id,
+                    session_id,
+                    outcome: UsageOutcome::Failed,
+                },
             )?;
             persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
             publish(&mut bridge, &subscription, next_event, ChatStreamPayload::Error { code: agent_protocol::chat_stream::ChatErrorCode::InvalidStream }, &command.command_id)?;
@@ -627,15 +637,19 @@ fn chat_output(command_id: &str, stream_id: String, state: &'static str) -> Send
     }
 }
 
-fn record_missing_usage(
-    state: &ChatBridgeState,
-    command_id: &str,
-    execution_id: &str,
-    attempt_id: &str,
+struct MissingUsage {
+    execution_id: String,
+    attempt_id: String,
     project_id: ProjectId,
     agent_id: agent_core::ids::AgentId,
     session_id: SessionId,
     outcome: UsageOutcome,
+}
+
+fn record_missing_usage(
+    state: &ChatBridgeState,
+    command_id: &str,
+    usage: MissingUsage,
 ) -> Result<(), ChatBridgeError> {
     let provider_id = ProviderId::parse(MOCK_PROVIDER_ID)
         .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, command_id))?;
@@ -643,11 +657,11 @@ fn record_missing_usage(
         .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, command_id))?;
     let event = UsageEvent {
         schema_version: USAGE_SCHEMA_VERSION,
-        attempt_id: attempt_id.to_string(),
-        execution_id: execution_id.to_string(),
-        project_id,
-        agent_id,
-        session_id,
+        attempt_id: usage.attempt_id,
+        execution_id: usage.execution_id,
+        project_id: usage.project_id,
+        agent_id: usage.agent_id,
+        session_id: usage.session_id,
         provider_id: Some(provider_id),
         model_id: Some(model_id),
         input_tokens: None,
@@ -656,7 +670,7 @@ fn record_missing_usage(
         currency: None,
         source: UsageSource::Missing,
         confidence: UsageConfidence::Unavailable,
-        outcome,
+        outcome: usage.outcome,
         terminal: true,
     };
     state
