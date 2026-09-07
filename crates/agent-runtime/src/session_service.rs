@@ -8,6 +8,7 @@ use crate::provider_service::{
 use crate::session_repo::{SessionStorageError, SqliteSessionRepository};
 use agent_core::ids::{AgentId, ProjectId};
 use agent_core::session::{Message, MessageProvenance, MessageRole, Session, SessionStatus};
+use agent_protocol::ids::TraceId;
 use futures_util::future::BoxFuture;
 use std::sync::Arc;
 use thiserror::Error;
@@ -130,6 +131,9 @@ impl SessionApplicationService {
     ) -> Result<Session, SessionServiceError> {
         let mut session = Session::new(project_id, agent_id, correlation_id)
             .map_err(|_| SessionServiceError::Invalid)?;
+        session
+            .set_trace_id(TraceId::new())
+            .map_err(|_| SessionServiceError::State)?;
         session.title = title;
         session.activate().map_err(|_| SessionServiceError::State)?;
         self.sessions.create(&session).await?;

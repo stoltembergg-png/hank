@@ -20,6 +20,7 @@ use agent_runtime::provider_service::{InvocationError, InvocationRequest, Provid
 use agent_runtime::session_repo::{SessionStorageError, SqliteSessionRepository};
 use agent_runtime::streaming::StreamEventConsumer;
 use agent_runtime::SqliteStorage;
+use agent_protocol::ids::TraceId;
 use provider_core::capabilities::{CapabilityFeature, CapabilityRequirement, ModelModality};
 use provider_core::credentials::{
     AccountId, CredentialAccessContext, CredentialAccount, CredentialRef, CredentialService,
@@ -332,6 +333,11 @@ async fn execute_chat_turn(
     let project_id = session.project_id;
     let agent_id = session.agent_id;
     let session_id = session.id;
+    if session.trace_id.is_none() {
+        session
+            .set_trace_id(TraceId::new())
+            .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, &command.command_id))?;
+    }
     let project_scope = ProjectScopeId::parse(format!("project_{project_id}"))
         .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::InvalidCommand, &command.command_id))?;
     let provider_id = ProviderId::parse(MOCK_PROVIDER_ID)

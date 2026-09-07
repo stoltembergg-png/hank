@@ -207,6 +207,9 @@ try {
     throw new Error(`sessions: UI-created session was not returned by the real bridge: ${JSON.stringify(sessions)}`);
   }
   if (sessions.sessions[0]?.status !== 'active') throw new Error('sessions: created session was not active');
+  if (!/^trace-[0-9a-f-]{36}$/i.test(sessions.sessions[0]?.trace_id ?? '')) {
+    throw new Error(`chat: session trace identity is missing or malformed: ${JSON.stringify(sessions.sessions[0])}`);
+  }
   if (sessions.sessions[0]?.message_count !== 2) {
     throw new Error(`chat: persisted session message count was not updated: ${JSON.stringify(sessions.sessions[0])}`);
   }
