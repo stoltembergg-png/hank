@@ -123,10 +123,11 @@ const treeSha = runGit(['rev-parse', 'HEAD^{tree}']).trim();
 const headSha = runGit(['rev-parse', 'HEAD']).trim();
 const stagedDiff = runGit(['diff', '--binary', '--cached', 'HEAD']);
 const workingDiff = runGit(['diff', '--binary', 'HEAD']);
+const normalizedOutputPath = relative(root, outPath).replaceAll('\\', '/');
 const untracked = runGit(['ls-files', '--others', '--exclude-standard'])
   .split('\n')
   .map((path) => path.trim())
-  .filter((path) => path && path !== relative(root, outPath));
+  .filter((path) => path && path.replaceAll('\\', '/') !== normalizedOutputPath);
 if (untracked.length > 0) {
   console.error(`untracked input files present: ${untracked.join(', ')}`);
   process.exit(1);
