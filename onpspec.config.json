@@ -11,7 +11,8 @@
     "auto-updater": "node tools/security/updater-feature-tests.mjs",
     "installers": "node tools/security/installer-feature-tests.mjs",
     "release-signing": "node tools/security/release-signing-feature-tests.mjs",
-    "provider-compatibility-tests": "node tools/security/provider-compatibility-feature-tests.mjs"
+    "provider-compatibility-tests": "node tools/security/provider-compatibility-feature-tests.mjs",
+    "evidence-scope-reconciliation": "node tools/security/evidence-scope-feature-tests.mjs"
   },
   "reporter": "exitcode",
   "reporters": {
@@ -25,7 +26,8 @@
     "auto-updater": "tap",
     "installers": "tap",
     "release-signing": "tap",
-    "provider-compatibility-tests": "tap"
+    "provider-compatibility-tests": "tap",
+    "evidence-scope-reconciliation": "tap"
   },
   "testGlobs": [
     "test/**/*.js",
