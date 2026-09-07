@@ -10,6 +10,7 @@ use provider_core::{CancellationToken, CredentialRef};
 use remote_core::tool_dispatch::{
     RemoteDispatchError, RemoteOperationStatus, RemoteToolDispatcher, RemoteToolFuture,
     RemoteToolPolicy, RemoteToolRequest, RemoteToolTransport, RemoteTransportError,
+    MAX_REMOTE_OPERATIONS, REMOTE_OPERATION_RETENTION_MS,
 };
 use remote_core::{AuthenticatedDaemon, DaemonError, DaemonPolicy, PeerAuthenticator};
 use serde_json::json;
@@ -19,6 +20,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
 };
+use std::time::Duration;
 use tokio::sync::Notify;
 use tool_core::{
     PermissionEvaluator, PermissionRequest, PolicyDecision, ToolContext, ToolEffect, ToolOutcome,
@@ -165,6 +167,44 @@ impl RemoteToolTransport for BlockingTransport {
     }
 }
 
+struct HangingTransport {
+    calls: AtomicUsize,
+}
+
+impl HangingTransport {
+    fn new() -> Self {
+        Self {
+            calls: AtomicUsize::new(0),
+        }
+    }
+
+    fn calls(&self) -> usize {
+        self.calls.load(Ordering::SeqCst)
+    }
+}
+
+impl RemoteToolTransport for HangingTransport {
+    fn execute<'a>(
+        &'a self,
+        request: RemoteToolRequest,
+        _cancellation: CancellationToken,
+    ) -> RemoteToolFuture<'a> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        Box::pin(async move {
+            tokio::time::sleep(Duration::from_secs(2)).await;
+            Ok(response_for(&request, json!({"ok": true})))
+        })
+    }
+
+    fn cancel(
+        &self,
+        _target: &remote_core::tool_dispatch::RemoteToolTarget,
+        _operation_key: OperationKey,
+    ) -> Result<(), RemoteTransportError> {
+        Ok(())
+    }
+}
+
 fn project() -> ProjectId {
     ProjectId::from_str(PROJECT).unwrap()
 }
@@ -183,9 +223,16 @@ fn handshake() -> Handshake {
 fn dispatcher<T: RemoteToolTransport + 'static>(
     transport: Arc<T>,
 ) -> RemoteToolDispatcher<AcceptedAuthenticator, T> {
+    dispatcher_with_lease_duration(transport, 60_000)
+}
+
+fn dispatcher_with_lease_duration<T: RemoteToolTransport + 'static>(
+    transport: Arc<T>,
+    lease_duration_ms: u64,
+) -> RemoteToolDispatcher<AcceptedAuthenticator, T> {
     let daemon = Arc::new(AuthenticatedDaemon::new(
         AcceptedAuthenticator,
-        DaemonPolicy::exact("peer-a", "node-1", project(), 60_000).unwrap(),
+        DaemonPolicy::exact("peer-a", "node-1", project(), lease_duration_ms).unwrap(),
     ));
     let policy = RemoteToolPolicy::bounded(1_000, 5_000, 4_096, 4_096)
         .unwrap()
@@ -274,7 +321,7 @@ async fn permitted_tool_executes_on_exact_node_and_replays_cached_result() {
     let second = dispatcher
         .dispatch(
             lease.id,
-            1_000,
+            2_000,
             NodeId::new("node-1").unwrap(),
             request,
             permission,
@@ -381,6 +428,24 @@ async fn wrong_node_or_permission_is_rejected_before_transport() {
         Err(RemoteDispatchError::PermissionDenied)
     );
 
+    let mut project_request = request.clone();
+    project_request.context.project_id =
+        ProjectId::from_str("proj-22222222-2222-4222-8222-222222222222").unwrap();
+    let project_permission = permission(&project_request);
+    assert_eq!(
+        dispatcher
+            .dispatch(
+                lease.id,
+                1_000,
+                NodeId::new("node-1").unwrap(),
+                project_request,
+                project_permission,
+                CancellationToken::new(),
+            )
+            .await,
+        Err(RemoteDispatchError::TargetMismatch)
+    );
+
     let mut capability_request = request;
     capability_request.context.capability = "write".into();
     let capability_permission = permission(&capability_request);
@@ -482,6 +547,63 @@ async fn payload_boundary_excludes_internal_tool_context() {
 }
 
 #[tokio::test]
+// @spec:AC-3007
+async fn permitted_tool_terminal_records_expire_before_capacity_is_permanent() {
+    let transport = Arc::new(FixtureTransport::new(FixtureMode::Success));
+    let dispatcher =
+        dispatcher_with_lease_duration(transport.clone(), REMOTE_OPERATION_RETENTION_MS + 60_000);
+    let lease = dispatcher
+        .bootstrap(Some(fixture_credential()), handshake(), 1_000)
+        .unwrap();
+
+    for _ in 0..MAX_REMOTE_OPERATIONS {
+        let request = request();
+        let operation_permission = permission(&request);
+        dispatcher
+            .dispatch(
+                lease.id,
+                1_000,
+                NodeId::new("node-1").unwrap(),
+                request,
+                operation_permission,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+    }
+
+    let full_request = request();
+    let full_permission = permission(&full_request);
+    assert_eq!(
+        dispatcher
+            .dispatch(
+                lease.id,
+                1_000,
+                NodeId::new("node-1").unwrap(),
+                full_request,
+                full_permission,
+                CancellationToken::new(),
+            )
+            .await,
+        Err(RemoteDispatchError::Capacity)
+    );
+
+    let retained_request = request();
+    let retained_permission = permission(&retained_request);
+    assert!(dispatcher
+        .dispatch(
+            lease.id,
+            1_000 + REMOTE_OPERATION_RETENTION_MS + 1,
+            NodeId::new("node-1").unwrap(),
+            retained_request,
+            retained_permission,
+            CancellationToken::new(),
+        )
+        .await
+        .is_ok());
+}
+
+#[tokio::test]
 // @spec:AC-3010
 async fn timeout_or_transport_loss_becomes_unknown_and_is_not_retried() {
     let transport = Arc::new(FixtureTransport::new(FixtureMode::Unavailable));
@@ -522,6 +644,38 @@ async fn timeout_or_transport_loss_becomes_unknown_and_is_not_retried() {
             )
             .await,
         Err(RemoteDispatchError::UnknownOutcome)
+    );
+    assert_eq!(transport.calls(), 1);
+}
+
+#[tokio::test]
+// @spec:AC-3010
+async fn timeout_or_transport_loss_transport_deadline_is_enforced() {
+    let transport = Arc::new(HangingTransport::new());
+    let dispatcher = dispatcher(transport.clone());
+    let lease = dispatcher
+        .bootstrap(Some(fixture_credential()), handshake(), 1_000)
+        .unwrap();
+    let request = request();
+    let operation_key = request.operation_key;
+    let permission = permission(&request);
+
+    assert_eq!(
+        dispatcher
+            .dispatch(
+                lease.id,
+                1_000,
+                NodeId::new("node-1").unwrap(),
+                request,
+                permission,
+                CancellationToken::new(),
+            )
+            .await,
+        Err(RemoteDispatchError::UnknownOutcome)
+    );
+    assert_eq!(
+        dispatcher.status(operation_key),
+        Some(RemoteOperationStatus::Unknown)
     );
     assert_eq!(transport.calls(), 1);
 }
@@ -588,28 +742,50 @@ async fn invalid_or_sensitive_response_is_unknown() {
 #[tokio::test]
 // @spec:AC-3013
 async fn revoked_or_expired_lease_cannot_dispatch() {
-    let transport = Arc::new(FixtureTransport::new(FixtureMode::Success));
-    let dispatcher = dispatcher(transport.clone());
-    let lease = dispatcher
+    let revoked_transport = Arc::new(FixtureTransport::new(FixtureMode::Success));
+    let revoked_dispatcher = dispatcher(revoked_transport.clone());
+    let revoked_lease = revoked_dispatcher
         .bootstrap(Some(fixture_credential()), handshake(), 1_000)
         .unwrap();
-    let request = request();
-    let permission = permission(&request);
-    dispatcher.revoke(lease.id).unwrap();
+    let revoked_request = request();
+    let revoked_permission = permission(&revoked_request);
+    revoked_dispatcher.revoke(revoked_lease.id).unwrap();
     assert!(matches!(
-        dispatcher
+        revoked_dispatcher
             .dispatch(
-                lease.id,
+                revoked_lease.id,
                 1_000,
                 NodeId::new("node-1").unwrap(),
-                request,
-                permission,
+                revoked_request,
+                revoked_permission,
                 CancellationToken::new(),
             )
             .await,
         Err(RemoteDispatchError::Lease(DaemonError::StaleLease))
     ));
-    assert_eq!(transport.calls(), 0);
+    assert_eq!(revoked_transport.calls(), 0);
+
+    let expired_transport = Arc::new(FixtureTransport::new(FixtureMode::Success));
+    let expired_dispatcher = dispatcher(expired_transport.clone());
+    let expired_lease = expired_dispatcher
+        .bootstrap(Some(fixture_credential()), handshake(), 1_000)
+        .unwrap();
+    let expired_request = request();
+    let expired_permission = permission(&expired_request);
+    assert!(matches!(
+        expired_dispatcher
+            .dispatch(
+                expired_lease.id,
+                expired_lease.expires_at_ms + 1,
+                NodeId::new("node-1").unwrap(),
+                expired_request,
+                expired_permission,
+                CancellationToken::new(),
+            )
+            .await,
+        Err(RemoteDispatchError::Lease(DaemonError::StaleLease))
+    ));
+    assert_eq!(expired_transport.calls(), 0);
 }
 
 #[tokio::test]

@@ -17,6 +17,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use thiserror::Error;
 use tool_core::{
     PermissionDecision, PermissionEvaluator, PermissionRequest, ToolOutcome, ToolRequest,
@@ -27,6 +28,8 @@ use tool_core::{
 pub const MAX_REMOTE_TIMEOUT_MS: u64 = 5 * 60 * 1_000;
 /// Maximum number of operation records retained by one dispatcher.
 pub const MAX_REMOTE_OPERATIONS: usize = 256;
+/// Terminal-operation retention window before capacity can be reclaimed.
+pub const REMOTE_OPERATION_RETENTION_MS: u64 = 10 * 60 * 1_000;
 /// Maximum identifier length admitted at this boundary.
 pub const MAX_REMOTE_IDENTIFIER_BYTES: usize = 128;
 
@@ -277,6 +280,7 @@ struct OperationRecord {
     state: OperationState,
     fingerprint: [u8; 32],
     target: RemoteToolTarget,
+    updated_at_ms: u64,
 }
 
 /// Authenticated, policy-checked remote tool dispatcher.
@@ -385,6 +389,7 @@ impl<A: PeerAuthenticator, T: RemoteToolTransport> RemoteToolDispatcher<A, T> {
                 .operations
                 .lock()
                 .map_err(|_| RemoteDispatchError::StateUnavailable)?;
+            purge_expired_terminal_operations(&mut operations, now_ms);
             if let Some(record) = operations.get(&operation_key) {
                 if record.fingerprint != fingerprint {
                     return Err(RemoteDispatchError::OperationConflict);
@@ -406,13 +411,25 @@ impl<A: PeerAuthenticator, T: RemoteToolTransport> RemoteToolDispatcher<A, T> {
                     state: OperationState::InFlight,
                     fingerprint,
                     target: outbound.target.clone(),
+                    updated_at_ms: now_ms,
                 },
             );
         }
 
-        let result = self.transport.execute(outbound, cancellation.clone()).await;
+        let result = match tokio::time::timeout(
+            Duration::from_millis(timeout_ms),
+            self.transport.execute(outbound, cancellation.clone()),
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(_) => {
+                self.mark_unknown(operation_key, now_ms)?;
+                return Err(RemoteDispatchError::UnknownOutcome);
+            }
+        };
         if cancellation.is_cancelled() {
-            self.mark_unknown(operation_key)?;
+            self.mark_unknown(operation_key, now_ms)?;
             return Err(RemoteDispatchError::UnknownOutcome);
         }
         match result {
@@ -420,7 +437,7 @@ impl<A: PeerAuthenticator, T: RemoteToolTransport> RemoteToolDispatcher<A, T> {
                 if self.validate_response(&request, &response).is_err()
                     || !safe_terminal_outcome(response.outcome)
                 {
-                    self.mark_unknown(operation_key)?;
+                    self.mark_unknown(operation_key, now_ms)?;
                     return Err(RemoteDispatchError::UnknownOutcome);
                 }
                 let mut operations = self
@@ -433,18 +450,20 @@ impl<A: PeerAuthenticator, T: RemoteToolTransport> RemoteToolDispatcher<A, T> {
                 match &record.state {
                     OperationState::InFlight => {
                         record.state = OperationState::Completed(response.clone());
+                        record.updated_at_ms = now_ms;
                         Ok(response)
                     }
                     OperationState::Completed(cached) => Ok(cached.clone()),
                     OperationState::Cancelled | OperationState::Rejected => {
                         record.state = OperationState::Unknown;
+                        record.updated_at_ms = now_ms;
                         Err(RemoteDispatchError::UnknownOutcome)
                     }
                     OperationState::Unknown => Err(RemoteDispatchError::UnknownOutcome),
                 }
             }
             Err(RemoteTransportError::Rejected) => {
-                self.set_state(operation_key, OperationState::Rejected)?;
+                self.set_state(operation_key, OperationState::Rejected, now_ms)?;
                 Err(RemoteDispatchError::TransportRejected)
             }
             Err(
@@ -453,7 +472,7 @@ impl<A: PeerAuthenticator, T: RemoteToolTransport> RemoteToolDispatcher<A, T> {
                 | RemoteTransportError::Unavailable
                 | RemoteTransportError::InvalidResponse,
             ) => {
-                self.mark_unknown(operation_key)?;
+                self.mark_unknown(operation_key, now_ms)?;
                 Err(RemoteDispatchError::UnknownOutcome)
             }
         }
@@ -492,11 +511,11 @@ impl<A: PeerAuthenticator, T: RemoteToolTransport> RemoteToolDispatcher<A, T> {
         }
         match self.transport.cancel(&target, operation_key) {
             Ok(()) => {
-                self.set_state(operation_key, OperationState::Cancelled)?;
+                self.set_state(operation_key, OperationState::Cancelled, now_ms)?;
                 Ok(())
             }
             Err(_) => {
-                self.mark_unknown(operation_key)?;
+                self.mark_unknown(operation_key, now_ms)?;
                 Err(RemoteDispatchError::UnknownOutcome)
             }
         }
@@ -557,6 +576,7 @@ impl<A: PeerAuthenticator, T: RemoteToolTransport> RemoteToolDispatcher<A, T> {
         &self,
         operation_key: OperationKey,
         state: OperationState,
+        updated_at_ms: u64,
     ) -> Result<(), RemoteDispatchError> {
         let mut operations = self
             .operations
@@ -566,11 +586,16 @@ impl<A: PeerAuthenticator, T: RemoteToolTransport> RemoteToolDispatcher<A, T> {
             return Err(RemoteDispatchError::OperationNotFound);
         };
         record.state = state;
+        record.updated_at_ms = updated_at_ms;
         Ok(())
     }
 
-    fn mark_unknown(&self, operation_key: OperationKey) -> Result<(), RemoteDispatchError> {
-        self.set_state(operation_key, OperationState::Unknown)
+    fn mark_unknown(
+        &self,
+        operation_key: OperationKey,
+        updated_at_ms: u64,
+    ) -> Result<(), RemoteDispatchError> {
+        self.set_state(operation_key, OperationState::Unknown, updated_at_ms)
     }
 }
 
@@ -588,8 +613,39 @@ fn validate_local_request(
     Ok(())
 }
 
+fn purge_expired_terminal_operations(
+    operations: &mut HashMap<OperationKey, OperationRecord>,
+    now_ms: u64,
+) {
+    operations.retain(|_, record| {
+        matches!(&record.state, OperationState::InFlight)
+            || now_ms.saturating_sub(record.updated_at_ms) <= REMOTE_OPERATION_RETENTION_MS
+    });
+}
+
+#[derive(Serialize)]
+struct RemoteToolFingerprint<'a> {
+    target: &'a RemoteToolTarget,
+    operation_key: OperationKey,
+    tool_name: &'a str,
+    tool_version: &'a str,
+    capability: &'a str,
+    input: &'a serde_json::Value,
+    trace_id: TraceId,
+}
+
 fn request_fingerprint(request: &RemoteToolRequest) -> Result<[u8; 32], RemoteDispatchError> {
-    let encoded = serde_json::to_vec(request).map_err(|_| RemoteDispatchError::InvalidRequest)?;
+    let canonical = RemoteToolFingerprint {
+        target: &request.target,
+        operation_key: request.operation_key,
+        tool_name: &request.tool_name,
+        tool_version: &request.tool_version,
+        capability: &request.capability,
+        input: &request.input,
+        trace_id: request.trace_id,
+    };
+    let encoded =
+        serde_json::to_vec(&canonical).map_err(|_| RemoteDispatchError::InvalidRequest)?;
     let digest = Sha256::digest(encoded);
     Ok(digest.into())
 }

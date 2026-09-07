@@ -7,14 +7,17 @@
 - Refs: US-3001, AC-3007, AC-3008, AC-3009, AC-3010, AC-3011, AC-3012, AC-3013, AC-3014
 - Arquivos: `crates/remote-core/src/lib.rs`, `crates/remote-core/src/tool_dispatch.rs`, `crates/remote-core/Cargo.toml`, `crates/tool-core/src/response.rs`, `Cargo.lock`
 - Notas: adiciona contexto de lease, allowlist de tool/capability, limites de timeout/payload,
-  ledger com fingerprint por `OperationKey`, DTO remoto mínimo, cancelamento e estado
-  `UnknownOutcome`; nenhum transport real é criado.
+  timeout enforced pelo dispatcher, ledger com fingerprint por `OperationKey` e retenção
+  terminal bounded, DTO remoto mínimo, cancelamento e estado `UnknownOutcome`; nenhum
+  transport real é criado.
 
 ## T-1511 — Provar execução, falha, cancelamento e redaction com fixture offline [concluida]
 
 - Refs: US-3001, AC-3007, AC-3008, AC-3009, AC-3010, AC-3011, AC-3012, AC-3013, AC-3014
 - Arquivos: `crates/remote-core/tests/remote_tool_dispatch_contract.rs`, `test/remote-tool-execution-onp.test.mjs`
-- Notas: fixture sintética não usa rede, shell, provider real ou credencial real; resposta sensível é rejeitada fail-closed.
+- Notas: fixture sintética não usa rede, shell, provider real ou credencial real; cobre
+  projeto/expiração, timeout real, retenção bounded e fingerprint independente de deadline;
+  resposta sensível é rejeitada fail-closed.
 
 ## T-1512 — Registrar fronteira de produção e executar verify explícito [concluida]
 

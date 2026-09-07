@@ -16,6 +16,15 @@ o dispatcher valida:
 - `OperationKey` com fingerprint: replay idempotente somente para o mesmo request e conflito
   fail-closed para payload diferente.
 
+O fingerprint canônico exclui o deadline calculado, então a repetição legítima da
+mesma chamada pode ocorrer em outro instante sem virar conflito. Estados terminais
+são retidos por 10 minutos (`REMOTE_OPERATION_RETENTION_MS`); depois disso a capacidade
+é recuperada e a chave antiga não deve ser reutilizada sem reconciliação explícita.
+Registros `InFlight` não expiram por essa rotina.
+
+O dispatcher aplica `tokio::time::timeout` ao future do transport. Se o prazo vence
+após o dispatch, o future local é descartado e o resultado é `UnknownOutcome`.
+
 O ledger mantém estados `InFlight`, `Completed`, `Cancelled`, `Rejected` e
 `Unknown`. Timeout, indisponibilidade, resposta inválida, cancelamento tardio ou
 perda de transporte nunca são automaticamente repetidos: retornam
@@ -35,6 +44,7 @@ runtime remoto separado e testes de integração vinculados ao mesmo SHA/tree.
 CARGO_BUILD_JOBS=1 cargo test -p remote-core --test remote_tool_dispatch_contract --locked --offline
 ```
 
-O teste cobre execução no node correto, negação de node/permissão, redaction,
-idempotência, unknown outcome, cancelamento antes/em voo, resposta divergente e
-lease revogada. Ele não substitui a prova de rede ou de produção.
+O teste cobre execução no node correto, negação de node/projeto/permissão, redaction,
+idempotência com deadline variável, conflito de fingerprint, retenção do ledger,
+timeout real, unknown outcome, cancelamento antes/em voo, resposta divergente e
+lease revogada/expirada. Ele não substitui a prova de rede ou de produção.

@@ -18,9 +18,14 @@ function runCargoTest(filter) {
       '--',
       filter,
     ],
-    { cwd: root, encoding: 'utf8', stdio: 'inherit' },
+    { cwd: root, encoding: 'utf8', stdio: 'pipe' },
   );
-  assert.equal(result.status, 0, `remote-core/${filter} failed`);
+  const output = [result.stdout, result.stderr].filter(Boolean).join('\n');
+  if (result.status !== 0) {
+    process.stderr.write(output);
+  }
+  assert.equal(result.status, 0, `remote-core/${filter} failed\n${output.slice(-4000)}`);
+  assert.match(output, /running\s+[1-9]\d*\s+tests?/i, `remote-core/${filter} matched no tests`);
 }
 
 const contracts = [
