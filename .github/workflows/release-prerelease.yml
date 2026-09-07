@@ -468,7 +468,11 @@ jobs:
           import fs from 'node:fs';
           import { buildArtifactDigests } from './tools/release-prerelease.mjs';
           const tag = process.env.TAG;
-          const names = [`hank-${tag}.tar.gz`, `hank-${tag}-setup.exe`];
+          const names = [
+            `hank-${tag}.tar.gz`,
+            `hank-${tag}-setup.exe`,
+            `hank-${tag}-x86_64.AppImage`,
+          ];
           const changelog = fs.readFileSync('/tmp/prerelease/RELEASE_NOTES.md', 'utf8');
           const testInstructions = fs.readFileSync('/tmp/prerelease/TEST_INSTRUCTIONS.md', 'utf8');
           process.stdout.write(JSON.stringify({
@@ -504,7 +508,7 @@ jobs:
             cmp /tmp/prerelease/release-manifest.json /tmp/existing-prerelease/release-manifest.json
             echo 'matching release already exists; idempotent no-op'
           else
-            gh release create "$TAG" "/tmp/prerelease/hank-${TAG}.tar.gz" "/tmp/windows-bundle/hank-${TAG}-setup.exe" /tmp/prerelease/RELEASE_NOTES.md /tmp/prerelease/TEST_INSTRUCTIONS.md /tmp/prerelease/SHA256SUMS /tmp/prerelease/release-manifest.json /tmp/prerelease/manifest.sha256 \
+            gh release create "$TAG" "/tmp/prerelease/hank-${TAG}.tar.gz" "/tmp/windows-bundle/hank-${TAG}-setup.exe" "/tmp/linux-bundle/hank-${TAG}-x86_64.AppImage" /tmp/prerelease/RELEASE_NOTES.md /tmp/prerelease/TEST_INSTRUCTIONS.md /tmp/prerelease/SHA256SUMS /tmp/prerelease/release-manifest.json /tmp/prerelease/manifest.sha256 \
               --target "$SHA" --title "$TAG (prerelease)" --notes-file /tmp/prerelease/RELEASE_NOTES.md --prerelease
           fi
 

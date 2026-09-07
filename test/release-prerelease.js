@@ -262,8 +262,10 @@ test('PR-370: publish binds the native Windows installer before creating the rel
   assert.match(workflow, /hank-\$\{TAG\}-setup\.exe/);
   assert.match(workflow, /buildArtifactDigests/);
   assert.match(workflow, /verify-artifacts --manifest/);
+  assert.match(workflow, /`hank-\$\{tag\}-x86_64\.AppImage`/);
   assert.match(workflow, /sha256sum \"\$\{names\[@\]\}\" > SHA256SUMS/);
   assert.match(workflow, /gh release create \"\$TAG\"[\s\S]*hank-\$\{TAG\}-setup\.exe/);
+  assert.match(workflow, /gh release create \"\$TAG\"[\s\S]*hank-\$\{TAG\}-x86_64\.AppImage/);
   assert.match(workflow, /gh release download \"\$TAG\" --repo \"\$REPOSITORY\" --pattern release-manifest\.json/);
   assert.match(workflow, /cmp \/tmp\/prerelease\/release-manifest\.json \/tmp\/existing-prerelease\/release-manifest\.json/);
   assert.match(workflow, /install-smoke:/);
@@ -283,11 +285,14 @@ test('AC-628/PR-370: binds and verifies release artifact digests fail-closed', (
   const directory = mkdtempSync(join(tmpdir(), 'hank-release-artifacts-'));
   const tarball = join(directory, 'hank-v0.1.0-dev.' + sha + '.tar.gz');
   const installer = join(directory, 'hank-v0.1.0-dev.' + sha + '-setup.exe');
+  const appImage = join(directory, 'hank-v0.1.0-dev.' + sha + '-x86_64.AppImage');
   writeFileSync(tarball, 'archive bytes');
   writeFileSync(installer, 'installer bytes');
+  writeFileSync(appImage, 'appimage bytes');
   const names = [
     'hank-v0.1.0-dev.' + sha + '.tar.gz',
     'hank-v0.1.0-dev.' + sha + '-setup.exe',
+    'hank-v0.1.0-dev.' + sha + '-x86_64.AppImage',
   ];
   try {
     const digests = buildArtifactDigests({ directory, names });
@@ -297,7 +302,7 @@ test('AC-628/PR-370: binds and verifies release artifact digests fail-closed', (
       classification: ['functional'], relatedPullRequests: [200], artifacts: names,
       artifactDigests: digests, changelog: 'changes', testInstructions: 'test',
     });
-    assert.deepEqual(verifyArtifactDigests({ manifest, directory }), { verified: 2, artifacts: [...names].sort() });
+    assert.deepEqual(verifyArtifactDigests({ manifest, directory }), { verified: 3, artifacts: [...names].sort() });
     writeFileSync(installer, 'substituted installer bytes');
     assert.throws(() => verifyArtifactDigests({ manifest, directory }), /artifact digest mismatch/);
     assert.throws(() => buildManifest({
