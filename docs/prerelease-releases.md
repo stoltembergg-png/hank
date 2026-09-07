@@ -44,7 +44,7 @@ O mapa versionado em `release-milestones.json` é a fonte da associação entre 
 
 Para a milestone ativa, `release-milestones.json.active.releaseBoundary` declara o tag estável anterior (`v0.3.0`) e o cartão lógico (`PR-270`). O preflight exige que o tag anterior seja estável e ancestral, calcula PRs e changelog no range completo `previousStableTag..HEAD`, e valida que o cartão declarado esteja mergeado e ancestral. Ele não usa uma janela fixa de commits nem escolhe o primeiro PR retornado pela API.
 
-Após a prerelease correspondente passar pelos checks obrigatórios, o mantenedor deve disparar manualmente `Publish stable milestone release`, informando a tag prerelease exata, a versão e o milestone. O workflow valida o commit e o manifesto, transforma os nomes dos artefatos para a tag estável e publica `prerelease: false`. Não existe promoção automática, seleção implícita de milestone ou sobrescrita de tag.
+Após a prerelease correspondente passar pelos checks obrigatórios, o mantenedor deve disparar manualmente `Publish stable milestone release`, informando a tag prerelease exata, a versão e o milestone. O workflow valida o commit e o manifesto, renomeia os bytes para a tag estável, re-assina cada binário no ambiente protegido (`channel=stable`, `release-stable-v1`), verifica a chave confiável e publica `prerelease: false`. Não existe promoção automática, seleção implícita de milestone ou sobrescrita de tag.
 
 Exemplo:
 

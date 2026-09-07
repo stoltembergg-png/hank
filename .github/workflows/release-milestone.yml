@@ -139,6 +139,7 @@ jobs:
     name: Publish stable milestone release
     needs: verify
     runs-on: ubuntu-24.04
+    environment: release-signing
     timeout-minutes: 15
     permissions:
       contents: write
@@ -197,14 +198,6 @@ jobs:
           mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}-setup.exe" "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe"
           mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}-x86_64.AppImage" "$RUNNER_TEMP/stable/hank-${stable_tag}-x86_64.AppImage"
           mv "$RUNNER_TEMP/prerelease/SBOM.spdx.json" "$RUNNER_TEMP/stable/SBOM.spdx.json"
-          for name in \
-            "hank-${PRERELEASE_TAG}.tar.gz.attestation.json" \
-            "hank-${PRERELEASE_TAG}-setup.exe.attestation.json" \
-            "hank-${PRERELEASE_TAG}-x86_64.AppImage.attestation.json"; do
-            stable_name="${name/$PRERELEASE_TAG/$stable_tag}"
-            mv "$RUNNER_TEMP/prerelease/$name" "$RUNNER_TEMP/stable/$stable_name"
-          done
-          cp "$RUNNER_TEMP/prerelease/release-signing-metadata.json" "$RUNNER_TEMP/stable/release-signing-metadata.json"
           
           # Use the validated manifest from verify job, not a re-downloaded one
           node tools/release-prerelease.mjs promote-manifest \
@@ -226,6 +219,56 @@ jobs:
           node tools/release-prerelease.mjs verify-artifacts \
             --manifest "$RUNNER_TEMP/stable/release-manifest.json" \
             --directory "$RUNNER_TEMP/stable"
+
+      - name: Sign stable release artifacts
+        env:
+          HANK_RELEASE_SIGNING_PRIVATE_KEY_PEM: ${{ secrets.HANK_RELEASE_SIGNING_PRIVATE_KEY_PEM }}
+          HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM: ${{ vars.HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM }}
+          HANK_RELEASE_SIGNER_KEY_ID: ${{ vars.HANK_RELEASE_SIGNER_KEY_ID }}
+          SHA: ${{ needs.verify.outputs.sha }}
+          STABLE_VERSION: ${{ inputs.stable_version }}
+        run: |
+          set -euo pipefail
+          stable_tag="v$STABLE_VERSION"
+          tree=$(jq -r '.tree' "$RUNNER_TEMP/prerelease-validated/release-manifest.json")
+          names=(
+            "hank-${stable_tag}.tar.gz"
+            "hank-${stable_tag}-setup.exe"
+            "hank-${stable_tag}-x86_64.AppImage"
+          )
+          node tools/release-artifact-signing.mjs sign \
+            --directory "$RUNNER_TEMP/stable" \
+            --attestationDirectory "$RUNNER_TEMP/stable" \
+            --artifacts "$(IFS=,; echo "${names[*]}")" \
+            --repository "$GITHUB_REPOSITORY" \
+            --event "$GITHUB_EVENT_NAME" \
+            --ref "$GITHUB_REF" \
+            --commit "$SHA" \
+            --tree "$tree" \
+            --workflow "$GITHUB_WORKFLOW" \
+            --policy release-stable-v1 \
+            --channel stable \
+            --os multi \
+            --signerKeyId "$HANK_RELEASE_SIGNER_KEY_ID"
+          node tools/release-artifact-signing.mjs verify \
+            --directory "$RUNNER_TEMP/stable" \
+            --attestationDirectory "$RUNNER_TEMP/stable" \
+            --artifacts "$(IFS=,; echo "${names[*]}")" \
+            --repository "$GITHUB_REPOSITORY" \
+            --event "$GITHUB_EVENT_NAME" \
+            --ref "$GITHUB_REF" \
+            --commit "$SHA" \
+            --tree "$tree" \
+            --workflow "$GITHUB_WORKFLOW" \
+            --policy release-stable-v1 \
+            --channel stable \
+            --os multi \
+            --requireTrustedKey 1 \
+            --signerKeyId "$HANK_RELEASE_SIGNER_KEY_ID"
+
+      - name: Finalize stable checksums
+        run: |
+          set -euo pipefail
           (cd "$RUNNER_TEMP/stable" && sha256sum -- * > SHA256SUMS && sha256sum release-manifest.json > manifest.sha256)
 
       - name: Publish or verify idempotent stable release
@@ -286,6 +329,8 @@ jobs:
           STABLE_VERSION: ${{ inputs.stable_version }}
           SHA: ${{ needs.verify.outputs.sha }}
           MILESTONE: ${{ inputs.milestone }}
+          HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM: ${{ vars.HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM }}
+          HANK_RELEASE_SIGNER_KEY_ID: ${{ vars.HANK_RELEASE_SIGNER_KEY_ID }}
         run: |
           set -euo pipefail
           stable_tag="v$STABLE_VERSION"
@@ -297,6 +342,45 @@ jobs:
           release=$(gh api "repos/$REPOSITORY/releases/tags/$stable_tag")
           test "$(printf '%s' "$release" | jq -r .prerelease)" = false
           test "$(printf '%s' "$release" | jq -r .target_commitish)" = "$SHA"
+          published="$RUNNER_TEMP/published-stable"
+          mkdir -p "$published"
+          gh release download "$stable_tag" \
+            --pattern release-manifest.json \
+            --pattern manifest.sha256 \
+            --pattern SHA256SUMS \
+            --pattern SBOM.spdx.json \
+            --pattern "hank-${stable_tag}.tar.gz" \
+            --pattern "hank-${stable_tag}-setup.exe" \
+            --pattern "hank-${stable_tag}-x86_64.AppImage" \
+            --pattern "hank-${stable_tag}.tar.gz.attestation.json" \
+            --pattern "hank-${stable_tag}-setup.exe.attestation.json" \
+            --pattern "hank-${stable_tag}-x86_64.AppImage.attestation.json" \
+            --pattern release-signing-metadata.json \
+            --dir "$published"
+          (cd "$published" && sha256sum -c SHA256SUMS && sha256sum -c manifest.sha256)
+          cmp "$RUNNER_TEMP/stable/release-manifest.json" "$published/release-manifest.json"
+          tree=$(jq -r '.tree' "$published/release-manifest.json")
+          names="hank-${stable_tag}.tar.gz,hank-${stable_tag}-setup.exe,hank-${stable_tag}-x86_64.AppImage"
+          node tools/release-artifact-signing.mjs verify \
+            --directory "$published" \
+            --attestationDirectory "$published" \
+            --artifacts "$names" \
+            --repository "$GITHUB_REPOSITORY" \
+            --event "$GITHUB_EVENT_NAME" \
+            --ref "$GITHUB_REF" \
+            --commit "$SHA" \
+            --tree "$tree" \
+            --workflow "$GITHUB_WORKFLOW" \
+            --policy release-stable-v1 \
+            --channel stable \
+            --os multi \
+            --requireTrustedKey 1 \
+            --signerKeyId "$HANK_RELEASE_SIGNER_KEY_ID"
+          node tools/release-sbom.mjs verify \
+            --file "$published/SBOM.spdx.json" \
+            --commit "$SHA" \
+            --tree "$tree" \
+            --version "$STABLE_VERSION"
           {
             echo "### Published stable milestone release"
             echo "- Tag: $stable_tag"

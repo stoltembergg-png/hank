@@ -146,6 +146,23 @@ describe('CI Build workflow AC tests', () => {
     expect(smoke).toContain('contentVerified: true');
   });
 
+  it('stable promotion re-signs renamed artifacts with a stable identity', () => {
+    const release = workflow('release-milestone.yml');
+    expect(release).toContain('environment: release-signing');
+    expect(release).toContain('HANK_RELEASE_SIGNING_PRIVATE_KEY_PEM: ${{ secrets.HANK_RELEASE_SIGNING_PRIVATE_KEY_PEM }}');
+    expect(release).toContain('HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM: ${{ vars.HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM }}');
+    expect(release).toContain('node tools/release-artifact-signing.mjs sign');
+    expect(release).toContain('--policy release-stable-v1');
+    expect(release).toContain('--channel stable');
+    expect(release).toContain('--workflow "$GITHUB_WORKFLOW"');
+    expect(release).toContain('node tools/release-artifact-signing.mjs verify');
+    expect(release).toContain('--requireTrustedKey 1');
+    expect(release).toContain('gh release download "$stable_tag"');
+    expect(release).toContain('sha256sum -c SHA256SUMS');
+    expect(release).toContain('node tools/release-sbom.mjs verify');
+    expect(release).not.toContain('cp "$RUNNER_TEMP/prerelease/release-signing-metadata.json" "$RUNNER_TEMP/stable/release-signing-metadata.json"');
+  });
+
   // @spec:AC-405
   it('AC-405: fixture rejeita artifact sem digest', () => {
     const script = join(REPOSITORY_ROOT, 'tools', 'ci', 'require-artifact-digest.sh');
