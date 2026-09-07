@@ -29,7 +29,6 @@ test('runner rejects tracked mutation before Cargo and rejects rename origin', (
   writeFileSync(join(root, 'tracked.txt'), 'mutated\n');
   const cargo = join(root, 'cargo-stub');
   writeFileSync(cargo, `#!/bin/sh\nprintf ran > ${join(root, 'cargo-ran')}\nexit 0\n`);
-  execFileSync('chmod', ['+x', cargo]);
   const run = spawnSync(process.execPath, [join(root, 'tools/security/workflow-crash-recovery-feature-tests.mjs')], {
     env: { ...process.env, HANK_RUNNER_ROOT: root, HANK_ALLOW_GENERATED_EVIDENCE: '1', PATH: `${root}:${process.env.PATH}` },
     encoding: 'utf8',
