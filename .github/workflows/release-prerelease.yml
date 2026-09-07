@@ -202,28 +202,6 @@ jobs:
           node tools/release-prerelease.mjs changelog --tag "$TAG" --card "$CARD" --prs "$prs_csv" --range "$RANGE" --sha "$SHA" --tree "$TREE" > /tmp/prerelease/RELEASE_NOTES.md
           printf '%s\n' "Download the archive and release-manifest.json. Verify manifest.sha256 matches the downloaded manifest, confirm exact commit $SHA, then run cargo test --workspace --locked and npm --prefix frontend test. This is a prerelease and is not a stable release." > /tmp/prerelease/TEST_INSTRUCTIONS.md
           tar --exclude='./.git' --exclude='./frontend/node_modules' --exclude='./target' --exclude='./apps/desktop/src-tauri/target' -czf "/tmp/prerelease/hank-${TAG}.tar.gz" .
-          (cd /tmp/prerelease && sha256sum "hank-${TAG}.tar.gz" > SHA256SUMS)
-
-      - name: Generate immutable release manifest
-        env:
-          TAG: ${{ needs.preflight.outputs.tag }}
-          SHA: ${{ needs.preflight.outputs.sha }}
-          TREE: ${{ needs.preflight.outputs.tree }}
-          CARD: ${{ needs.preflight.outputs.card }}
-          PRS: ${{ needs.preflight.outputs.prs }}
-          CLASSIFICATION: ${{ needs.preflight.outputs.classification }}
-        run: |
-          set -euo pipefail
-          node - <<'NODE' > /tmp/manifest-input.json
-          const fs = require('node:fs');
-          const tag = process.env.TAG;
-          const sha = process.env.SHA;
-          const changelog = fs.readFileSync('/tmp/prerelease/RELEASE_NOTES.md', 'utf8');
-          const testInstructions = fs.readFileSync('/tmp/prerelease/TEST_INSTRUCTIONS.md', 'utf8');
-          process.stdout.write(JSON.stringify({tag, version: tag.slice(1), sha, tree: process.env.TREE, card: process.env.CARD, classification: JSON.parse(process.env.CLASSIFICATION), relatedPullRequests: JSON.parse(process.env.PRS), artifacts: ['hank-' + tag + '.tar.gz', 'hank-' + tag + '-setup.exe', 'RELEASE_NOTES.md', 'TEST_INSTRUCTIONS.md', 'SHA256SUMS'], changelog, testInstructions}));
-          NODE
-          node tools/release-prerelease.mjs manifest --input /tmp/manifest-input.json --output /tmp/prerelease/release-manifest.json
-          (cd /tmp/prerelease && sha256sum release-manifest.json > manifest.sha256)
 
       - name: Upload prerelease bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -394,6 +372,41 @@ jobs:
         with:
           name: windows-installer-${{ needs.preflight.outputs.tag }}
           path: /tmp/windows-bundle
+
+      - name: Bind and verify release artifacts
+        env:
+          TAG: ${{ needs.preflight.outputs.tag }}
+          SHA: ${{ needs.preflight.outputs.sha }}
+          TREE: ${{ needs.preflight.outputs.tree }}
+          CARD: ${{ needs.preflight.outputs.card }}
+          PRS: ${{ needs.preflight.outputs.prs }}
+          CLASSIFICATION: ${{ needs.preflight.outputs.classification }}
+        run: |
+          set -euo pipefail
+          installer="/tmp/windows-bundle/hank-${TAG}-setup.exe"
+          test -f "$installer"
+          cp "$installer" "/tmp/prerelease/hank-${TAG}-setup.exe"
+          names=("hank-${TAG}.tar.gz" "hank-${TAG}-setup.exe")
+          (cd /tmp/prerelease && sha256sum "${names[@]}" > SHA256SUMS)
+          node --input-type=module - <<'NODE' > /tmp/manifest-input.json
+          import fs from 'node:fs';
+          import { buildArtifactDigests } from './tools/release-prerelease.mjs';
+          const tag = process.env.TAG;
+          const names = [`hank-${tag}.tar.gz`, `hank-${tag}-setup.exe`];
+          const changelog = fs.readFileSync('/tmp/prerelease/RELEASE_NOTES.md', 'utf8');
+          const testInstructions = fs.readFileSync('/tmp/prerelease/TEST_INSTRUCTIONS.md', 'utf8');
+          process.stdout.write(JSON.stringify({
+            tag, version: tag.slice(1), sha: process.env.SHA, tree: process.env.TREE,
+            card: process.env.CARD, classification: JSON.parse(process.env.CLASSIFICATION),
+            relatedPullRequests: JSON.parse(process.env.PRS),
+            artifacts: [...names, 'RELEASE_NOTES.md', 'TEST_INSTRUCTIONS.md', 'SHA256SUMS'],
+            artifactDigests: buildArtifactDigests({ directory: '/tmp/prerelease', names }),
+            changelog, testInstructions,
+          }));
+          NODE
+          node tools/release-prerelease.mjs manifest --input /tmp/manifest-input.json --output /tmp/prerelease/release-manifest.json
+          node tools/release-prerelease.mjs verify-artifacts --manifest /tmp/prerelease/release-manifest.json --directory /tmp/prerelease
+          (cd /tmp/prerelease && sha256sum release-manifest.json > manifest.sha256)
 
       - name: Publish or verify idempotent release
         env:

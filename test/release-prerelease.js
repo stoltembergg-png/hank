@@ -10,6 +10,7 @@ import {
   assertPostMergeChecks,
   assertPublishPermission,
   assertTagAvailable,
+  buildArtifactDigests,
   buildManifest,
   buildPrereleaseTag,
   buildMilestoneReleaseManifest,
@@ -18,6 +19,7 @@ import {
   decideIdempotentRelease,
   policyDecision,
   renderReleaseNotes,
+  verifyArtifactDigests,
   verifyVersionConsistency,
 } from '../tools/release-prerelease.mjs';
 import {
@@ -253,6 +255,51 @@ test('AC-628: CLI emits parseable JSON manifest with one trailing newline @spec:
   }
 });
 
+test('PR-370: publish binds the native Windows installer before creating the release', () => {
+  const workflow = readFileSync('.github/workflows/release-prerelease.yml', 'utf8');
+  assert.match(workflow, /Download Windows installer/);
+  assert.match(workflow, /Bind and verify release artifacts/);
+  assert.match(workflow, /hank-\$\{TAG\}-setup\.exe/);
+  assert.match(workflow, /buildArtifactDigests/);
+  assert.match(workflow, /verify-artifacts --manifest/);
+  assert.match(workflow, /sha256sum \"\$\{names\[@\]\}\" > SHA256SUMS/);
+  assert.match(workflow, /gh release create \"\$TAG\"[\s\S]*hank-\$\{TAG\}-setup\.exe/);
+  const milestone = readFileSync('.github/workflows/release-milestone.yml', 'utf8');
+  assert.match(milestone, /sha256sum -c SHA256SUMS/);
+  assert.match(milestone, /verify-artifacts/);
+});
+
+test('AC-628/PR-370: binds and verifies release artifact digests fail-closed', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'hank-release-artifacts-'));
+  const tarball = join(directory, 'hank-v0.1.0-dev.' + sha + '.tar.gz');
+  const installer = join(directory, 'hank-v0.1.0-dev.' + sha + '-setup.exe');
+  writeFileSync(tarball, 'archive bytes');
+  writeFileSync(installer, 'installer bytes');
+  const names = [
+    'hank-v0.1.0-dev.' + sha + '.tar.gz',
+    'hank-v0.1.0-dev.' + sha + '-setup.exe',
+  ];
+  try {
+    const digests = buildArtifactDigests({ directory, names });
+    assert.deepEqual(Object.keys(digests), [...names].sort());
+    const manifest = buildManifest({
+      tag: tag(), version: '0.1.0-dev.' + sha, sha, tree, card: 'PR-200',
+      classification: ['functional'], relatedPullRequests: [200], artifacts: names,
+      artifactDigests: digests, changelog: 'changes', testInstructions: 'test',
+    });
+    assert.deepEqual(verifyArtifactDigests({ manifest, directory }), { verified: 2, artifacts: [...names].sort() });
+    writeFileSync(installer, 'substituted installer bytes');
+    assert.throws(() => verifyArtifactDigests({ manifest, directory }), /artifact digest mismatch/);
+    assert.throws(() => buildManifest({
+      tag: tag(), version: '0.1.0-dev.' + sha, sha, tree, card: 'PR-200',
+      classification: ['functional'], relatedPullRequests: [200], artifacts: names,
+      artifactDigests: { ...digests, 'unexpected.bin': '0'.repeat(64) }, changelog: 'changes', testInstructions: 'test',
+    }), /not declared/);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('AC-631: rollback is explicit, bounded, and does not silently delete anything @spec:AC-631', () => {
   assert.deepEqual(buildRollbackPlan({ tag: tag(), releaseId: 42, sha }), { tag: tag(), releaseId: '42', sha, action: 'delete-release-and-tag', destructive: true, requiresExplicitApproval: true });
   assert.throws(() => buildRollbackPlan({ tag: 'v0.1.0', releaseId: 42, sha }), /valid immutable/);
@@ -268,6 +315,7 @@ test('AC-777: milestone promotion converts only the matching prerelease manifest
     classification: ['functional'],
     relatedPullRequests: [200],
     artifacts: [`hank-v0.3.0-dev.${sha}.tar.gz`],
+    artifactDigests: { [`hank-v0.3.0-dev.${sha}.tar.gz`]: '0'.repeat(64) },
     changelog: 'changes',
     testInstructions: 'test',
   });
@@ -283,6 +331,7 @@ test('AC-777: milestone promotion converts only the matching prerelease manifest
   assert.equal(stable.stable, true);
   assert.equal(stable.milestone, 'M5-M6');
   assert.deepEqual(stable.artifacts, ['hank-v0.3.0.tar.gz']);
+  assert.deepEqual(stable.artifactDigests, { 'hank-v0.3.0.tar.gz': '0'.repeat(64) });
   assert.equal(stable.provenance.promotedFromTag, prerelease.tag);
   assert.equal(stable.provenance.exactCommit, sha);
   assert.throws(() => buildMilestoneReleaseManifest({ manifest: prerelease, stableVersion: '0.2.0', milestone: 'M3-M4' }), /does not match/);

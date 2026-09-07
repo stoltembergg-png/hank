@@ -16,7 +16,10 @@
 3. Verifica a mesma versão em `Cargo.toml`, `apps/desktop/src-tauri/Cargo.toml`, `frontend/package.json`, `tauri.conf.json`, `release-manifest.json` e `frontend/src/version.ts`.
 4. Aguarda todos os checks pós-merge obrigatórios concluírem com `success`.
 5. Calcula a tag determinística usando o SHA completo e recusa tags existentes.
-6. Gera changelog, instruções, hashes, archive e manifesto imutável.
+6. Gera changelog, instruções, hashes, archive e manifesto imutável depois de
+   incorporar o instalador Windows produzido pelo job nativo. O manifesto registra
+   `artifactDigests` para o archive e o `.exe`; a publicação falha se qualquer digest
+   não corresponder ao arquivo baixado.
 7. Somente o job `publish` possui `contents: write`; os jobs de preflight e package são read-only.
 8. Publica com `gh release create --prerelease --target <SHA>` e lê de volta tag, target e flag prerelease.
 9. Em rerun, um release existente só vira no-op se target e manifesto forem idênticos. Tag órfã ou divergente falha.
@@ -51,7 +54,11 @@ gh workflow run release-milestone.yml --ref main \
 
 ## Teste de uma prerelease
 
-Baixe `hank-<tag>.tar.gz`, `release-manifest.json`, `manifest.sha256` e `SHA256SUMS` da página da release. Verifique os hashes, confirme `provenance.exactCommit` e `provenance.source == "main"`, depois execute:
+Baixe `hank-<tag>.tar.gz`, `hank-<tag>-setup.exe`, `release-manifest.json`,
+`manifest.sha256` e `SHA256SUMS` da página da release. Verifique os hashes dos dois
+artefatos e o manifesto (o workflow de promoção repete essa leitura antes de aceitar
+uma prerelease), confirme `provenance.exactCommit` e `provenance.source == "main"`,
+depois execute:
 
 ```bash
 cargo test --workspace --locked

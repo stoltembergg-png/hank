@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readFileSync, statSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const HEX_SHA = /^[0-9a-f]{40}$/;
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const TAG = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-dev\.[0-9a-f]{40}$/;
+const DIGEST = /^[0-9a-f]{64}$/;
 const TYPES = new Map([
   ['feat', 'functional'], ['fix', 'functional'], ['perf', 'functional'], ['refactor', 'functional'],
   ['docs', 'documentation'], ['ci', 'CI'], ['build', 'dependency'], ['chore', 'dependency'],
@@ -128,15 +131,74 @@ export function renderReleaseNotes({ tag, sha, card, classification, changelog, 
   ].join('\n');
 }
 
-export function buildManifest({ tag, version, sha, tree, card, classification, relatedPullRequests, artifacts, changelog, testInstructions }) {
+function validateArtifactDigests(artifacts, artifactDigests) {
+  if (artifactDigests === undefined) return undefined;
+  if (!artifactDigests || typeof artifactDigests !== 'object' || Array.isArray(artifactDigests)) {
+    throw new Error('artifact digests must be an object');
+  }
+  const artifactSet = new Set(artifacts);
+  const entries = Object.entries(artifactDigests);
+  if (entries.length === 0) throw new Error('artifact digests cannot be empty');
+  for (const [name, digest] of entries) {
+    if (!artifactSet.has(name)) throw new Error(`artifact digest is not declared: ${name}`);
+    if (!DIGEST.test(digest)) throw new Error(`invalid artifact digest: ${name}`);
+  }
+  return Object.fromEntries(entries.sort(([left], [right]) => left.localeCompare(right)));
+}
+
+function resolveArtifactPath(directory, name) {
+  if (typeof name !== 'string' || name.length === 0 || name.length > 240 || path.isAbsolute(name)) {
+    throw new Error(`invalid artifact path: ${name}`);
+  }
+  const root = path.resolve(directory);
+  const candidate = path.resolve(root, name);
+  if (candidate !== root && !candidate.startsWith(`${root}${path.sep}`)) {
+    throw new Error(`artifact path escapes directory: ${name}`);
+  }
+  return candidate;
+}
+
+export function buildArtifactDigests({ directory, names }) {
+  if (typeof directory !== 'string' || !Array.isArray(names) || names.length === 0) {
+    throw new Error('artifact digest input is incomplete');
+  }
+  const uniqueNames = [...new Set(names)];
+  if (uniqueNames.length !== names.length) throw new Error('artifact digest names must be unique');
+  const digests = {};
+  for (const name of uniqueNames) {
+    const file = resolveArtifactPath(directory, name);
+    if (!statSync(file).isFile()) throw new Error(`artifact is not a file: ${name}`);
+    digests[name] = createHash('sha256').update(readFileSync(file)).digest('hex');
+  }
+  return Object.fromEntries(Object.entries(digests).sort(([left], [right]) => left.localeCompare(right)));
+}
+
+export function verifyArtifactDigests({ manifest, directory }) {
+  if (!manifest || !Array.isArray(manifest.artifacts)) throw new Error('manifest artifacts are missing');
+  const declared = manifest.artifactDigests;
+  if (!declared || typeof declared !== 'object' || Array.isArray(declared)) {
+    throw new Error('manifest artifact digests are missing');
+  }
+  const names = Object.keys(declared);
+  const actual = buildArtifactDigests({ directory, names });
+  for (const name of names) {
+    if (actual[name] !== declared[name]) throw new Error(`artifact digest mismatch: ${name}`);
+  }
+  return { verified: names.length, artifacts: names };
+}
+
+export function buildManifest({ tag, version, sha, tree, card, classification, relatedPullRequests, artifacts, artifactDigests, changelog, testInstructions }) {
   const normalized = normalizeVersion(version);
   if (!HEX_SHA.test(sha ?? '') || !HEX_SHA.test(tree ?? '')) throw new Error('release identity requires full commit and tree SHA');
   if (!TAG.test(tag) || tag !== `v${normalized}`) throw new Error('manifest tag/version mismatch');
   if (!/^PR-\d+$/.test(card)) throw new Error('manifest requires logical PR card');
   if (!Array.isArray(artifacts) || artifacts.length === 0) throw new Error('manifest requires downloadable artifacts');
+  const normalizedArtifactDigests = validateArtifactDigests(artifacts, artifactDigests);
   return {
     schemaVersion: 1, tag, version: normalized, prerelease: true, stable: false, sha, tree,
-    card, classification, relatedPullRequests, artifacts, changelog, testInstructions,
+    card, classification, relatedPullRequests, artifacts,
+    ...(normalizedArtifactDigests ? { artifactDigests: normalizedArtifactDigests } : {}),
+    changelog, testInstructions,
     provenance: { source: 'main', exactCommit: sha, tagImmutable: true },
   };
 }
@@ -168,6 +230,10 @@ export function buildMilestoneReleaseManifest({ manifest, stableVersion, milesto
   if (!/^M\d+(?:-M\d+)?$/.test(milestone ?? '')) throw new Error('invalid milestone identifier');
   const prereleaseTag = manifest.tag;
   const stableTag = `v${version}`;
+  const promotedArtifacts = manifest.artifacts.map((artifact) => artifact.replaceAll(prereleaseTag, stableTag));
+  const promotedDigests = manifest.artifactDigests
+    ? Object.fromEntries(Object.entries(manifest.artifactDigests).map(([artifact, digest]) => [artifact.replaceAll(prereleaseTag, stableTag), digest]))
+    : undefined;
   return {
     ...manifest,
     tag: stableTag,
@@ -175,7 +241,8 @@ export function buildMilestoneReleaseManifest({ manifest, stableVersion, milesto
     prerelease: false,
     stable: true,
     milestone,
-    artifacts: manifest.artifacts.map((artifact) => artifact.replaceAll(prereleaseTag, stableTag)),
+    artifacts: promotedArtifacts,
+    ...(promotedDigests ? { artifactDigests: promotedDigests } : {}),
     provenance: {
       ...manifest.provenance,
       source: 'main',
@@ -237,6 +304,12 @@ function main() {
     else process.stdout.write(output);
     return;
   }
+  if (command === 'verify-artifacts') {
+    const manifest = JSON.parse(readFileSync(arg('--manifest'), 'utf8'));
+    const result = verifyArtifactDigests({ manifest, directory: arg('--directory') });
+    process.stdout.write(`verified artifact digests: ${result.verified}\n`);
+    return;
+  }
   if (command === 'promote-manifest') {
     const input = JSON.parse(readFileSync(arg('--input'), 'utf8'));
     const output = JSON.stringify(buildMilestoneReleaseManifest({
@@ -265,7 +338,7 @@ function main() {
     process.stdout.write(renderReleaseNotes({ tag: arg('--tag'), sha, card: arg('--card'), classification: classifyCommits(subjects), changelog: subjects.map((s) => `- ${s}`).join('\n'), testInstructions: 'Download the release artifact, verify the manifest SHA, and run the documented checks.', relatedPullRequests: (arg('--prs') ?? '').split(',').filter(Boolean) }));
     return;
   }
-  throw new Error('usage: tag|verify-version|checks|classify|manifest|promote-manifest|milestone-version|changelog');
+  throw new Error('usage: tag|verify-version|checks|classify|manifest|verify-artifacts|promote-manifest|milestone-version|changelog');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

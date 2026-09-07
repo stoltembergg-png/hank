@@ -84,8 +84,17 @@ jobs:
           fi
           test "$published_ref" = "$sha"
           mkdir -p "$RUNNER_TEMP/prerelease"
-          gh release download "$PRERELEASE_TAG" --pattern release-manifest.json --pattern manifest.sha256 --dir "$RUNNER_TEMP/prerelease"
-          (cd "$RUNNER_TEMP/prerelease" && sha256sum -c manifest.sha256)
+          gh release download "$PRERELEASE_TAG" \
+            --pattern release-manifest.json \
+            --pattern manifest.sha256 \
+            --pattern SHA256SUMS \
+            --pattern "hank-${PRERELEASE_TAG}.tar.gz" \
+            --pattern "hank-${PRERELEASE_TAG}-setup.exe" \
+            --dir "$RUNNER_TEMP/prerelease"
+          (cd "$RUNNER_TEMP/prerelease" && sha256sum -c manifest.sha256 && sha256sum -c SHA256SUMS)
+          node tools/release-prerelease.mjs verify-artifacts \
+            --manifest "$RUNNER_TEMP/prerelease/release-manifest.json" \
+            --directory "$RUNNER_TEMP/prerelease"
           
           # Capture the validated manifest hash for later verification
           prerelease_manifest_hash=$(sha256sum "$RUNNER_TEMP/prerelease/release-manifest.json" | awk '{print $1}')
@@ -178,6 +187,9 @@ jobs:
             sed -n '/^## Changelog/,$p' "$RUNNER_TEMP/prerelease/RELEASE_NOTES.md"
           } > "$RUNNER_TEMP/stable/RELEASE_NOTES.md"
           printf '%s\n' "Download the Windows installer or archive. Verify manifest.sha256 and SHA256SUMS, confirm exact commit ${{ needs.verify.outputs.sha }}, then run the documented checks." > "$RUNNER_TEMP/stable/TEST_INSTRUCTIONS.md"
+          node tools/release-prerelease.mjs verify-artifacts \
+            --manifest "$RUNNER_TEMP/stable/release-manifest.json" \
+            --directory "$RUNNER_TEMP/stable"
           (cd "$RUNNER_TEMP/stable" && sha256sum -- * > SHA256SUMS && sha256sum release-manifest.json > manifest.sha256)
 
       - name: Publish or verify idempotent stable release
