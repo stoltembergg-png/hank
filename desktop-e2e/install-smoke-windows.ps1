@@ -15,6 +15,7 @@ $manifestPath = Join-Path $releaseRoot 'release-manifest.json'
 $manifestHashPath = Join-Path $releaseRoot 'manifest.sha256'
 $checksumsPath = Join-Path $releaseRoot 'SHA256SUMS'
 $installerPath = Join-Path $releaseRoot "hank-$ReleaseTag-setup.exe"
+$appImagePath = Join-Path $releaseRoot "hank-$ReleaseTag-x86_64.AppImage"
 $reportPath = if ($ReportPath) { [IO.Path]::GetFullPath($ReportPath) } else { Join-Path $releaseRoot 'install-smoke-report.json' }
 $report = [ordered]@{
   status = 'failed'
@@ -28,7 +29,7 @@ $report = [ordered]@{
   installedExecutable = $null
   error = $null
 }
-foreach ($required in @($manifestPath, $manifestHashPath, $checksumsPath, $installerPath)) {
+foreach ($required in @($manifestPath, $manifestHashPath, $checksumsPath, $installerPath, $appImagePath)) {
   if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "release asset is missing: $required" }
 }
 

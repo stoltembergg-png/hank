@@ -346,9 +346,76 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  linux-package:
+    name: Build Linux AppImage
+    needs: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Install Linux desktop dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          timeout 180s sudo apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          timeout 300s sudo apt-get -o Acquire::ForceIPv4=true -o DPkg::Lock::Timeout=60 -o Dpkg::Use-Pty=0 install --no-install-recommends -y \
+            libwebkit2gtk-4.1-dev build-essential curl file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Setup pinned Node.js 20
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 20.19.1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.97.1
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-fund
+
+      - name: Build frontend bundle
+        run: npm --prefix frontend run build
+
+      - name: Build Linux AppImage
+        env:
+          HANK_BUILD_COMMIT_SHA: ${{ needs.preflight.outputs.sha }}
+          HANK_BUILD_TREE_SHA: ${{ needs.preflight.outputs.tree }}
+        run: |
+          set -euo pipefail
+          config="$GITHUB_WORKSPACE/apps/desktop/src-tauri/tauri.conf.json"
+          npm --prefix frontend exec -- tauri build --ci --config "$config" --bundles appimage
+
+      - name: Rename AppImage deterministically
+        env:
+          TAG: ${{ needs.preflight.outputs.tag }}
+        run: |
+          set -euo pipefail
+          installer=$(find apps/desktop/src-tauri/target/release/bundle -type f -name '*.AppImage' -print -quit)
+          test -n "$installer"
+          cp "$installer" "apps/desktop/src-tauri/target/release/bundle/hank-${TAG}-x86_64.AppImage"
+
+      - name: Upload Linux AppImage
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: linux-appimage-${{ needs.preflight.outputs.tag }}
+          path: apps/desktop/src-tauri/target/release/bundle/hank-${{ needs.preflight.outputs.tag }}-x86_64.AppImage
+          if-no-files-found: error
+          retention-days: 7
+
   publish:
     name: Publish immutable GitHub prerelease
-    needs: [preflight, package, windows-package]
+    needs: [preflight, package, windows-package, linux-package]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -373,6 +440,12 @@ jobs:
           name: windows-installer-${{ needs.preflight.outputs.tag }}
           path: /tmp/windows-bundle
 
+      - name: Download Linux AppImage
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: linux-appimage-${{ needs.preflight.outputs.tag }}
+          path: /tmp/linux-bundle
+
       - name: Bind and verify release artifacts
         env:
           TAG: ${{ needs.preflight.outputs.tag }}
@@ -384,9 +457,12 @@ jobs:
         run: |
           set -euo pipefail
           installer="/tmp/windows-bundle/hank-${TAG}-setup.exe"
+          appimage="/tmp/linux-bundle/hank-${TAG}-x86_64.AppImage"
           test -f "$installer"
+          test -f "$appimage"
           cp "$installer" "/tmp/prerelease/hank-${TAG}-setup.exe"
-          names=("hank-${TAG}.tar.gz" "hank-${TAG}-setup.exe")
+          cp "$appimage" "/tmp/prerelease/hank-${TAG}-x86_64.AppImage"
+          names=("hank-${TAG}.tar.gz" "hank-${TAG}-setup.exe" "hank-${TAG}-x86_64.AppImage")
           (cd /tmp/prerelease && sha256sum "${names[@]}" > SHA256SUMS)
           node --input-type=module - <<'NODE' > /tmp/manifest-input.json
           import fs from 'node:fs';
@@ -492,6 +568,7 @@ jobs:
             --pattern SHA256SUMS `
             --pattern "hank-$env:TAG.tar.gz" `
             --pattern "hank-$env:TAG-setup.exe" `
+            --pattern "hank-$env:TAG-x86_64.AppImage" `
             --dir $releaseDirectory
           if ($LASTEXITCODE -ne 0) { throw "release asset download failed with exit code $LASTEXITCODE" }
           & powershell -NoProfile -ExecutionPolicy Bypass -File desktop-e2e\install-smoke-windows.ps1 `
@@ -508,5 +585,89 @@ jobs:
         with:
           name: release-install-smoke-${{ needs.preflight.outputs.tag }}
           path: ${{ runner.temp }}/hank-install-smoke-report.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  linux-install-smoke:
+    name: Clean-room Linux install smoke
+    needs: [preflight, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Install Linux desktop dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          timeout 180s sudo apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          timeout 300s sudo apt-get -o Acquire::ForceIPv4=true -o DPkg::Lock::Timeout=60 -o Dpkg::Use-Pty=0 install --no-install-recommends -y \
+            libwebkit2gtk-4.1-dev webkit2gtk-driver xvfb curl build-essential file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Setup pinned Node.js 20
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 20.19.1
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop-e2e/package-lock.json
+
+      - name: Setup pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.97.1
+
+      - name: Install E2E dependencies and driver
+        run: |
+          set -euo pipefail
+          npm --prefix frontend ci --no-fund
+          npm --prefix desktop-e2e ci --no-fund
+          npm --prefix frontend run build
+          cargo install tauri-driver --version 2.0.6 --locked
+
+      - name: Download and run Linux clean-room smoke
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+          SHA: ${{ needs.preflight.outputs.sha }}
+          TREE: ${{ needs.preflight.outputs.tree }}
+          HANK_RELEASE_DIR: ${{ runner.temp }}/hank-release-assets
+          HANK_INSTALL_SMOKE_REPORT: ${{ runner.temp }}/hank-install-smoke-report.json
+          HANK_E2E_APP_DATA_DIR: ${{ runner.temp }}/hank-release-e2e-data
+          HANK_DESKTOP_E2E_ARTIFACTS: ${{ runner.temp }}/hank-release-e2e-artifacts
+          HANK_NODE_BIN: node
+        run: |
+          set -euo pipefail
+          mkdir -p "$HANK_RELEASE_DIR"
+          gh release download "$TAG" --repo "$REPOSITORY" \
+            --pattern release-manifest.json \
+            --pattern manifest.sha256 \
+            --pattern SHA256SUMS \
+            --pattern "hank-${TAG}.tar.gz" \
+            --pattern "hank-${TAG}-setup.exe" \
+            --pattern "hank-${TAG}-x86_64.AppImage" \
+            --dir "$HANK_RELEASE_DIR"
+          HANK_RELEASE_TAG="$TAG" HANK_EXPECTED_COMMIT="$SHA" HANK_EXPECTED_TREE="$TREE" \
+            bash desktop-e2e/install-smoke-linux.sh
+
+      - name: Upload Linux clean-room install evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: release-install-smoke-linux-${{ needs.preflight.outputs.tag }}
+          path: |
+            ${{ runner.temp }}/hank-install-smoke-report.json
+            ${{ runner.temp }}/hank-release-e2e-artifacts/
+            ${{ runner.temp }}/hank-release-e2e-data/
           if-no-files-found: warn
           retention-days: 14

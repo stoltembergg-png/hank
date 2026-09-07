@@ -269,6 +269,11 @@ test('PR-370: publish binds the native Windows installer before creating the rel
   assert.match(workflow, /install-smoke:/);
   assert.match(workflow, /install-smoke-windows\.ps1/);
   assert.match(workflow, /Download and verify published release assets/);
+  assert.match(workflow, /linux-package:/);
+  assert.match(workflow, /hank-\$\{TAG\}-x86_64\.AppImage/);
+  assert.match(workflow, /linux-install-smoke:/);
+  assert.match(workflow, /install-smoke-linux\.sh/);
+  assert.match(workflow, /needs: \[preflight, package, windows-package, linux-package\]/);
   const milestone = readFileSync('.github/workflows/release-milestone.yml', 'utf8');
   assert.match(milestone, /sha256sum -c SHA256SUMS/);
   assert.match(milestone, /verify-artifacts/);

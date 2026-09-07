@@ -90,6 +90,7 @@ jobs:
             --pattern SHA256SUMS \
             --pattern "hank-${PRERELEASE_TAG}.tar.gz" \
             --pattern "hank-${PRERELEASE_TAG}-setup.exe" \
+            --pattern "hank-${PRERELEASE_TAG}-x86_64.AppImage" \
             --dir "$RUNNER_TEMP/prerelease"
           (cd "$RUNNER_TEMP/prerelease" && sha256sum -c manifest.sha256 && sha256sum -c SHA256SUMS)
           node tools/release-prerelease.mjs verify-artifacts \
@@ -163,12 +164,14 @@ jobs:
           gh release download "$PRERELEASE_TAG" \
             --pattern "hank-${PRERELEASE_TAG}.tar.gz" \
             --pattern "hank-${PRERELEASE_TAG}-setup.exe" \
+            --pattern "hank-${PRERELEASE_TAG}-x86_64.AppImage" \
             --pattern RELEASE_NOTES.md \
             --dir "$RUNNER_TEMP/prerelease"
           
           stable_tag="v$STABLE_VERSION"
           mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}.tar.gz" "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz"
           mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}-setup.exe" "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe"
+          mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}-x86_64.AppImage" "$RUNNER_TEMP/stable/hank-${stable_tag}-x86_64.AppImage"
           
           # Use the validated manifest from verify job, not a re-downloaded one
           node tools/release-prerelease.mjs promote-manifest \
@@ -186,7 +189,7 @@ jobs:
             echo
             sed -n '/^## Changelog/,$p' "$RUNNER_TEMP/prerelease/RELEASE_NOTES.md"
           } > "$RUNNER_TEMP/stable/RELEASE_NOTES.md"
-          printf '%s\n' "Download the Windows installer or archive. Verify manifest.sha256 and SHA256SUMS, confirm exact commit ${{ needs.verify.outputs.sha }}, then run the documented checks." > "$RUNNER_TEMP/stable/TEST_INSTRUCTIONS.md"
+          printf '%s\n' "Download the Windows installer, Linux AppImage or archive. Verify manifest.sha256 and SHA256SUMS, confirm exact commit ${{ needs.verify.outputs.sha }}, then run the documented checks." > "$RUNNER_TEMP/stable/TEST_INSTRUCTIONS.md"
           node tools/release-prerelease.mjs verify-artifacts \
             --manifest "$RUNNER_TEMP/stable/release-manifest.json" \
             --directory "$RUNNER_TEMP/stable"
@@ -229,6 +232,7 @@ jobs:
             gh release create "$stable_tag" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe" \
+              "$RUNNER_TEMP/stable/hank-${stable_tag}-x86_64.AppImage" \
               "$RUNNER_TEMP/stable/RELEASE_NOTES.md" \
               "$RUNNER_TEMP/stable/TEST_INSTRUCTIONS.md" \
               "$RUNNER_TEMP/stable/SHA256SUMS" \

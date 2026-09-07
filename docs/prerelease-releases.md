@@ -66,9 +66,10 @@ npm --prefix frontend ci
 npm --prefix frontend test
 ```
 
-O workflow também executa `Clean-room Windows install smoke` em um runner novo:
-confere os hashes/proveniência do download, instala em diretório temporário, abre o
-WebView nativo, encerra e desinstala. O relatório é publicado como artifact da execução.
+O workflow também executa `Clean-room Windows install smoke` e `Clean-room Linux install
+smoke` em runners novos: confere os hashes/proveniência do download, instala o NSIS ou
+abre o AppImage em diretório temporário, valida o WebView nativo, encerra e limpa. Os
+relatórios são publicados como artifacts da execução.
 Upgrade/rollback do aplicativo ainda não possuem updater integrado; permanecem
 `NO_PROOF` e não são apresentados como suporte.
 
