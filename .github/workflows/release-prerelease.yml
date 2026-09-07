@@ -154,7 +154,18 @@ jobs:
           for attempt in $(seq 1 40); do
             echo "polling required post-merge checks: attempt $attempt/40"
             required=$(cat /tmp/required-checks.txt)
-            gh api --paginate "repos/$REPOSITORY/commits/$SHA/check-runs" --jq '[.check_runs[] | {name,status,conclusion}]' > /tmp/checks.json
+            # --paginate emits one JSON document per page; --slurp is required before
+            # parsing so a multi-page response cannot be treated as concatenated JSON.
+            gh api --paginate --slurp "repos/$REPOSITORY/commits/$SHA/check-runs" > /tmp/check-runs-pages.json
+            node --input-type=module - <<'NODE' > /tmp/checks.json
+            import fs from 'node:fs';
+            const pages = JSON.parse(fs.readFileSync('/tmp/check-runs-pages.json', 'utf8'));
+            if (!Array.isArray(pages) || pages.some((page) => !page || !Array.isArray(page.check_runs))) {
+              throw new Error('check-runs response must be a slurped array of pages');
+            }
+            const checks = pages.flatMap((page) => page.check_runs.map(({ name, status, conclusion }) => ({ name, status, conclusion })));
+            process.stdout.write(`${JSON.stringify(checks)}\n`);
+            NODE
             node tools/release-prerelease.mjs checks --file /tmp/checks.json --required "$required" && exit 0
             sleep 30
           done

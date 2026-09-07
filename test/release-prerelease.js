@@ -92,6 +92,10 @@ test('AC-626: prerelease derives required checks from manifest and active rulese
   assert.match(workflow, /--sha "\$SHA"/);
   assert.match(workflow, /--tree "\$TREE"/);
   assert.match(workflow, /--required \"\$required\"/);
+  assert.match(workflow, /gh api --paginate --slurp "repos\/\$REPOSITORY\/commits\/\$SHA\/check-runs"/);
+  assert.match(workflow, /check-runs-pages\.json/);
+  assert.match(workflow, /check-runs response must be a slurped array of pages/);
+  assert.doesNotMatch(workflow, /gh api --paginate "repos\/\$REPOSITORY\/commits\/\$SHA\/check-runs" --jq/);
   assert.doesNotMatch(workflow, /branches\/main\/protection\/required_status_checks/);
   const ruleset = [{ type: 'required_status_checks', parameters: {
     strict_required_status_checks_policy: true,
