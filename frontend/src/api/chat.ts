@@ -5,9 +5,11 @@ import {
 import type {
   ChatCommandRequest,
   ChatHistoryMessage,
+  ChatSendResult,
   ChatSessionScope,
   ChatTransport,
 } from '@/chat/ChatPage';
+import type { UsageReadModel } from '@/chat/usage/UsageSummary';
 
 type BridgeInvoker = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 type UnlistenFn = () => void;
@@ -83,11 +85,11 @@ export class DesktopChatTransport implements ChatTransport {
     };
   }
 
-  async send(request: ChatCommandRequest): Promise<void> {
+  async send(request: ChatCommandRequest): Promise<ChatSendResult> {
     const invoke = bridgeInvoker();
     if (!invoke) throw new ChatBridgeUnavailableError();
     await this.eventReady;
-    await invoke('send_chat_command', { command: request });
+    return invoke<ChatSendResult>('send_chat_command', { command: request });
   }
 
   async cancel(input: { command_id: string; session_id: string; caller: ChatCommandRequest['caller'] }): Promise<void> {
@@ -121,6 +123,20 @@ export class DesktopChatTransport implements ChatTransport {
       .filter((message): message is ChatHistoryMessage =>
         (message.role === 'user' || message.role === 'assistant') && typeof message.text === 'string')
       .map((message) => ({ id: message.id, role: message.role, text: message.text }));
+  }
+
+  async loadUsage(session: ChatSessionScope): Promise<UsageReadModel | null> {
+    const invoke = bridgeInvoker();
+    if (!invoke) throw new ChatBridgeUnavailableError();
+    const result = await invoke<{ usage: UsageReadModel | null }>('get_chat_usage', {
+      input: {
+        project_id: session.project_id,
+        agent_id: session.agent_id,
+        session_id: session.session_id,
+        caller: session.caller,
+      },
+    });
+    return result.usage;
   }
 }
 

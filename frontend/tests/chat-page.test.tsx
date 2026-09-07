@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ChatPage, type ChatTransport } from '@/chat/ChatPage';
 import type { ChatStreamEvent, ChatStreamSubscription } from '@/contracts/chat-stream';
 import type { ToolCallViewModel } from '@/chat/tool-call/ToolCallCard';
+import type { UsageReadModel } from '@/chat/usage/UsageSummary';
 
 const session: Omit<ChatStreamSubscription, 'stream_id' | 'command_id'> = {
   caller: { caller_id: 'caller-1', class: 'desktop' },
@@ -16,6 +17,7 @@ function makeTransport(): ChatTransport & {
   emit: (event: ChatStreamEvent) => void;
   sendMock: ReturnType<typeof vi.fn>;
   cancelMock: ReturnType<typeof vi.fn>;
+  loadUsage?: (session: Omit<ChatStreamSubscription, 'stream_id' | 'command_id'>) => Promise<UsageReadModel | null>;
 } {
   const listeners = new Set<(event: unknown) => void>();
   const sendMock = vi.fn().mockResolvedValue(undefined);
@@ -102,6 +104,55 @@ describe('ChatPage', () => {
     expect(screen.getByText('hello')).toBeInTheDocument();
     expect(screen.getByText('world')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(/Concluída/i);
+  });
+
+  it('renders provider metadata returned by the normalized desktop bridge result', async () => {
+    const transport = makeTransport();
+    transport.sendMock.mockResolvedValueOnce({
+      command_id: 'command-1',
+      stream_id: 'stream-1',
+      state: 'completed',
+      provider_id: 'mock',
+      model_id: 'mock-model',
+      provider_state: 'selected',
+      capability: 'confirmed',
+      attempt_number: 1,
+    });
+    render(<ChatPage session={session} transport={transport} createIds={() => ({ command_id: 'command-1', stream_id: 'stream-1' })} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Mensagem' }), { target: { value: 'hello' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar mensagem' }));
+
+    await waitFor(() => expect(screen.getByText('Modelo selecionado')).toBeInTheDocument());
+    expect(screen.getByText('mock')).toBeInTheDocument();
+    expect(screen.getByText('mock-model')).toBeInTheDocument();
+    expect(screen.getByText('Capability confirmada')).toBeInTheDocument();
+  });
+
+  it('loads usage with explicit missing-data semantics after a completed turn', async () => {
+    const transport = makeTransport();
+    const usage: UsageReadModel = {
+      input_tokens: null,
+      output_tokens: null,
+      cost_micros: null,
+      currency: null,
+      currency_mismatch: false,
+      sample_count: 1,
+      missing_usage_count: 1,
+      source: 'missing',
+      confidence: 'unavailable',
+    };
+    transport.loadUsage = vi.fn().mockResolvedValue(usage);
+    render(<ChatPage session={session} transport={transport} createIds={() => ({ command_id: 'command-1', stream_id: 'stream-1' })} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Mensagem' }), { target: { value: 'hello' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar mensagem' }));
+    act(() => {
+      transport.emit(event('command-1', 'stream-1', 0, { kind: 'start' }));
+      transport.emit(event('command-1', 'stream-1', 1, { kind: 'delta', text: 'world' }));
+      transport.emit(event('command-1', 'stream-1', 2, { kind: 'finish', reason: 'completed' }));
+    });
+
+    await waitFor(() => expect(screen.getByText(/Uso não fornecido/)).toBeInTheDocument());
+    expect(screen.getByText(/Indisponível/)).toBeInTheDocument();
   });
 
   it('ignores foreign and stale events without mutating the active assistant message', async () => {

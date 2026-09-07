@@ -25,14 +25,26 @@ export type ChatHistoryMessage = {
   text: string;
 };
 
+export type ChatSendResult = {
+  command_id: string;
+  stream_id: string;
+  state: 'completed' | 'cancelled';
+  provider_id: string;
+  model_id: string;
+  provider_state: ProviderIndicatorData['state'];
+  capability: ProviderIndicatorData['capability'];
+  attempt_number: number;
+};
+
 export type ChatTransport = {
-  send: (request: ChatCommandRequest) => Promise<void>;
+  send: (request: ChatCommandRequest) => Promise<ChatSendResult | void>;
   cancel: (input: {
     command_id: string;
     session_id: string;
     caller: ChatSessionScope['caller'];
   }) => Promise<void>;
   loadMessages?: (session: ChatSessionScope) => Promise<ChatHistoryMessage[]>;
+  loadUsage?: (session: ChatSessionScope) => Promise<UsageReadModel | null>;
   subscribe: (listener: (event: unknown) => void) => () => void;
 };
 
@@ -72,7 +84,18 @@ export function ChatPage({
   const [status, setStatus] = useState<ChatStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [lastText, setLastText] = useState<string | null>(null);
+  const [resolvedIndicator, setResolvedIndicator] = useState(indicator);
+  const [resolvedUsage, setResolvedUsage] = useState(usage);
   const activeTurn = useRef<ActiveTurn | null>(null);
+  const latestCommandId = useRef<string | null>(null);
+
+  useEffect(() => {
+    setResolvedIndicator(indicator);
+  }, [indicator]);
+
+  useEffect(() => {
+    setResolvedUsage(usage);
+  }, [usage]);
 
   useEffect(() => {
     return transport.subscribe((value) => {
@@ -125,6 +148,21 @@ export function ChatPage({
     };
   }, [session, transport]);
 
+  useEffect(() => {
+    if (!transport.loadUsage) return undefined;
+    let disposed = false;
+    void transport.loadUsage(session)
+      .then((loaded) => {
+        if (!disposed && loaded) setResolvedUsage(loaded);
+      })
+      .catch(() => {
+        if (!disposed) setError('Não foi possível carregar as métricas da sessão.');
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [session, transport]);
+
   const busy = status === 'sending' || status === 'streaming' || status === 'cancelling';
 
   async function beginTurn(text: string, appendUser: boolean) {
@@ -141,6 +179,7 @@ export function ChatPage({
       consumer: new ChatStreamConsumer({ ...session, ...ids }),
       assistantId: `assistant-${ids.command_id}`,
     };
+    latestCommandId.current = request.command_id;
     setLastText(text);
     setError(null);
     setStatus('sending');
@@ -152,7 +191,24 @@ export function ChatPage({
     }
     setDraft('');
     try {
-      await transport.send(request);
+      const result = await transport.send(request);
+      if (isChatSendResult(result)) {
+        setResolvedIndicator({
+          provider_id: result.provider_id,
+          model_id: result.model_id,
+          state: result.provider_state,
+          capability: result.capability,
+          attempt_number: result.attempt_number,
+        });
+      }
+      if (transport.loadUsage) {
+        try {
+          const currentUsage = await transport.loadUsage(session);
+          if (latestCommandId.current === request.command_id) setResolvedUsage(currentUsage ?? undefined);
+        } catch {
+          if (latestCommandId.current === request.command_id) setError('Não foi possível atualizar as métricas da sessão.');
+        }
+      }
     } catch {
       if (activeTurn.current?.request.command_id !== request.command_id) return;
       activeTurn.current = null;
@@ -196,7 +252,7 @@ export function ChatPage({
           <h1>Chat</h1>
         </div>
         <div className="chat-header-meta">
-          {indicator && <ProviderIndicator data={indicator} />}
+          {resolvedIndicator && <ProviderIndicator data={resolvedIndicator} />}
           <span className={`chat-status chat-status-${status}`} role="status">
             {statusLabel(status)}
           </span>
@@ -204,7 +260,7 @@ export function ChatPage({
       </header>
 
       {error && <p className="chat-error" role="alert">{error}</p>}
-      {usage && <UsageSummary usage={usage} />}
+      {resolvedUsage && <UsageSummary usage={resolvedUsage} />}
       {toolCalls.length > 0 && (
         <section className="chat-tool-calls" aria-label="Chamadas de ferramentas">
           {toolCalls.map((call) => (
@@ -291,4 +347,21 @@ function defaultIds(): { command_id: string; stream_id: string } {
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return { command_id: `command-${suffix}`, stream_id: `stream-${suffix}` };
+}
+
+function isChatSendResult(value: ChatSendResult | void): value is ChatSendResult {
+  return Boolean(value)
+    && typeof value === 'object'
+    && typeof value.provider_id === 'string'
+    && typeof value.model_id === 'string'
+    && (value.provider_state === 'selected'
+      || value.provider_state === 'fallback'
+      || value.provider_state === 'unknown'
+      || value.provider_state === 'unavailable'
+      || value.provider_state === 'degraded')
+    && (value.capability === 'confirmed'
+      || value.capability === 'unknown'
+      || value.capability === 'unsupported')
+    && Number.isInteger(value.attempt_number)
+    && value.attempt_number > 0;
 }

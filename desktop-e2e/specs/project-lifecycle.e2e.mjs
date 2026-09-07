@@ -227,6 +227,15 @@ try {
   if (!chatMessages.messages[1].text.includes('mock response: release smoke')) {
     throw new Error(`chat: assistant response was not persisted: ${JSON.stringify(chatMessages)}`);
   }
+  const chatUsage = await browser.invoke('get_chat_usage', {
+    project_id: project.id,
+    agent_id: agent.id,
+    session_id: sessions.sessions[0].id,
+    caller: { caller_id: 'desktop-webview', class: 'desktop' },
+  });
+  if (chatUsage.usage?.source !== 'missing' || chatUsage.usage?.confidence !== 'unavailable' || chatUsage.usage?.missing_usage_count !== 1) {
+    throw new Error(`chat: usage must remain explicitly unavailable when the stream omits provider usage: ${JSON.stringify(chatUsage)}`);
+  }
   await screenshot('03-agents');
   await browser.click(await element('[aria-label="Conteúdo do projeto"] button[role="tab"]:first-child'));
 

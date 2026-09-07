@@ -14,7 +14,7 @@ Events require bounded attempt/execution IDs, terminal state, bounded token/cost
 
 ## UI-ready read model
 
-`frontend/src/chat/usage/UsageSummary.tsx` consumes the normalized optional read model without recalculating metrics. It renders explicit missing/estimated/mixed/currency-mismatch states and is an optional `ChatPage` prop.
+`frontend/src/chat/usage/UsageSummary.tsx` consumes the normalized optional read model without recalculating metrics. It renders explicit missing/estimated/mixed/currency-mismatch states and is an optional `ChatPage` prop. The desktop chat bridge records a terminal `Missing/Unavailable` sample when the current stream contract omits provider usage and exposes it through the scoped `get_chat_usage` command; the bridge never turns absent usage into zero. The current ledger is process-scoped until durable usage storage is introduced, so a restart correctly returns no historical usage rather than implying persistence that does not exist.
 
 ## Tests
 

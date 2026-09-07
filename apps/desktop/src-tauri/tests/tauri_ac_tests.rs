@@ -142,6 +142,7 @@ mod tauri_tests {
             "crate::chat::send_chat_command",
             "crate::chat::cancel_chat_command",
             "crate::chat::list_chat_messages",
+            "crate::chat::get_chat_usage",
             "crate::scheduler::list_scheduled_jobs",
             "crate::scheduler::create_scheduled_job",
             "crate::scheduler::update_scheduled_job",
@@ -155,7 +156,7 @@ mod tauri_tests {
 
         assert_eq!(
             registered.split(',').count(),
-            27,
+            28,
             "a ponte deve registrar exatamente os comandos tipados previstos"
         );
 
@@ -165,6 +166,31 @@ mod tauri_tests {
                 "comando de produto fora do ciclo de confirmação: {forbidden}"
             );
         }
+    }
+
+    #[test]
+    fn ac_095_chat_bridge_exposes_honest_provider_and_usage_projections() {
+        // @spec:AC-095 @spec:AC-094
+        let bridge = fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/chat.rs"),
+        )
+        .expect("chat.rs não encontrado");
+        for required in [
+            "provider_state",
+            "capability",
+            "attempt_number",
+            "UsageAggregator",
+            "UsageSource::Missing",
+            "UsageConfidence::Unavailable",
+            "get_chat_usage",
+            "list_chat_messages",
+        ] {
+            assert!(bridge.contains(required), "projeção de chat ausente: {required}");
+        }
+        assert!(
+            bridge.contains("input_tokens: None") && bridge.contains("output_tokens: None"),
+            "usage ausente não pode ser convertido em zeros"
+        );
     }
 
     #[test]

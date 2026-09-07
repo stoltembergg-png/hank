@@ -19,6 +19,10 @@ use agent_runtime::message_repo::{MessageStorageError, SqliteMessageRepository};
 use agent_runtime::provider_service::{InvocationError, InvocationRequest, ProviderApplicationService};
 use agent_runtime::session_repo::{SessionStorageError, SqliteSessionRepository};
 use agent_runtime::streaming::StreamEventConsumer;
+use agent_runtime::usage::{
+    UsageAggregator, UsageConfidence, UsageEvent, UsageOutcome, UsageReadModel, UsageSource,
+    USAGE_SCHEMA_VERSION,
+};
 use agent_runtime::SqliteStorage;
 use agent_protocol::ids::TraceId;
 use provider_core::capabilities::{CapabilityFeature, CapabilityRequirement, ModelModality};
@@ -60,6 +64,7 @@ pub struct ChatBridgeState {
     provider: Arc<ProviderApplicationService>,
     credentials: Arc<InMemoryCredentialService>,
     commands: Arc<ChatCommandRegistry>,
+    usage: Arc<Mutex<UsageAggregator>>,
     active: Arc<Mutex<HashMap<String, ActiveChat>>>,
     enabled: bool,
 }
@@ -95,6 +100,7 @@ impl ChatBridgeState {
             provider,
             credentials,
             commands: Arc::new(ChatCommandRegistry::new(256).expect("valid command capacity")),
+            usage: Arc::new(Mutex::new(UsageAggregator::new(4096).expect("valid usage capacity"))),
             active: Arc::new(Mutex::new(HashMap::new())),
             enabled: cfg!(debug_assertions)
                 || std::env::var(MOCK_PROVIDER_ENV).ok().as_deref() == Some("1"),
@@ -195,6 +201,24 @@ pub struct SendChatCommandOutput {
     pub state: &'static str,
     pub provider_id: &'static str,
     pub model_id: &'static str,
+    pub provider_state: &'static str,
+    pub capability: &'static str,
+    pub attempt_number: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub struct GetChatUsageInput {
+    pub project_id: String,
+    pub agent_id: String,
+    pub session_id: String,
+    pub caller: CallerIdentity,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct GetChatUsageOutput {
+    pub usage: Option<UsageReadModel>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -456,7 +480,7 @@ async fn execute_chat_turn(
 
     let execution_id = format!("exec_{}", command.command_id);
     let mut execution = Execution::new(
-        execution_id,
+        execution_id.clone(),
         session_id,
         agent_id,
         command.command_id.clone(),
@@ -470,13 +494,33 @@ async fn execute_chat_turn(
         Err(InvocationError::Cancelled) => {
             assistant.start_stream().ok();
             assistant.cancel().ok();
+            record_missing_usage(
+                state,
+                &command.command_id,
+                &execution_id,
+                &format!("{}:attempt_1", command.command_id),
+                project_id,
+                agent_id,
+                session_id,
+                UsageOutcome::Cancelled,
+            )?;
             persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
             publish(&mut bridge, &subscription, 1, ChatStreamPayload::Cancel { reason: ChatCancelReason::User }, &command.command_id)?;
-            return Ok(SendChatCommandOutput { command_id: command.command_id.clone(), stream_id, state: "cancelled", provider_id: MOCK_PROVIDER_ID, model_id: MOCK_MODEL_ID });
+            return Ok(chat_output(&command.command_id, stream_id, "cancelled"));
         }
         Err(_) => {
             assistant.start_stream().ok();
             assistant.fail("provider_error").ok();
+            record_missing_usage(
+                state,
+                &command.command_id,
+                &execution_id,
+                &format!("{}:attempt_1", command.command_id),
+                project_id,
+                agent_id,
+                session_id,
+                UsageOutcome::Failed,
+            )?;
             persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
             publish(&mut bridge, &subscription, 1, ChatStreamPayload::Error { code: agent_protocol::chat_stream::ChatErrorCode::ProviderFailure }, &command.command_id)?;
             return Err(ChatBridgeError::new(ChatBridgeErrorCode::ProviderUnavailable, &command.command_id));
@@ -493,6 +537,19 @@ async fn execute_chat_turn(
     let mut next_event = 1;
     let output_state = match stream_outcome {
         Ok(_) => {
+            record_missing_usage(
+                state,
+                &command.command_id,
+                &execution_id,
+                provider_events
+                    .first()
+                    .map(|event| event.attempt_id.as_str())
+                    .unwrap_or("missing-attempt"),
+                project_id,
+                agent_id,
+                session_id,
+                UsageOutcome::Completed,
+            )?;
             persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
             for event in provider_events {
                 if !event.text.is_empty() {
@@ -506,6 +563,19 @@ async fn execute_chat_turn(
             "completed"
         }
         Err(agent_runtime::streaming::StreamError::Cancelled) => {
+            record_missing_usage(
+                state,
+                &command.command_id,
+                &execution_id,
+                provider_events
+                    .first()
+                    .map(|event| event.attempt_id.as_str())
+                    .unwrap_or("missing-attempt"),
+                project_id,
+                agent_id,
+                session_id,
+                UsageOutcome::Cancelled,
+            )?;
             persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
             publish(&mut bridge, &subscription, next_event, ChatStreamPayload::Cancel { reason: ChatCancelReason::User }, &command.command_id)?;
             "cancelled"
@@ -514,6 +584,19 @@ async fn execute_chat_turn(
             if !assistant.status.is_terminal() {
                 assistant.fail("stream_error").ok();
             }
+            record_missing_usage(
+                state,
+                &command.command_id,
+                &execution_id,
+                provider_events
+                    .first()
+                    .map(|event| event.attempt_id.as_str())
+                    .unwrap_or("missing-attempt"),
+                project_id,
+                agent_id,
+                session_id,
+                UsageOutcome::Failed,
+            )?;
             persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
             publish(&mut bridge, &subscription, next_event, ChatStreamPayload::Error { code: agent_protocol::chat_stream::ChatErrorCode::InvalidStream }, &command.command_id)?;
             return Err(ChatBridgeError::new(ChatBridgeErrorCode::InvalidStream, &command.command_id));
@@ -525,7 +608,64 @@ async fn execute_chat_turn(
         state: output_state,
         provider_id: MOCK_PROVIDER_ID,
         model_id: MOCK_MODEL_ID,
+        provider_state: "selected",
+        capability: "confirmed",
+        attempt_number: 1,
     })
+}
+
+fn chat_output(command_id: &str, stream_id: String, state: &'static str) -> SendChatCommandOutput {
+    SendChatCommandOutput {
+        command_id: command_id.to_string(),
+        stream_id,
+        state,
+        provider_id: MOCK_PROVIDER_ID,
+        model_id: MOCK_MODEL_ID,
+        provider_state: "selected",
+        capability: "confirmed",
+        attempt_number: 1,
+    }
+}
+
+fn record_missing_usage(
+    state: &ChatBridgeState,
+    command_id: &str,
+    execution_id: &str,
+    attempt_id: &str,
+    project_id: ProjectId,
+    agent_id: agent_core::ids::AgentId,
+    session_id: SessionId,
+    outcome: UsageOutcome,
+) -> Result<(), ChatBridgeError> {
+    let provider_id = ProviderId::parse(MOCK_PROVIDER_ID)
+        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, command_id))?;
+    let model_id = ModelId::parse(MOCK_MODEL_ID)
+        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, command_id))?;
+    let event = UsageEvent {
+        schema_version: USAGE_SCHEMA_VERSION,
+        attempt_id: attempt_id.to_string(),
+        execution_id: execution_id.to_string(),
+        project_id,
+        agent_id,
+        session_id,
+        provider_id: Some(provider_id),
+        model_id: Some(model_id),
+        input_tokens: None,
+        output_tokens: None,
+        cost_micros: None,
+        currency: None,
+        source: UsageSource::Missing,
+        confidence: UsageConfidence::Unavailable,
+        outcome,
+        terminal: true,
+    };
+    state
+        .usage
+        .lock()
+        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, command_id))?
+        .record(event)
+        .map(|_| ())
+        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, command_id))
 }
 
 async fn persist_turn(
@@ -643,6 +783,43 @@ pub async fn list_chat_messages(
         })
         .collect();
     Ok(ListChatMessagesOutput { messages, limit, offset })
+}
+
+#[tauri::command]
+pub async fn get_chat_usage(
+    state: State<'_, ChatBridgeState>,
+    input: GetChatUsageInput,
+) -> Result<GetChatUsageOutput, ChatBridgeError> {
+    if input.caller.caller_id != DESKTOP_CALLER_ID || input.caller.class != DESKTOP_CALLER_CLASS {
+        return Err(ChatBridgeError::new(ChatBridgeErrorCode::Unauthorized, "chat"));
+    }
+    let project_id = input
+        .project_id
+        .parse::<ProjectId>()
+        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::InvalidCommand, "chat"))?;
+    let agent_id = input
+        .agent_id
+        .parse::<agent_core::ids::AgentId>()
+        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::InvalidCommand, "chat"))?;
+    let session_id = input
+        .session_id
+        .parse::<SessionId>()
+        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::InvalidCommand, "chat"))?;
+    let session = state
+        .sessions
+        .get_by_id(&project_id, &session_id)
+        .await
+        .map_err(|error| map_session_storage(error, "chat"))?
+        .ok_or_else(|| ChatBridgeError::new(ChatBridgeErrorCode::NotFound, "chat"))?;
+    if session.agent_id != agent_id {
+        return Err(ChatBridgeError::new(ChatBridgeErrorCode::Unauthorized, "chat"));
+    }
+    let usage = state
+        .usage
+        .lock()
+        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, "chat"))?
+        .read_model(&project_id, &agent_id, &session_id);
+    Ok(GetChatUsageOutput { usage })
 }
 
 fn map_command_error(error: ChatCommandError) -> ChatBridgeErrorCode {
