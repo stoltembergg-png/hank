@@ -51,13 +51,50 @@ function cargoPackage(file) {
   return null;
 }
 
+let frontendRunner;
+function frontendTestCommand(file) {
+  const testFile = file.replace(/^frontend\//, '');
+  if (!frontendRunner) {
+    const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    const npmProbe = spawnSync(npm, ['--version'], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: 'ignore',
+      shell: process.platform === 'win32',
+    });
+    if (!npmProbe.error && npmProbe.status === 0) {
+      frontendRunner = {
+        command: npm,
+        argsPrefix: ['--prefix', 'frontend', 'test', '--', '--run'],
+        cwd: root,
+      };
+    } else {
+      const localVitest = join(root, 'frontend', 'node_modules', 'vitest', 'vitest.mjs');
+      if (!existsSync(localVitest)) {
+        throw new Error('frontend test runner unavailable: npm and local Vitest are missing');
+      }
+      frontendRunner = {
+        command: process.execPath,
+        argsPrefix: [localVitest, 'run'],
+        cwd: join(root, 'frontend'),
+      };
+    }
+  }
+  return {
+    command: frontendRunner.command,
+    args: [...frontendRunner.argsPrefix, testFile],
+    cwd: frontendRunner.cwd,
+    label: file,
+  };
+}
+
 const commands = [];
 for (const file of tagged) {
   const ext = basename(file).split('.').pop();
   if (ext === 'js' || ext === 'mjs' || ext === 'cjs') {
     commands.push({ command: process.execPath, args: ['--test', file], label: file });
   } else if (ext === 'ts' || ext === 'tsx') {
-    commands.push({ command: process.platform === 'win32' ? 'npm.cmd' : 'npm', args: ['--prefix', 'frontend', 'test', '--', '--run', file.replace(/^frontend\//, '')], label: file });
+    commands.push(frontendTestCommand(file));
   } else if (ext === 'rs') {
     const pkg = cargoPackage(file);
     if (!pkg) continue;
@@ -74,9 +111,9 @@ for (const file of tagged) {
 }
 
 const unique = new Map(commands.map((item) => [`${item.command}\0${item.args.join('\0')}`, item]));
-for (const { command, args, label } of unique.values()) {
+for (const { command, args, cwd, label } of unique.values()) {
   console.log(`▶ ${feature}: ${label} — ${command} ${args.join(' ')}`);
-  const result = spawnSync(command, args, { cwd: root, stdio: 'inherit', shell: process.platform === 'win32' });
+  const result = spawnSync(command, args, { cwd: cwd ?? root, stdio: 'inherit', shell: process.platform === 'win32' });
   if (result.error || result.status !== 0) {
     console.error(`✖ ${label} failed with exit code ${result.status ?? 1}`);
     process.exit(result.status ?? 1);
