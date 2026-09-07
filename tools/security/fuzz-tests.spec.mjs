@@ -86,15 +86,22 @@ test('fuzz-manifest FT-00N IDs são únicos e não se repetem @spec:AC-2202', ()
 });
 
 test('fuzz-runner mansa com git credentials em path? @spec:NEG-001', () => {
-  const safeEnv = {
+  const safeEnv = Object.fromEntries(Object.entries({
     PATH: process.env.PATH,
-    HOME: process.env.HOME,
+    HOME: process.env.HOME ?? process.env.USERPROFILE,
+    USERPROFILE: process.env.USERPROFILE,
+    HOMEDRIVE: process.env.HOMEDRIVE,
+    HOMEPATH: process.env.HOMEPATH,
+    SystemRoot: process.env.SystemRoot,
+    ComSpec: process.env.ComSpec,
+    TEMP: process.env.TEMP,
+    TMP: process.env.TMP,
     CI: '1',
     CARGO_NET_OFFLINE: 'true',
     ['AWS_' + 'ACCESS_KEY_ID']: '[REDACTED]',
     ['AWS_' + 'SECRET_ACCESS_KEY']: '[REDACTED]',
     ['AWS_' + 'SESSION_TOKEN']: '[REDACTED]',
-  };
+  }).filter(([, value]) => typeof value === 'string'));
   const runner = spawnSync('node', ['tools/security/fuzz-runner.mjs'], {
     cwd: root, encoding: 'utf8', env: safeEnv,
   });
