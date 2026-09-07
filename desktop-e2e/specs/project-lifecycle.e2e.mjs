@@ -246,7 +246,7 @@ try {
   await browser.click(await element(`[aria-label="Ver detalhes de ${updatedName}"]`));
   await browser.waitForText(updatedDescription);
   await browser.waitForText(owner);
-  await screenshot('04-after-restart-1');
+  await screenshot('05-after-restart-1');
 
   phase = 'archive';
   await browser.click(await element('button[aria-label="Arquivar este projeto"]'));
@@ -255,7 +255,7 @@ try {
   await browser.click(await element('button.btn-danger'));
   await assertText('.project-detail-success', 'arquivado');
   await browser.waitForText('archived');
-  await screenshot('05-archived');
+  await screenshot('06-archived');
 
   phase = 'restart-2';
   await stop();
@@ -263,7 +263,7 @@ try {
   await browser.click(await element(`[aria-label="Ver detalhes de ${updatedName}"]`));
   await browser.waitForText(updatedDescription);
   await browser.waitForText('archived');
-  await screenshot('06-after-restart-2');
+  await screenshot('07-after-restart-2');
   console.log('DESKTOP E2E PROJECT LIFECYCLE: PASS');
 } catch (error) {
   await screenshot(`failure-${phase}`).catch(() => {});
