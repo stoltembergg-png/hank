@@ -101,7 +101,7 @@ test('pins actions and source identity, and prevents pull-request code from usin
     '3d3c42e5aac5ba805825da76410c181273ba90b1',
     '820762786026740c76f36085b0efc47a31fe5020',
     '043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
-    'fa0a91b85d4f404e444e00e005971372dc801d16',
+    '3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c',
   ]) assert.match(workflow, new RegExp(sha));
   assert.doesNotMatch(workflow, /pull_request_target/);
   assert.match(workflow, /persist-credentials:\s*false/g);
