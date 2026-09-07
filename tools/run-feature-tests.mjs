@@ -60,7 +60,7 @@ function frontendTestCommand(file) {
       cwd: root,
       encoding: 'utf8',
       stdio: 'ignore',
-      shell: process.platform === 'win32',
+      shell: process.platform === 'win32' && npm.toLowerCase().endsWith('.cmd'),
     });
     if (!npmProbe.error && npmProbe.status === 0) {
       frontendRunner = {
@@ -113,7 +113,8 @@ for (const file of tagged) {
 const unique = new Map(commands.map((item) => [`${item.command}\0${item.args.join('\0')}`, item]));
 for (const { command, args, cwd, label } of unique.values()) {
   console.log(`▶ ${feature}: ${label} — ${command} ${args.join(' ')}`);
-  const result = spawnSync(command, args, { cwd: cwd ?? root, stdio: 'inherit', shell: process.platform === 'win32' });
+  const shell = process.platform === 'win32' && command.toLowerCase().endsWith('.cmd');
+  const result = spawnSync(command, args, { cwd: cwd ?? root, stdio: 'inherit', shell });
   if (result.error || result.status !== 0) {
     console.error(`✖ ${label} failed with exit code ${result.status ?? 1}`);
     process.exit(result.status ?? 1);
