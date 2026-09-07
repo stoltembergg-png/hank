@@ -186,6 +186,18 @@ export function buildMilestoneReleaseManifest({ manifest, stableVersion, milesto
   };
 }
 
+export function assertChangelogIdentity({ range, sha, tree, headSha, headTree }) {
+  if (!range || typeof range !== 'string') throw new Error('changelog requires an explicit commit range');
+  const match = range.match(/^(.+)\.\.([0-9a-f]{40})$/);
+  if (!match || !HEX_SHA.test(sha ?? '') || !HEX_SHA.test(tree ?? '')) {
+    throw new Error('changelog range must end with a full commit SHA and include release identity');
+  }
+  if (match[2] !== sha || sha !== headSha || tree !== headTree) {
+    throw new Error('changelog range and release identity must match HEAD');
+  }
+  return true;
+}
+
 function git(args) { return execFileSync('git', args, { encoding: 'utf8' }).trim(); }
 function arg(name) { const i = process.argv.indexOf(name); return i >= 0 ? process.argv[i + 1] : null; }
 
@@ -243,8 +255,13 @@ function main() {
     return;
   }
   if (command === 'changelog') {
-    const sha = git(['rev-parse', 'HEAD']);
-    const subjects = git(['log', '-20', '--format=%s']).split('\n').filter(Boolean);
+    const headSha = git(['rev-parse', 'HEAD']);
+    const headTree = git(['rev-parse', 'HEAD^{tree}']);
+    const sha = arg('--sha');
+    const tree = arg('--tree');
+    const range = arg('--range');
+    assertChangelogIdentity({ range, sha, tree, headSha, headTree });
+    const subjects = git(['log', range, '--format=%s']).split('\n').filter(Boolean);
     process.stdout.write(renderReleaseNotes({ tag: arg('--tag'), sha, card: arg('--card'), classification: classifyCommits(subjects), changelog: subjects.map((s) => `- ${s}`).join('\n'), testInstructions: 'Download the release artifact, verify the manifest SHA, and run the documented checks.', relatedPullRequests: (arg('--prs') ?? '').split(',').filter(Boolean) }));
     return;
   }
