@@ -303,6 +303,14 @@ try {
     throw new Error(`provider: disconnect did not clear fixture account state: ${JSON.stringify(revoked)}`);
   }
 
+  phase = 'provider-settings-ui';
+  await browser.click(await element('[aria-label="Configurações"]'));
+  await element('.provider-settings-page');
+  await assertText('.provider-settings-header h1', 'Configurações de providers');
+  await browser.waitForText('revoked');
+  await browser.click(await element('.provider-settings-header button'));
+  await element(`[aria-label="Detalhes do Projeto ${projectName}"]`);
+
   await screenshot('03-agents');
   await browser.click(await element('[aria-label="Conteúdo do projeto"] button[role="tab"]:first-child'));
 
