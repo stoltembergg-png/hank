@@ -1,16 +1,52 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, readdirSync } from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-const python = process.platform === 'win32' ? 'python.exe' : 'python3';
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const moduleName = 'python.tests.test_sdk.PythonWorkerSdkTests';
 
+function resolvePythonCommand() {
+  if (process.env.HANK_PYTHON?.trim()) {
+    return { executable: process.env.HANK_PYTHON.trim(), args: [] };
+  }
+  if (process.platform !== 'win32') {
+    return { executable: 'python3', args: [] };
+  }
+
+  const roots = [
+    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Programs', 'Python'),
+    process.env.ProgramFiles && path.join(process.env.ProgramFiles, 'Python'),
+    process.env.USERPROFILE && path.join(process.env.USERPROFILE, 'AppData', 'Local', 'Programs', 'Python'),
+  ].filter(Boolean);
+  for (const root of roots) {
+    let entries;
+    try {
+      entries = readdirSync(root, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory() && /^Python\d+(?:\.\d+)?$/i.test(entry.name))
+        .sort((left, right) => right.name.localeCompare(left.name, undefined, { numeric: true }));
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const executable = path.join(root, entry.name, 'python.exe');
+      if (existsSync(executable)) return { executable, args: [] };
+    }
+  }
+
+  const launcher = spawnSync('where.exe', ['py.exe'], { stdio: 'ignore' });
+  if (launcher.status === 0) return { executable: 'py.exe', args: ['-3'] };
+  return { executable: 'python.exe', args: [] };
+}
+
+const python = resolvePythonCommand();
+
 function runPythonTest(testName) {
   execFileSync(
-    python,
-    ['-m', 'unittest', `${moduleName}.${testName}`],
+    python.executable,
+    [...python.args, '-m', 'unittest', `${moduleName}.${testName}`],
     { cwd: repoRoot, stdio: 'pipe', encoding: 'utf8' },
   );
 }
