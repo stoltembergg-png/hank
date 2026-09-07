@@ -318,7 +318,7 @@ try {
   await browser.click(await element('[aria-label="Workflows"]'));
   await element('[aria-label="Workflows do projeto"]');
   await browser.click(await element('[aria-label="Adicionar nó Agent"]'));
-  await browser.click(await element('[aria-label="Salvar workflow"]'));
+  await browser.click(await element('.workflow-save-button'));
   await browser.waitForText('Workflow salvo na versão 1.');
   await browser.waitForText('Agent 1');
   const staleWorkflowValidation = await browser.invoke('validate_workflow', {
