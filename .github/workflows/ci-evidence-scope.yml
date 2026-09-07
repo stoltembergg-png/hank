@@ -35,6 +35,7 @@ jobs:
       - name: Verify contract evidence scope
         run: |
           set -o pipefail
+          mkdir -p security/reports
           node tools/security/evidence-scope-feature-tests.mjs 2>&1 | tee security/reports/evidence-scope.tap
 
       - name: Generate visual contract evidence
@@ -47,14 +48,14 @@ jobs:
         if: always()
         run: |
           {
-            echo '## Contract evidence scope'
-            echo ''
-            echo '> **NOT PRODUCTION PROOF** — this check validates offline contracts only.'
-            echo ''
-            echo '- The SVG/HTML report is generated from the actual TAP result and exact commit/tree.'
-            echo '- PR-261: synthetic bounded fuzz harness; production parser fuzzing is **NO_PROOF**.'
-            echo '- PR-266: ephemeral synthetic signing fixtures; real release signing/publication is **NO_PROOF**.'
-            echo '- PR-267: all platforms remain `contract-only`; native installer execution is **NO_PROOF**.'
+            echo "## Contract evidence scope"
+            echo ""
+            echo "> **NOT PRODUCTION PROOF** — this check validates offline contracts only."
+            echo ""
+            echo "- The SVG/HTML report is generated from the actual TAP result and exact commit/tree."
+            echo "- PR-261: synthetic bounded fuzz harness; production parser fuzzing is **NO_PROOF**."
+            echo "- PR-266: ephemeral synthetic signing fixtures; real release signing/publication is **NO_PROOF**."
+            echo "- PR-267: all platforms remain contract-only; native installer execution is **NO_PROOF**."
             echo "- Visual artifact: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           } >> "$GITHUB_STEP_SUMMARY"
 
