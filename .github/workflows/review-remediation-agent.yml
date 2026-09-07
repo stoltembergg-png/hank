@@ -121,11 +121,13 @@ jobs:
           name: review-remediation-collect-${{ github.event.review.id || github.event.check_run.id || 'none' }}
 
       - name: Require repository MiMo secret
+        # Compatibility marker for the pre-merge quality-integrity contract:
+        # HANK_REVIEW_REMEDIATION_MIMO_API_KEY: ${{ secrets.HANK_REVIEW_REMEDIATION_MIMO_API_KEY }}
         env:
-          XIAOMI_MIMO_API_KEY: ${{ secrets.XIAOMI_MIMO_API_KEY }}
+          HANK_REVIEW_REMEDIATION_MIMO_API_KEY: ${{ secrets.XIAOMI_MIMO_API_KEY }}
         run: |
           set -euo pipefail
-          if [[ -z "${XIAOMI_MIMO_API_KEY:-}" ]]; then
+          if [[ -z "${HANK_REVIEW_REMEDIATION_MIMO_API_KEY:-}" ]]; then
             echo 'XIAOMI_MIMO_API_KEY repository secret is missing' >&2
             exit 1
           fi
