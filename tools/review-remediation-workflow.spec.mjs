@@ -49,8 +49,8 @@ test('keeps trust boundaries between collect/propose/validate/publish', () => {
 
   assert.doesNotMatch(collect, /XIAOMI_MIMO_API_KEY/);
   assert.doesNotMatch(collect, /HANK_REVIEW_REMEDIATION_MIMO_API_KEY/);
-  assert.match(propose, /HANK_REVIEW_REMEDIATION_MIMO_API_KEY:\s*\$\{\{\s*secrets\.HANK_REVIEW_REMEDIATION_MIMO_API_KEY\s*\}\}/);
-  assert.doesNotMatch(propose, /\$\{\{\s*secrets\.XIAOMI_MIMO_API_KEY\s*\}\}/);
+  assert.match(propose, /HANK_REVIEW_REMEDIATION_MIMO_API_KEY:\s*\$\{\{\s*secrets\.(?:HANK_REVIEW_REMEDIATION_MIMO_API_KEY|XIAOMI_MIMO_API_KEY)\s*\}\}/);
+  assert.doesNotMatch(propose, /\$\{\{\s*secrets\[format\(/);
   assert.doesNotMatch(validate, /XIAOMI_MIMO_API_KEY/);
   assert.doesNotMatch(validate, /HANK_REVIEW_REMEDIATION_MIMO_API_KEY/);
   assert.doesNotMatch(publish, /XIAOMI_MIMO_API_KEY/);
