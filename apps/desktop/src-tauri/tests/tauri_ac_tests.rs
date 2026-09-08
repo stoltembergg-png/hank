@@ -152,6 +152,10 @@ mod tauri_tests {
             "crate::provider_settings::get_provider_oauth_status",
             "crate::provider_settings::complete_provider_oauth",
             "crate::provider_settings::disconnect_provider_account",
+            "crate::updater::stage_update",
+            "crate::updater::activate_update",
+            "crate::updater::rollback_update",
+            "crate::updater::recover_update",
             "crate::workflows::validate_workflow",
             "crate::workflows::save_workflow",
             "crate::workflows::get_workflow",
@@ -165,7 +169,7 @@ mod tauri_tests {
 
         assert_eq!(
             registered.split(',').count(),
-            37,
+            41,
             "a ponte deve registrar exatamente os comandos tipados previstos"
         );
 
