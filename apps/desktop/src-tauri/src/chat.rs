@@ -972,7 +972,9 @@ mod tests {
 
     #[test]
     fn chat_does_not_autoconnect_fixture_credentials() {
-        let source = include_str!("chat.rs");
+        // The checkout may materialize Rust sources with CRLF on Windows;
+        // normalize line endings before asserting the source-level boundary.
+        let source = include_str!("chat.rs").replace("\r\n", "\n");
         assert!(!source.contains(".credentials\n        .connect"));
         assert!(source.contains(".credentials\n        .resolve_ref"));
     }
