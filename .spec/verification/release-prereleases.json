@@ -1,7 +1,7 @@
 {
   "feature": "release-prereleases",
-  "timestamp": "2026-09-08T10:56:26.788Z",
-  "gitRev": "b3b5d31",
+  "timestamp": "2026-09-08T11:04:46.997Z",
+  "gitRev": "7b3122b",
   "command": "node tools/run-feature-tests.mjs release-prereleases",
   "reporter": "exitcode",
   "exitCode": 0,
