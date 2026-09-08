@@ -339,7 +339,7 @@ try {
   });
   const chatAuthorization = new URL(chatOAuth.authorization_url);
   const chatState = chatAuthorization.searchParams.get('state');
-  if (!chatState) throw new Error(`provider: chat precondition authorization state is missing: ${chatOAuth.authorization_url}`);
+  if (!chatState) throw new Error('provider: chat precondition authorization state is missing');
   const chatConnection = await browser.invoke('complete_provider_oauth', {
     project_id: chatProject.id,
     callback_url: `hank://oauth/callback?flow=${chatOAuth.flow_id}&provider=mock&account=account_mock&state=${chatState}&code=fixture`,
@@ -435,7 +435,7 @@ try {
     account_id: 'account_mock',
   });
   if (!/^flow_\d+$/.test(oauth.flow_id) || oauth.state !== 'pending') {
-    throw new Error(`provider: OAuth flow did not start in pending state: ${JSON.stringify(oauth)}`);
+    throw new Error('provider: OAuth flow did not start in pending state');
   }
   const pending = await browser.invoke('get_provider_oauth_status', {
     project_id: project.id,
@@ -473,12 +473,12 @@ try {
     account_id: 'account_mock',
   });
   if (!validOAuth.authorization_url?.startsWith('hank://oauth/authorize?')) {
-    throw new Error(`provider: OAuth start did not return a bounded authorization URL: ${JSON.stringify(validOAuth)}`);
+    throw new Error('provider: OAuth start did not return a bounded authorization URL');
   }
   const authorization = new URL(validOAuth.authorization_url);
   const state = authorization.searchParams.get('state');
   if (!state || authorization.searchParams.get('flow') !== validOAuth.flow_id) {
-    throw new Error(`provider: authorization URL omitted flow/state binding: ${validOAuth.authorization_url}`);
+    throw new Error('provider: authorization URL omitted flow/state binding');
   }
   const connected = await browser.invoke('complete_provider_oauth', {
     project_id: project.id,
@@ -615,8 +615,8 @@ try {
 } catch (error) {
   await screenshot(`failure-${phase}`).catch(() => {});
   console.error(`DESKTOP E2E PROJECT LIFECYCLE: FAIL at ${phase}`);
-  console.error(error?.stack ?? error);
+  console.error('DESKTOP E2E PROJECT LIFECYCLE: failure details are redacted');
   process.exitCode = 1;
 } finally {
-  await stop().catch((error) => console.error('desktop shutdown failed:', error));
+  await stop().catch(() => console.error('desktop shutdown failed'));
 }
