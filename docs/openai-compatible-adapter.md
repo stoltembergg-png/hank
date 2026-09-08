@@ -28,7 +28,7 @@ HTTP errors are generic and redacted. Provider response payloads are not copied 
 
 ## Streaming mapping
 
-Offline JSON chunk fixtures map to `StreamEvent` start/delta/tool/usage/finish/error/cancel events. `StreamValidator` enforces sequence, generation, terminality, and no post-terminal data. An incomplete stream is rejected explicitly.
+Offline JSON chunk fixtures and the Server-Sent Events framing emitted by OpenAI-compatible endpoints map to `StreamEvent` start/delta/tool/usage/finish/error/cancel events. `StreamValidator` enforces sequence, generation, terminality, and no post-terminal data. An incomplete stream is rejected explicitly.
 
 Cancellation is deterministic: a cancelled transport returns `TransportError::Cancelled`, and cancellation observed during chunk mapping produces one terminal cancel event.
 
