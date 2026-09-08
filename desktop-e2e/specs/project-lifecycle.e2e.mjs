@@ -89,6 +89,19 @@ class WebDriverSession {
     if (!result?.ok) throw new Error(`Tauri command ${command} failed: ${result?.error ?? 'unknown error'}`);
     return result.value;
   }
+  async invokeRaw(command, args) {
+    const result = await this.request('POST', `/session/${this.sessionId}/execute/async`, {
+      script: `const done = arguments[arguments.length - 1];
+        const invoke = window.__TAURI_INTERNALS__?.invoke;
+        if (typeof invoke !== 'function') { done({ ok: false, error: 'Tauri invoke bridge unavailable' }); return; }
+        invoke(arguments[0], arguments[1])
+          .then((value) => done({ ok: true, value }))
+          .catch((error) => done({ ok: false, detail: typeof error === 'string' ? error : JSON.stringify(error) }));`,
+      args: [command, args],
+    });
+    if (!result?.ok) throw new Error(`Tauri command ${command} failed: ${result?.detail ?? 'unknown error'}`);
+    return result.value;
+  }
   async text(element) { return this.request('GET', `/session/${this.sessionId}/element/${element}/text`); }
   async bodyText() { return this.text(await this.find('body')); }
   async screenshot(name) {
@@ -379,23 +392,27 @@ try {
     throw new Error(`provider: disconnect did not clear fixture account state: ${JSON.stringify(revoked)}`);
   }
   let chatBlockedAfterDisconnect = false;
+  let chatBlockError = null;
   try {
-    await browser.invoke('send_chat_command', {
-      schema_version: 1,
-      command_id: 'e2e-revoked-chat-command',
-      stream_id: 'e2e-revoked-chat-stream',
-      caller: { caller_id: 'desktop-webview', class: 'desktop' },
-      project_id: project.id,
-      agent_id: agent.id,
-      session_id: sessions.sessions[0].id,
-      text: 'revoked credential must block chat',
-      generation: 2,
-      cancellation_id: 'e2e-revoked-chat-cancel',
+    await browser.invokeRaw('send_chat_command', {
+      command: {
+        schema_version: 1,
+        command_id: 'e2e-revoked-chat-command',
+        stream_id: 'e2e-revoked-chat-stream',
+        caller: { caller_id: 'desktop-webview', class: 'desktop' },
+        project_id: project.id,
+        agent_id: agent.id,
+        session_id: sessions.sessions[0].id,
+        text: 'revoked credential must block chat',
+        generation: 2,
+        cancellation_id: 'e2e-revoked-chat-cancel',
+      },
     });
   } catch (error) {
-    chatBlockedAfterDisconnect = String(error).includes('send_chat_command failed');
+    chatBlockError = String(error);
+    chatBlockedAfterDisconnect = chatBlockError.includes('send_chat_command failed');
   }
-  if (!chatBlockedAfterDisconnect) throw new Error('provider: revoked credential still allowed a chat command');
+  if (!chatBlockedAfterDisconnect) throw new Error(`provider: revoked credential still allowed a chat command; result=${chatBlockError ?? 'command succeeded'}`);
 
   phase = 'provider-settings-ui';
   await browser.click(await element('[aria-label="Configurações"]'));
