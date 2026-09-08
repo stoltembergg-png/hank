@@ -51,7 +51,7 @@ async fn online_backup_is_verifiable_and_preserves_project_rows() {
     let verified = service.verify(&artifact.manifest_path).await.unwrap();
 
     assert_eq!(verified.manifest.profile_id, "profile-a");
-    assert_eq!(verified.manifest.schema_version, 21);
+    assert_eq!(verified.manifest.schema_version, 22);
     assert_eq!(
         verified.manifest.database_size_bytes,
         artifact.database_size_bytes
