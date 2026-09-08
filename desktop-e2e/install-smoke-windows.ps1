@@ -37,6 +37,7 @@ $report = [ordered]@{
   sbomDigest = $null
   installedExecutable = $null
   uninstall = 'pending'
+  profilePreserved = 'pending'
   upgradeRollback = 'NO_PROOF'
   error = $null
 }
@@ -102,6 +103,8 @@ if ($LASTEXITCODE -ne 0) { throw "SBOM provenance verification failed with exit 
 $installRoot = Join-Path $env:RUNNER_TEMP ("hank-release-install-smoke-" + [guid]::NewGuid().ToString('N'))
 $profileRoot = Join-Path $env:RUNNER_TEMP ("hank-release-install-profile-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $installRoot, $profileRoot | Out-Null
+$profileMarker = Join-Path $profileRoot 'release-smoke-profile-marker'
+[IO.File]::WriteAllText($profileMarker, 'preserve-profile')
 $installedExecutable = Join-Path $installRoot 'hank-desktop.exe'
 $uninstaller = Join-Path $installRoot 'uninstall.exe'
 $desktopProcess = $null
@@ -182,6 +185,9 @@ try {
     if ($uninstallProcess.ExitCode -ne 0) { throw "NSIS uninstall failed with exit code $($uninstallProcess.ExitCode)" }
     if (Test-Path -LiteralPath $installedExecutable -PathType Leaf) { throw 'installed executable remained after uninstall' }
     $report.uninstall = 'passed'
+    if (-not (Test-Path -LiteralPath $profileMarker -PathType Leaf)) { throw 'profile marker was removed during uninstall' }
+    if ([IO.File]::ReadAllText($profileMarker) -ne 'preserve-profile') { throw 'profile marker content changed during uninstall' }
+    $report.profilePreserved = 'passed'
   } catch {
     $cleanupError = $_.Exception.Message
     $report.status = 'failed'

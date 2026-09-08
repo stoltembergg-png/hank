@@ -19,7 +19,7 @@ function report(platform, overrides = {}) {
     appImageDigest: platform.startsWith('linux-') ? 'b'.repeat(64) : null,
     dmgDigest: platform.startsWith('macos-') ? 'c'.repeat(64) : null,
     uninstall: platform === 'windows-x86_64' || platform === 'macos-aarch64' ? 'passed' : 'not_applicable_portable',
-    profilePreserved: platform === 'macos-aarch64' ? 'passed' : 'not_applicable',
+    profilePreserved: 'passed',
     upgradeRollback: 'passed',
     ...overrides,
   };
@@ -60,6 +60,22 @@ test('release promotion rejects missing, stale, and limited evidence', () => {
       report('macos-aarch64'),
     ], { commit, tree }),
     /upgrade\/rollback evidence is not PASS: windows-x86_64/,
+  );
+  assert.throws(
+    () => validateInstallSmokeReports([
+      report('windows-x86_64', { profilePreserved: 'failed' }),
+      report('linux-x86_64'),
+      report('macos-aarch64'),
+    ], { commit, tree }),
+    /profile preservation evidence is not PASS: windows-x86_64/,
+  );
+  assert.throws(
+    () => validateInstallSmokeReports([
+      report('windows-x86_64'),
+      report('linux-x86_64', { profilePreserved: 'failed' }),
+      report('macos-aarch64'),
+    ], { commit, tree }),
+    /profile preservation evidence is not PASS: linux-x86_64/,
   );
   assert.throws(
     () => validateInstallSmokeReports([

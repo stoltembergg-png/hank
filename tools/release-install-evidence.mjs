@@ -58,6 +58,9 @@ export function validateInstallSmokeReports(
     if (requireUpgradeRollback && !isPass(report.upgradeRollback)) {
       throw new Error(`upgrade/rollback evidence is not PASS: ${platform}`);
     }
+    if (!isPass(report.profilePreserved)) {
+      throw new Error(`profile preservation evidence is not PASS: ${platform}`);
+    }
     if (platform === 'windows-x86_64') {
       requireDigest(report.installerDigest, 'installer digest', platform);
       if (!isPass(report.uninstall)) throw new Error(`uninstall evidence is not PASS: ${platform}`);
@@ -66,7 +69,6 @@ export function validateInstallSmokeReports(
     } else if (platform === 'macos-aarch64') {
       requireDigest(report.dmgDigest, 'DMG digest', platform);
       if (!isPass(report.uninstall)) throw new Error(`uninstall evidence is not PASS: ${platform}`);
-      if (!isPass(report.profilePreserved)) throw new Error(`profile preservation evidence is not PASS: ${platform}`);
     }
   }
 

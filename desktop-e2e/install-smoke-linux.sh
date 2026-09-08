@@ -19,6 +19,8 @@ report_path="${HANK_INSTALL_SMOKE_REPORT:-$release_root/install-smoke-report.jso
 status=FAIL
 exit_code=1
 upgrade_rollback=NO_PROOF
+profile_preserved=FAIL
+profile_marker=''
 
 cleanup() {
   local code=$?
@@ -39,10 +41,10 @@ cleanup() {
     fi
   fi
   mkdir -p "$(dirname "$report_path")"
-  printf '{"status":"%s","releaseTag":"%s","expectedCommit":"%s","expectedTree":"%s","platform":"linux-x86_64","appImage":"hank-%s-x86_64.AppImage","appImageDigest":"%s","sbom":"SBOM.spdx.json","sbomDigest":"%s","uninstall":"not_applicable_portable","upgradeRollback":"%s"}\n' \
+  printf '{"status":"%s","releaseTag":"%s","expectedCommit":"%s","expectedTree":"%s","platform":"linux-x86_64","appImage":"hank-%s-x86_64.AppImage","appImageDigest":"%s","sbom":"SBOM.spdx.json","sbomDigest":"%s","uninstall":"not_applicable_portable","profilePreserved":"%s","upgradeRollback":"%s"}\n' \
     "$status" "$HANK_RELEASE_TAG" "$HANK_EXPECTED_COMMIT" "$HANK_EXPECTED_TREE" "$HANK_RELEASE_TAG" \
     "$(sha256sum "$appimage" 2>/dev/null | awk '{print $1}')" \
-    "$(sha256sum "$sbom" 2>/dev/null | awk '{print $1}')" "$upgrade_rollback" > "$report_path"
+    "$(sha256sum "$sbom" 2>/dev/null | awk '{print $1}')" "$profile_preserved" "$upgrade_rollback" > "$report_path"
   exit "$code"
 }
 trap cleanup EXIT
@@ -78,6 +80,8 @@ chmod +x "$appimage"
 export HANK_DESKTOP_BIN="$appimage"
 export HANK_E2E_APP_DATA_DIR="${HANK_E2E_APP_DATA_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/hank-release-e2e-data.XXXXXX")}"
 export HANK_DESKTOP_E2E_ARTIFACTS="${HANK_DESKTOP_E2E_ARTIFACTS:-$(mktemp -d "${TMPDIR:-/tmp}/hank-release-e2e-artifacts.XXXXXX")}"
+profile_marker="$HANK_E2E_APP_DATA_DIR/release-smoke-profile-marker"
+printf '%s\n' 'preserve-profile' > "$profile_marker"
 export HANK_E2E_ALLOW_RELEASE_DATA_DIR=1
 export HANK_E2E_MOCK_PROVIDER=1
 export HANK_WEBDRIVER_PORT="${HANK_WEBDRIVER_PORT:-4444}"
@@ -101,6 +105,9 @@ set -e
 if [[ "$exit_code" -ne 0 ]]; then
   exit "$exit_code"
 fi
+test -f "$profile_marker"
+test "$(<"$profile_marker")" = 'preserve-profile'
+profile_preserved=PASS
 status=PASS
 exit_code=0
 echo "release install smoke launch: PASS ($HANK_RELEASE_TAG)"
