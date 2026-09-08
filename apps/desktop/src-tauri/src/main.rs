@@ -131,7 +131,7 @@ fn main() {
                 "application starting"
             );
 
-            let database_path = database_path(app.handle()).map_err(|error| {
+            let database_file = database_path(app.handle()).map_err(|error| {
                 startup_operation_failure(
                     &startup,
                     lifecycle::StartupStage::Booting,
@@ -139,12 +139,12 @@ fn main() {
                     error.to_string(),
                 )
             })?;
-            let backup_root = database_path
+            let backup_root = database_file
                 .parent()
                 .map(|parent| parent.join("backups"))
                 .ok_or_else(|| io::Error::other("database path has no backup root"))?;
             let storage = tauri::async_runtime::block_on(async move {
-                let storage = SqliteStorage::connect(SqliteStorageConfig::for_file(database_path))
+                let storage = SqliteStorage::connect(SqliteStorageConfig::for_file(database_file))
                     .await
                     .map_err(|error| io::Error::other(error.to_string()))?;
                 let target_version = embedded_migration_manifest().latest_version();
@@ -201,11 +201,11 @@ fn main() {
                     notifications::TauriNotificationSink::new(app.handle().clone()),
                 ),
             ));
-            let updater_manager = app
-                .path()
-                .app_data_dir()
+            // Keep updater state beside the database so opted-in clean-room
+            // E2E runs cannot touch a developer's real application profile.
+            let updater_manager = database_path(app.handle())
                 .ok()
-                .map(|path| path.join("updates"))
+                .and_then(|database| database.parent().map(|parent| parent.join("updates")))
                 .and_then(updater::manager_from_environment);
             if let Some(manager) = updater_manager.as_ref() {
                 if let Err(error) = manager.recover_interrupted_activation() {

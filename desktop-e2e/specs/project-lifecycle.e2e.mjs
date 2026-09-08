@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, createPrivateKey, sign } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -134,6 +134,92 @@ async function assertText(selector, expected) {
   if (!actual.toLowerCase().includes(expected.toLowerCase())) throw new Error(`${phase}: ${selector} did not contain ${JSON.stringify(expected)}; got ${JSON.stringify(actual)}`);
 }
 
+function updaterCanonicalPayload(attestation) {
+  return Buffer.from(JSON.stringify({
+    schemaVersion: attestation.schemaVersion,
+    artifact: attestation.artifact,
+    identity: attestation.identity,
+    signer: attestation.signer,
+    update: attestation.update,
+  }));
+}
+
+function updaterPlatform() {
+  const arch = process.arch === 'x64' ? 'x86_64' : process.arch === 'arm64' ? 'aarch64' : process.arch;
+  if (process.platform === 'win32') return { os: 'windows', arch };
+  if (process.platform === 'darwin') return { os: 'macos', arch };
+  return { os: 'linux', arch };
+}
+
+function signedUpdaterMetadata(version) {
+  const privateKeyDerB64 = process.env.HANK_UPDATER_PRIVATE_KEY_DER_B64;
+  if (!privateKeyDerB64) throw new Error('HANK_UPDATER_PRIVATE_KEY_DER_B64 is required for updater E2E');
+  const key = createPrivateKey({ key: Buffer.from(privateKeyDerB64, 'base64'), format: 'der', type: 'pkcs8' });
+  const platform = updaterPlatform();
+  const expiresAt = 4102444800;
+  const bytes = Buffer.from(`hank-updater-e2e-v${version}`);
+  const attestation = {
+    schemaVersion: 2,
+    artifact: {
+      name: `hank-update-v${version}.bin`,
+      digest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`,
+      size: bytes.length,
+    },
+    identity: {
+      repository: process.env.HANK_UPDATER_REPOSITORY ?? 'stoltembergg-png/hank',
+      event: process.env.HANK_UPDATER_EVENT ?? 'workflow_dispatch',
+      ref: process.env.HANK_UPDATER_REF ?? 'refs/heads/main',
+      commit: process.env.HANK_UPDATER_COMMIT ?? 'a'.repeat(40),
+      tree: process.env.HANK_UPDATER_TREE ?? 'b'.repeat(40),
+      workflow: process.env.HANK_UPDATER_WORKFLOW ?? 'release.yml',
+      policy: process.env.HANK_UPDATER_POLICY ?? 'updater-v1',
+      channel: process.env.HANK_UPDATER_CHANNEL ?? 'stable',
+      os: `${platform.os}-${platform.arch}`,
+    },
+    signer: { keyId: process.env.HANK_UPDATER_KEY_ID ?? 'e2e-fixture-v1' },
+    update: { version, expiresAt, os: platform.os, arch: platform.arch },
+    signature: { algorithm: 'ed25519', value: '' },
+  };
+  attestation.signature.value = sign(null, updaterCanonicalPayload(attestation), key).toString('base64');
+  return {
+    schema_version: 1,
+    version,
+    channel: process.env.HANK_UPDATER_CHANNEL ?? 'stable',
+    os: platform.os,
+    arch: platform.arch,
+    size: bytes.length,
+    expires_at: expiresAt,
+    bytes: [...bytes],
+    attestation,
+    consent: true,
+  };
+}
+
+async function runUpdaterE2E() {
+  if (process.env.HANK_UPDATER_E2E !== '1') return;
+  const first = await browser.invoke('stage_update', signedUpdaterMetadata(2));
+  if (first?.outcome !== 'staged' || first.version !== 2) throw new Error(`updater: version 2 was not staged: ${JSON.stringify(first)}`);
+  await browser.invoke('activate_update');
+  const second = await browser.invoke('stage_update', signedUpdaterMetadata(3));
+  if (second?.outcome !== 'staged' || second.version !== 3) throw new Error(`updater: version 3 was not staged: ${JSON.stringify(second)}`);
+  await browser.invoke('activate_update');
+  await browser.invoke('rollback_update');
+  const recovery = await browser.invoke('recover_update');
+  if (recovery !== 'clean') throw new Error(`updater: recovery after rollback was not clean: ${JSON.stringify(recovery)}`);
+  const report = {
+    status: 'PASS',
+    evidenceScope: 'native-synthetic-signed-fixture',
+    platform: `${updaterPlatform().os}-${updaterPlatform().arch}`,
+    stagedVersions: [2, 3],
+    activatedVersions: [2, 3],
+    rolledBackTo: 2,
+    recovery,
+  };
+  await fs.writeFile(path.join(diagnostics, 'updater-rollback-report.json'), `${JSON.stringify(report, null, 2)}\n`);
+  artifactIdentity.updater = report;
+  await writeArtifactIdentity();
+}
+
 async function start() {
   browser = await new WebDriverSession().start();
   await element('[data-hank-frontend-mounted="true"]');
@@ -163,6 +249,8 @@ async function stop() {
 
 try {
   await start();
+  phase = 'updater';
+  await runUpdaterE2E();
   console.log(`DESKTOP E2E ARTIFACT: ${JSON.stringify(artifactIdentity)}`);
   phase = 'startup';
   await assertText('[aria-label="Gerenciamento de Projetos"]', 'Projetos');

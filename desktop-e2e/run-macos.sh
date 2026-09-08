@@ -5,6 +5,19 @@ set -euo pipefail
 : "${HANK_E2E_APP_DATA_DIR:?HANK_E2E_APP_DATA_DIR is required}"
 : "${HANK_DESKTOP_E2E_ARTIFACTS:?HANK_DESKTOP_E2E_ARTIFACTS is required}"
 
+if [[ "${HANK_UPDATER_E2E:-0}" == '1' && -z "${HANK_UPDATER_PUBLIC_KEY_DER_B64:-}" ]]; then
+  node_binary="${HANK_NODE_BIN:-node}"
+  updater_fixture="$($node_binary desktop-e2e/updater-fixture.mjs)"
+  export HANK_UPDATER_PUBLIC_KEY_DER_B64="$($node_binary --input-type=module -e "const fixture=JSON.parse(process.argv[1]); process.stdout.write(fixture.publicKeyDerB64)" "$updater_fixture")"
+  export HANK_UPDATER_PRIVATE_KEY_DER_B64="$($node_binary --input-type=module -e "const fixture=JSON.parse(process.argv[1]); process.stdout.write(fixture.privateKeyDerB64)" "$updater_fixture")"
+  export HANK_UPDATER_CURRENT_VERSION="1"
+  export HANK_UPDATER_EVENT="workflow_dispatch"
+  export HANK_UPDATER_WORKFLOW="release.yml"
+  export HANK_UPDATER_POLICY="updater-v1"
+  export HANK_UPDATER_KEY_ID="e2e-fixture-v1"
+  export HANK_UPDATER_CHANNEL="stable"
+fi
+
 port="${HANK_WEBDRIVER_PORT:-4444}"
 mkdir -p "$HANK_DESKTOP_E2E_ARTIFACTS" "$HANK_E2E_APP_DATA_DIR"
 

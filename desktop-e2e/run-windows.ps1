@@ -16,6 +16,20 @@ $artifacts = $env:HANK_DESKTOP_E2E_ARTIFACTS
 if (-not $artifacts) { throw 'HANK_DESKTOP_E2E_ARTIFACTS is required' }
 New-Item -ItemType Directory -Force -Path $artifacts, $dataDir | Out-Null
 
+if ($env:HANK_UPDATER_E2E -eq '1' -and -not $env:HANK_UPDATER_PUBLIC_KEY_DER_B64) {
+  $fixtureJson = (& $nodeBinary (Join-Path $repositoryRoot 'desktop-e2e/updater-fixture.mjs') | Out-String).Trim()
+  if ($LASTEXITCODE -ne 0 -or -not $fixtureJson) { throw 'updater fixture key generation failed' }
+  $fixture = $fixtureJson | ConvertFrom-Json
+  $env:HANK_UPDATER_PUBLIC_KEY_DER_B64 = $fixture.publicKeyDerB64
+  $env:HANK_UPDATER_PRIVATE_KEY_DER_B64 = $fixture.privateKeyDerB64
+  $env:HANK_UPDATER_CURRENT_VERSION = '1'
+  $env:HANK_UPDATER_EVENT = 'workflow_dispatch'
+  $env:HANK_UPDATER_WORKFLOW = 'release.yml'
+  $env:HANK_UPDATER_POLICY = 'updater-v1'
+  $env:HANK_UPDATER_KEY_ID = 'e2e-fixture-v1'
+  $env:HANK_UPDATER_CHANNEL = 'stable'
+}
+
 function Stop-ExactDesktopProcess {
   Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
     Where-Object { $_.ExecutablePath -eq $desktopBinary } |

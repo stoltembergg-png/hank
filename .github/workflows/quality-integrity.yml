@@ -69,3 +69,6 @@ jobs:
 
       - name: Validate release install evidence gate
         run: node --test tools/release-install-evidence.spec.mjs
+
+      - name: Validate updater E2E contract
+        run: node --test tools/updater-e2e-contract.spec.mjs

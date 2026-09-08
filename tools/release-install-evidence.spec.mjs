@@ -47,7 +47,7 @@ test('release promotion rejects missing, stale, and limited evidence', () => {
   );
   assert.throws(
     () => validateInstallSmokeReports([
-      report('windows-x86_64', { upgradeRollback: 'NO_PROOF' }),
+      report('windows-x86_64', { upgradeRollback: 'PASS_LIMITED' }),
       report('linux-x86_64'),
     ], { commit, tree }),
     /upgrade\/rollback evidence is not PASS: windows-x86_64/,

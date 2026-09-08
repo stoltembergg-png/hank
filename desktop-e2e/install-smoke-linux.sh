@@ -18,10 +18,14 @@ sbom="$release_root/SBOM.spdx.json"
 report_path="${HANK_INSTALL_SMOKE_REPORT:-$release_root/install-smoke-report.json}"
 status=FAIL
 exit_code=1
+upgrade_rollback=NO_PROOF
 
 cleanup() {
   local code=$?
   set +e
+  if [[ -f "${HANK_DESKTOP_E2E_ARTIFACTS:-}/updater-rollback-report.json" ]] && jq -e '.status == "PASS" and .evidenceScope == "native-synthetic-signed-fixture"' "${HANK_DESKTOP_E2E_ARTIFACTS}/updater-rollback-report.json" >/dev/null 2>&1; then
+    upgrade_rollback=PASS_LIMITED
+  fi
   if [[ "$code" -eq 0 ]]; then
     if [[ -n "${HANK_E2E_APP_DATA_DIR:-}" && -d "$HANK_E2E_APP_DATA_DIR" ]]; then
       rm -rf -- "$HANK_E2E_APP_DATA_DIR"
@@ -31,10 +35,10 @@ cleanup() {
     fi
   fi
   mkdir -p "$(dirname "$report_path")"
-  printf '{"status":"%s","releaseTag":"%s","expectedCommit":"%s","expectedTree":"%s","platform":"linux-x86_64","appImage":"hank-%s-x86_64.AppImage","appImageDigest":"%s","sbom":"SBOM.spdx.json","sbomDigest":"%s","uninstall":"not_applicable_portable","upgradeRollback":"NO_PROOF"}\n' \
+  printf '{"status":"%s","releaseTag":"%s","expectedCommit":"%s","expectedTree":"%s","platform":"linux-x86_64","appImage":"hank-%s-x86_64.AppImage","appImageDigest":"%s","sbom":"SBOM.spdx.json","sbomDigest":"%s","uninstall":"not_applicable_portable","upgradeRollback":"%s"}\n' \
     "$status" "$HANK_RELEASE_TAG" "$HANK_EXPECTED_COMMIT" "$HANK_EXPECTED_TREE" "$HANK_RELEASE_TAG" \
     "$(sha256sum "$appimage" 2>/dev/null | awk '{print $1}')" \
-    "$(sha256sum "$sbom" 2>/dev/null | awk '{print $1}')" > "$report_path"
+    "$(sha256sum "$sbom" 2>/dev/null | awk '{print $1}')" "$upgrade_rollback" > "$report_path"
   exit "$code"
 }
 trap cleanup EXIT
@@ -76,6 +80,7 @@ export HANK_WEBDRIVER_PORT="${HANK_WEBDRIVER_PORT:-4444}"
 export HANK_EXPECTED_COMMIT_SHA="$HANK_EXPECTED_COMMIT"
 export HANK_EXPECTED_TREE_SHA="$HANK_EXPECTED_TREE"
 export HANK_REQUIRE_ARTIFACT_PROVENANCE=1
+export HANK_UPDATER_E2E="${HANK_UPDATER_E2E:-0}"
 
 set +e
 xvfb-run -a --server-args='-screen 0 1280x1024x24' bash "$PWD/desktop-e2e/run-linux.sh"

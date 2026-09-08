@@ -106,6 +106,8 @@ $installedExecutable = Join-Path $installRoot 'hank-desktop.exe'
 $uninstaller = Join-Path $installRoot 'uninstall.exe'
 $desktopProcess = $null
 $devtoolsPort = 0
+$updaterData = $null
+$updaterArtifacts = $null
 $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
 try {
   $arguments = @('/S', "/D=$installRoot")
@@ -126,6 +128,26 @@ try {
     -PassThru
   & $nodeBinary (Join-Path $repositoryRoot 'tools/windows-desktop-e2e.mjs') --executable $installedExecutable --port $devtoolsPort --pid $desktopProcess.Id
   if ($LASTEXITCODE -ne 0) { throw "installed desktop launch smoke failed with exit code $LASTEXITCODE" }
+  if ($env:HANK_UPDATER_E2E -eq '1') {
+    $updaterData = Join-Path $env:RUNNER_TEMP ("hank-release-updater-data-" + [guid]::NewGuid().ToString('N'))
+    $updaterArtifacts = Join-Path $env:RUNNER_TEMP ("hank-release-updater-artifacts-" + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Force -Path $updaterData, $updaterArtifacts | Out-Null
+    $env:HANK_DESKTOP_BIN = $installedExecutable
+    $env:HANK_E2E_APP_DATA_DIR = $updaterData
+    $env:HANK_DESKTOP_E2E_ARTIFACTS = $updaterArtifacts
+    $env:HANK_E2E_ALLOW_RELEASE_DATA_DIR = '1'
+    $env:HANK_E2E_MOCK_PROVIDER = '1'
+    $env:HANK_EXPECTED_COMMIT_SHA = $ExpectedCommit
+    $env:HANK_EXPECTED_TREE_SHA = $ExpectedTree
+    $env:HANK_REQUIRE_ARTIFACT_PROVENANCE = '1'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repositoryRoot 'desktop-e2e\run-windows.ps1')
+    if ($LASTEXITCODE -ne 0) { throw "installed updater E2E failed with exit code $LASTEXITCODE" }
+    $updaterReport = Join-Path $updaterArtifacts 'updater-rollback-report.json'
+    if (-not (Test-Path -LiteralPath $updaterReport -PathType Leaf)) { throw "updater rollback report is missing: $updaterReport" }
+    $updaterResult = Get-Content -Raw -LiteralPath $updaterReport | ConvertFrom-Json
+    if ($updaterResult.status -ne 'PASS' -or $updaterResult.evidenceScope -ne 'native-synthetic-signed-fixture') { throw "updater rollback report is not the expected bounded fixture result: $($updaterResult.status) / $($updaterResult.evidenceScope)" }
+    $report.upgradeRollback = 'PASS_LIMITED'
+  }
   $report.status = 'passed'
   $report.installedExecutable = 'hank-desktop.exe'
   Write-Output "release install smoke launch: PASS ($ReleaseTag)"
@@ -153,6 +175,8 @@ try {
   } finally {
     Remove-Item -LiteralPath $profileRoot -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $installRoot -Recurse -Force -ErrorAction SilentlyContinue
+    if ($updaterData) { Remove-Item -LiteralPath $updaterData -Recurse -Force -ErrorAction SilentlyContinue }
+    if ($updaterArtifacts) { Remove-Item -LiteralPath $updaterArtifacts -Recurse -Force -ErrorAction SilentlyContinue }
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $reportPath) | Out-Null
     $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $reportPath -Encoding utf8
   }
