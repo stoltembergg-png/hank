@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2022]
+        os: [ubuntu-24.04, windows-2022, macos-14]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     env:
@@ -140,6 +140,21 @@ jobs:
             Copy-Item -LiteralPath $env:HANK_E2E_APP_DATA_DIR -Destination (Join-Path $env:HANK_DESKTOP_E2E_ARTIFACTS 'app-data') -Recurse -Force -ErrorAction SilentlyContinue
             throw
           }
+
+      - name: Run real Project lifecycle on macOS
+        if: runner.os == 'macOS'
+        env:
+          HANK_DESKTOP_E2E_ARTIFACTS: ${{ runner.temp }}/hank-desktop-e2e-artifacts
+          HANK_DESKTOP_BIN: ${{ github.workspace }}/apps/desktop/src-tauri/target/debug/hank-desktop
+          HANK_E2E_APP_DATA_DIR: ${{ runner.temp }}/hank-e2e-app-data
+          HANK_E2E_MOCK_PROVIDER: '1'
+          HANK_WEBDRIVER_PORT: 4444
+          RUST_LOG: info
+        run: |
+          set -euo pipefail
+          mkdir -p "$HANK_DESKTOP_E2E_ARTIFACTS" "$HANK_E2E_APP_DATA_DIR"
+          bash desktop-e2e/run-macos.sh
+          rm -rf "$HANK_E2E_APP_DATA_DIR"
 
       - name: Upload desktop diagnostics
         if: always()
