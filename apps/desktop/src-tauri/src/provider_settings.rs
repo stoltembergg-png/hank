@@ -227,10 +227,13 @@ pub struct ProviderSettingsBridgeState {
 }
 
 impl ProviderSettingsBridgeState {
-    pub fn new(storage: &SqliteStorage) -> Self {
+    pub fn new(
+        storage: &SqliteStorage,
+        credentials: Arc<InMemoryCredentialService>,
+    ) -> Self {
         Self {
             projects: Arc::new(SqliteProjectRepository::new(storage.pool().clone())),
-            credentials: Arc::new(InMemoryCredentialService::new()),
+            credentials,
             oauth: Arc::new(OAuthCallbackHandler::new(FixtureTokenExchange)),
             accounts: Arc::new(Mutex::new(BTreeMap::new())),
             flows: Arc::new(Mutex::new(BTreeMap::new())),
@@ -396,8 +399,11 @@ impl ProviderSettingsBridgeState {
     }
 }
 
-pub fn bridge_state(storage: &SqliteStorage) -> ProviderSettingsBridgeState {
-    ProviderSettingsBridgeState::new(storage)
+pub fn bridge_state(
+    storage: &SqliteStorage,
+    credentials: Arc<InMemoryCredentialService>,
+) -> ProviderSettingsBridgeState {
+    ProviderSettingsBridgeState::new(storage, credentials)
 }
 
 #[tauri::command]

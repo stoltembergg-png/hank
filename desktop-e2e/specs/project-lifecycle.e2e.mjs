@@ -190,6 +190,29 @@ try {
   phase = 'session-open';
   await browser.click(await element('.session-open-button'));
   await element('[aria-label="Conversa Release validation conversation"]');
+  const chatProjects = await browser.invoke('list_projects', {
+    limit: 100,
+    offset: 0,
+    correlation_id: 'e2e-chat-provider-projects',
+  });
+  const chatProject = chatProjects.projects.find((candidate) => candidate.name === projectName);
+  if (!chatProject) throw new Error('provider: project was not available before chat credential setup');
+  phase = 'provider-chat-precondition';
+  const chatOAuth = await browser.invoke('start_provider_oauth', {
+    project_id: chatProject.id,
+    provider_id: 'mock',
+    account_id: 'account_mock',
+  });
+  const chatAuthorization = new URL(chatOAuth.authorization_url);
+  const chatState = chatAuthorization.searchParams.get('state');
+  if (!chatState) throw new Error(`provider: chat precondition authorization state is missing: ${chatOAuth.authorization_url}`);
+  const chatConnection = await browser.invoke('complete_provider_oauth', {
+    project_id: chatProject.id,
+    callback_url: `hank://oauth/callback?flow=${chatOAuth.flow_id}&provider=mock&account=account_mock&state=${chatState}&code=fixture`,
+  });
+  if (chatConnection.state !== 'connected' || !chatConnection.account?.has_credential_ref) {
+    throw new Error(`provider: chat precondition did not establish a credential: ${JSON.stringify(chatConnection)}`);
+  }
   phase = 'chat';
   await element('[aria-label="Chat da sessão"]');
   const chatInput = await element('#chat-message');
@@ -261,8 +284,16 @@ try {
     project_id: project.id,
   });
   const mockAccount = providerAccounts.find((account) => account.provider_id === 'mock' && account.account_id === 'account_mock');
-  if (!mockAccount || mockAccount.state !== 'revoked' || mockAccount.has_credential_ref) {
-    throw new Error(`provider: fixture account must start revoked without a credential ref: ${JSON.stringify(providerAccounts)}`);
+  if (!mockAccount || mockAccount.state !== 'connected' || !mockAccount.has_credential_ref) {
+    throw new Error(`provider: shared credential state was not visible after chat setup: ${JSON.stringify(providerAccounts)}`);
+  }
+  const initialRevoked = await browser.invoke('disconnect_provider_account', {
+    project_id: project.id,
+    provider_id: 'mock',
+    account_id: 'account_mock',
+  });
+  if (initialRevoked.state !== 'revoked' || initialRevoked.has_credential_ref) {
+    throw new Error(`provider: initial disconnect did not revoke the shared credential: ${JSON.stringify(initialRevoked)}`);
   }
   const oauth = await browser.invoke('start_provider_oauth', {
     project_id: project.id,
@@ -347,6 +378,24 @@ try {
   if (revoked.state !== 'revoked' || revoked.has_credential_ref) {
     throw new Error(`provider: disconnect did not clear fixture account state: ${JSON.stringify(revoked)}`);
   }
+  let chatBlockedAfterDisconnect = false;
+  try {
+    await browser.invoke('send_chat_command', {
+      schema_version: 1,
+      command_id: 'e2e-revoked-chat-command',
+      stream_id: 'e2e-revoked-chat-stream',
+      caller: { caller_id: 'desktop-webview', class: 'desktop' },
+      project_id: project.id,
+      agent_id: agent.id,
+      session_id: sessions.sessions[0].id,
+      text: 'revoked credential must block chat',
+      generation: 2,
+      cancellation_id: 'e2e-revoked-chat-cancel',
+    });
+  } catch (error) {
+    chatBlockedAfterDisconnect = String(error).includes('send_chat_command failed');
+  }
+  if (!chatBlockedAfterDisconnect) throw new Error('provider: revoked credential still allowed a chat command');
 
   phase = 'provider-settings-ui';
   await browser.click(await element('[aria-label="Configurações"]'));

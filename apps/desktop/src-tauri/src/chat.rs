@@ -27,7 +27,7 @@ use agent_runtime::SqliteStorage;
 use agent_protocol::ids::TraceId;
 use provider_core::capabilities::{CapabilityFeature, CapabilityRequirement, ModelModality};
 use provider_core::credentials::{
-    AccountId, CredentialAccessContext, CredentialAccount, CredentialService, CredentialServiceError,
+    AccountId, CredentialAccessContext, CredentialAccount, CredentialService,
     InMemoryCredentialService, ProjectScopeId,
 };
 use provider_core::fallback::FallbackPolicy;
@@ -36,7 +36,7 @@ use provider_core::request::{
     CancellationMetadata, NormalizedMessage, NormalizedRequest, RequestBudget,
     MessageRole as ProviderMessageRole,
 };
-use provider_core::{CancellationToken, CredentialRef, MockProvider, ModelId, ProviderId};
+use provider_core::{CancellationToken, MockProvider, ModelId, ProviderId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -50,7 +50,6 @@ const MOCK_PROVIDER_ENV: &str = "HANK_E2E_MOCK_PROVIDER";
 const MOCK_PROVIDER_ID: &str = "mock";
 const MOCK_MODEL_ID: &str = "mock-model";
 const MOCK_ACCOUNT_ID: &str = "account_mock";
-const MOCK_CREDENTIAL_REF: &str = "cred_mock_fixture";
 const MAX_STREAM_QUEUE: usize = 64;
 const MAX_OUTPUT_TOKENS: u32 = 8_192;
 const MAX_MESSAGE_PAGE: usize = 100;
@@ -77,14 +76,13 @@ struct ActiveChat {
 }
 
 impl ChatBridgeState {
-    fn new(storage: &SqliteStorage) -> Self {
+    fn new(storage: &SqliteStorage, credentials: Arc<InMemoryCredentialService>) -> Self {
         let pool = storage.pool().clone();
         let registry = Arc::new(ProviderRegistry::new());
         let provider_id = ProviderId::parse(MOCK_PROVIDER_ID).expect("static provider id");
         registry
             .register(Arc::new(MockProvider::new(provider_id, "fixture-1")))
             .expect("mock provider registration");
-        let credentials = Arc::new(InMemoryCredentialService::new());
         let provider = Arc::new(ProviderApplicationService::new(
             registry,
             credentials.clone(),
@@ -144,8 +142,11 @@ impl ChatBridgeState {
     }
 }
 
-pub fn bridge_state(storage: &SqliteStorage) -> ChatBridgeState {
-    ChatBridgeState::new(storage)
+pub fn bridge_state(
+    storage: &SqliteStorage,
+    credentials: Arc<InMemoryCredentialService>,
+) -> ChatBridgeState {
+    ChatBridgeState::new(storage, credentials)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -380,15 +381,10 @@ async fn execute_chat_turn(
         cancellation.clone(),
     )
     .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Unauthorized, &command.command_id))?;
-    let credential_ref = CredentialRef::parse(MOCK_CREDENTIAL_REF)
-        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, &command.command_id))?;
-    match state
+    state
         .credentials
-        .connect(access.clone(), account.clone(), credential_ref)
-    {
-        Ok(_) | Err(CredentialServiceError::Conflict) => {}
-        Err(_) => return Err(ChatBridgeError::new(ChatBridgeErrorCode::ProviderUnavailable, &command.command_id)),
-    }
+        .resolve_ref(access.clone(), account.clone())
+        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::ProviderUnavailable, &command.command_id))?;
     let model_id = ModelId::parse(MOCK_MODEL_ID)
         .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, &command.command_id))?;
     let normalized = NormalizedRequest {
@@ -903,5 +899,12 @@ mod tests {
         assert_eq!(output.provider_state, "selected");
         assert_eq!(output.capability, "confirmed");
         assert_eq!(output.attempt_number, 1);
+    }
+
+    #[test]
+    fn chat_does_not_autoconnect_fixture_credentials() {
+        let source = include_str!("chat.rs");
+        assert!(!source.contains(".credentials\n        .connect"));
+        assert!(source.contains(".credentials\n        .resolve_ref"));
     }
 }

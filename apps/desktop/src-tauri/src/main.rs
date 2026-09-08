@@ -200,14 +200,17 @@ fn main() {
             startup
                 .advance(lifecycle::StartupStage::StorageReady)
                 .map_err(startup_transition_failure)?;
+            let provider_credentials = std::sync::Arc::new(
+                provider_core::credentials::InMemoryCredentialService::new(),
+            );
             app.manage(projects::bridge_state(&storage));
             app.manage(agents::bridge_state(&storage));
             app.manage(sessions::bridge_state(&storage));
-            app.manage(chat::bridge_state(&storage));
+            app.manage(chat::bridge_state(&storage, provider_credentials.clone()));
             app.manage(scheduler::bridge_state(&storage));
             app.manage(memory::bridge_state(&storage));
             app.manage(skills::bridge_state(&storage));
-            app.manage(provider_settings::bridge_state(&storage));
+            app.manage(provider_settings::bridge_state(&storage, provider_credentials));
             app.manage(workflows::bridge_state(&storage));
             startup
                 .advance(lifecycle::StartupStage::RuntimeReady)
