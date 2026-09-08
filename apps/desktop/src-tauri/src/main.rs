@@ -10,6 +10,8 @@ pub mod projects;
 pub mod scheduler;
 pub mod platform_store;
 pub mod provider_credential_store;
+pub mod provider_transport;
+pub mod provider_runtime;
 pub mod sessions;
 pub mod skills;
 pub mod streaming;
@@ -210,7 +212,7 @@ fn main() {
             app.manage(sessions::bridge_state(&storage));
             let chat_credentials: std::sync::Arc<dyn provider_core::credentials::CredentialService> =
                 provider_credentials.clone();
-            app.manage(chat::bridge_state(&storage, chat_credentials));
+            app.manage(chat::bridge_state_with_store(&storage, chat_credentials, provider_credentials.clone()));
             app.manage(scheduler::bridge_state(&storage));
             app.manage(memory::bridge_state(&storage));
             app.manage(skills::bridge_state(&storage));

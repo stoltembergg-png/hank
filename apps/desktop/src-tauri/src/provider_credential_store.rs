@@ -2,10 +2,10 @@
 
 use agent_runtime::SqliteStorage;
 use provider_core::credentials::{
-    CredentialAccessContext, CredentialAccount, CredentialService, CredentialServiceError,
-    CredentialServiceState, CredentialStatus,
+    AccountId, CredentialAccessContext, CredentialAccount, CredentialService,
+    CredentialServiceError, CredentialServiceState, CredentialStatus, ProjectScopeId,
 };
-use provider_core::CredentialRef;
+use provider_core::{CancellationToken, CredentialRef, ProviderId};
 use secrets_core::{
     BackendKind, BackendStatus, SecretMaterial, SecretStoreError, SecureSecretBackend,
     SecureSecretStore,
@@ -49,6 +49,52 @@ impl<B: SecureSecretBackend> ProviderCredentialStore<B> {
 
     pub fn backend_status(&self) -> BackendStatus {
         self.secrets.backend_status()
+    }
+
+    /// Resolves secret material for an opaque reference after reloading its
+    /// project/provider/account identity from durable metadata. The secret
+    /// itself is never stored in SQLite and is returned only to the transport
+    /// boundary for the duration of a request.
+    pub fn material_for_reference(
+        &self,
+        credential_ref: &CredentialRef,
+    ) -> Result<SecretMaterial, CredentialServiceError> {
+        let reference = credential_ref.as_str().to_string();
+        let row = self.database(move |pool| async move {
+            sqlx::query(
+                "SELECT project_id, provider_id, account_id, state FROM provider_accounts WHERE credential_ref = ? LIMIT 1",
+            )
+            .bind(reference)
+            .fetch_optional(&pool)
+            .await
+        })?;
+        let Some(row) = row else {
+            return Err(CredentialServiceError::Missing);
+        };
+        let state: String = row.try_get("state").map_err(|_| CredentialServiceError::Internal)?;
+        match state.as_str() {
+            STATE_CONNECTED => {}
+            STATE_REVOKED => return Err(CredentialServiceError::Revoked),
+            STATE_UNAVAILABLE | STATE_ERROR => return Err(CredentialServiceError::Unavailable),
+            _ => return Err(CredentialServiceError::Internal),
+        }
+        let project_id: String = row.try_get("project_id").map_err(|_| CredentialServiceError::Internal)?;
+        let provider_id: String = row.try_get("provider_id").map_err(|_| CredentialServiceError::Internal)?;
+        let account_id: String = row.try_get("account_id").map_err(|_| CredentialServiceError::Internal)?;
+        let project_id = ProjectScopeId::parse(format!("project_{project_id}"))?;
+        let account = CredentialAccount::new(
+            project_id.clone(),
+            ProviderId::parse(provider_id).map_err(|_| CredentialServiceError::InvalidIdentity)?,
+            AccountId::parse(account_id)?,
+        )?;
+        let context = CredentialAccessContext::new(
+            project_id,
+            "desktop-webview".into(),
+            CancellationToken::new(),
+        )?;
+        self.secrets
+            .get(context, account, credential_ref.clone())
+            .map_err(map_secret_error)
     }
 
     /// Connect an opaque reference when the token exchange is intentionally
@@ -362,6 +408,58 @@ mod tests {
         let _ = std::fs::remove_file(path);
     }
 
+    #[tokio::test]
+    async fn material_resolution_reloads_identity_and_never_uses_sqlite_plaintext() {
+        let path = std::env::temp_dir().join(format!("hank-provider-material-{}.db", uuid::Uuid::new_v4()));
+        let storage = SqliteStorage::connect(SqliteStorageConfig::for_file(&path)).await.unwrap();
+        run_migrations(storage.pool()).await.unwrap();
+        let project = "proj-00000000-0000-4000-8000-000000000322";
+        sqlx::query("INSERT INTO projects (id, name, status, owner, created_at, updated_at, settings) VALUES (?, 'Material Test', 'active', 'owner', '2026-01-01', '2026-01-01', '{}')")
+            .bind(project)
+            .execute(storage.pool())
+            .await
+            .unwrap();
+        let account = CredentialAccount::new(
+            ProjectScopeId::parse(format!("project_{project}")).unwrap(),
+            ProviderId::parse("openai").unwrap(),
+            AccountId::parse("account_material").unwrap(),
+        )
+        .unwrap();
+        let context = CredentialAccessContext::new(
+            account.project_id.clone(),
+            "desktop-webview".to_string(),
+            CancellationToken::new(),
+        )
+        .unwrap();
+        let reference = CredentialRef::parse("cred_material_test").unwrap();
+        let backend = MaterialBackend::default();
+        let store = ProviderCredentialStore::new(&storage, backend);
+        store
+            .connect_with_material(
+                context,
+                account,
+                reference.clone(),
+                SecretMaterial::new(b"material-never-in-sqlite".to_vec()).unwrap(),
+            )
+            .unwrap();
+        let material = store.material_for_reference(&reference).unwrap();
+        assert_eq!(material.as_bytes(), b"material-never-in-sqlite");
+        let rows = sqlx::query_as::<_, (Option<String>,)>(
+            "SELECT credential_ref FROM provider_accounts WHERE credential_ref = 'cred_material_test'",
+        )
+        .fetch_all(storage.pool())
+        .await
+        .unwrap();
+        assert_eq!(rows, vec![(Some("cred_material_test".into()),)]);
+        let table_dump: String = sqlx::query_scalar("SELECT quote(display_name) || quote(state) FROM provider_accounts")
+            .fetch_one(storage.pool())
+            .await
+            .unwrap();
+        assert!(!table_dump.contains("material-never-in-sqlite"));
+        storage.close().await;
+        let _ = std::fs::remove_file(path);
+    }
+
     #[cfg(windows)]
     #[tokio::test]
     async fn native_backend_roundtrip_persists_and_disconnects_secret_and_metadata() {
@@ -415,5 +513,29 @@ mod tests {
         fn get(&self, _: &CredentialRef, _: &CredentialAccount) -> Result<SecretMaterial, SecretStoreError> { Err(SecretStoreError::Missing) }
         fn delete(&self, _: &CredentialRef, _: &CredentialAccount) -> Result<(), SecretStoreError> { Ok(()) }
         fn rotate(&self, _: &CredentialRef, _: &CredentialAccount, _: SecretMaterial) -> Result<(), SecretStoreError> { Ok(()) }
+    }
+
+    #[derive(Clone, Default)]
+    struct MaterialBackend {
+        material: Arc<std::sync::Mutex<Option<Vec<u8>>>>,
+    }
+
+    impl SecureSecretBackend for MaterialBackend {
+        fn kind(&self) -> BackendKind { BackendKind::Mock }
+        fn status(&self) -> BackendStatus { BackendStatus::Available }
+        fn put(&self, _: &CredentialRef, _: &CredentialAccount, material: SecretMaterial) -> Result<(), SecretStoreError> {
+            *self.material.lock().unwrap() = Some(material.into_bytes());
+            Ok(())
+        }
+        fn get(&self, _: &CredentialRef, _: &CredentialAccount) -> Result<SecretMaterial, SecretStoreError> {
+            self.material.lock().unwrap().clone().map(SecretMaterial::new).transpose()?.ok_or(SecretStoreError::Missing)
+        }
+        fn delete(&self, _: &CredentialRef, _: &CredentialAccount) -> Result<(), SecretStoreError> {
+            *self.material.lock().unwrap() = None;
+            Ok(())
+        }
+        fn rotate(&self, reference: &CredentialRef, account: &CredentialAccount, material: SecretMaterial) -> Result<(), SecretStoreError> {
+            self.put(reference, account, material)
+        }
     }
 }

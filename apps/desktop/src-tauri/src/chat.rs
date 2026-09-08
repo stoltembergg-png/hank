@@ -43,6 +43,10 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};
 
 use crate::streaming::{StreamBridge, StreamEventSink, StreamSinkError};
+use crate::provider_runtime::configured_openai_provider;
+use provider_core::transport::EndpointPolicy;
+use crate::platform_store::PlatformSecretBackend;
+use crate::provider_credential_store::ProviderCredentialStore;
 
 const DESKTOP_CALLER_ID: &str = "desktop-webview";
 const DESKTOP_CALLER_CLASS: &str = "desktop";
@@ -66,6 +70,9 @@ pub struct ChatBridgeState {
     usage: Arc<Mutex<UsageAggregator>>,
     active: Arc<Mutex<HashMap<String, ActiveChat>>>,
     enabled: bool,
+    provider_id: ProviderId,
+    model_id: ModelId,
+    account_id: AccountId,
 }
 
 #[derive(Clone)]
@@ -77,12 +84,50 @@ struct ActiveChat {
 
 impl ChatBridgeState {
     fn new(storage: &SqliteStorage, credentials: Arc<dyn CredentialService>) -> Self {
+        Self::new_with_store(storage, credentials, None)
+    }
+
+    fn new_with_store(
+        storage: &SqliteStorage,
+        credentials: Arc<dyn CredentialService>,
+        secure_store: Option<Arc<ProviderCredentialStore<PlatformSecretBackend>>>,
+    ) -> Self {
         let pool = storage.pool().clone();
         let registry = Arc::new(ProviderRegistry::new());
-        let provider_id = ProviderId::parse(MOCK_PROVIDER_ID).expect("static provider id");
-        registry
-            .register(Arc::new(MockProvider::new(provider_id, "fixture-1")))
-            .expect("mock provider registration");
+        let mut provider_id = ProviderId::parse(MOCK_PROVIDER_ID).expect("static provider id");
+        let mut model_id = ModelId::parse(MOCK_MODEL_ID).expect("static model id");
+        let mut account_id = AccountId::parse(MOCK_ACCOUNT_ID).expect("static account id");
+        let fixture_enabled = cfg!(debug_assertions)
+            || std::env::var(MOCK_PROVIDER_ENV).ok().as_deref() == Some("1");
+        let mut enabled = fixture_enabled;
+        let mut registered = false;
+        if let Some(store) = secure_store {
+            if let Some(endpoint) = std::env::var_os("HANK_OPENAI_ENDPOINT") {
+                let configured = EndpointPolicy::parse(endpoint.to_string_lossy().into_owned())
+                    .ok()
+                    .and_then(|endpoint| configured_openai_provider(endpoint, store).ok());
+                if let Some(provider) = configured {
+                    registry.register(Arc::new(provider)).expect("OpenAI provider registration");
+                    provider_id = ProviderId::parse("openai").expect("static OpenAI provider id");
+                    model_id = ModelId::parse("gpt-4o-mini").expect("static OpenAI model id");
+                    account_id = AccountId::parse(
+                        std::env::var("HANK_OPENAI_ACCOUNT_ID").unwrap_or_else(|_| "account_openai".into()),
+                    )
+                    .expect("configured OpenAI account id");
+                    enabled = true;
+                    registered = true;
+                } else {
+                    // A malformed or unavailable configured endpoint must not
+                    // silently fall back to the fixture provider.
+                    enabled = false;
+                }
+            }
+        }
+        if !registered {
+            registry
+                .register(Arc::new(MockProvider::new(provider_id.clone(), "fixture-1")))
+                .expect("mock provider registration");
+        }
         let provider = Arc::new(ProviderApplicationService::new(
             registry,
             credentials.clone(),
@@ -100,8 +145,10 @@ impl ChatBridgeState {
             commands: Arc::new(ChatCommandRegistry::new(256).expect("valid command capacity")),
             usage: Arc::new(Mutex::new(UsageAggregator::new(4096).expect("valid usage capacity"))),
             active: Arc::new(Mutex::new(HashMap::new())),
-            enabled: cfg!(debug_assertions)
-                || std::env::var(MOCK_PROVIDER_ENV).ok().as_deref() == Some("1"),
+            enabled,
+            provider_id,
+            model_id,
+            account_id,
         }
     }
 
@@ -147,6 +194,14 @@ pub fn bridge_state(
     credentials: Arc<dyn CredentialService>,
 ) -> ChatBridgeState {
     ChatBridgeState::new(storage, credentials)
+}
+
+pub fn bridge_state_with_store(
+    storage: &SqliteStorage,
+    credentials: Arc<dyn CredentialService>,
+    secure_store: Arc<ProviderCredentialStore<PlatformSecretBackend>>,
+) -> ChatBridgeState {
+    ChatBridgeState::new_with_store(storage, credentials, Some(secure_store))
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -200,8 +255,8 @@ pub struct SendChatCommandOutput {
     pub command_id: String,
     pub stream_id: String,
     pub state: &'static str,
-    pub provider_id: &'static str,
-    pub model_id: &'static str,
+    pub provider_id: String,
+    pub model_id: String,
     pub provider_state: &'static str,
     pub capability: &'static str,
     pub attempt_number: u32,
@@ -366,13 +421,11 @@ async fn execute_chat_turn(
     }
     let project_scope = ProjectScopeId::parse(format!("project_{project_id}"))
         .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::InvalidCommand, &command.command_id))?;
-    let provider_id = ProviderId::parse(MOCK_PROVIDER_ID)
-        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, &command.command_id))?;
+    let provider_id = state.provider_id.clone();
     let account = CredentialAccount::new(
         project_scope.clone(),
         provider_id.clone(),
-        AccountId::parse(MOCK_ACCOUNT_ID)
-            .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, &command.command_id))?,
+        state.account_id.clone(),
     )
     .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, &command.command_id))?;
     let access = CredentialAccessContext::new(
@@ -385,8 +438,7 @@ async fn execute_chat_turn(
         .credentials
         .resolve_ref(access.clone(), account.clone())
         .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::ProviderUnavailable, &command.command_id))?;
-    let model_id = ModelId::parse(MOCK_MODEL_ID)
-        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, &command.command_id))?;
+    let model_id = state.model_id.clone();
     let normalized = NormalizedRequest {
         schema_version: 1,
         request_id: command.command_id.clone(),
@@ -505,7 +557,7 @@ async fn execute_chat_turn(
             )?;
             persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
             publish(&mut bridge, &subscription, 1, ChatStreamPayload::Cancel { reason: ChatCancelReason::User }, &command.command_id)?;
-            return Ok(chat_output(&command.command_id, stream_id, "cancelled"));
+            return Ok(chat_output_for_state(state, &command.command_id, stream_id, "cancelled"));
         }
         Err(_) => {
             assistant.start_stream().ok();
@@ -613,21 +665,40 @@ async fn execute_chat_turn(
         command_id: command.command_id.clone(),
         stream_id,
         state: output_state,
-        provider_id: MOCK_PROVIDER_ID,
-        model_id: MOCK_MODEL_ID,
+        provider_id: state.provider_id.as_str().to_string(),
+        model_id: state.model_id.as_str().to_string(),
         provider_state: "selected",
         capability: "confirmed",
         attempt_number: 1,
     })
 }
 
+#[cfg(test)]
 fn chat_output(command_id: &str, stream_id: String, state: &'static str) -> SendChatCommandOutput {
     SendChatCommandOutput {
         command_id: command_id.to_string(),
         stream_id,
         state,
-        provider_id: MOCK_PROVIDER_ID,
-        model_id: MOCK_MODEL_ID,
+        provider_id: MOCK_PROVIDER_ID.into(),
+        model_id: MOCK_MODEL_ID.into(),
+        provider_state: "selected",
+        capability: "confirmed",
+        attempt_number: 1,
+    }
+}
+
+fn chat_output_for_state(
+    state: &ChatBridgeState,
+    command_id: &str,
+    stream_id: String,
+    output_state: &'static str,
+) -> SendChatCommandOutput {
+    SendChatCommandOutput {
+        command_id: command_id.to_string(),
+        stream_id,
+        state: output_state,
+        provider_id: state.provider_id.as_str().to_string(),
+        model_id: state.model_id.as_str().to_string(),
         provider_state: "selected",
         capability: "confirmed",
         attempt_number: 1,
@@ -648,10 +719,8 @@ fn record_missing_usage(
     command_id: &str,
     usage: MissingUsage,
 ) -> Result<(), ChatBridgeError> {
-    let provider_id = ProviderId::parse(MOCK_PROVIDER_ID)
-        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, command_id))?;
-    let model_id = ModelId::parse(MOCK_MODEL_ID)
-        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, command_id))?;
+    let provider_id = state.provider_id.clone();
+    let model_id = state.model_id.clone();
     let event = UsageEvent {
         schema_version: USAGE_SCHEMA_VERSION,
         attempt_id: usage.attempt_id,

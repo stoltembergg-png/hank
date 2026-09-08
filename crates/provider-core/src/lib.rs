@@ -130,13 +130,18 @@ fn validate_identifier(
     Ok(())
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ProviderRequest {
     pub request_id: String,
     pub model_id: ModelId,
     pub credential_ref: CredentialRef,
     pub prompt: String,
     pub max_tokens: Option<u32>,
+    /// The validated application envelope is carried opaquely to concrete
+    /// provider façades. Legacy/plugin callers may omit it; real providers
+    /// must reject requests without the scoped identity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub normalized: Option<Box<request::NormalizedRequest>>,
 }
 
 impl ProviderRequest {
@@ -161,7 +166,13 @@ impl ProviderRequest {
             credential_ref,
             prompt,
             max_tokens: None,
+            normalized: None,
         })
+    }
+
+    pub fn with_normalized(mut self, normalized: request::NormalizedRequest) -> Self {
+        self.normalized = Some(Box::new(normalized));
+        self
     }
 }
 

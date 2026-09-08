@@ -3,9 +3,8 @@
 //! This crate declares provider identity, planning-time model mappings, and
 //! capabilities. It does not perform discovery or store credentials.
 
-use provider_adapter_openai_compatible::{
-    AdapterError, EndpointPolicy, HttpTransport, OpenAiCompatibleAdapter,
-};
+use provider_adapter_openai_compatible::OpenAiCompatibleAdapter;
+pub use provider_adapter_openai_compatible::{AdapterError, EndpointPolicy, HttpTransport};
 use provider_core::capabilities::{
     CapabilityError, CapabilityFeature, CapabilityLimits, CapabilityReport, CapabilitySource,
     CapabilityState, ModelModality,

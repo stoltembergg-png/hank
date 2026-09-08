@@ -14,6 +14,7 @@ agent-core = { path = "../../../crates/agent-core" }
 agent-runtime = { path = "../../../crates/agent-runtime" }
 auth-core = { path = "../../../crates/auth-core" }
 provider-core = { path = "../../../crates/provider-core" }
+provider-adapter-openai = { path = "../../../crates/provider-adapters/openai" }
 secrets-core = { path = "../../../crates/secrets-core" }
 tool-core = { path = "../../../crates/tool-core" }
 workflow-core = { path = "../../../crates/workflow-core" }
@@ -25,6 +26,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 sha2 = "0.10"
 chrono = { version = "0.4", features = ["serde"] }
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "migrate"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+futures-util = "0.3"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_Security_Credentials"] }

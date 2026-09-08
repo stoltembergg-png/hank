@@ -135,7 +135,8 @@ impl ProviderApplicationService {
                 credential_ref,
                 prompt_from(&current),
             )
-            .map_err(|_| InvocationError::InvalidRequest)?;
+            .map_err(|_| InvocationError::InvalidRequest)?
+            .with_normalized(current.clone());
 
             match provider
                 .complete(provider_request, request.access.cancellation.clone())
@@ -194,7 +195,8 @@ impl ProviderApplicationService {
                 credential_ref,
                 prompt_from(&current),
             )
-            .map_err(|_| InvocationError::InvalidRequest)?;
+            .map_err(|_| InvocationError::InvalidRequest)?
+            .with_normalized(current.clone());
             let stream = match provider.stream(
                 provider_request,
                 request.access.cancellation.clone(),
