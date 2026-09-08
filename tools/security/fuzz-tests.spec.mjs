@@ -49,8 +49,19 @@ test('fuzz-runner.mjs roda e produz relatório JSON @spec:AC-2206', () => {
   assert.deepEqual(report.failed_tests, [], 'nenhum teste Rust pode falhar');
   assert.equal(
     report.runner_digest,
-    createHash('sha256').update(readFileSync(resolve(root, 'tools/security/fuzz-runner.mjs'))).digest('hex'),
+    createHash('sha256')
+      .update(readFileSync(resolve(root, 'tools/security/fuzz-runner.mjs'), 'utf8').replace(/\r\n/g, '\n'))
+      .digest('hex'),
     'report deve estar vinculado ao digest do runner',
+  );
+});
+
+test('fuzz runner digest is independent of checkout line endings @spec:AC-2206', () => {
+  const source = readFileSync(resolve(root, 'tools/security/fuzz-runner.mjs'), 'utf8');
+  const canonical = source.replace(/\r\n/g, '\n');
+  assert.equal(
+    createHash('sha256').update(canonical).digest('hex'),
+    JSON.parse(readFileSync(resolve(root, 'docs/security/fuzz-manifest.json'), 'utf8')).runner_digest,
   );
 });
 

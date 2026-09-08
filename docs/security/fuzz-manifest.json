@@ -2,7 +2,7 @@
   "$schema": "https://example.invalid/nonexistent",
   "schema_version": 1,
   "manifest_revision": "FT-001",
-  "runner_digest": "58139c5fd307d7243057acf778af98713c26abce1f865d6bcaf26ab08f1df14f",
+  "runner_digest": "680eb905abb0df5acd20fc13459e972f26fb64257c0139850974ef910b4d25ff",
   "targets": [
     {
       "id": "FT-001",
