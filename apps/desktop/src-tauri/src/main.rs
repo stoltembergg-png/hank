@@ -201,6 +201,18 @@ fn main() {
                     notifications::TauriNotificationSink::new(app.handle().clone()),
                 ),
             ));
+            let updater_manager = app
+                .path()
+                .app_data_dir()
+                .ok()
+                .map(|path| path.join("updates"))
+                .and_then(updater::manager_from_environment);
+            if let Some(manager) = updater_manager.as_ref() {
+                if let Err(error) = manager.recover_interrupted_activation() {
+                    tracing::warn!(event = "updater_recovery_deferred", error = %error, "updater recovery could not complete");
+                }
+            }
+            app.manage(updater::bridge_state(updater_manager));
             startup
                 .advance(lifecycle::StartupStage::StorageReady)
                 .map_err(startup_transition_failure)?;

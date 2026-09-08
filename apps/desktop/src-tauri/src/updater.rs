@@ -117,7 +117,23 @@ pub struct StageResult {
     pub digest: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl Serialize for StageResult {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        #[derive(Serialize)]
+        struct Wire<'a> {
+            outcome: &'static str,
+            version: u64,
+            digest: &'a str,
+        }
+        Wire { outcome: "staged", version: self.version, digest: &self.digest }.serialize(serializer)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum RecoveryResult {
     Clean,
     RestoredPrevious,
@@ -149,6 +165,177 @@ pub enum UpdateError {
     ActivationUnavailable,
     #[error("update filesystem operation failed")]
     Filesystem,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UpdateBridgeErrorCode {
+    Unavailable,
+    ConsentRequired,
+    PolicyMismatch,
+    Downgrade,
+    Expired,
+    SizeLimit,
+    DigestMismatch,
+    InvalidSignature,
+    UntrustedSigner,
+    MalformedAttestation,
+    IncompleteStaging,
+    ActivationUnavailable,
+    Filesystem,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct UpdateBridgeError {
+    pub code: UpdateBridgeErrorCode,
+    pub message: &'static str,
+}
+
+impl UpdateBridgeError {
+    fn unavailable() -> Self {
+        Self { code: UpdateBridgeErrorCode::Unavailable, message: "updater is unavailable" }
+    }
+}
+
+impl From<UpdateError> for UpdateBridgeError {
+    fn from(error: UpdateError) -> Self {
+        let (code, message) = match error {
+            UpdateError::ConsentRequired => (UpdateBridgeErrorCode::ConsentRequired, "explicit update consent is required"),
+            UpdateError::PolicyMismatch => (UpdateBridgeErrorCode::PolicyMismatch, "update policy mismatch"),
+            UpdateError::Downgrade => (UpdateBridgeErrorCode::Downgrade, "update version is not an upgrade"),
+            UpdateError::Expired => (UpdateBridgeErrorCode::Expired, "update metadata is expired"),
+            UpdateError::SizeLimit => (UpdateBridgeErrorCode::SizeLimit, "update exceeds bounded size"),
+            UpdateError::DigestMismatch => (UpdateBridgeErrorCode::DigestMismatch, "update artifact digest mismatch"),
+            UpdateError::InvalidSignature => (UpdateBridgeErrorCode::InvalidSignature, "update signature is invalid"),
+            UpdateError::UntrustedSigner => (UpdateBridgeErrorCode::UntrustedSigner, "update signer is not trusted"),
+            UpdateError::MalformedAttestation => (UpdateBridgeErrorCode::MalformedAttestation, "update attestation is malformed"),
+            UpdateError::IncompleteStaging => (UpdateBridgeErrorCode::IncompleteStaging, "update staging is incomplete"),
+            UpdateError::ActivationUnavailable => (UpdateBridgeErrorCode::ActivationUnavailable, "update activation is unavailable"),
+            UpdateError::Filesystem => (UpdateBridgeErrorCode::Filesystem, "updater filesystem operation failed"),
+        };
+        Self { code, message }
+    }
+}
+
+impl std::fmt::Display for UpdateBridgeError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.message)
+    }
+}
+
+impl std::error::Error for UpdateBridgeError {}
+
+#[derive(Clone)]
+pub struct UpdaterBridgeState {
+    manager: std::sync::Arc<std::sync::Mutex<Option<UpdateManager>>>,
+}
+
+impl UpdaterBridgeState {
+    pub fn new(manager: Option<UpdateManager>) -> Self {
+        Self { manager: std::sync::Arc::new(std::sync::Mutex::new(manager)) }
+    }
+
+    fn with_manager<T>(&self, operation: impl FnOnce(&UpdateManager) -> Result<T, UpdateError>) -> Result<T, UpdateBridgeError> {
+        let guard = self.manager.lock().map_err(|_| UpdateBridgeError::unavailable())?;
+        let manager = guard.as_ref().ok_or_else(UpdateBridgeError::unavailable)?;
+        operation(manager).map_err(Into::into)
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct StageUpdateInput {
+    pub schema_version: u32,
+    pub version: u64,
+    pub channel: String,
+    pub os: String,
+    pub arch: String,
+    pub size: u64,
+    pub expires_at: u64,
+    pub bytes: Vec<u8>,
+    pub attestation: UpdateAttestation,
+    pub consent: bool,
+}
+
+impl StageUpdateInput {
+    fn metadata(self) -> UpdateMetadata {
+        UpdateMetadata {
+            schema_version: self.schema_version,
+            version: self.version,
+            channel: self.channel,
+            os: self.os,
+            arch: self.arch,
+            size: self.size,
+            expires_at: self.expires_at,
+            bytes: self.bytes,
+            attestation: self.attestation,
+        }
+    }
+}
+
+pub fn bridge_state(manager: Option<UpdateManager>) -> UpdaterBridgeState {
+    UpdaterBridgeState::new(manager)
+}
+
+/// Builds the updater only when a trusted public key is explicitly configured.
+/// This keeps development/fixture builds unavailable instead of silently
+/// accepting an unsigned endpoint or an invented key.
+pub fn manager_from_environment(root: impl Into<PathBuf>) -> Option<UpdateManager> {
+    let trusted_public_key_der_b64 = std::env::var("HANK_UPDATER_PUBLIC_KEY_DER_B64").ok()?;
+    if trusted_public_key_der_b64.trim().is_empty() {
+        return None;
+    }
+    let current_version = std::env::var("HANK_UPDATER_CURRENT_VERSION")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(1);
+    let policy = UpdatePolicy {
+        channel: std::env::var("HANK_UPDATER_CHANNEL").unwrap_or_else(|_| "stable".into()),
+        os: std::env::var("HANK_UPDATER_OS").unwrap_or_else(|_| std::env::consts::OS.into()),
+        arch: std::env::var("HANK_UPDATER_ARCH").unwrap_or_else(|_| std::env::consts::ARCH.into()),
+        current_version,
+        minimum_version: current_version,
+        max_bytes: 100 * 1024 * 1024,
+        now: chrono::Utc::now().timestamp().max(0) as u64,
+        repository: std::env::var("HANK_UPDATER_REPOSITORY")
+            .unwrap_or_else(|_| "stoltembergg-png/hank".into()),
+        event: std::env::var("HANK_UPDATER_EVENT").unwrap_or_else(|_| "release".into()),
+        workflow: std::env::var("HANK_UPDATER_WORKFLOW").unwrap_or_else(|_| "release.yml".into()),
+        policy: std::env::var("HANK_UPDATER_POLICY").unwrap_or_else(|_| "updater-v1".into()),
+        trusted_key_id: std::env::var("HANK_UPDATER_KEY_ID").unwrap_or_else(|_| "release-key-v1".into()),
+        trusted_public_key_der_b64,
+    };
+    Some(UpdateManager::new(root, policy))
+}
+
+#[tauri::command]
+pub fn stage_update(
+    state: tauri::State<'_, UpdaterBridgeState>,
+    input: StageUpdateInput,
+) -> Result<StageResult, UpdateBridgeError> {
+    let consent = input.consent;
+    let metadata = input.metadata();
+    state.with_manager(|manager| manager.stage(&metadata, consent))
+}
+
+#[tauri::command]
+pub fn activate_update(
+    state: tauri::State<'_, UpdaterBridgeState>,
+) -> Result<(), UpdateBridgeError> {
+    state.with_manager(UpdateManager::activate)
+}
+
+#[tauri::command]
+pub fn rollback_update(
+    state: tauri::State<'_, UpdaterBridgeState>,
+) -> Result<(), UpdateBridgeError> {
+    state.with_manager(UpdateManager::rollback)
+}
+
+#[tauri::command]
+pub fn recover_update(
+    state: tauri::State<'_, UpdaterBridgeState>,
+) -> Result<RecoveryResult, UpdateBridgeError> {
+    state.with_manager(UpdateManager::recover_interrupted_activation)
 }
 
 pub struct UpdateManager {
