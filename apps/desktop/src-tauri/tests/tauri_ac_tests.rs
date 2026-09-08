@@ -184,10 +184,9 @@ mod tauri_tests {
     #[test]
     fn ac_095_chat_bridge_exposes_honest_provider_and_usage_projections() {
         // @spec:AC-095 @spec:AC-094
-        let bridge = fs::read_to_string(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/chat.rs"),
-        )
-        .expect("chat.rs não encontrado");
+        let bridge =
+            fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/chat.rs"))
+                .expect("chat.rs não encontrado");
         for required in [
             "provider_state",
             "capability",
@@ -198,7 +197,10 @@ mod tauri_tests {
             "get_chat_usage",
             "list_chat_messages",
         ] {
-            assert!(bridge.contains(required), "projeção de chat ausente: {required}");
+            assert!(
+                bridge.contains(required),
+                "projeção de chat ausente: {required}"
+            );
         }
         assert!(
             bridge.contains("input_tokens: None") && bridge.contains("output_tokens: None"),
@@ -224,9 +226,17 @@ mod tauri_tests {
             "ProviderSettingsErrorCode::Unavailable",
             "project_scope",
         ] {
-            assert!(bridge.contains(required), "ponte de providers ausente: {required}");
+            assert!(
+                bridge.contains(required),
+                "ponte de providers ausente: {required}"
+            );
         }
-        for forbidden in ["api_key", "authorization_code", "access_token", "refresh_token"] {
+        for forbidden in [
+            "api_key",
+            "authorization_code",
+            "access_token",
+            "refresh_token",
+        ] {
             assert!(
                 !bridge.contains(forbidden),
                 "material de credencial não pode cruzar a ponte: {forbidden}"
@@ -260,7 +270,10 @@ mod tauri_tests {
             "TARGET_PREFIX",
             "fn wipe",
         ] {
-            assert!(backend.contains(required), "adapter nativo ausente: {required}");
+            assert!(
+                backend.contains(required),
+                "adapter nativo ausente: {required}"
+            );
         }
         for forbidden in ["std::fs::", "sqlx::query", "localStorage"] {
             assert!(
@@ -273,10 +286,9 @@ mod tauri_tests {
     #[test]
     fn ac_workflow_bridge_is_typed_project_scoped_and_revision_safe() {
         // @spec:AC-1084 @spec:AC-1085
-        let source = fs::read_to_string(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/workflows.rs"),
-        )
-        .expect("workflows.rs não encontrado");
+        let source =
+            fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/workflows.rs"))
+                .expect("workflows.rs não encontrado");
         for required in [
             "WorkflowCommandInput",
             "validate_workflow",
@@ -288,7 +300,10 @@ mod tauri_tests {
             "ProjectStatus::Active",
             "deny_unknown_fields",
         ] {
-            assert!(source.contains(required), "ponte de workflow ausente: {required}");
+            assert!(
+                source.contains(required),
+                "ponte de workflow ausente: {required}"
+            );
         }
         for forbidden in ["sqlx::query", "std::fs::read", "provider"] {
             assert!(
@@ -301,10 +316,9 @@ mod tauri_tests {
     #[test]
     fn ac_016_build_identity_is_read_only_and_ci_bindable() {
         // @spec:AC-016 @spec:AC-2661
-        let lifecycle = fs::read_to_string(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/lifecycle.rs"),
-        )
-        .expect("lifecycle.rs não encontrado");
+        let lifecycle =
+            fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/lifecycle.rs"))
+                .expect("lifecycle.rs não encontrado");
         for required in [
             "pub struct BuildIdentity",
             "build_identity",
@@ -313,7 +327,10 @@ mod tauri_tests {
             "CARGO_PKG_VERSION",
             "Read-only build provenance",
         ] {
-            assert!(lifecycle.contains(required), "proveniência de build ausente: {required}");
+            assert!(
+                lifecycle.contains(required),
+                "proveniência de build ausente: {required}"
+            );
         }
         assert!(!lifecycle.contains("std::fs::read"));
         assert!(!lifecycle.contains("reqwest::"));

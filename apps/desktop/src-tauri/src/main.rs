@@ -6,17 +6,17 @@ pub mod confirmations;
 pub mod lifecycle;
 pub mod memory;
 pub mod notifications;
-pub mod projects;
-pub mod scheduler;
 pub mod platform_store;
+pub mod projects;
 pub mod provider_credential_store;
-pub mod provider_transport;
 pub mod provider_runtime;
-pub mod updater;
+pub mod provider_settings;
+pub mod provider_transport;
+pub mod scheduler;
 pub mod sessions;
 pub mod skills;
 pub mod streaming;
-pub mod provider_settings;
+pub mod updater;
 pub mod workflows;
 
 use agent_runtime::{

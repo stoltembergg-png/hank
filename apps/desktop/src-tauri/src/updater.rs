@@ -128,7 +128,12 @@ impl Serialize for StageResult {
             version: u64,
             digest: &'a str,
         }
-        Wire { outcome: "staged", version: self.version, digest: &self.digest }.serialize(serializer)
+        Wire {
+            outcome: "staged",
+            version: self.version,
+            digest: &self.digest,
+        }
+        .serialize(serializer)
     }
 }
 
@@ -193,25 +198,61 @@ pub struct UpdateBridgeError {
 
 impl UpdateBridgeError {
     fn unavailable() -> Self {
-        Self { code: UpdateBridgeErrorCode::Unavailable, message: "updater is unavailable" }
+        Self {
+            code: UpdateBridgeErrorCode::Unavailable,
+            message: "updater is unavailable",
+        }
     }
 }
 
 impl From<UpdateError> for UpdateBridgeError {
     fn from(error: UpdateError) -> Self {
         let (code, message) = match error {
-            UpdateError::ConsentRequired => (UpdateBridgeErrorCode::ConsentRequired, "explicit update consent is required"),
-            UpdateError::PolicyMismatch => (UpdateBridgeErrorCode::PolicyMismatch, "update policy mismatch"),
-            UpdateError::Downgrade => (UpdateBridgeErrorCode::Downgrade, "update version is not an upgrade"),
+            UpdateError::ConsentRequired => (
+                UpdateBridgeErrorCode::ConsentRequired,
+                "explicit update consent is required",
+            ),
+            UpdateError::PolicyMismatch => (
+                UpdateBridgeErrorCode::PolicyMismatch,
+                "update policy mismatch",
+            ),
+            UpdateError::Downgrade => (
+                UpdateBridgeErrorCode::Downgrade,
+                "update version is not an upgrade",
+            ),
             UpdateError::Expired => (UpdateBridgeErrorCode::Expired, "update metadata is expired"),
-            UpdateError::SizeLimit => (UpdateBridgeErrorCode::SizeLimit, "update exceeds bounded size"),
-            UpdateError::DigestMismatch => (UpdateBridgeErrorCode::DigestMismatch, "update artifact digest mismatch"),
-            UpdateError::InvalidSignature => (UpdateBridgeErrorCode::InvalidSignature, "update signature is invalid"),
-            UpdateError::UntrustedSigner => (UpdateBridgeErrorCode::UntrustedSigner, "update signer is not trusted"),
-            UpdateError::MalformedAttestation => (UpdateBridgeErrorCode::MalformedAttestation, "update attestation is malformed"),
-            UpdateError::IncompleteStaging => (UpdateBridgeErrorCode::IncompleteStaging, "update staging is incomplete"),
-            UpdateError::ActivationUnavailable => (UpdateBridgeErrorCode::ActivationUnavailable, "update activation is unavailable"),
-            UpdateError::Filesystem => (UpdateBridgeErrorCode::Filesystem, "updater filesystem operation failed"),
+            UpdateError::SizeLimit => (
+                UpdateBridgeErrorCode::SizeLimit,
+                "update exceeds bounded size",
+            ),
+            UpdateError::DigestMismatch => (
+                UpdateBridgeErrorCode::DigestMismatch,
+                "update artifact digest mismatch",
+            ),
+            UpdateError::InvalidSignature => (
+                UpdateBridgeErrorCode::InvalidSignature,
+                "update signature is invalid",
+            ),
+            UpdateError::UntrustedSigner => (
+                UpdateBridgeErrorCode::UntrustedSigner,
+                "update signer is not trusted",
+            ),
+            UpdateError::MalformedAttestation => (
+                UpdateBridgeErrorCode::MalformedAttestation,
+                "update attestation is malformed",
+            ),
+            UpdateError::IncompleteStaging => (
+                UpdateBridgeErrorCode::IncompleteStaging,
+                "update staging is incomplete",
+            ),
+            UpdateError::ActivationUnavailable => (
+                UpdateBridgeErrorCode::ActivationUnavailable,
+                "update activation is unavailable",
+            ),
+            UpdateError::Filesystem => (
+                UpdateBridgeErrorCode::Filesystem,
+                "updater filesystem operation failed",
+            ),
         };
         Self { code, message }
     }
@@ -232,11 +273,19 @@ pub struct UpdaterBridgeState {
 
 impl UpdaterBridgeState {
     pub fn new(manager: Option<UpdateManager>) -> Self {
-        Self { manager: std::sync::Arc::new(std::sync::Mutex::new(manager)) }
+        Self {
+            manager: std::sync::Arc::new(std::sync::Mutex::new(manager)),
+        }
     }
 
-    fn with_manager<T>(&self, operation: impl FnOnce(&UpdateManager) -> Result<T, UpdateError>) -> Result<T, UpdateBridgeError> {
-        let guard = self.manager.lock().map_err(|_| UpdateBridgeError::unavailable())?;
+    fn with_manager<T>(
+        &self,
+        operation: impl FnOnce(&UpdateManager) -> Result<T, UpdateError>,
+    ) -> Result<T, UpdateBridgeError> {
+        let guard = self
+            .manager
+            .lock()
+            .map_err(|_| UpdateBridgeError::unavailable())?;
         let manager = guard.as_ref().ok_or_else(UpdateBridgeError::unavailable)?;
         operation(manager).map_err(Into::into)
     }
@@ -301,7 +350,8 @@ pub fn manager_from_environment(root: impl Into<PathBuf>) -> Option<UpdateManage
         event: std::env::var("HANK_UPDATER_EVENT").unwrap_or_else(|_| "release".into()),
         workflow: std::env::var("HANK_UPDATER_WORKFLOW").unwrap_or_else(|_| "release.yml".into()),
         policy: std::env::var("HANK_UPDATER_POLICY").unwrap_or_else(|_| "updater-v1".into()),
-        trusted_key_id: std::env::var("HANK_UPDATER_KEY_ID").unwrap_or_else(|_| "release-key-v1".into()),
+        trusted_key_id: std::env::var("HANK_UPDATER_KEY_ID")
+            .unwrap_or_else(|_| "release-key-v1".into()),
         trusted_public_key_der_b64,
     };
     Some(UpdateManager::new(root, policy))
@@ -345,7 +395,10 @@ pub struct UpdateManager {
 
 impl UpdateManager {
     pub fn new(root: impl Into<PathBuf>, policy: UpdatePolicy) -> Self {
-        Self { root: root.into(), policy }
+        Self {
+            root: root.into(),
+            policy,
+        }
     }
 
     pub fn validate(&self, metadata: &UpdateMetadata) -> Result<(), UpdateError> {
@@ -356,7 +409,9 @@ impl UpdateManager {
         {
             return Err(UpdateError::PolicyMismatch);
         }
-        if metadata.version <= self.policy.current_version || metadata.version < self.policy.minimum_version {
+        if metadata.version <= self.policy.current_version
+            || metadata.version < self.policy.minimum_version
+        {
             return Err(UpdateError::Downgrade);
         }
         if metadata.expires_at <= self.policy.now {
@@ -379,8 +434,10 @@ impl UpdateManager {
                 && attestation.update.as_ref().is_some_and(|binding| {
                     binding.os == metadata.os && binding.arch == metadata.arch
                 }));
-        if !matches!(attestation.schema_version, ATTESTATION_SCHEMA_V1 | ATTESTATION_SCHEMA_V2)
-            || !bounded_text(&attestation.artifact.name)
+        if !matches!(
+            attestation.schema_version,
+            ATTESTATION_SCHEMA_V1 | ATTESTATION_SCHEMA_V2
+        ) || !bounded_text(&attestation.artifact.name)
             || !bounded_text(&attestation.identity.repository)
             || !bounded_text(&attestation.identity.event)
             || !bounded_text(&attestation.identity.ref_name)
@@ -417,7 +474,8 @@ impl UpdateManager {
         let public_key_der = base64::engine::general_purpose::STANDARD
             .decode(&self.policy.trusted_public_key_der_b64)
             .map_err(|_| UpdateError::UntrustedSigner)?;
-        let public_key = ed25519_raw_public_key(&public_key_der).ok_or(UpdateError::UntrustedSigner)?;
+        let public_key =
+            ed25519_raw_public_key(&public_key_der).ok_or(UpdateError::UntrustedSigner)?;
         let signature_bytes = base64::engine::general_purpose::STANDARD
             .decode(&attestation.signature.value)
             .map_err(|_| UpdateError::InvalidSignature)?;
@@ -426,7 +484,11 @@ impl UpdateManager {
             .map_err(|_| UpdateError::InvalidSignature)
     }
 
-    pub fn stage(&self, metadata: &UpdateMetadata, consent: bool) -> Result<StageResult, UpdateError> {
+    pub fn stage(
+        &self,
+        metadata: &UpdateMetadata,
+        consent: bool,
+    ) -> Result<StageResult, UpdateError> {
         if !consent {
             return Err(UpdateError::ConsentRequired);
         }
@@ -441,7 +503,8 @@ impl UpdateManager {
                 .create_new(true)
                 .open(&artifact)
                 .map_err(|_| UpdateError::Filesystem)?;
-            file.write_all(&metadata.bytes).map_err(|_| UpdateError::Filesystem)?;
+            file.write_all(&metadata.bytes)
+                .map_err(|_| UpdateError::Filesystem)?;
             file.sync_all().map_err(|_| UpdateError::Filesystem)?;
             let marker = StageMarker {
                 schema_version: UPDATE_SCHEMA,
@@ -451,7 +514,10 @@ impl UpdateManager {
                 size: metadata.size,
             };
             write_json_sync(&staging.join("marker.json"), &marker)?;
-            Ok(StageResult { version: metadata.version, digest: marker.digest })
+            Ok(StageResult {
+                version: metadata.version,
+                digest: marker.digest,
+            })
         })();
         if result.is_err() {
             remove_dir_if_exists(&staging)?;
@@ -496,13 +562,16 @@ impl UpdateManager {
             return Err(UpdateError::SizeLimit);
         }
         fs::create_dir_all(&self.root).map_err(|_| UpdateError::Filesystem)?;
-        write_json_sync(&self.root.join("activation.pending"), &StageMarker {
-            schema_version: UPDATE_SCHEMA,
-            version: 0,
-            channel: self.policy.channel.clone(),
-            digest: "pending".into(),
-            size: 0,
-        })?;
+        write_json_sync(
+            &self.root.join("activation.pending"),
+            &StageMarker {
+                schema_version: UPDATE_SCHEMA,
+                version: 0,
+                channel: self.policy.channel.clone(),
+                digest: "pending".into(),
+                size: 0,
+            },
+        )?;
         if previous.exists() {
             remove_dir_if_exists(&previous)?;
         }
@@ -583,8 +652,14 @@ fn canonical_payload(attestation: &UpdateAttestation) -> Result<Vec<u8>, UpdateE
             channel: &attestation.identity.channel,
             os: &attestation.identity.os,
         },
-        signer: CanonicalSigner { key_id: &attestation.signer.key_id },
-        update: if attestation.schema_version >= ATTESTATION_SCHEMA_V2 { attestation.update.as_ref() } else { None },
+        signer: CanonicalSigner {
+            key_id: &attestation.signer.key_id,
+        },
+        update: if attestation.schema_version >= ATTESTATION_SCHEMA_V2 {
+            attestation.update.as_ref()
+        } else {
+            None
+        },
     })
     .map_err(|_| UpdateError::MalformedAttestation)
 }
@@ -609,8 +684,12 @@ fn ed25519_raw_public_key(encoded: &[u8]) -> Option<&[u8]> {
     }
     // SubjectPublicKeyInfo for Ed25519 has a fixed 12-byte prefix followed by
     // the 32-byte raw public key. Release attestations use this DER form.
-    const SPKI_PREFIX: &[u8] = &[0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00];
-    encoded.strip_prefix(SPKI_PREFIX).filter(|key| key.len() == 32)
+    const SPKI_PREFIX: &[u8] = &[
+        0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00,
+    ];
+    encoded
+        .strip_prefix(SPKI_PREFIX)
+        .filter(|key| key.len() == 32)
 }
 
 fn write_json_sync<T: Serialize>(path: &Path, value: &T) -> Result<(), UpdateError> {
@@ -644,34 +723,82 @@ mod tests {
         let rng = SystemRandom::new();
         let key = ring::signature::Ed25519KeyPair::generate_pkcs8(&rng).unwrap();
         let keypair = ring::signature::Ed25519KeyPair::from_pkcs8(key.as_ref()).unwrap();
-        let mut public_key_der = vec![0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00];
+        let mut public_key_der = vec![
+            0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00,
+        ];
         public_key_der.extend_from_slice(keypair.public_key().as_ref());
         let policy = UpdatePolicy {
-            channel: "stable".into(), os: "windows".into(), arch: "x86_64".into(),
-            current_version: 3, minimum_version: 3, max_bytes: 1024, now: 100,
-            repository: "stoltembergg-png/hank".into(), event: "release".into(),
-            workflow: "release.yml".into(), policy: "updater-v1".into(),
+            channel: "stable".into(),
+            os: "windows".into(),
+            arch: "x86_64".into(),
+            current_version: 3,
+            minimum_version: 3,
+            max_bytes: 1024,
+            now: 100,
+            repository: "stoltembergg-png/hank".into(),
+            event: "release".into(),
+            workflow: "release.yml".into(),
+            policy: "updater-v1".into(),
             trusted_key_id: "fixture-v1".into(),
-            trusted_public_key_der_b64: base64::engine::general_purpose::STANDARD.encode(public_key_der),
+            trusted_public_key_der_b64: base64::engine::general_purpose::STANDARD
+                .encode(public_key_der),
         };
         (UpdateManager::new(root, policy), keypair)
     }
 
     fn metadata(keypair: &ring::signature::Ed25519KeyPair) -> UpdateMetadata {
         let bytes = b"signed-update".to_vec();
-        let artifact = ArtifactIdentity { name: "Hank.exe".into(), digest: digest(&bytes), size: bytes.len() as u64 };
-        let identity = BuildIdentity {
-            repository: "stoltembergg-png/hank".into(), event: "release".into(), ref_name: "refs/tags/v4".into(),
-            commit: "a".repeat(40), tree: "b".repeat(40), workflow: "release.yml".into(), policy: "updater-v1".into(),
-            channel: "stable".into(), os: "windows-x86_64".into(),
+        let artifact = ArtifactIdentity {
+            name: "Hank.exe".into(),
+            digest: digest(&bytes),
+            size: bytes.len() as u64,
         };
-        let signer = SignerIdentity { key_id: "fixture-v1".into() };
-        let update = Some(UpdateBinding { version: 4, expires_at: 200, os: "windows".into(), arch: "x86_64".into() });
-        let unsigned = UpdateAttestation { schema_version: 2, artifact, identity, signer, update, signature: SignatureEnvelope { algorithm: "ed25519".into(), value: String::new() } };
+        let identity = BuildIdentity {
+            repository: "stoltembergg-png/hank".into(),
+            event: "release".into(),
+            ref_name: "refs/tags/v4".into(),
+            commit: "a".repeat(40),
+            tree: "b".repeat(40),
+            workflow: "release.yml".into(),
+            policy: "updater-v1".into(),
+            channel: "stable".into(),
+            os: "windows-x86_64".into(),
+        };
+        let signer = SignerIdentity {
+            key_id: "fixture-v1".into(),
+        };
+        let update = Some(UpdateBinding {
+            version: 4,
+            expires_at: 200,
+            os: "windows".into(),
+            arch: "x86_64".into(),
+        });
+        let unsigned = UpdateAttestation {
+            schema_version: 2,
+            artifact,
+            identity,
+            signer,
+            update,
+            signature: SignatureEnvelope {
+                algorithm: "ed25519".into(),
+                value: String::new(),
+            },
+        };
         let signature = keypair.sign(&canonical_payload(&unsigned).unwrap());
         let mut attestation = unsigned;
-        attestation.signature.value = base64::engine::general_purpose::STANDARD.encode(signature.as_ref());
-        UpdateMetadata { schema_version: 1, version: 4, channel: "stable".into(), os: "windows".into(), arch: "x86_64".into(), size: bytes.len() as u64, expires_at: 200, bytes, attestation }
+        attestation.signature.value =
+            base64::engine::general_purpose::STANDARD.encode(signature.as_ref());
+        UpdateMetadata {
+            schema_version: 1,
+            version: 4,
+            channel: "stable".into(),
+            os: "windows".into(),
+            arch: "x86_64".into(),
+            size: bytes.len() as u64,
+            expires_at: 200,
+            bytes,
+            attestation,
+        }
     }
 
     #[test]
@@ -682,7 +809,10 @@ mod tests {
         assert_eq!(manager.stage(&update, true).unwrap().version, 4);
         update.bytes = b"tampered".to_vec();
         update.size = update.bytes.len() as u64;
-        assert_eq!(manager.stage(&update, true), Err(UpdateError::DigestMismatch));
+        assert_eq!(
+            manager.stage(&update, true),
+            Err(UpdateError::DigestMismatch)
+        );
         let _ = fs::remove_dir_all(root);
     }
 
@@ -693,14 +823,19 @@ mod tests {
         let mut update = metadata(&keypair);
         update.attestation.identity.os = "multi".into();
         let signature = keypair.sign(&canonical_payload(&update.attestation).unwrap());
-        update.attestation.signature.value = base64::engine::general_purpose::STANDARD.encode(signature.as_ref());
+        update.attestation.signature.value =
+            base64::engine::general_purpose::STANDARD.encode(signature.as_ref());
         assert_eq!(manager.stage(&update, true).unwrap().version, 4);
 
         let mut mismatched = update;
         mismatched.attestation.update.as_mut().unwrap().arch = "aarch64".into();
         let signature = keypair.sign(&canonical_payload(&mismatched.attestation).unwrap());
-        mismatched.attestation.signature.value = base64::engine::general_purpose::STANDARD.encode(signature.as_ref());
-        assert_eq!(manager.validate(&mismatched), Err(UpdateError::PolicyMismatch));
+        mismatched.attestation.signature.value =
+            base64::engine::general_purpose::STANDARD.encode(signature.as_ref());
+        assert_eq!(
+            manager.validate(&mismatched),
+            Err(UpdateError::PolicyMismatch)
+        );
         let _ = fs::remove_dir_all(root);
     }
 
@@ -713,10 +848,16 @@ mod tests {
         fs::create_dir_all(root.join("current")).unwrap();
         fs::write(root.join("current/artifact.bin"), b"old").unwrap();
         manager.activate().unwrap();
-        assert_eq!(fs::read(root.join("previous/artifact.bin")).unwrap(), b"old");
+        assert_eq!(
+            fs::read(root.join("previous/artifact.bin")).unwrap(),
+            b"old"
+        );
         fs::write(root.join("activation.pending"), b"pending").unwrap();
         fs::rename(root.join("current"), root.join("current-missing")).unwrap();
-        assert_eq!(manager.recover_interrupted_activation().unwrap(), RecoveryResult::RestoredPrevious);
+        assert_eq!(
+            manager.recover_interrupted_activation().unwrap(),
+            RecoveryResult::RestoredPrevious
+        );
         assert!(root.join("current/artifact.bin").exists());
         let _ = fs::remove_dir_all(root);
     }
@@ -737,10 +878,15 @@ mod tests {
         let root = std::env::temp_dir().join(format!("hank-updater-{}", uuid::Uuid::new_v4()));
         let (manager, keypair) = manager(&root);
         let update = metadata(&keypair);
-        assert_eq!(manager.stage(&update, false), Err(UpdateError::ConsentRequired));
-        let mut expired = update.clone(); expired.expires_at = 100;
+        assert_eq!(
+            manager.stage(&update, false),
+            Err(UpdateError::ConsentRequired)
+        );
+        let mut expired = update.clone();
+        expired.expires_at = 100;
         assert_eq!(manager.validate(&expired), Err(UpdateError::Expired));
-        let mut wrong = update; wrong.channel = "beta".into();
+        let mut wrong = update;
+        wrong.channel = "beta".into();
         assert_eq!(manager.validate(&wrong), Err(UpdateError::PolicyMismatch));
         let _ = fs::remove_dir_all(root);
     }

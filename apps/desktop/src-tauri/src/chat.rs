@@ -8,15 +8,20 @@ use agent_core::agent::AgentStatus;
 use agent_core::ids::{ProjectId, SessionId};
 use agent_core::project::{ProjectRepository, ProjectStatus};
 use agent_core::session::{Message, MessageProvenance, MessageRole, MessageStatus, SessionStatus};
-use agent_protocol::chat_command::{ChatCommand, ChatCommandError, ChatCommandRegistry, CallerIdentity};
+use agent_protocol::chat_command::{
+    CallerIdentity, ChatCommand, ChatCommandError, ChatCommandRegistry,
+};
 use agent_protocol::chat_stream::{
     ChatCancelReason, ChatStreamEvent, ChatStreamPayload, ChatStreamSubscription,
     ChatTerminalReason,
 };
+use agent_protocol::ids::TraceId;
 use agent_runtime::agent_repo::SqliteAgentRepository;
 use agent_runtime::execution::Execution;
 use agent_runtime::message_repo::{MessageStorageError, SqliteMessageRepository};
-use agent_runtime::provider_service::{InvocationError, InvocationRequest, ProviderApplicationService};
+use agent_runtime::provider_service::{
+    InvocationError, InvocationRequest, ProviderApplicationService,
+};
 use agent_runtime::session_repo::{SessionStorageError, SqliteSessionRepository};
 use agent_runtime::streaming::StreamEventConsumer;
 use agent_runtime::usage::{
@@ -24,17 +29,15 @@ use agent_runtime::usage::{
     USAGE_SCHEMA_VERSION,
 };
 use agent_runtime::SqliteStorage;
-use agent_protocol::ids::TraceId;
 use provider_core::capabilities::{CapabilityFeature, CapabilityRequirement, ModelModality};
 use provider_core::credentials::{
-    AccountId, CredentialAccessContext, CredentialAccount, CredentialService,
-    ProjectScopeId,
+    AccountId, CredentialAccessContext, CredentialAccount, CredentialService, ProjectScopeId,
 };
 use provider_core::fallback::FallbackPolicy;
 use provider_core::registry::ProviderRegistry;
 use provider_core::request::{
-    CancellationMetadata, NormalizedMessage, NormalizedRequest, RequestBudget,
-    MessageRole as ProviderMessageRole,
+    CancellationMetadata, MessageRole as ProviderMessageRole, NormalizedMessage, NormalizedRequest,
+    RequestBudget,
 };
 use provider_core::{CancellationToken, MockProvider, ModelId, ProviderId};
 use serde::{Deserialize, Serialize};
@@ -42,11 +45,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};
 
-use crate::streaming::{StreamBridge, StreamEventSink, StreamSinkError};
-use crate::provider_runtime::configured_openai_provider;
-use provider_core::transport::EndpointPolicy;
 use crate::platform_store::PlatformSecretBackend;
 use crate::provider_credential_store::ProviderCredentialStore;
+use crate::provider_runtime::configured_openai_provider;
+use crate::streaming::{StreamBridge, StreamEventSink, StreamSinkError};
+use provider_core::transport::EndpointPolicy;
 
 const DESKTOP_CALLER_ID: &str = "desktop-webview";
 const DESKTOP_CALLER_CLASS: &str = "desktop";
@@ -97,8 +100,8 @@ impl ChatBridgeState {
         let mut provider_id = ProviderId::parse(MOCK_PROVIDER_ID).expect("static provider id");
         let mut model_id = ModelId::parse(MOCK_MODEL_ID).expect("static model id");
         let mut account_id = AccountId::parse(MOCK_ACCOUNT_ID).expect("static account id");
-        let fixture_enabled = cfg!(debug_assertions)
-            || std::env::var(MOCK_PROVIDER_ENV).ok().as_deref() == Some("1");
+        let fixture_enabled =
+            cfg!(debug_assertions) || std::env::var(MOCK_PROVIDER_ENV).ok().as_deref() == Some("1");
         let mut enabled = fixture_enabled;
         let mut registered = false;
         if let Some(store) = secure_store {
@@ -107,11 +110,14 @@ impl ChatBridgeState {
                     .ok()
                     .and_then(|endpoint| configured_openai_provider(endpoint, store).ok());
                 if let Some(provider) = configured {
-                    registry.register(Arc::new(provider)).expect("OpenAI provider registration");
+                    registry
+                        .register(Arc::new(provider))
+                        .expect("OpenAI provider registration");
                     provider_id = ProviderId::parse("openai").expect("static OpenAI provider id");
                     model_id = ModelId::parse("gpt-4o-mini").expect("static OpenAI model id");
                     account_id = AccountId::parse(
-                        std::env::var("HANK_OPENAI_ACCOUNT_ID").unwrap_or_else(|_| "account_openai".into()),
+                        std::env::var("HANK_OPENAI_ACCOUNT_ID")
+                            .unwrap_or_else(|_| "account_openai".into()),
                     )
                     .expect("configured OpenAI account id");
                     enabled = true;
@@ -125,7 +131,10 @@ impl ChatBridgeState {
         }
         if !registered {
             registry
-                .register(Arc::new(MockProvider::new(provider_id.clone(), "fixture-1")))
+                .register(Arc::new(MockProvider::new(
+                    provider_id.clone(),
+                    "fixture-1",
+                )))
                 .expect("mock provider registration");
         }
         let provider = Arc::new(ProviderApplicationService::new(
@@ -143,7 +152,9 @@ impl ChatBridgeState {
             provider,
             credentials,
             commands: Arc::new(ChatCommandRegistry::new(256).expect("valid command capacity")),
-            usage: Arc::new(Mutex::new(UsageAggregator::new(4096).expect("valid usage capacity"))),
+            usage: Arc::new(Mutex::new(
+                UsageAggregator::new(4096).expect("valid usage capacity"),
+            )),
             active: Arc::new(Mutex::new(HashMap::new())),
             enabled,
             provider_id,
@@ -152,7 +163,11 @@ impl ChatBridgeState {
         }
     }
 
-    fn register(&self, command: &ChatCommand, session_id: SessionId) -> Result<CancellationToken, ChatBridgeError> {
+    fn register(
+        &self,
+        command: &ChatCommand,
+        session_id: SessionId,
+    ) -> Result<CancellationToken, ChatBridgeError> {
         match self
             .commands
             .accept(command)
@@ -160,17 +175,22 @@ impl ChatBridgeState {
         {
             agent_protocol::chat_command::ChatCommandStatus::Accepted => {}
             agent_protocol::chat_command::ChatCommandStatus::Duplicate => {
-                return Err(ChatBridgeError::new(ChatBridgeErrorCode::DuplicateCommand, &command.command_id))
+                return Err(ChatBridgeError::new(
+                    ChatBridgeErrorCode::DuplicateCommand,
+                    &command.command_id,
+                ))
             }
             agent_protocol::chat_command::ChatCommandStatus::Stale => {
-                return Err(ChatBridgeError::new(ChatBridgeErrorCode::StaleCommand, &command.command_id))
+                return Err(ChatBridgeError::new(
+                    ChatBridgeErrorCode::StaleCommand,
+                    &command.command_id,
+                ))
             }
         }
         let cancellation = CancellationToken::new();
-        let mut active = self
-            .active
-            .lock()
-            .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, &command.command_id))?;
+        let mut active = self.active.lock().map_err(|_| {
+            ChatBridgeError::new(ChatBridgeErrorCode::Internal, &command.command_id)
+        })?;
         active.insert(
             command.command_id.clone(),
             ActiveChat {
@@ -347,7 +367,10 @@ async fn send_chat_command_for_state(
     command: ChatCommand,
 ) -> Result<SendChatCommandOutput, ChatBridgeError> {
     if !state.enabled {
-        return Err(ChatBridgeError::new(ChatBridgeErrorCode::Disabled, &command.command_id));
+        return Err(ChatBridgeError::new(
+            ChatBridgeErrorCode::Disabled,
+            &command.command_id,
+        ));
     }
     let command = ChatCommand::new(
         command.command_id.clone(),
@@ -365,13 +388,18 @@ async fn send_chat_command_for_state(
         || command.caller.caller_id != DESKTOP_CALLER_ID
         || command.caller.class != DESKTOP_CALLER_CLASS
     {
-        return Err(ChatBridgeError::new(ChatBridgeErrorCode::Unauthorized, &command.command_id));
+        return Err(ChatBridgeError::new(
+            ChatBridgeErrorCode::Unauthorized,
+            &command.command_id,
+        ));
     }
     let project_id = command
         .project_id
         .to_string()
         .parse::<ProjectId>()
-        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::InvalidCommand, &command.command_id))?;
+        .map_err(|_| {
+            ChatBridgeError::new(ChatBridgeErrorCode::InvalidCommand, &command.command_id)
+        })?;
     let agent_id = command.agent_id;
     let session_id = command.session_id;
     let session = state
@@ -381,7 +409,10 @@ async fn send_chat_command_for_state(
         .map_err(|error| map_session_storage(error, &command.command_id))?
         .ok_or_else(|| ChatBridgeError::new(ChatBridgeErrorCode::NotFound, &command.command_id))?;
     if session.agent_id != agent_id || session.status != SessionStatus::Active {
-        return Err(ChatBridgeError::new(ChatBridgeErrorCode::Unauthorized, &command.command_id));
+        return Err(ChatBridgeError::new(
+            ChatBridgeErrorCode::Unauthorized,
+            &command.command_id,
+        ));
     }
     let project = state
         .projects
@@ -396,7 +427,10 @@ async fn send_chat_command_for_state(
         .map_err(|error| map_domain_error(error, &command.command_id))?
         .ok_or_else(|| ChatBridgeError::new(ChatBridgeErrorCode::NotFound, &command.command_id))?;
     if project.status != ProjectStatus::Active || agent.status != AgentStatus::Active {
-        return Err(ChatBridgeError::new(ChatBridgeErrorCode::Unauthorized, &command.command_id));
+        return Err(ChatBridgeError::new(
+            ChatBridgeErrorCode::Unauthorized,
+            &command.command_id,
+        ));
     }
     let cancellation = state.register(&command, session_id)?;
     let result = execute_chat_turn(app, state, &command, session, cancellation).await;
@@ -415,12 +449,13 @@ async fn execute_chat_turn(
     let agent_id = session.agent_id;
     let session_id = session.id;
     if session.trace_id.is_none() {
-        session
-            .set_trace_id(TraceId::new())
-            .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, &command.command_id))?;
+        session.set_trace_id(TraceId::new()).map_err(|_| {
+            ChatBridgeError::new(ChatBridgeErrorCode::Internal, &command.command_id)
+        })?;
     }
-    let project_scope = ProjectScopeId::parse(format!("project_{project_id}"))
-        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::InvalidCommand, &command.command_id))?;
+    let project_scope = ProjectScopeId::parse(format!("project_{project_id}")).map_err(|_| {
+        ChatBridgeError::new(ChatBridgeErrorCode::InvalidCommand, &command.command_id)
+    })?;
     let provider_id = state.provider_id.clone();
     let account = CredentialAccount::new(
         project_scope.clone(),
@@ -437,7 +472,12 @@ async fn execute_chat_turn(
     state
         .credentials
         .resolve_ref(access.clone(), account.clone())
-        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::ProviderUnavailable, &command.command_id))?;
+        .map_err(|_| {
+            ChatBridgeError::new(
+                ChatBridgeErrorCode::ProviderUnavailable,
+                &command.command_id,
+            )
+        })?;
     let model_id = state.model_id.clone();
     let normalized = NormalizedRequest {
         schema_version: 1,
@@ -470,8 +510,9 @@ async fn execute_chat_turn(
         },
         temperature: None,
     };
-    let invocation = InvocationRequest::new(normalized, account, access, vec![])
-        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::InvalidCommand, &command.command_id))?;
+    let invocation = InvocationRequest::new(normalized, account, access, vec![]).map_err(|_| {
+        ChatBridgeError::new(ChatBridgeErrorCode::InvalidCommand, &command.command_id)
+    })?;
 
     let existing = state
         .messages
@@ -523,9 +564,17 @@ async fn execute_chat_turn(
         command.generation,
     )
     .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::InvalidCommand, &command.command_id))?;
-    let mut bridge = StreamBridge::new(subscription.clone(), MAX_STREAM_QUEUE, AppSink(app.clone()))
-        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, &command.command_id))?;
-    publish(&mut bridge, &subscription, 0, ChatStreamPayload::Start, &command.command_id)?;
+    let mut bridge =
+        StreamBridge::new(subscription.clone(), MAX_STREAM_QUEUE, AppSink(app.clone())).map_err(
+            |_| ChatBridgeError::new(ChatBridgeErrorCode::Internal, &command.command_id),
+        )?;
+    publish(
+        &mut bridge,
+        &subscription,
+        0,
+        ChatStreamPayload::Start,
+        &command.command_id,
+    )?;
 
     let execution_id = format!("exec_{}", command.command_id);
     let mut execution = Execution::new(
@@ -555,9 +604,29 @@ async fn execute_chat_turn(
                     outcome: UsageOutcome::Cancelled,
                 },
             )?;
-            persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
-            publish(&mut bridge, &subscription, 1, ChatStreamPayload::Cancel { reason: ChatCancelReason::User }, &command.command_id)?;
-            return Ok(chat_output_for_state(state, &command.command_id, stream_id, "cancelled"));
+            persist_turn(
+                state,
+                &mut session,
+                &user_message,
+                &assistant,
+                &command.command_id,
+            )
+            .await?;
+            publish(
+                &mut bridge,
+                &subscription,
+                1,
+                ChatStreamPayload::Cancel {
+                    reason: ChatCancelReason::User,
+                },
+                &command.command_id,
+            )?;
+            return Ok(chat_output_for_state(
+                state,
+                &command.command_id,
+                stream_id,
+                "cancelled",
+            ));
         }
         Err(_) => {
             assistant.start_stream().ok();
@@ -574,9 +643,27 @@ async fn execute_chat_turn(
                     outcome: UsageOutcome::Failed,
                 },
             )?;
-            persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
-            publish(&mut bridge, &subscription, 1, ChatStreamPayload::Error { code: agent_protocol::chat_stream::ChatErrorCode::ProviderFailure }, &command.command_id)?;
-            return Err(ChatBridgeError::new(ChatBridgeErrorCode::ProviderUnavailable, &command.command_id));
+            persist_turn(
+                state,
+                &mut session,
+                &user_message,
+                &assistant,
+                &command.command_id,
+            )
+            .await?;
+            publish(
+                &mut bridge,
+                &subscription,
+                1,
+                ChatStreamPayload::Error {
+                    code: agent_protocol::chat_stream::ChatErrorCode::ProviderFailure,
+                },
+                &command.command_id,
+            )?;
+            return Err(ChatBridgeError::new(
+                ChatBridgeErrorCode::ProviderUnavailable,
+                &command.command_id,
+            ));
         }
     };
 
@@ -605,14 +692,35 @@ async fn execute_chat_turn(
                     outcome: UsageOutcome::Completed,
                 },
             )?;
-            persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
+            persist_turn(
+                state,
+                &mut session,
+                &user_message,
+                &assistant,
+                &command.command_id,
+            )
+            .await?;
             for event in provider_events {
                 if !event.text.is_empty() {
-                    publish(&mut bridge, &subscription, next_event, ChatStreamPayload::Delta { text: event.text }, &command.command_id)?;
+                    publish(
+                        &mut bridge,
+                        &subscription,
+                        next_event,
+                        ChatStreamPayload::Delta { text: event.text },
+                        &command.command_id,
+                    )?;
                     next_event = next_event.saturating_add(1);
                 }
                 if event.terminal {
-                    publish(&mut bridge, &subscription, next_event, ChatStreamPayload::Finish { reason: ChatTerminalReason::Completed }, &command.command_id)?;
+                    publish(
+                        &mut bridge,
+                        &subscription,
+                        next_event,
+                        ChatStreamPayload::Finish {
+                            reason: ChatTerminalReason::Completed,
+                        },
+                        &command.command_id,
+                    )?;
                 }
             }
             "completed"
@@ -633,8 +741,23 @@ async fn execute_chat_turn(
                     outcome: UsageOutcome::Cancelled,
                 },
             )?;
-            persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
-            publish(&mut bridge, &subscription, next_event, ChatStreamPayload::Cancel { reason: ChatCancelReason::User }, &command.command_id)?;
+            persist_turn(
+                state,
+                &mut session,
+                &user_message,
+                &assistant,
+                &command.command_id,
+            )
+            .await?;
+            publish(
+                &mut bridge,
+                &subscription,
+                next_event,
+                ChatStreamPayload::Cancel {
+                    reason: ChatCancelReason::User,
+                },
+                &command.command_id,
+            )?;
             "cancelled"
         }
         Err(_) => {
@@ -656,9 +779,27 @@ async fn execute_chat_turn(
                     outcome: UsageOutcome::Failed,
                 },
             )?;
-            persist_turn(state, &mut session, &user_message, &assistant, &command.command_id).await?;
-            publish(&mut bridge, &subscription, next_event, ChatStreamPayload::Error { code: agent_protocol::chat_stream::ChatErrorCode::InvalidStream }, &command.command_id)?;
-            return Err(ChatBridgeError::new(ChatBridgeErrorCode::InvalidStream, &command.command_id));
+            persist_turn(
+                state,
+                &mut session,
+                &user_message,
+                &assistant,
+                &command.command_id,
+            )
+            .await?;
+            publish(
+                &mut bridge,
+                &subscription,
+                next_event,
+                ChatStreamPayload::Error {
+                    code: agent_protocol::chat_stream::ChatErrorCode::InvalidStream,
+                },
+                &command.command_id,
+            )?;
+            return Err(ChatBridgeError::new(
+                ChatBridgeErrorCode::InvalidStream,
+                &command.command_id,
+            ));
         }
     };
     Ok(SendChatCommandOutput {
@@ -791,12 +932,14 @@ pub fn cancel_chat_command(
     input: CancelChatCommandInput,
 ) -> Result<CancelChatCommandOutput, ChatBridgeError> {
     if input.caller.caller_id != DESKTOP_CALLER_ID || input.caller.class != DESKTOP_CALLER_CLASS {
-        return Err(ChatBridgeError::new(ChatBridgeErrorCode::Unauthorized, &input.command_id));
+        return Err(ChatBridgeError::new(
+            ChatBridgeErrorCode::Unauthorized,
+            &input.command_id,
+        ));
     }
-    let session_id = input
-        .session_id
-        .parse::<SessionId>()
-        .map_err(|_| ChatBridgeError::new(ChatBridgeErrorCode::InvalidCommand, &input.command_id))?;
+    let session_id = input.session_id.parse::<SessionId>().map_err(|_| {
+        ChatBridgeError::new(ChatBridgeErrorCode::InvalidCommand, &input.command_id)
+    })?;
     let active = state
         .active
         .lock()
@@ -816,7 +959,10 @@ pub async fn list_chat_messages(
     input: ListChatMessagesInput,
 ) -> Result<ListChatMessagesOutput, ChatBridgeError> {
     if input.caller.caller_id != DESKTOP_CALLER_ID || input.caller.class != DESKTOP_CALLER_CLASS {
-        return Err(ChatBridgeError::new(ChatBridgeErrorCode::Unauthorized, "chat"));
+        return Err(ChatBridgeError::new(
+            ChatBridgeErrorCode::Unauthorized,
+            "chat",
+        ));
     }
     let project_id = input
         .project_id
@@ -837,9 +983,15 @@ pub async fn list_chat_messages(
         .map_err(|error| map_session_storage(error, "chat"))?
         .ok_or_else(|| ChatBridgeError::new(ChatBridgeErrorCode::NotFound, "chat"))?;
     if session.agent_id != agent_id {
-        return Err(ChatBridgeError::new(ChatBridgeErrorCode::Unauthorized, "chat"));
+        return Err(ChatBridgeError::new(
+            ChatBridgeErrorCode::Unauthorized,
+            "chat",
+        ));
     }
-    let limit = input.limit.unwrap_or(MAX_MESSAGE_PAGE).clamp(1, MAX_MESSAGE_PAGE);
+    let limit = input
+        .limit
+        .unwrap_or(MAX_MESSAGE_PAGE)
+        .clamp(1, MAX_MESSAGE_PAGE);
     let offset = input.offset.unwrap_or(0).min(10_000);
     let messages = state
         .messages
@@ -862,7 +1014,11 @@ pub async fn list_chat_messages(
             generation: message.generation,
         })
         .collect();
-    Ok(ListChatMessagesOutput { messages, limit, offset })
+    Ok(ListChatMessagesOutput {
+        messages,
+        limit,
+        offset,
+    })
 }
 
 #[tauri::command]
@@ -871,7 +1027,10 @@ pub async fn get_chat_usage(
     input: GetChatUsageInput,
 ) -> Result<GetChatUsageOutput, ChatBridgeError> {
     if input.caller.caller_id != DESKTOP_CALLER_ID || input.caller.class != DESKTOP_CALLER_CLASS {
-        return Err(ChatBridgeError::new(ChatBridgeErrorCode::Unauthorized, "chat"));
+        return Err(ChatBridgeError::new(
+            ChatBridgeErrorCode::Unauthorized,
+            "chat",
+        ));
     }
     let project_id = input
         .project_id
@@ -892,7 +1051,10 @@ pub async fn get_chat_usage(
         .map_err(|error| map_session_storage(error, "chat"))?
         .ok_or_else(|| ChatBridgeError::new(ChatBridgeErrorCode::NotFound, "chat"))?;
     if session.agent_id != agent_id {
-        return Err(ChatBridgeError::new(ChatBridgeErrorCode::Unauthorized, "chat"));
+        return Err(ChatBridgeError::new(
+            ChatBridgeErrorCode::Unauthorized,
+            "chat",
+        ));
     }
     let usage = state
         .usage
@@ -937,10 +1099,15 @@ fn map_session_storage(error: SessionStorageError, correlation_id: &str) -> Chat
     ChatBridgeError::new(code, correlation_id)
 }
 
-fn map_domain_error(error: agent_core::error::DomainError, correlation_id: &str) -> ChatBridgeError {
+fn map_domain_error(
+    error: agent_core::error::DomainError,
+    correlation_id: &str,
+) -> ChatBridgeError {
     let code = match error {
         agent_core::error::DomainError::NotFound(_) => ChatBridgeErrorCode::NotFound,
-        agent_core::error::DomainError::PermissionDenied { .. } => ChatBridgeErrorCode::Unauthorized,
+        agent_core::error::DomainError::PermissionDenied { .. } => {
+            ChatBridgeErrorCode::Unauthorized
+        }
         agent_core::error::DomainError::Validation(_) => ChatBridgeErrorCode::InvalidCommand,
         _ => ChatBridgeErrorCode::Storage,
     };

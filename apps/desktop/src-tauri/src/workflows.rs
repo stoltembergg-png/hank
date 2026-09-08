@@ -36,7 +36,10 @@ impl WorkflowBridgeState {
         projects: Arc<SqliteProjectRepository>,
         workflows: Arc<SqliteWorkflowRepository>,
     ) -> Self {
-        Self { projects, workflows }
+        Self {
+            projects,
+            workflows,
+        }
     }
 }
 
@@ -167,19 +170,13 @@ pub struct WorkflowSnapshotOutput {
 
 fn parse_project_id(value: &str) -> Result<ProjectId, WorkflowBridgeError> {
     value.parse::<ProjectId>().map_err(|_| {
-        WorkflowBridgeError::new(
-            WorkflowBridgeErrorCode::InvalidInput,
-            "invalid project id",
-        )
+        WorkflowBridgeError::new(WorkflowBridgeErrorCode::InvalidInput, "invalid project id")
     })
 }
 
 fn parse_workflow_id(value: &str) -> Result<WorkflowId, WorkflowBridgeError> {
     value.parse::<WorkflowId>().map_err(|_| {
-        WorkflowBridgeError::new(
-            WorkflowBridgeErrorCode::InvalidInput,
-            "invalid workflow id",
-        )
+        WorkflowBridgeError::new(WorkflowBridgeErrorCode::InvalidInput, "invalid workflow id")
     })
 }
 
@@ -239,10 +236,7 @@ async fn project_scope(
         .get_by_id(&project_id)
         .await
         .map_err(|_| {
-            WorkflowBridgeError::new(
-                WorkflowBridgeErrorCode::Internal,
-                "could not load project",
-            )
+            WorkflowBridgeError::new(WorkflowBridgeErrorCode::Internal, "could not load project")
         })?
         .ok_or_else(|| {
             WorkflowBridgeError::new(WorkflowBridgeErrorCode::NotFound, "project not found")
@@ -429,10 +423,13 @@ pub async fn validate_workflow(
                     | WorkflowBridgeErrorCode::Unauthorized
                     | WorkflowBridgeErrorCode::Conflict
                     | WorkflowBridgeErrorCode::NotFound
-            ) => Ok(WorkflowValidationOutput {
+            ) =>
+        {
+            Ok(WorkflowValidationOutput {
                 valid: false,
                 reason: Some(error.reason().to_string()),
-            }),
+            })
+        }
         Err(error) => Err(error),
     }
 }
@@ -513,7 +510,9 @@ pub async fn get_workflow(
         .load_latest_definition(&project_id, &workflow_id)
         .await
         .map_err(map_persistence_error)
-        .map(|definition| definition.map(|(workflow, graph)| snapshot(&project_id, &workflow, &graph)))
+        .map(|definition| {
+            definition.map(|(workflow, graph)| snapshot(&project_id, &workflow, &graph))
+        })
 }
 
 #[cfg(test)]

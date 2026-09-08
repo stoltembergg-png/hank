@@ -248,7 +248,11 @@ pub fn build_identity() -> BuildIdentity {
         version: env!("CARGO_PKG_VERSION"),
         commit_sha: option_env!("HANK_BUILD_COMMIT_SHA"),
         tree_sha: option_env!("HANK_BUILD_TREE_SHA"),
-        profile: if cfg!(debug_assertions) { "debug" } else { "release" },
+        profile: if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     }
 }
 

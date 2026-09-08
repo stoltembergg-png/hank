@@ -118,7 +118,8 @@ impl SecureSecretBackend for PlatformSecretBackend {
                     if credential.CredentialBlob.is_null() || size == 0 || size > 2_560 {
                         Err(SecretStoreError::Backend)
                     } else {
-                        let bytes = std::slice::from_raw_parts(credential.CredentialBlob, size).to_vec();
+                        let bytes =
+                            std::slice::from_raw_parts(credential.CredentialBlob, size).to_vec();
                         SecretMaterial::new(bytes)
                     }
                 }
@@ -196,7 +197,10 @@ mod tests {
         let reference = CredentialRef::parse("cred_test").unwrap();
         let target = PlatformSecretBackend::target_name(&reference, &account()).unwrap();
         let text = String::from_utf16(&target[..target.len() - 1]).unwrap();
-        assert_eq!(text, "Hank/credential/v1/project_test/mock/account_test/cred_test");
+        assert_eq!(
+            text,
+            "Hank/credential/v1/project_test/mock/account_test/cred_test"
+        );
         assert!(!text.contains("secret"));
     }
 

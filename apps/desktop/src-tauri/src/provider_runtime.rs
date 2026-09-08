@@ -8,19 +8,21 @@
 use crate::provider_transport::{
     CredentialMaterialResolver, DesktopHttpTransport, ReqwestExecutor, StoreCredentialResolver,
 };
+use futures_util::stream;
 use provider_adapter_openai::{
     AdapterError, EndpointPolicy, OpenAiModel, OpenAiProvider, OpenAiProviderDescriptor,
     ProviderDescriptorError,
 };
 use provider_core::capabilities::CapabilityReport;
-use provider_core::response::{FinishReason as NormalizedFinishReason, OutputPartKind, ResponseStatus};
+use provider_core::response::{
+    FinishReason as NormalizedFinishReason, OutputPartKind, ResponseStatus,
+};
 use provider_core::stream::StreamEventPayload;
 use provider_core::{
     CancellationToken, FinishReason, HealthStatus, ModelDescriptor, ModelProvider,
     ModelProviderError, ProviderFuture, ProviderId, ProviderRequest, ProviderResponse,
     ProviderStream, ProviderStreamEvent, StreamConfig, Usage,
 };
-use futures_util::stream;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -60,7 +62,12 @@ where
     R: CredentialMaterialResolver + Clone + 'static,
     E: crate::provider_transport::RequestExecutor,
 {
-    pub fn with_executor(endpoint: EndpointPolicy, resolver: R, executor: E, timeout: Duration) -> Self {
+    pub fn with_executor(
+        endpoint: EndpointPolicy,
+        resolver: R,
+        executor: E,
+        timeout: Duration,
+    ) -> Self {
         Self {
             descriptor: OpenAiProviderDescriptor::new(),
             endpoint,
@@ -77,8 +84,16 @@ where
     fn normalized_request(
         &self,
         request: ProviderRequest,
-    ) -> Result<(provider_core::request::NormalizedRequest, provider_core::CredentialRef), ModelProviderError> {
-        let normalized = request.normalized.ok_or(ModelProviderError::InvalidRequest)?;
+    ) -> Result<
+        (
+            provider_core::request::NormalizedRequest,
+            provider_core::CredentialRef,
+        ),
+        ModelProviderError,
+    > {
+        let normalized = request
+            .normalized
+            .ok_or(ModelProviderError::InvalidRequest)?;
         if normalized.provider_id != *self.descriptor.provider_id()
             || normalized.model_id != request.model_id
         {
@@ -184,7 +199,9 @@ where
     }
 }
 
-fn map_response(response: provider_core::response::NormalizedResponse) -> Result<ProviderResponse, ModelProviderError> {
+fn map_response(
+    response: provider_core::response::NormalizedResponse,
+) -> Result<ProviderResponse, ModelProviderError> {
     if response.status != ResponseStatus::Complete {
         return Err(ModelProviderError::Unavailable);
     }
@@ -222,9 +239,13 @@ fn map_finish_reason(reason: NormalizedFinishReason) -> Result<FinishReason, Mod
     }
 }
 
-fn map_stream_event(event: provider_core::stream::StreamEvent) -> Result<ProviderStreamEvent, ModelProviderError> {
+fn map_stream_event(
+    event: provider_core::stream::StreamEvent,
+) -> Result<ProviderStreamEvent, ModelProviderError> {
     let (text, terminal) = match event.payload {
-        StreamEventPayload::Delta { part } if part.kind == OutputPartKind::Text => (part.content, false),
+        StreamEventPayload::Delta { part } if part.kind == OutputPartKind::Text => {
+            (part.content, false)
+        }
         StreamEventPayload::Finish { .. }
         | StreamEventPayload::Error { .. }
         | StreamEventPayload::Cancel { .. } => (String::new(), true),
@@ -252,17 +273,25 @@ fn map_descriptor_error(error: ProviderDescriptorError) -> ModelProviderError {
         }
         ProviderDescriptorError::Adapter(AdapterError::Transport(transport)) => match transport {
             provider_core::transport::TransportError::Cancelled => ModelProviderError::Cancelled,
-            provider_core::transport::TransportError::RequestTooLarge => ModelProviderError::InvalidRequest,
+            provider_core::transport::TransportError::RequestTooLarge => {
+                ModelProviderError::InvalidRequest
+            }
             provider_core::transport::TransportError::Timeout
             | provider_core::transport::TransportError::Unavailable
-            | provider_core::transport::TransportError::ResponseTooLarge => ModelProviderError::Unavailable,
+            | provider_core::transport::TransportError::ResponseTooLarge => {
+                ModelProviderError::Unavailable
+            }
         },
-        ProviderDescriptorError::Adapter(AdapterError::Response(_)) => ModelProviderError::Unavailable,
+        ProviderDescriptorError::Adapter(AdapterError::Response(_)) => {
+            ModelProviderError::Unavailable
+        }
         ProviderDescriptorError::Adapter(AdapterError::MalformedResponse)
         | ProviderDescriptorError::Adapter(AdapterError::Stream(_))
         | ProviderDescriptorError::Adapter(AdapterError::IncompleteStream)
         | ProviderDescriptorError::Adapter(AdapterError::Endpoint(_))
-        | ProviderDescriptorError::Adapter(AdapterError::InvalidRequest) => ModelProviderError::Internal,
+        | ProviderDescriptorError::Adapter(AdapterError::InvalidRequest) => {
+            ModelProviderError::Internal
+        }
     }
 }
 
@@ -270,31 +299,50 @@ fn map_descriptor_error(error: ProviderDescriptorError) -> ModelProviderError {
 /// endpoint is configured.
 pub fn configured_openai_provider(
     endpoint: EndpointPolicy,
-    store: Arc<crate::provider_credential_store::ProviderCredentialStore<crate::platform_store::PlatformSecretBackend>>,
+    store: Arc<
+        crate::provider_credential_store::ProviderCredentialStore<
+            crate::platform_store::PlatformSecretBackend,
+        >,
+    >,
 ) -> Result<OpenAiRuntimeProvider<StoreCredentialResolver, ReqwestExecutor>, ModelProviderError> {
-    OpenAiRuntimeProvider::new(endpoint, StoreCredentialResolver::new(store), PROVIDER_TIMEOUT)
+    OpenAiRuntimeProvider::new(
+        endpoint,
+        StoreCredentialResolver::new(store),
+        PROVIDER_TIMEOUT,
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::provider_transport::{CredentialMaterialResolver, RequestExecutor};
-    use provider_core::request::{CancellationMetadata, MessageRole, NormalizedMessage, NormalizedRequest, RequestBudget};
+    use provider_core::request::{
+        CancellationMetadata, MessageRole, NormalizedMessage, NormalizedRequest, RequestBudget,
+    };
     use provider_core::transport::{HttpRequest, HttpResponse, TransportError};
     use secrets_core::SecretMaterial;
 
     #[derive(Clone)]
     struct Resolver;
     impl CredentialMaterialResolver for Resolver {
-        fn resolve(&self, _: &provider_core::CredentialRef) -> Result<SecretMaterial, TransportError> {
-            SecretMaterial::new(b"runtime-test-material".to_vec()).map_err(|_| TransportError::Unavailable)
+        fn resolve(
+            &self,
+            _: &provider_core::CredentialRef,
+        ) -> Result<SecretMaterial, TransportError> {
+            SecretMaterial::new(b"runtime-test-material".to_vec())
+                .map_err(|_| TransportError::Unavailable)
         }
     }
 
     #[derive(Clone)]
     struct Executor;
     impl RequestExecutor for Executor {
-        fn execute(&self, _: HttpRequest, _: Duration, _: usize) -> Result<HttpResponse, TransportError> {
+        fn execute(
+            &self,
+            _: HttpRequest,
+            _: Duration,
+            _: usize,
+        ) -> Result<HttpResponse, TransportError> {
             Ok(HttpResponse::ok(br#"{"id":"cmpl-1","model":"gpt-4o-mini","choices":[{"message":{"content":"ok"},"finish_reason":"stop"}]}"#.to_vec()))
         }
     }
@@ -309,17 +357,30 @@ mod tests {
             session_id: Some("session-runtime".into()),
             provider_id: ProviderId::parse("openai").unwrap(),
             model_id: provider_core::ModelId::parse("gpt-4o-mini").unwrap(),
-            messages: vec![NormalizedMessage { role: MessageRole::User, content: "hello".into() }],
-            modalities: std::collections::BTreeSet::from([provider_core::capabilities::ModelModality::Text]),
+            messages: vec![NormalizedMessage {
+                role: MessageRole::User,
+                content: "hello".into(),
+            }],
+            modalities: std::collections::BTreeSet::from([
+                provider_core::capabilities::ModelModality::Text,
+            ]),
             capabilities: provider_core::capabilities::CapabilityRequirement {
-                modalities: std::collections::BTreeSet::from([provider_core::capabilities::ModelModality::Text]),
+                modalities: std::collections::BTreeSet::from([
+                    provider_core::capabilities::ModelModality::Text,
+                ]),
                 features: std::collections::BTreeSet::new(),
                 min_context_tokens: None,
                 min_output_tokens: None,
             },
             tools: Vec::new(),
-            budget: RequestBudget { max_tokens: Some(128), max_cost_micros: None },
-            cancellation: CancellationMetadata { cancellation_id: "cancel-runtime".into(), deadline_unix_ms: None },
+            budget: RequestBudget {
+                max_tokens: Some(128),
+                max_cost_micros: None,
+            },
+            cancellation: CancellationMetadata {
+                cancellation_id: "cancel-runtime".into(),
+                deadline_unix_ms: None,
+            },
             temperature: Some(0.2),
         }
     }
@@ -339,8 +400,20 @@ mod tests {
             "hello",
         )
         .unwrap();
-        assert_eq!(provider.complete(request.clone(), CancellationToken::new()).await.unwrap_err(), ModelProviderError::InvalidRequest);
-        let response = provider.complete(request.with_normalized(normalized()), CancellationToken::new()).await.unwrap();
+        assert_eq!(
+            provider
+                .complete(request.clone(), CancellationToken::new())
+                .await
+                .unwrap_err(),
+            ModelProviderError::InvalidRequest
+        );
+        let response = provider
+            .complete(
+                request.with_normalized(normalized()),
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.text, "ok");
         assert_eq!(response.model_id.as_str(), "gpt-4o-mini");
     }
@@ -348,7 +421,10 @@ mod tests {
     #[tokio::test]
     async fn facade_health_is_not_false_positive_and_models_are_deterministic() {
         let provider = OpenAiRuntimeProvider::with_executor(
-            EndpointPolicy::parse("https://provider.example/v1").unwrap(), Resolver, Executor, Duration::from_secs(5),
+            EndpointPolicy::parse("https://provider.example/v1").unwrap(),
+            Resolver,
+            Executor,
+            Duration::from_secs(5),
         );
         assert_eq!(provider.health().await.unwrap(), HealthStatus::Unavailable);
         assert_eq!(provider.list_models().await.unwrap().len(), 2);

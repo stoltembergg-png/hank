@@ -1,6 +1,8 @@
 //! Bounded HTTPS transport owned by the desktop shell.
 
-use provider_core::transport::{validate_request_body, HttpRequest, HttpResponse, HttpTransport, TransportError};
+use provider_core::transport::{
+    validate_request_body, HttpRequest, HttpResponse, HttpTransport, TransportError,
+};
 use provider_core::{CancellationToken, CredentialRef};
 use secrets_core::SecretMaterial;
 use std::sync::Arc;
@@ -29,7 +31,9 @@ impl CredentialMaterialResolver for StoreCredentialResolver {
         self.store
             .material_for_reference(reference)
             .map_err(|error| match error {
-                provider_core::credentials::CredentialServiceError::Cancelled => TransportError::Cancelled,
+                provider_core::credentials::CredentialServiceError::Cancelled => {
+                    TransportError::Cancelled
+                }
                 provider_core::credentials::CredentialServiceError::Unavailable
                 | provider_core::credentials::CredentialServiceError::Missing
                 | provider_core::credentials::CredentialServiceError::Revoked
@@ -37,7 +41,9 @@ impl CredentialMaterialResolver for StoreCredentialResolver {
                 | provider_core::credentials::CredentialServiceError::InvalidIdentity
                 | provider_core::credentials::CredentialServiceError::InvalidReference
                 | provider_core::credentials::CredentialServiceError::Conflict
-                | provider_core::credentials::CredentialServiceError::Internal => TransportError::Unavailable,
+                | provider_core::credentials::CredentialServiceError::Internal => {
+                    TransportError::Unavailable
+                }
             })
     }
 }
@@ -94,16 +100,13 @@ impl RequestExecutor for ReqwestExecutor {
                 .map_err(|_| TransportError::Unavailable)?;
             builder = builder.header(name, value);
         }
-        let response = builder
-            .body(request.body)
-            .send()
-            .map_err(|error| {
-                if error.is_timeout() {
-                    TransportError::Timeout
-                } else {
-                    TransportError::Unavailable
-                }
-            })?;
+        let response = builder.body(request.body).send().map_err(|error| {
+            if error.is_timeout() {
+                TransportError::Timeout
+            } else {
+                TransportError::Unavailable
+            }
+        })?;
         if response
             .content_length()
             .is_some_and(|length| length > max_response_bytes as u64)
@@ -222,7 +225,8 @@ mod tests {
 
     impl CredentialMaterialResolver for StaticResolver {
         fn resolve(&self, _: &CredentialRef) -> Result<SecretMaterial, TransportError> {
-            SecretMaterial::new(b"synthetic-provider-material".to_vec()).map_err(|_| TransportError::Unavailable)
+            SecretMaterial::new(b"synthetic-provider-material".to_vec())
+                .map_err(|_| TransportError::Unavailable)
         }
     }
 
@@ -233,7 +237,12 @@ mod tests {
     }
 
     impl RequestExecutor for FakeExecutor {
-        fn execute(&self, request: HttpRequest, _: Duration, _: usize) -> Result<HttpResponse, TransportError> {
+        fn execute(
+            &self,
+            request: HttpRequest,
+            _: Duration,
+            _: usize,
+        ) -> Result<HttpResponse, TransportError> {
             self.seen.lock().unwrap().push(request);
             Ok(self.response.clone())
         }
@@ -243,32 +252,59 @@ mod tests {
         HttpRequest {
             method: "POST".into(),
             url: url.into(),
-            headers: std::collections::BTreeMap::from([(String::from("content-type"), String::from("application/json"))]),
+            headers: std::collections::BTreeMap::from([(
+                String::from("content-type"),
+                String::from("application/json"),
+            )]),
             body: br#"{"prompt":"hello"}"#.to_vec(),
             credential_ref: CredentialRef::parse("cred_transport_test").unwrap(),
         }
     }
 
-    fn transport(response: HttpResponse) -> (DesktopHttpTransport<StaticResolver, FakeExecutor>, Arc<std::sync::Mutex<Vec<HttpRequest>>>) {
+    fn transport(
+        response: HttpResponse,
+    ) -> (
+        DesktopHttpTransport<StaticResolver, FakeExecutor>,
+        Arc<std::sync::Mutex<Vec<HttpRequest>>>,
+    ) {
         let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
-        let executor = FakeExecutor { response, seen: seen.clone() };
-        (DesktopHttpTransport::with_executor(StaticResolver, executor), seen)
+        let executor = FakeExecutor {
+            response,
+            seen: seen.clone(),
+        };
+        (
+            DesktopHttpTransport::with_executor(StaticResolver, executor),
+            seen,
+        )
     }
 
     #[test]
     fn injects_secret_only_as_bounded_authorization_header() {
         let (transport, seen) = transport(HttpResponse::ok(b"{}".to_vec()));
-        let response = transport.send(request("https://provider.example/v1/chat"), Duration::from_secs(5), &CancellationToken::new()).unwrap();
+        let response = transport
+            .send(
+                request("https://provider.example/v1/chat"),
+                Duration::from_secs(5),
+                &CancellationToken::new(),
+            )
+            .unwrap();
         assert_eq!(response.status, 200);
         let request = seen.lock().unwrap().first().cloned().unwrap();
-        assert_eq!(request.headers.get("Authorization").map(String::as_str), Some("Bearer synthetic-provider-material"));
+        assert_eq!(
+            request.headers.get("Authorization").map(String::as_str),
+            Some("Bearer synthetic-provider-material")
+        );
         assert!(!String::from_utf8_lossy(&request.body).contains("synthetic-provider-material"));
     }
 
     #[test]
     fn rejects_insecure_endpoint_before_resolving_or_network() {
         let (transport, seen) = transport(HttpResponse::ok(b"{}".to_vec()));
-        let result = transport.send(request("http://provider.example/v1/chat"), Duration::from_secs(5), &CancellationToken::new());
+        let result = transport.send(
+            request("http://provider.example/v1/chat"),
+            Duration::from_secs(5),
+            &CancellationToken::new(),
+        );
         assert_eq!(result, Err(TransportError::Unavailable));
         assert!(seen.lock().unwrap().is_empty());
     }
@@ -278,9 +314,23 @@ mod tests {
         let (first, _) = transport(HttpResponse::ok(vec![b'x'; 16]));
         let cancelled = CancellationToken::new();
         cancelled.cancel();
-        assert_eq!(first.send(request("https://provider.example/v1/chat"), Duration::from_secs(5), &cancelled), Err(TransportError::Cancelled));
+        assert_eq!(
+            first.send(
+                request("https://provider.example/v1/chat"),
+                Duration::from_secs(5),
+                &cancelled
+            ),
+            Err(TransportError::Cancelled)
+        );
         let (limited, _) = transport(HttpResponse::ok(vec![b'x'; 16]));
         let limited = limited.with_max_response_bytes(8);
-        assert_eq!(limited.send(request("https://provider.example/v1/chat"), Duration::from_secs(5), &CancellationToken::new()), Err(TransportError::ResponseTooLarge));
+        assert_eq!(
+            limited.send(
+                request("https://provider.example/v1/chat"),
+                Duration::from_secs(5),
+                &CancellationToken::new()
+            ),
+            Err(TransportError::ResponseTooLarge)
+        );
     }
 }

@@ -10,7 +10,7 @@ use agent_core::ids::ProjectId;
 use agent_core::project::{Project, ProjectRepository, ProjectStatus};
 use agent_runtime::project_repo::SqliteProjectRepository;
 use agent_runtime::SqliteStorage;
-use auth_core::callback::{CallbackError, OAuthCallbackHandler, CallbackUrl};
+use auth_core::callback::{CallbackError, CallbackUrl, OAuthCallbackHandler};
 use auth_core::{
     AuthorizationCode, CodeChallenge, OAuthError, OAuthFlowContext, OAuthState, PkceVerifier,
     RedirectUri, TokenExchangeBackend,
@@ -241,8 +241,7 @@ impl ProviderSettingsBridgeState {
             oauth: Arc::new(OAuthCallbackHandler::new(FixtureTokenExchange)),
             accounts: Arc::new(Mutex::new(BTreeMap::new())),
             flows: Arc::new(Mutex::new(BTreeMap::new())),
-            enabled: cfg!(debug_assertions)
-                || std::env::var(MOCK_ENV).ok().as_deref() == Some("1"),
+            enabled: cfg!(debug_assertions) || std::env::var(MOCK_ENV).ok().as_deref() == Some("1"),
         }
     }
 
@@ -293,8 +292,12 @@ impl ProviderSettingsBridgeState {
                 "project is not active",
             ));
         }
-        let scope = ProjectScopeId::parse(format!("project_{parsed}"))
-            .map_err(|_| ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "invalid project scope"))?;
+        let scope = ProjectScopeId::parse(format!("project_{parsed}")).map_err(|_| {
+            ProviderSettingsBridgeError::new(
+                ProviderSettingsErrorCode::Internal,
+                "invalid project scope",
+            )
+        })?;
         Ok((project, scope))
     }
 
@@ -362,15 +365,26 @@ impl ProviderSettingsBridgeState {
             .unwrap_or(0)
     }
 
-    fn new_flow_material() -> Result<(OAuthState, PkceVerifier, CodeChallenge), ProviderSettingsBridgeError> {
-        let state = OAuthState::parse(format!("state_{}", Uuid::new_v4().simple()))
-            .map_err(|_| ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "could not create OAuth state"))?;
+    fn new_flow_material(
+    ) -> Result<(OAuthState, PkceVerifier, CodeChallenge), ProviderSettingsBridgeError> {
+        let state =
+            OAuthState::parse(format!("state_{}", Uuid::new_v4().simple())).map_err(|_| {
+                ProviderSettingsBridgeError::new(
+                    ProviderSettingsErrorCode::Internal,
+                    "could not create OAuth state",
+                )
+            })?;
         let verifier = PkceVerifier::parse(format!(
             "{}{}",
             Uuid::new_v4().simple(),
             Uuid::new_v4().simple()
         ))
-        .map_err(|_| ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "could not create PKCE verifier"))?;
+        .map_err(|_| {
+            ProviderSettingsBridgeError::new(
+                ProviderSettingsErrorCode::Internal,
+                "could not create PKCE verifier",
+            )
+        })?;
         let challenge = CodeChallenge::from_verifier(&verifier);
         Ok((state, verifier, challenge))
     }
@@ -422,7 +436,10 @@ pub async fn list_provider_accounts(
     let access = ProviderSettingsBridgeState::access(scope, CancellationToken::new())?;
     let persisted = state.credentials.status(access, account.clone());
     let mut accounts = state.accounts.lock().map_err(|_| {
-        ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "provider state unavailable")
+        ProviderSettingsBridgeError::new(
+            ProviderSettingsErrorCode::Internal,
+            "provider state unavailable",
+        )
     })?;
     let record = accounts.entry(key).or_insert_with(|| AccountRecord {
         account: account.clone(),
@@ -467,10 +484,16 @@ pub async fn start_provider_oauth(
     let key = ProviderSettingsBridgeState::key(&account);
     {
         let accounts = state.accounts.lock().map_err(|_| {
-            ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "provider state unavailable")
+            ProviderSettingsBridgeError::new(
+                ProviderSettingsErrorCode::Internal,
+                "provider state unavailable",
+            )
         })?;
         if let Some(record) = accounts.get(&key) {
-            if matches!(record.status, ProviderAccountState::Connected | ProviderAccountState::Pending) {
+            if matches!(
+                record.status,
+                ProviderAccountState::Connected | ProviderAccountState::Pending
+            ) {
                 return Err(ProviderSettingsBridgeError::new(
                     ProviderSettingsErrorCode::Conflict,
                     "provider account already has a pending or active connection",
@@ -480,20 +503,45 @@ pub async fn start_provider_oauth(
     }
     let (oauth_state, verifier, challenge) = ProviderSettingsBridgeState::new_flow_material()?;
     let now = ProviderSettingsBridgeState::now_ms();
-    let flow_context = OAuthFlowContext::new(now, now.saturating_add(OAUTH_TTL_MS), CancellationToken::new())
-        .map_err(|_| ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "could not create OAuth flow"))?;
+    let flow_context = OAuthFlowContext::new(
+        now,
+        now.saturating_add(OAUTH_TTL_MS),
+        CancellationToken::new(),
+    )
+    .map_err(|_| {
+        ProviderSettingsBridgeError::new(
+            ProviderSettingsErrorCode::Internal,
+            "could not create OAuth flow",
+        )
+    })?;
     let access = ProviderSettingsBridgeState::access(scope.clone(), CancellationToken::new())?;
-    let redirect = RedirectUri::parse(MOCK_REDIRECT_URI)
-        .map_err(|_| ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "invalid OAuth redirect"))?;
+    let redirect = RedirectUri::parse(MOCK_REDIRECT_URI).map_err(|_| {
+        ProviderSettingsBridgeError::new(
+            ProviderSettingsErrorCode::Internal,
+            "invalid OAuth redirect",
+        )
+    })?;
     let request = state
         .oauth
-        .begin(account.clone(), redirect, oauth_state, challenge, access, flow_context)
+        .begin(
+            account.clone(),
+            redirect,
+            oauth_state,
+            challenge,
+            access,
+            flow_context,
+        )
         .map_err(map_callback_error)?;
     let flow_id = request.flow_id.as_str();
     state
         .flows
         .lock()
-        .map_err(|_| ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "provider state unavailable"))?
+        .map_err(|_| {
+            ProviderSettingsBridgeError::new(
+                ProviderSettingsErrorCode::Internal,
+                "provider state unavailable",
+            )
+        })?
         .insert(
             flow_id.clone(),
             FlowRecord {
@@ -507,7 +555,10 @@ pub async fn start_provider_oauth(
             },
         );
     let mut accounts = state.accounts.lock().map_err(|_| {
-        ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "provider state unavailable")
+        ProviderSettingsBridgeError::new(
+            ProviderSettingsErrorCode::Internal,
+            "provider state unavailable",
+        )
     })?;
     let record = accounts.entry(key).or_insert_with(|| AccountRecord {
         account: account.clone(),
@@ -536,7 +587,10 @@ pub async fn get_provider_oauth_status(
     state.ensure_enabled()?;
     let (_project, scope) = state.load_project(&input.project_id).await?;
     let mut flows = state.flows.lock().map_err(|_| {
-        ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "provider state unavailable")
+        ProviderSettingsBridgeError::new(
+            ProviderSettingsErrorCode::Internal,
+            "provider state unavailable",
+        )
     })?;
     let flow = flows.get_mut(&input.flow_id).ok_or_else(|| {
         ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Stale, "OAuth flow is stale")
@@ -547,18 +601,25 @@ pub async fn get_provider_oauth_status(
             "OAuth flow belongs to another project",
         ));
     }
-    if flow.status == OAuthFlowState::Pending && ProviderSettingsBridgeState::now_ms() >= flow.expires_at_ms {
+    if flow.status == OAuthFlowState::Pending
+        && ProviderSettingsBridgeState::now_ms() >= flow.expires_at_ms
+    {
         flow.status = OAuthFlowState::Expired;
         flow.error_code = Some(OAuthErrorCode::Expired);
     }
     let account = if flow.status == OAuthFlowState::Connected {
         let accounts = state.accounts.lock().map_err(|_| {
-            ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "provider state unavailable")
+            ProviderSettingsBridgeError::new(
+                ProviderSettingsErrorCode::Internal,
+                "provider state unavailable",
+            )
         })?;
-        accounts.get(&flow.account_key).map(|record| OAuthAccountStatus {
-            status: ProviderSettingsBridgeState::status(record),
-            project_id: input.project_id.clone(),
-        })
+        accounts
+            .get(&flow.account_key)
+            .map(|record| OAuthAccountStatus {
+                status: ProviderSettingsBridgeState::status(record),
+                project_id: input.project_id.clone(),
+            })
     } else {
         None
     };
@@ -582,10 +643,20 @@ pub async fn complete_provider_oauth(
     let flow = state
         .flows
         .lock()
-        .map_err(|_| ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "provider state unavailable"))?
+        .map_err(|_| {
+            ProviderSettingsBridgeError::new(
+                ProviderSettingsErrorCode::Internal,
+                "provider state unavailable",
+            )
+        })?
         .get(flow_id.as_str())
         .cloned()
-        .ok_or_else(|| ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Stale, "OAuth flow is stale"))?;
+        .ok_or_else(|| {
+            ProviderSettingsBridgeError::new(
+                ProviderSettingsErrorCode::Stale,
+                "OAuth flow is stale",
+            )
+        })?;
     if flow.project_scope != scope {
         return Err(ProviderSettingsBridgeError::new(
             ProviderSettingsErrorCode::Unauthorized,
@@ -602,32 +673,51 @@ pub async fn complete_provider_oauth(
     let context = OAuthFlowContext::new(now, flow.expires_at_ms, CancellationToken::new())
         .map_err(|error| map_callback_error(CallbackError::OAuth(error)))?;
     let access = ProviderSettingsBridgeState::access(scope, CancellationToken::new())?;
-    let credential_ref = match state.oauth.complete(&input.callback_url, access.clone(), context, flow.verifier) {
-        Ok(result) => result.credential_ref,
-        Err(error) => {
-            if let Ok(mut flows) = state.flows.lock() {
-                if let Some(record) = flows.get_mut(flow_id.as_str()) {
-                    record.status = flow_state_from_callback_error(&error);
-                    record.error_code = flow_error_code(&error);
+    let credential_ref =
+        match state
+            .oauth
+            .complete(&input.callback_url, access.clone(), context, flow.verifier)
+        {
+            Ok(result) => result.credential_ref,
+            Err(error) => {
+                if let Ok(mut flows) = state.flows.lock() {
+                    if let Some(record) = flows.get_mut(flow_id.as_str()) {
+                        record.status = flow_state_from_callback_error(&error);
+                        record.error_code = flow_error_code(&error);
+                    }
                 }
+                return Err(map_callback_error(error));
             }
-            return Err(map_callback_error(error));
-        }
-    };
-    let fixture_material = SecretMaterial::new(
-        format!("fixture-material:{}", credential_ref.as_str()).into_bytes(),
-    )
-    .map_err(|_| ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "provider credential material is invalid"))?;
+        };
+    let fixture_material =
+        SecretMaterial::new(format!("fixture-material:{}", credential_ref.as_str()).into_bytes())
+            .map_err(|_| {
+            ProviderSettingsBridgeError::new(
+                ProviderSettingsErrorCode::Internal,
+                "provider credential material is invalid",
+            )
+        })?;
     state
         .credentials
-        .connect_with_material(access, flow.account.clone(), credential_ref.clone(), fixture_material)
+        .connect_with_material(
+            access,
+            flow.account.clone(),
+            credential_ref.clone(),
+            fixture_material,
+        )
         .map_err(map_credential_error)?;
     let account_status = {
         let mut accounts = state.accounts.lock().map_err(|_| {
-            ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "provider state unavailable")
+            ProviderSettingsBridgeError::new(
+                ProviderSettingsErrorCode::Internal,
+                "provider state unavailable",
+            )
         })?;
         let record = accounts.get_mut(&flow.account_key).ok_or_else(|| {
-            ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "provider account state unavailable")
+            ProviderSettingsBridgeError::new(
+                ProviderSettingsErrorCode::Internal,
+                "provider account state unavailable",
+            )
         })?;
         record.status = ProviderAccountState::Connected;
         record.credential_ref = Some(credential_ref);
@@ -663,10 +753,16 @@ pub async fn disconnect_provider_account(
     let key = ProviderSettingsBridgeState::key(&account);
     let access = ProviderSettingsBridgeState::access(scope, CancellationToken::new())?;
     let mut accounts = state.accounts.lock().map_err(|_| {
-        ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "provider state unavailable")
+        ProviderSettingsBridgeError::new(
+            ProviderSettingsErrorCode::Internal,
+            "provider state unavailable",
+        )
     })?;
     let record = accounts.get_mut(&key).ok_or_else(|| {
-        ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::NotFound, "provider account not found")
+        ProviderSettingsBridgeError::new(
+            ProviderSettingsErrorCode::NotFound,
+            "provider account not found",
+        )
     })?;
     if record.status == ProviderAccountState::Connected {
         state
@@ -759,7 +855,11 @@ mod tests {
 
     #[test]
     fn fixture_account_never_accepts_a_different_provider_or_account() {
-        assert!(ProviderSettingsBridgeState::validate_fixture_account(MOCK_PROVIDER_ID, MOCK_ACCOUNT_ID).is_ok());
+        assert!(ProviderSettingsBridgeState::validate_fixture_account(
+            MOCK_PROVIDER_ID,
+            MOCK_ACCOUNT_ID
+        )
+        .is_ok());
         assert_eq!(
             ProviderSettingsBridgeState::validate_fixture_account("openai", MOCK_ACCOUNT_ID)
                 .unwrap_err()
@@ -767,16 +867,20 @@ mod tests {
             ProviderSettingsErrorCode::ProviderMismatch
         );
         assert_eq!(
-            ProviderSettingsBridgeState::validate_fixture_account(MOCK_PROVIDER_ID, "account_other")
-                .unwrap_err()
-                .code,
+            ProviderSettingsBridgeState::validate_fixture_account(
+                MOCK_PROVIDER_ID,
+                "account_other"
+            )
+            .unwrap_err()
+            .code,
             ProviderSettingsErrorCode::AccountMismatch
         );
     }
 
     #[test]
     fn oauth_material_is_bounded_and_does_not_expose_verifier_or_state() {
-        let (state, verifier, challenge) = ProviderSettingsBridgeState::new_flow_material().unwrap();
+        let (state, verifier, challenge) =
+            ProviderSettingsBridgeState::new_flow_material().unwrap();
         assert!(state.as_str().starts_with("state_"));
         assert_eq!(verifier.as_str().len(), 64);
         assert_eq!(challenge.as_str().len(), 43);
