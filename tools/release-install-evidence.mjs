@@ -33,13 +33,17 @@ export function validateInstallSmokeReports(
   }
   if (!Array.isArray(reports)) throw new Error('release install evidence reports are missing');
 
+  const expectedPlatforms = new Set(platforms);
   const byPlatform = new Map();
   for (const candidate of reports) {
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
       throw new Error('release install evidence report is malformed');
     }
     const platform = candidate.platform;
-    if (typeof platform !== 'string' || byPlatform.has(platform)) {
+    if (typeof platform !== 'string' || !expectedPlatforms.has(platform)) {
+      throw new Error(`unexpected install smoke evidence: ${String(platform)}`);
+    }
+    if (byPlatform.has(platform)) {
       throw new Error(`duplicate or malformed install smoke evidence: ${String(platform)}`);
     }
     byPlatform.set(platform, candidate);

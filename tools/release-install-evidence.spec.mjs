@@ -95,6 +95,15 @@ test('release promotion rejects missing, stale, and limited evidence', () => {
   );
   assert.throws(
     () => validateInstallSmokeReports([
+      report('windows-x86_64'),
+      report('linux-x86_64'),
+      report('macos-aarch64'),
+      report('windows-arm64'),
+    ], { commit, tree }),
+    /unexpected install smoke evidence: windows-arm64/,
+  );
+  assert.throws(
+    () => validateInstallSmokeReports([
       report('windows-x86_64', { releaseTag: 'v0.0.1' }),
       report('linux-x86_64'),
       report('macos-aarch64'),
