@@ -286,6 +286,9 @@ jobs:
       - name: Bind release signing evidence identity
         run: node tools/security/bind-release-signing-evidence.mjs
 
+      - name: Verify release rollback
+        run: node tools/ci/run-onp-spec.mjs verify release-rollback
+
       - name: Verify contract evidence scope
         env:
           HANK_ALLOW_GENERATED_EVIDENCE: '1'

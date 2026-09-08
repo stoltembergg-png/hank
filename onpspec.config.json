@@ -14,7 +14,8 @@
     "provider-compatibility-tests": "node tools/security/provider-compatibility-feature-tests.mjs",
     "evidence-scope-reconciliation": "node tools/security/evidence-scope-feature-tests.mjs",
     "remote-tool-execution": "node --test test/remote-tool-execution-onp.test.mjs",
-    "remote-project-support": "node --test test/remote-project-support-onp.test.mjs"
+    "remote-project-support": "node --test test/remote-project-support-onp.test.mjs",
+    "release-rollback": "node --test test/release-rollback-onp.test.mjs"
   },
   "reporter": "exitcode",
   "reporters": {
@@ -31,7 +32,8 @@
     "provider-compatibility-tests": "tap",
     "evidence-scope-reconciliation": "tap",
     "remote-tool-execution": "tap",
-    "remote-project-support": "tap"
+    "remote-project-support": "tap",
+    "release-rollback": "tap"
   },
   "testGlobs": [
     "test/**/*.js",
