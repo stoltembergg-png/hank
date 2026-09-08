@@ -209,9 +209,10 @@ impl UpdateManager {
         {
             return Err(UpdateError::PolicyMismatch);
         }
-        let public_key = base64::engine::general_purpose::STANDARD
+        let public_key_der = base64::engine::general_purpose::STANDARD
             .decode(&self.policy.trusted_public_key_der_b64)
             .map_err(|_| UpdateError::UntrustedSigner)?;
+        let public_key = ed25519_raw_public_key(&public_key_der).ok_or(UpdateError::UntrustedSigner)?;
         let signature_bytes = base64::engine::general_purpose::STANDARD
             .decode(&attestation.signature.value)
             .map_err(|_| UpdateError::InvalidSignature)?;
@@ -389,6 +390,16 @@ fn digest(bytes: &[u8]) -> String {
     format!("sha256:{:x}", hasher.finalize())
 }
 
+fn ed25519_raw_public_key(encoded: &[u8]) -> Option<&[u8]> {
+    if encoded.len() == 32 {
+        return Some(encoded);
+    }
+    // SubjectPublicKeyInfo for Ed25519 has a fixed 12-byte prefix followed by
+    // the 32-byte raw public key. Release attestations use this DER form.
+    const SPKI_PREFIX: &[u8] = &[0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00];
+    encoded.strip_prefix(SPKI_PREFIX).filter(|key| key.len() == 32)
+}
+
 fn write_json_sync<T: Serialize>(path: &Path, value: &T) -> Result<(), UpdateError> {
     let data = serde_json::to_vec(value).map_err(|_| UpdateError::Filesystem)?;
     let mut file = File::create(path).map_err(|_| UpdateError::Filesystem)?;
@@ -420,13 +431,15 @@ mod tests {
         let rng = SystemRandom::new();
         let key = ring::signature::Ed25519KeyPair::generate_pkcs8(&rng).unwrap();
         let keypair = ring::signature::Ed25519KeyPair::from_pkcs8(key.as_ref()).unwrap();
+        let mut public_key_der = vec![0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00];
+        public_key_der.extend_from_slice(keypair.public_key().as_ref());
         let policy = UpdatePolicy {
             channel: "stable".into(), os: "windows".into(), arch: "x86_64".into(),
             current_version: 3, minimum_version: 3, max_bytes: 1024, now: 100,
             repository: "stoltembergg-png/hank".into(), event: "release".into(),
             workflow: "release.yml".into(), policy: "updater-v1".into(),
             trusted_key_id: "fixture-v1".into(),
-            trusted_public_key_der_b64: base64::engine::general_purpose::STANDARD.encode(keypair.public_key().as_ref()),
+            trusted_public_key_der_b64: base64::engine::general_purpose::STANDARD.encode(public_key_der),
         };
         (UpdateManager::new(root, policy), keypair)
     }
