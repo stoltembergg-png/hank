@@ -440,6 +440,12 @@ fn parse_stream_chunks(body: &[u8]) -> Result<Vec<OpenAiStreamChunk>, AdapterErr
         if line.is_empty() || line.starts_with(':') {
             continue;
         }
+        // SSE permits metadata fields alongside data frames. OpenAI does not
+        // currently require them, but compatible gateways may emit event/id
+        // or retry hints that are irrelevant to the normalized stream.
+        if line.starts_with("event:") || line.starts_with("id:") || line.starts_with("retry:") {
+            continue;
+        }
         let data = line
             .strip_prefix("data:")
             .ok_or(AdapterError::MalformedResponse)?;

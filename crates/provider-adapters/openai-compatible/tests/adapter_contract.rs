@@ -158,6 +158,7 @@ fn stream_maps_real_openai_sse_framing_to_terminal_events() {
     let transport = MockTransport::response(
         concat!(
             ": keep-alive\n\n",
+            "event: message\nid: response-1\nretry: 1000\n",
             "data: {\"choices\":[{\"delta\":{\"content\":\"hel\"},\"finish_reason\":null}]}\n\n",
             "data: {\"choices\":[{\"delta\":{\"content\":\"lo\"},\"finish_reason\":null}],\"usage\":{\"prompt_tokens\":2,\"completion_tokens\":2}}\n\n",
             "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
