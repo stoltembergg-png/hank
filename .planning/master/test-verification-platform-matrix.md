@@ -34,10 +34,10 @@
 
 | Capability | Linux | Windows | macOS |
 |---|---|---|---|
-| Rust core | existing CI | existing CI | NO_PROOF until workflow exists |
-| Tauri build | existing CI | packaging path exists | NO_PROOF until workflow exists |
+| Rust core | existing CI | existing CI | macOS-14 workflow exists; exact-run evidence is still `NO_PROOF` |
+| Tauri build | existing CI | packaging path exists | macOS-14 DMG workflow exists; exact-run evidence is still `NO_PROOF` |
 | Browser E2E | Chromium existing | future observed runner | future observed runner |
-| Native desktop E2E | PR-358/359 | PR-360 | PR-360 |
-| Install smoke | PR-370 | PR-370 | future claim only after runner evidence |
+| Native desktop E2E | PR-358/359 | PR-360 | PR-360 macOS runner configured; exact-run evidence is still `NO_PROOF` |
+| Install smoke | PR-370 | PR-370 | macOS clean-room lane configured; protected artifact evidence still `NO_PROOF` |
 
 No matrix cell is promoted from another OS. Absence is `NO_PROOF`, not PASS.
