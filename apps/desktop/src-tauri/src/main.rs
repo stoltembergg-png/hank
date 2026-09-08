@@ -12,6 +12,7 @@ pub mod platform_store;
 pub mod provider_credential_store;
 pub mod provider_transport;
 pub mod provider_runtime;
+pub mod updater;
 pub mod sessions;
 pub mod skills;
 pub mod streaming;
