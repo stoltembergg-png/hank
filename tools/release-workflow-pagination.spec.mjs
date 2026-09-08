@@ -18,4 +18,14 @@ test('prerelease preflight slurps paginated compare responses before jq parsing'
     !workflow.includes(`split("\\\\n")`),
     'PR aggregation must not split on the literal backslash-n sequence',
   );
+  assert.equal(
+    workflow.match(/^ {10}NODE\r?$/gm)?.length,
+    2,
+    'release workflow heredoc terminators must align with the run block',
+  );
+  assert.doesNotMatch(
+    workflow,
+    /^ {12}NODE\r?$/m,
+    'indented heredoc terminators fail shellcheck/actionlint',
+  );
 });

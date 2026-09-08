@@ -166,7 +166,7 @@ jobs:
             }
             const checks = pages.flatMap((page) => page.check_runs.map(({ name, status, conclusion }) => ({ name, status, conclusion })));
             process.stdout.write(`${JSON.stringify(checks)}\n`);
-            NODE
+          NODE
             node tools/release-prerelease.mjs checks --file /tmp/checks.json --required "$required" && exit 0
             sleep 30
           done
