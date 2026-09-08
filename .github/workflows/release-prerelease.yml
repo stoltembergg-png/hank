@@ -105,7 +105,8 @@ jobs:
           previous_release=$(gh api "repos/$REPOSITORY/releases/tags/$PREVIOUS_STABLE_TAG")
           test "$(printf '%s' "$previous_release" | jq -r .prerelease)" = false
           range="$PREVIOUS_STABLE_TAG..$SHA"
-          commits=$(gh api --paginate "repos/$REPOSITORY/compare/$PREVIOUS_STABLE_TAG...$SHA" --jq '.commits[].sha')
+          compare_pages=$(gh api --paginate "repos/$REPOSITORY/compare/$PREVIOUS_STABLE_TAG...$SHA")
+          commits=$(printf '%s\n' "$compare_pages" | jq -rs '.[].commits[]?.sha')
           prs=$(for commit_sha in $commits; do gh api "repos/$REPOSITORY/commits/$commit_sha/pulls" --jq '.[].number'; done | jq -Rsc 'split("\n") | map(select(length > 0) | tonumber) | unique | sort')
           test "$prs" != "[]"
           card_number=${RELEASE_CARD#PR-}

@@ -75,3 +75,6 @@ jobs:
 
       - name: Validate protected updater bundle signing
         run: node --test tools/release-updater-bundle.spec.mjs
+
+      - name: Validate release preflight pagination
+        run: node --test tools/release-workflow-pagination.spec.mjs
