@@ -46,6 +46,7 @@ export function ProviderSettingsPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
+  const [authorizationUrl, setAuthorizationUrl] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busyAccount, setBusyAccount] = useState<string | null>(null);
 
@@ -81,6 +82,7 @@ export function ProviderSettingsPage({
         account_id: account.account_id,
       });
       setPending(started.flow_id);
+      setAuthorizationUrl(started.authorization_url);
       setMessage('OAuth pendente. Aguardando retorno validado.');
       await new Promise((resolve) => window.setTimeout(resolve, 25));
       const status = await apiClient.getOAuthStatus({
@@ -101,6 +103,7 @@ export function ProviderSettingsPage({
         ));
         setMessage('Provider conectado com sucesso.');
         setPending(null);
+        setAuthorizationUrl(null);
       } else if (status.state !== 'pending') {
         setError(callbackError(status));
       }
@@ -125,6 +128,8 @@ export function ProviderSettingsPage({
         accountKey(item) === accountKey(account) ? result : item,
       ));
       setMessage('Provider revogado com sucesso.');
+      setPending(null);
+      setAuthorizationUrl(null);
     } catch {
       setError('Não foi possível desconectar o provider.');
     } finally {
@@ -191,7 +196,16 @@ export function ProviderSettingsPage({
           })}
         </section>
       )}
-      {pending && <span className="sr-only">Fluxo pendente</span>}
+      {pending && (
+        <div className="provider-oauth-pending">
+          <span className="sr-only">Fluxo pendente</span>
+          {authorizationUrl && (
+            <a href={authorizationUrl} target="_blank" rel="noreferrer">
+              Abrir autorização OAuth
+            </a>
+          )}
+        </div>
+      )}
     </main>
   );
 }

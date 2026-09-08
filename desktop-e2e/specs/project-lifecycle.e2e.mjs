@@ -294,6 +294,51 @@ try {
   if (invalid.state !== 'invalid' || invalid.error_code !== 'state_mismatch') {
     throw new Error(`provider: invalid callback did not produce a stable redacted status: ${JSON.stringify(invalid)}`);
   }
+  const reset = await browser.invoke('disconnect_provider_account', {
+    project_id: project.id,
+    provider_id: 'mock',
+    account_id: 'account_mock',
+  });
+  if (reset.state !== 'revoked' || reset.has_credential_ref) {
+    throw new Error(`provider: disconnect did not clear fixture account state: ${JSON.stringify(reset)}`);
+  }
+  const validOAuth = await browser.invoke('start_provider_oauth', {
+    project_id: project.id,
+    provider_id: 'mock',
+    account_id: 'account_mock',
+  });
+  if (!validOAuth.authorization_url?.startsWith('hank://oauth/authorize?')) {
+    throw new Error(`provider: OAuth start did not return a bounded authorization URL: ${JSON.stringify(validOAuth)}`);
+  }
+  const authorization = new URL(validOAuth.authorization_url);
+  const state = authorization.searchParams.get('state');
+  if (!state || authorization.searchParams.get('flow') !== validOAuth.flow_id) {
+    throw new Error(`provider: authorization URL omitted flow/state binding: ${validOAuth.authorization_url}`);
+  }
+  const connected = await browser.invoke('complete_provider_oauth', {
+    project_id: project.id,
+    callback_url: `hank://oauth/callback?flow=${validOAuth.flow_id}&provider=mock&account=account_mock&state=${state}&code=fixture`,
+  });
+  if (connected.state !== 'connected' || connected.account?.project_id !== project.id || !connected.account?.has_credential_ref) {
+    throw new Error(`provider: valid callback did not connect the scoped account: ${JSON.stringify(connected)}`);
+  }
+  let replayRejected = false;
+  try {
+    await browser.invoke('complete_provider_oauth', {
+      project_id: project.id,
+      callback_url: `hank://oauth/callback?flow=${validOAuth.flow_id}&provider=mock&account=account_mock&state=${state}&code=fixture`,
+    });
+  } catch (error) {
+    replayRejected = Boolean(error);
+  }
+  if (!replayRejected) throw new Error('provider: replayed OAuth callback was accepted');
+  const afterReplay = await browser.invoke('get_provider_oauth_status', {
+    project_id: project.id,
+    flow_id: validOAuth.flow_id,
+  });
+  if (afterReplay.state !== 'connected') {
+    throw new Error(`provider: replay changed a connected flow state: ${JSON.stringify(afterReplay)}`);
+  }
   const revoked = await browser.invoke('disconnect_provider_account', {
     project_id: project.id,
     provider_id: 'mock',

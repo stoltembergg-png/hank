@@ -18,6 +18,7 @@ export interface OAuthStartInput {
 export interface OAuthStartResult {
   flow_id: string;
   state: 'pending';
+  authorization_url: string;
 }
 
 export interface OAuthFlowStatus {

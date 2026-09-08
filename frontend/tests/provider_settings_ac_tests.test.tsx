@@ -28,7 +28,11 @@ const revoked: ProviderAccountStatus = {
 function createApi(): ProviderSettingsApiClient {
   return {
     list: vi.fn().mockResolvedValue([connected, revoked]),
-    startOAuth: vi.fn().mockResolvedValue({ flow_id: 'flow_1', state: 'pending' }),
+    startOAuth: vi.fn().mockResolvedValue({
+      flow_id: 'flow_1',
+      state: 'pending',
+      authorization_url: 'hank://oauth/authorize?flow=flow_1&state=state_fixture',
+    }),
     getOAuthStatus: vi.fn().mockResolvedValue({ flow_id: 'flow_1', state: 'connected', account: connected }),
     disconnect: vi.fn().mockResolvedValue({ ...connected, state: 'revoked', has_credential_ref: false }),
   };
@@ -71,6 +75,10 @@ describe('ProviderSettingsPage', () => {
       account_id: 'account_1',
     }));
     expect(await screen.findByText(/OAuth pendente/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Abrir autorização OAuth' })).toHaveAttribute(
+      'href',
+      'hank://oauth/authorize?flow=flow_1&state=state_fixture',
+    );
   });
 
   it('shows successful OAuth callback status without rendering callback data', async () => {

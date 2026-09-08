@@ -31,6 +31,7 @@ const MOCK_PROVIDER_ID: &str = "mock";
 const MOCK_ACCOUNT_ID: &str = "account_mock";
 const MOCK_CREDENTIAL_REF: &str = "cred_oauth_fixture";
 const MOCK_REDIRECT_URI: &str = "http://127.0.0.1/hank/oauth/callback";
+const MOCK_AUTHORIZATION_URI: &str = "hank://oauth/authorize";
 const MOCK_ACTOR_ID: &str = "desktop-webview";
 const MOCK_ENV: &str = "HANK_E2E_MOCK_PROVIDER";
 const OAUTH_TTL_MS: u64 = 5 * 60 * 1_000;
@@ -82,6 +83,7 @@ pub enum OAuthErrorCode {
 pub struct OAuthStartResult {
     pub flow_id: String,
     pub state: OAuthFlowState,
+    pub authorization_url: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -366,6 +368,14 @@ impl ProviderSettingsBridgeState {
         Ok((state, verifier, challenge))
     }
 
+    fn authorization_url(flow_id: &str, state: &OAuthState, challenge: &CodeChallenge) -> String {
+        format!(
+            "{MOCK_AUTHORIZATION_URI}?flow={flow_id}&provider={MOCK_PROVIDER_ID}&account={MOCK_ACCOUNT_ID}&state={}&code_challenge={}",
+            state.as_str(),
+            challenge.as_str()
+        )
+    }
+
     fn validate_fixture_account(
         provider_id: &str,
         account_id: &str,
@@ -476,6 +486,11 @@ pub async fn start_provider_oauth(
     Ok(OAuthStartResult {
         flow_id: flow_id.clone(),
         state: OAuthFlowState::Pending,
+        authorization_url: ProviderSettingsBridgeState::authorization_url(
+            flow_id.as_str(),
+            &request.state,
+            &request.code_challenge,
+        ),
     })
 }
 
@@ -543,6 +558,12 @@ pub async fn complete_provider_oauth(
             "OAuth flow belongs to another project",
         ));
     }
+    if flow.status == OAuthFlowState::Connected {
+        return Err(ProviderSettingsBridgeError::new(
+            ProviderSettingsErrorCode::Replay,
+            "OAuth flow was already completed",
+        ));
+    }
     let now = ProviderSettingsBridgeState::now_ms();
     let context = OAuthFlowContext::new(now, flow.expires_at_ms, CancellationToken::new())
         .map_err(|error| map_callback_error(CallbackError::OAuth(error)))?;
@@ -563,7 +584,7 @@ pub async fn complete_provider_oauth(
         .credentials
         .connect(access, flow.account.clone(), credential_ref.clone())
         .map_err(map_credential_error)?;
-    {
+    let account_status = {
         let mut accounts = state.accounts.lock().map_err(|_| {
             ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "provider state unavailable")
         })?;
@@ -573,7 +594,8 @@ pub async fn complete_provider_oauth(
         record.status = ProviderAccountState::Connected;
         record.credential_ref = Some(credential_ref);
         record.updated_at = chrono::Utc::now().to_rfc3339();
-    }
+        ProviderSettingsBridgeState::status(record)
+    };
     if let Ok(mut flows) = state.flows.lock() {
         if let Some(record) = flows.get_mut(flow_id.as_str()) {
             record.status = OAuthFlowState::Connected;
@@ -584,7 +606,10 @@ pub async fn complete_provider_oauth(
         flow_id,
         state: OAuthFlowState::Connected,
         error_code: None,
-        account: None,
+        account: Some(OAuthAccountStatus {
+            status: account_status,
+            project_id: input.project_id,
+        }),
     })
 }
 
@@ -719,6 +744,25 @@ mod tests {
         assert_eq!(challenge.as_str().len(), 43);
         assert!(!format!("{state:?}").contains(state.as_str()));
         assert!(!format!("{verifier:?}").contains(verifier.as_str()));
+    }
+
+    #[test]
+    fn fixture_authorization_url_contains_public_flow_material_only() {
+        let state = OAuthState::parse("state_fixture").unwrap();
+        let verifier = PkceVerifier::parse(
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_~.",
+        )
+        .unwrap();
+        let challenge = CodeChallenge::from_verifier(&verifier);
+        let url = ProviderSettingsBridgeState::authorization_url("flow_7", &state, &challenge);
+
+        assert!(url.starts_with("hank://oauth/authorize?"));
+        assert!(url.contains("flow=flow_7"));
+        assert!(url.contains("provider=mock"));
+        assert!(url.contains("account=account_mock"));
+        assert!(url.contains("state=state_fixture"));
+        assert!(url.contains(&format!("code_challenge={}", challenge.as_str())));
+        assert!(!url.contains(verifier.as_str()));
     }
 
     #[test]
