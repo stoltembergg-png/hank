@@ -36,3 +36,20 @@ test('release install smoke runners promote only a real updater report', () => {
   assert.match(windows, /upgradeRollback/);
   assert.match(windows, /PASS_LIMITED/);
 });
+
+test('protected release updater bundles are verified before native E2E', () => {
+  const helper = read('desktop-e2e/updater-release-env.mjs');
+  const lifecycle = read('desktop-e2e/specs/project-lifecycle.e2e.mjs');
+  const workflow = read('.github/workflows/release-prerelease.yml');
+  const stableWorkflow = read('.github/workflows/release-milestone.yml');
+  assert.match(helper, /verifyUpdaterBundle/);
+  assert.match(helper, /assertPublicKeyMatches/);
+  assert.match(lifecycle, /protected-release-signed-artifact/);
+  assert.match(lifecycle, /HANK_UPDATER_RELEASE_ARTIFACT/);
+  assert.match(workflow, /release-updater-bundle\.mjs create/);
+  assert.match(workflow, /Download protected updater bundles/);
+  assert.match(workflow, /HANK_UPDATER_REQUIRE_RELEASE_BUNDLE/);
+  assert.match(stableWorkflow, /release-updater-bundle\.mjs create/);
+  assert.match(stableWorkflow, /windows-updater\.json/);
+  assert.match(stableWorkflow, /linux-updater\.json/);
+});

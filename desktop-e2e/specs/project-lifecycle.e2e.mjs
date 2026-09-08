@@ -195,26 +195,59 @@ function signedUpdaterMetadata(version) {
   };
 }
 
+async function protectedUpdaterMetadata(update) {
+  const bundlePath = process.env.HANK_UPDATER_RELEASE_BUNDLE;
+  const artifactPath = process.env.HANK_UPDATER_RELEASE_ARTIFACT;
+  if (!bundlePath || !artifactPath) throw new Error('protected updater bundle and artifact are required');
+  const bundle = JSON.parse(await fs.readFile(bundlePath, 'utf8'));
+  const bytes = await fs.readFile(artifactPath);
+  const entry = bundle.updates.find((candidate) => candidate.version === update);
+  if (!entry) throw new Error(`protected updater version ${update} is missing from bundle`);
+  if (entry.attestation.artifact.digest !== `sha256:${createHash('sha256').update(bytes).digest('hex')}`) {
+    throw new Error('protected updater artifact digest mismatch');
+  }
+  return {
+    schema_version: 1,
+    version: entry.version,
+    channel: entry.attestation.identity.channel,
+    os: entry.os,
+    arch: entry.arch,
+    size: bytes.length,
+    expires_at: entry.expiresAt,
+    bytes: [...bytes],
+    attestation: entry.attestation,
+    consent: true,
+  };
+}
+
 async function runUpdaterE2E() {
   if (process.env.HANK_UPDATER_E2E !== '1') return;
-  const first = await browser.invoke('stage_update', signedUpdaterMetadata(2));
-  if (first?.outcome !== 'staged' || first.version !== 2) throw new Error(`updater: version 2 was not staged: ${JSON.stringify(first)}`);
+  const protectedRelease = Boolean(process.env.HANK_UPDATER_RELEASE_BUNDLE);
+  const firstVersion = protectedRelease ? Number(process.env.HANK_UPDATER_CURRENT_VERSION) + 1 : 2;
+  const secondVersion = protectedRelease ? firstVersion + 1 : 3;
+  const first = await browser.invoke('stage_update', protectedRelease
+    ? await protectedUpdaterMetadata(firstVersion)
+    : signedUpdaterMetadata(firstVersion));
+  if (first?.outcome !== 'staged' || first.version !== firstVersion) throw new Error(`updater: first version was not staged: ${JSON.stringify(first)}`);
   await browser.invoke('activate_update');
-  const second = await browser.invoke('stage_update', signedUpdaterMetadata(3));
-  if (second?.outcome !== 'staged' || second.version !== 3) throw new Error(`updater: version 3 was not staged: ${JSON.stringify(second)}`);
+  const second = await browser.invoke('stage_update', protectedRelease
+    ? await protectedUpdaterMetadata(secondVersion)
+    : signedUpdaterMetadata(secondVersion));
+  if (second?.outcome !== 'staged' || second.version !== secondVersion) throw new Error(`updater: second version was not staged: ${JSON.stringify(second)}`);
   await browser.invoke('activate_update');
   await browser.invoke('rollback_update');
   const recovery = await browser.invoke('recover_update');
   if (recovery !== 'clean') throw new Error(`updater: recovery after rollback was not clean: ${JSON.stringify(recovery)}`);
   const report = {
     status: 'PASS',
-    evidenceScope: 'native-synthetic-signed-fixture',
+    evidenceScope: protectedRelease ? 'protected-release-signed-artifact' : 'native-synthetic-signed-fixture',
     platform: `${updaterPlatform().os}-${updaterPlatform().arch}`,
-    stagedVersions: [2, 3],
-    activatedVersions: [2, 3],
-    rolledBackTo: 2,
+    stagedVersions: [firstVersion, secondVersion],
+    activatedVersions: [firstVersion, secondVersion],
+    rolledBackTo: firstVersion,
     recovery,
   };
+  if (process.env.HANK_UPDATER_VERIFIED_DIGEST) report.artifactDigest = process.env.HANK_UPDATER_VERIFIED_DIGEST;
   await fs.writeFile(path.join(diagnostics, 'updater-rollback-report.json'), `${JSON.stringify(report, null, 2)}\n`);
   artifactIdentity.updater = report;
   await writeArtifactIdentity();

@@ -493,6 +493,26 @@ jobs:
             --channel prerelease \
             --os multi \
             --signerKeyId "$HANK_RELEASE_SIGNER_KEY_ID"
+          version_code=$(node tools/release-updater-bundle.mjs version-code --version "$TAG")
+          next_version=$((version_code + 1))
+          node tools/release-updater-bundle.mjs create \
+            --artifact "/tmp/release-assets/hank-${TAG}-setup.exe" \
+            --attestation "/tmp/release-signing/hank-${TAG}-setup.exe.attestation.json" \
+            --output "/tmp/release-signing/hank-${TAG}-windows-updater.json" \
+            --version "$version_code" \
+            --next-version "$next_version" \
+            --expires-at 4102444800 \
+            --os windows \
+            --arch x86_64
+          node tools/release-updater-bundle.mjs create \
+            --artifact "/tmp/release-assets/hank-${TAG}-x86_64.AppImage" \
+            --attestation "/tmp/release-signing/hank-${TAG}-x86_64.AppImage.attestation.json" \
+            --output "/tmp/release-signing/hank-${TAG}-linux-updater.json" \
+            --version "$version_code" \
+            --next-version "$next_version" \
+            --expires-at 4102444800 \
+            --os linux \
+            --arch x86_64
 
       - name: Upload protected signing evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -702,6 +722,12 @@ jobs:
           npm --prefix desktop-e2e ci --no-fund
           cargo install tauri-driver --version 2.0.6 --locked
 
+      - name: Download protected updater bundles
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: release-signing-${{ needs.preflight.outputs.tag }}
+          path: ${{ runner.temp }}/release-signing
+
       - name: Download and verify published release assets
         shell: pwsh
         env:
@@ -711,6 +737,7 @@ jobs:
           SHA: ${{ needs.preflight.outputs.sha }}
           TREE: ${{ needs.preflight.outputs.tree }}
           HANK_UPDATER_E2E: '1'
+          HANK_UPDATER_REQUIRE_RELEASE_BUNDLE: '1'
         run: |
           $releaseDirectory = Join-Path $env:RUNNER_TEMP 'hank-release-assets'
           New-Item -ItemType Directory -Force -Path $releaseDirectory | Out-Null
@@ -728,6 +755,8 @@ jobs:
             --pattern release-signing-metadata.json `
             --dir $releaseDirectory
           if ($LASTEXITCODE -ne 0) { throw "release asset download failed with exit code $LASTEXITCODE" }
+          Copy-Item -LiteralPath (Join-Path $env:RUNNER_TEMP "release-signing/hank-$($env:TAG)-windows-updater.json") -Destination $releaseDirectory -Force
+          Copy-Item -LiteralPath (Join-Path $env:RUNNER_TEMP "release-signing/hank-$($env:TAG)-linux-updater.json") -Destination $releaseDirectory -Force
           & powershell -NoProfile -ExecutionPolicy Bypass -File desktop-e2e\install-smoke-windows.ps1 `
             -ReleaseDirectory $releaseDirectory `
             -ReleaseTag $env:TAG `
@@ -791,6 +820,12 @@ jobs:
           npm --prefix frontend run build
           cargo install tauri-driver --version 2.0.6 --locked
 
+      - name: Download protected updater bundles
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: release-signing-${{ needs.preflight.outputs.tag }}
+          path: ${{ runner.temp }}/release-signing
+
       - name: Download and run Linux clean-room smoke
         env:
           GH_TOKEN: ${{ github.token }}
@@ -804,6 +839,7 @@ jobs:
           HANK_DESKTOP_E2E_ARTIFACTS: ${{ runner.temp }}/hank-release-e2e-artifacts
           HANK_NODE_BIN: node
           HANK_UPDATER_E2E: '1'
+          HANK_UPDATER_REQUIRE_RELEASE_BUNDLE: '1'
         run: |
           set -euo pipefail
           mkdir -p "$HANK_RELEASE_DIR"
@@ -820,6 +856,8 @@ jobs:
             --pattern "hank-${TAG}-x86_64.AppImage.attestation.json" \
             --pattern release-signing-metadata.json \
             --dir "$HANK_RELEASE_DIR"
+          cp "$RUNNER_TEMP/release-signing/hank-${TAG}-windows-updater.json" "$HANK_RELEASE_DIR/"
+          cp "$RUNNER_TEMP/release-signing/hank-${TAG}-linux-updater.json" "$HANK_RELEASE_DIR/"
           HANK_RELEASE_TAG="$TAG" HANK_EXPECTED_COMMIT="$SHA" HANK_EXPECTED_TREE="$TREE" \
             bash desktop-e2e/install-smoke-linux.sh
 

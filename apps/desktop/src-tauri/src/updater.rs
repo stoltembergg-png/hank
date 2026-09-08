@@ -372,6 +372,13 @@ impl UpdateManager {
             return Err(UpdateError::DigestMismatch);
         }
         let attestation = &metadata.attestation;
+        let expected_platform_identity = format!("{}-{}", metadata.os, metadata.arch);
+        let scoped_identity_matches = attestation.identity.os == expected_platform_identity
+            || (attestation.schema_version >= ATTESTATION_SCHEMA_V2
+                && attestation.identity.os == "multi"
+                && attestation.update.as_ref().is_some_and(|binding| {
+                    binding.os == metadata.os && binding.arch == metadata.arch
+                }));
         if !matches!(attestation.schema_version, ATTESTATION_SCHEMA_V1 | ATTESTATION_SCHEMA_V2)
             || !bounded_text(&attestation.artifact.name)
             || !bounded_text(&attestation.identity.repository)
@@ -389,7 +396,7 @@ impl UpdateManager {
             || attestation.identity.workflow != self.policy.workflow
             || attestation.identity.policy != self.policy.policy
             || attestation.identity.channel != metadata.channel
-            || attestation.identity.os != format!("{}-{}", metadata.os, metadata.arch)
+            || !scoped_identity_matches
             || attestation.signer.key_id != self.policy.trusted_key_id
             || attestation.signature.algorithm != "ed25519"
             || attestation.signature.value.is_empty()
@@ -676,6 +683,24 @@ mod tests {
         update.bytes = b"tampered".to_vec();
         update.size = update.bytes.len() as u64;
         assert_eq!(manager.stage(&update, true), Err(UpdateError::DigestMismatch));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn schema_v2_multi_identity_requires_scoped_platform_binding() {
+        let root = std::env::temp_dir().join(format!("hank-updater-{}", uuid::Uuid::new_v4()));
+        let (manager, keypair) = manager(&root);
+        let mut update = metadata(&keypair);
+        update.attestation.identity.os = "multi".into();
+        let signature = keypair.sign(&canonical_payload(&update.attestation).unwrap());
+        update.attestation.signature.value = base64::engine::general_purpose::STANDARD.encode(signature.as_ref());
+        assert_eq!(manager.stage(&update, true).unwrap().version, 4);
+
+        let mut mismatched = update;
+        mismatched.attestation.update.as_mut().unwrap().arch = "aarch64".into();
+        let signature = keypair.sign(&canonical_payload(&mismatched.attestation).unwrap());
+        mismatched.attestation.signature.value = base64::engine::general_purpose::STANDARD.encode(signature.as_ref());
+        assert_eq!(manager.validate(&mismatched), Err(UpdateError::PolicyMismatch));
         let _ = fs::remove_dir_all(root);
     }
 

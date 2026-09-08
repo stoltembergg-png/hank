@@ -299,6 +299,26 @@ jobs:
             --os multi \
             --requireTrustedKey 1 \
             --signerKeyId "$HANK_RELEASE_SIGNER_KEY_ID"
+          version_code=$(node tools/release-updater-bundle.mjs version-code --version "$stable_tag")
+          next_version=$((version_code + 1))
+          node tools/release-updater-bundle.mjs create \
+            --artifact "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe" \
+            --attestation "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe.attestation.json" \
+            --output "$RUNNER_TEMP/stable/hank-${stable_tag}-windows-updater.json" \
+            --version "$version_code" \
+            --next-version "$next_version" \
+            --expires-at 4102444800 \
+            --os windows \
+            --arch x86_64
+          node tools/release-updater-bundle.mjs create \
+            --artifact "$RUNNER_TEMP/stable/hank-${stable_tag}-x86_64.AppImage" \
+            --attestation "$RUNNER_TEMP/stable/hank-${stable_tag}-x86_64.AppImage.attestation.json" \
+            --output "$RUNNER_TEMP/stable/hank-${stable_tag}-linux-updater.json" \
+            --version "$version_code" \
+            --next-version "$next_version" \
+            --expires-at 4102444800 \
+            --os linux \
+            --arch x86_64
 
       - name: Finalize stable checksums
         run: |
@@ -347,6 +367,8 @@ jobs:
               "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz.attestation.json" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe.attestation.json" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-x86_64.AppImage.attestation.json" \
+              "$RUNNER_TEMP/stable/hank-${stable_tag}-windows-updater.json" \
+              "$RUNNER_TEMP/stable/hank-${stable_tag}-linux-updater.json" \
               "$RUNNER_TEMP/stable/release-signing-metadata.json" \
               "$RUNNER_TEMP/stable/RELEASE_NOTES.md" \
               "$RUNNER_TEMP/stable/TEST_INSTRUCTIONS.md" \
@@ -389,6 +411,8 @@ jobs:
             --pattern "hank-${stable_tag}.tar.gz.attestation.json" \
             --pattern "hank-${stable_tag}-setup.exe.attestation.json" \
             --pattern "hank-${stable_tag}-x86_64.AppImage.attestation.json" \
+            --pattern "hank-${stable_tag}-windows-updater.json" \
+            --pattern "hank-${stable_tag}-linux-updater.json" \
             --pattern release-signing-metadata.json \
             --dir "$published"
           (cd "$published" && sha256sum -c SHA256SUMS && sha256sum -c manifest.sha256)
@@ -410,6 +434,14 @@ jobs:
             --os multi \
             --requireTrustedKey 1 \
             --signerKeyId "$HANK_RELEASE_SIGNER_KEY_ID"
+          node desktop-e2e/updater-release-env.mjs \
+            --bundle "$published/hank-${stable_tag}-windows-updater.json" \
+            --artifact "$published/hank-${stable_tag}-setup.exe" \
+            --signing-metadata "$published/release-signing-metadata.json" >/dev/null
+          node desktop-e2e/updater-release-env.mjs \
+            --bundle "$published/hank-${stable_tag}-linux-updater.json" \
+            --artifact "$published/hank-${stable_tag}-x86_64.AppImage" \
+            --signing-metadata "$published/release-signing-metadata.json" >/dev/null
           node tools/release-sbom.mjs verify \
             --file "$published/SBOM.spdx.json" \
             --commit "$SHA" \

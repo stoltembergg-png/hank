@@ -140,13 +140,27 @@ try {
     $env:HANK_EXPECTED_COMMIT_SHA = $ExpectedCommit
     $env:HANK_EXPECTED_TREE_SHA = $ExpectedTree
     $env:HANK_REQUIRE_ARTIFACT_PROVENANCE = '1'
+    $windowsUpdaterBundle = Join-Path $releaseRoot "hank-$ReleaseTag-windows-updater.json"
+    if (Test-Path -LiteralPath $windowsUpdaterBundle -PathType Leaf) {
+      $env:HANK_UPDATER_RELEASE_BUNDLE = $windowsUpdaterBundle
+      $env:HANK_UPDATER_RELEASE_ARTIFACT = $installerPath
+      $env:HANK_UPDATER_RELEASE_SIGNING_METADATA = $signingMetadataPath
+    } elseif ($env:HANK_UPDATER_REQUIRE_RELEASE_BUNDLE -eq '1') {
+      throw "protected updater bundle is required but missing: $windowsUpdaterBundle"
+    }
     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repositoryRoot 'desktop-e2e\run-windows.ps1')
     if ($LASTEXITCODE -ne 0) { throw "installed updater E2E failed with exit code $LASTEXITCODE" }
     $updaterReport = Join-Path $updaterArtifacts 'updater-rollback-report.json'
     if (-not (Test-Path -LiteralPath $updaterReport -PathType Leaf)) { throw "updater rollback report is missing: $updaterReport" }
     $updaterResult = Get-Content -Raw -LiteralPath $updaterReport | ConvertFrom-Json
-    if ($updaterResult.status -ne 'PASS' -or $updaterResult.evidenceScope -ne 'native-synthetic-signed-fixture') { throw "updater rollback report is not the expected bounded fixture result: $($updaterResult.status) / $($updaterResult.evidenceScope)" }
-    $report.upgradeRollback = 'PASS_LIMITED'
+    if ($updaterResult.status -ne 'PASS') { throw "updater rollback report failed: $($updaterResult.status) / $($updaterResult.evidenceScope)" }
+    if ($updaterResult.evidenceScope -eq 'protected-release-signed-artifact') {
+      $report.upgradeRollback = 'PASS'
+    } elseif ($updaterResult.evidenceScope -eq 'native-synthetic-signed-fixture') {
+      $report.upgradeRollback = 'PASS_LIMITED'
+    } else {
+      throw "updater rollback report has unknown evidence scope: $($updaterResult.evidenceScope)"
+    }
   }
   $report.status = 'passed'
   $report.installedExecutable = 'hank-desktop.exe'

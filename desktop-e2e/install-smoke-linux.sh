@@ -23,8 +23,12 @@ upgrade_rollback=NO_PROOF
 cleanup() {
   local code=$?
   set +e
-  if [[ -f "${HANK_DESKTOP_E2E_ARTIFACTS:-}/updater-rollback-report.json" ]] && jq -e '.status == "PASS" and .evidenceScope == "native-synthetic-signed-fixture"' "${HANK_DESKTOP_E2E_ARTIFACTS}/updater-rollback-report.json" >/dev/null 2>&1; then
-    upgrade_rollback=PASS_LIMITED
+  if [[ -f "${HANK_DESKTOP_E2E_ARTIFACTS:-}/updater-rollback-report.json" ]]; then
+    if jq -e '.status == "PASS" and .evidenceScope == "protected-release-signed-artifact"' "${HANK_DESKTOP_E2E_ARTIFACTS}/updater-rollback-report.json" >/dev/null 2>&1; then
+      upgrade_rollback=PASS
+    elif jq -e '.status == "PASS" and .evidenceScope == "native-synthetic-signed-fixture"' "${HANK_DESKTOP_E2E_ARTIFACTS}/updater-rollback-report.json" >/dev/null 2>&1; then
+      upgrade_rollback=PASS_LIMITED
+    fi
   fi
   if [[ "$code" -eq 0 ]]; then
     if [[ -n "${HANK_E2E_APP_DATA_DIR:-}" && -d "$HANK_E2E_APP_DATA_DIR" ]]; then
@@ -81,6 +85,14 @@ export HANK_EXPECTED_COMMIT_SHA="$HANK_EXPECTED_COMMIT"
 export HANK_EXPECTED_TREE_SHA="$HANK_EXPECTED_TREE"
 export HANK_REQUIRE_ARTIFACT_PROVENANCE=1
 export HANK_UPDATER_E2E="${HANK_UPDATER_E2E:-0}"
+if [[ "$HANK_UPDATER_E2E" == '1' && -f "$release_root/hank-${HANK_RELEASE_TAG}-linux-updater.json" ]]; then
+  export HANK_UPDATER_RELEASE_BUNDLE="$release_root/hank-${HANK_RELEASE_TAG}-linux-updater.json"
+  export HANK_UPDATER_RELEASE_ARTIFACT="$appimage"
+  export HANK_UPDATER_RELEASE_SIGNING_METADATA="$release_root/release-signing-metadata.json"
+elif [[ "$HANK_UPDATER_E2E" == '1' && "${HANK_UPDATER_REQUIRE_RELEASE_BUNDLE:-0}" == '1' ]]; then
+  echo 'protected updater bundle is required but missing' >&2
+  exit 1
+fi
 
 set +e
 xvfb-run -a --server-args='-screen 0 1280x1024x24' bash "$PWD/desktop-e2e/run-linux.sh"
