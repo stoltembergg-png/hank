@@ -10,4 +10,12 @@ test('prerelease preflight slurps paginated compare responses before jq parsing'
   assert.match(workflow, /gh api --paginate "repos\/\$REPOSITORY\/compare\/\$PREVIOUS_STABLE_TAG\.\.\.\$SHA"/);
   assert.match(workflow, /jq -rs ['"]\.\[\].commits\[\]\?\.sha/);
   assert.doesNotMatch(workflow, /gh api --paginate "repos\/\$REPOSITORY\/compare\/\$PREVIOUS_STABLE_TAG\.\.\.\$SHA" --jq/);
+  assert.ok(
+    workflow.includes(`jq -Rsc 'split("\\n")`),
+    'PR aggregation must split the jq raw stream on actual newline characters',
+  );
+  assert.ok(
+    !workflow.includes(`split("\\\\n")`),
+    'PR aggregation must not split on the literal backslash-n sequence',
+  );
 });
