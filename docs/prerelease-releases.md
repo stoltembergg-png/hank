@@ -82,8 +82,10 @@ O workflow também executa `Clean-room Windows install smoke` e `Clean-room Linu
 smoke` em runners novos: confere os hashes/proveniência do download, instala o NSIS ou
 abre o AppImage em diretório temporário, valida o WebView nativo, encerra e limpa. Os
 relatórios são publicados como artifacts da execução.
-Upgrade/rollback do aplicativo ainda não possuem updater integrado; permanecem
-`NO_PROOF` e não são apresentados como suporte.
+O updater de upgrade/rollback já possui caminho nativo e E2E sintético bounded, mas
+a evidência com artefato assinado produzido pelo ambiente protegido permanece
+`NO_PROOF` até o workflow correspondente executar no SHA exato. Uma execução
+sintética local é `PASS_LIMITED` e não é apresentada como prova de publicação.
 
 A página e o manifesto informam explicitamente que a versão é prerelease e não estável. O manifesto também registra cartão lógico `PR-xxx`, PRs relacionadas, classificação e instruções de teste.
 
