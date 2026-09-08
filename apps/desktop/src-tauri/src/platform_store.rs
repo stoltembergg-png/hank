@@ -2,24 +2,38 @@
 //!
 //! Windows uses the user-scoped Credential Manager. Other platforms remain
 //! explicitly unavailable until their native keychain adapters are added;
-//! there is intentionally no plaintext-file or SQLite fallback.
+//! there is intentionally no plaintext-file or SQLite fallback. The explicit
+//! `HANK_E2E_MOCK_PROVIDER=1` fixture uses a process-local, zeroized map so
+//! deterministic native E2E can exercise the credential lifecycle without
+//! weakening the production boundary.
 
 use provider_core::credentials::CredentialAccount;
 use provider_core::CredentialRef;
 use secrets_core::{
     BackendKind, BackendStatus, SecretMaterial, SecretStoreError, SecureSecretBackend,
 };
+#[cfg(not(windows))]
+use std::collections::BTreeMap;
+#[cfg(not(windows))]
+use std::sync::{Mutex, OnceLock};
 
 const TARGET_PREFIX: &str = "Hank/credential/v1";
+const MOCK_ENV: &str = "HANK_E2E_MOCK_PROVIDER";
+#[cfg(not(windows))]
+static FIXTURE_MATERIAL: OnceLock<Mutex<BTreeMap<String, Vec<u8>>>> = OnceLock::new();
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PlatformSecretBackend;
 
 impl PlatformSecretBackend {
-    fn target_name(
+    fn fixture_enabled() -> bool {
+        std::env::var(MOCK_ENV).ok().as_deref() == Some("1")
+    }
+
+    fn fixture_key(
         reference: &CredentialRef,
         account: &CredentialAccount,
-    ) -> Result<Vec<u16>, SecretStoreError> {
+    ) -> Result<String, SecretStoreError> {
         let target = format!(
             "{TARGET_PREFIX}/{}/{}/{}/{}",
             account.project_id.as_str(),
@@ -30,17 +44,34 @@ impl PlatformSecretBackend {
         if target.len() > 512 || target.chars().any(char::is_control) {
             return Err(SecretStoreError::InvalidReference);
         }
+        Ok(target)
+    }
+
+    fn target_name(
+        reference: &CredentialRef,
+        account: &CredentialAccount,
+    ) -> Result<Vec<u16>, SecretStoreError> {
+        let target = Self::fixture_key(reference, account)?;
         Ok(target.encode_utf16().chain(std::iter::once(0)).collect())
+    }
+
+    #[cfg(not(windows))]
+    fn fixture_material() -> &'static Mutex<BTreeMap<String, Vec<u8>>> {
+        FIXTURE_MATERIAL.get_or_init(|| Mutex::new(BTreeMap::new()))
     }
 }
 
 impl SecureSecretBackend for PlatformSecretBackend {
     fn kind(&self) -> BackendKind {
-        BackendKind::OsKeychain
+        if cfg!(not(windows)) && Self::fixture_enabled() {
+            BackendKind::Mock
+        } else {
+            BackendKind::OsKeychain
+        }
     }
 
     fn status(&self) -> BackendStatus {
-        if cfg!(windows) {
+        if cfg!(windows) || Self::fixture_enabled() {
             BackendStatus::Available
         } else {
             BackendStatus::Unavailable
@@ -82,8 +113,19 @@ impl SecureSecretBackend for PlatformSecretBackend {
         }
         #[cfg(not(windows))]
         {
-            let _ = (reference, account, material);
-            Err(SecretStoreError::Unavailable)
+            if !Self::fixture_enabled() {
+                return Err(SecretStoreError::Unavailable);
+            }
+            let key = Self::fixture_key(reference, account)?;
+            let mut bytes = material.into_bytes();
+            let mut records = Self::fixture_material()
+                .lock()
+                .map_err(|_| SecretStoreError::Backend)?;
+            if let Some(mut previous) = records.insert(key, std::mem::take(&mut bytes)) {
+                wipe(&mut previous);
+            }
+            wipe(&mut bytes);
+            Ok(())
         }
     }
 
@@ -129,8 +171,15 @@ impl SecureSecretBackend for PlatformSecretBackend {
         }
         #[cfg(not(windows))]
         {
-            let _ = (reference, account);
-            Err(SecretStoreError::Unavailable)
+            if !Self::fixture_enabled() {
+                return Err(SecretStoreError::Unavailable);
+            }
+            let key = Self::fixture_key(reference, account)?;
+            let records = Self::fixture_material()
+                .lock()
+                .map_err(|_| SecretStoreError::Backend)?;
+            let bytes = records.get(&key).ok_or(SecretStoreError::Missing)?.clone();
+            SecretMaterial::new(bytes)
         }
     }
 
@@ -156,8 +205,18 @@ impl SecureSecretBackend for PlatformSecretBackend {
         }
         #[cfg(not(windows))]
         {
-            let _ = (reference, account);
-            Err(SecretStoreError::Unavailable)
+            if !Self::fixture_enabled() {
+                return Err(SecretStoreError::Unavailable);
+            }
+            let key = Self::fixture_key(reference, account)?;
+            let mut records = Self::fixture_material()
+                .lock()
+                .map_err(|_| SecretStoreError::Backend)?;
+            let Some(mut bytes) = records.remove(&key) else {
+                return Err(SecretStoreError::Missing);
+            };
+            wipe(&mut bytes);
+            Ok(())
         }
     }
 
