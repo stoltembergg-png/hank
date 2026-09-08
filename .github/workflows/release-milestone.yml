@@ -30,6 +30,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+      actions: read
     outputs:
       sha: ${{ steps.identity.outputs.sha }}
       prerelease_manifest_hash: ${{ steps.identity.outputs.prerelease_manifest_hash }}
@@ -103,6 +104,39 @@ jobs:
             --manifest "$RUNNER_TEMP/prerelease/release-manifest.json" \
             --directory "$RUNNER_TEMP/prerelease"
           tree=$(jq -r '.tree' "$RUNNER_TEMP/prerelease/release-manifest.json")
+
+          # Install smoke reports are immutable artifacts of the prerelease run.
+          # Resolve that run by the exact source SHA; never accept a report from
+          # another commit or a manually copied workspace.
+          prerelease_run_id=$(gh run list \
+            --workflow release-prerelease.yml \
+            --repo "$REPOSITORY" \
+            --commit "$sha" \
+            --limit 20 \
+            --json databaseId,status,conclusion \
+            --jq '[.[] | select(.status == "completed" and .conclusion == "success")] | .[0].databaseId // empty')
+          test -n "$prerelease_run_id"
+          windows_evidence="$RUNNER_TEMP/install-evidence/windows"
+          linux_evidence="$RUNNER_TEMP/install-evidence/linux"
+          mkdir -p "$windows_evidence" "$linux_evidence"
+          gh run download "$prerelease_run_id" --repo "$REPOSITORY" \
+            --name "release-install-smoke-${PRERELEASE_TAG}" \
+            --dir "$windows_evidence"
+          gh run download "$prerelease_run_id" --repo "$REPOSITORY" \
+            --name "release-install-smoke-linux-${PRERELEASE_TAG}" \
+            --dir "$linux_evidence"
+          windows_report=$(find "$windows_evidence" -type f -name 'hank-install-smoke-report.json' -print -quit)
+          linux_report=$(find "$linux_evidence" -type f -name 'hank-install-smoke-report.json' -print -quit)
+          test -n "$windows_report"
+          test -n "$linux_report"
+          node --input-type=module - "$windows_report" "$linux_report" "$sha" "$tree" <<'NODE'
+          import fs from 'node:fs';
+          import { validateInstallSmokeReports } from './tools/release-install-evidence.mjs';
+          const [windowsPath, linuxPath, commit, tree] = process.argv.slice(2);
+          const reports = [windowsPath, linuxPath].map((file) => JSON.parse(fs.readFileSync(file, 'utf8')));
+          const result = validateInstallSmokeReports(reports, { commit, tree, releaseTag: process.env.PRERELEASE_TAG, requireUpgradeRollback: true });
+          console.log(`release install evidence: ${result.status} (${result.platforms.join(', ')})`);
+          NODE
           node tools/release-artifact-signing.mjs verify \
             --directory "$RUNNER_TEMP/prerelease" \
             --attestationDirectory "$RUNNER_TEMP/prerelease" \

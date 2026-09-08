@@ -66,3 +66,6 @@ jobs:
 
       - name: Validate quality gate contract
         run: node --test tools/quality-gate-contract.spec.mjs
+
+      - name: Validate release install evidence gate
+        run: node --test tools/release-install-evidence.spec.mjs
