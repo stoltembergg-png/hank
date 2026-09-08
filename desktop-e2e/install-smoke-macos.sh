@@ -83,8 +83,8 @@ chmod +x "$app_binary"
 export HANK_DESKTOP_BIN="$app_binary"
 export HANK_E2E_APP_DATA_DIR="${HANK_E2E_APP_DATA_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/hank-release-e2e-data.XXXXXX")}"
 export HANK_DESKTOP_E2E_ARTIFACTS="${HANK_DESKTOP_E2E_ARTIFACTS:-$(mktemp -d "${TMPDIR:-/tmp}/hank-release-e2e-artifacts.XXXXXX")}"
+mkdir -p "$HANK_E2E_APP_DATA_DIR" "$HANK_DESKTOP_E2E_ARTIFACTS"
 profile_marker="$HANK_E2E_APP_DATA_DIR/release-smoke-profile-marker"
-printf '%s\n' 'preserve-profile' > "$profile_marker"
 export HANK_E2E_ALLOW_RELEASE_DATA_DIR=1
 export HANK_E2E_MOCK_PROVIDER=1
 export HANK_WEBDRIVER_PORT="${HANK_WEBDRIVER_PORT:-4444}"
@@ -106,6 +106,7 @@ bash "$PWD/desktop-e2e/run-macos.sh"
 exit_code=$?
 set -e
 if [[ "$exit_code" -ne 0 ]]; then exit "$exit_code"; fi
+printf '%s\n' 'preserve-profile' > "$profile_marker"
 # A DMG has no uninstaller; clean-room uninstall is the explicit removal of
 # the copied app bundle. The target was created by mktemp under a validated
 # temporary root, so no user-controlled path is ever removed.
