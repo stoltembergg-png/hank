@@ -206,4 +206,29 @@ mod tests {
             assert_eq!(PlatformSecretBackend.status(), BackendStatus::Unavailable);
         }
     }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_credential_manager_roundtrip_is_scoped_and_cleaned_up() {
+        let backend = PlatformSecretBackend;
+        let account = account();
+        let reference = CredentialRef::parse("cred_native_test").unwrap();
+        let material = SecretMaterial::new(b"synthetic-test-material".to_vec()).unwrap();
+
+        backend
+            .put(&reference, &account, material)
+            .expect("Credential Manager should accept the bounded test material");
+        let loaded = backend
+            .get(&reference, &account)
+            .expect("Credential Manager should return the scoped test material");
+        assert_eq!(loaded.as_bytes(), b"synthetic-test-material");
+
+        backend
+            .delete(&reference, &account)
+            .expect("Credential Manager cleanup should succeed");
+        assert!(matches!(
+            backend.get(&reference, &account),
+            Err(SecretStoreError::Missing)
+        ));
+    }
 }
