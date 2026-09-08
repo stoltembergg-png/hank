@@ -94,9 +94,11 @@ jobs:
             --pattern "hank-${PRERELEASE_TAG}.tar.gz" \
             --pattern "hank-${PRERELEASE_TAG}-setup.exe" \
             --pattern "hank-${PRERELEASE_TAG}-x86_64.AppImage" \
+            --pattern "hank-${PRERELEASE_TAG}-aarch64.dmg" \
             --pattern "hank-${PRERELEASE_TAG}.tar.gz.attestation.json" \
             --pattern "hank-${PRERELEASE_TAG}-setup.exe.attestation.json" \
             --pattern "hank-${PRERELEASE_TAG}-x86_64.AppImage.attestation.json" \
+            --pattern "hank-${PRERELEASE_TAG}-aarch64.dmg.attestation.json" \
             --pattern release-signing-metadata.json \
             --dir "$RUNNER_TEMP/prerelease"
           (cd "$RUNNER_TEMP/prerelease" && sha256sum -c manifest.sha256 && sha256sum -c SHA256SUMS)
@@ -118,29 +120,35 @@ jobs:
           test -n "$prerelease_run_id"
           windows_evidence="$RUNNER_TEMP/install-evidence/windows"
           linux_evidence="$RUNNER_TEMP/install-evidence/linux"
-          mkdir -p "$windows_evidence" "$linux_evidence"
+          macos_evidence="$RUNNER_TEMP/install-evidence/macos"
+          mkdir -p "$windows_evidence" "$linux_evidence" "$macos_evidence"
           gh run download "$prerelease_run_id" --repo "$REPOSITORY" \
             --name "release-install-smoke-${PRERELEASE_TAG}" \
             --dir "$windows_evidence"
           gh run download "$prerelease_run_id" --repo "$REPOSITORY" \
             --name "release-install-smoke-linux-${PRERELEASE_TAG}" \
             --dir "$linux_evidence"
+          gh run download "$prerelease_run_id" --repo "$REPOSITORY" \
+            --name "release-install-smoke-macos-${PRERELEASE_TAG}" \
+            --dir "$macos_evidence"
           windows_report=$(find "$windows_evidence" -type f -name 'hank-install-smoke-report.json' -print -quit)
           linux_report=$(find "$linux_evidence" -type f -name 'hank-install-smoke-report.json' -print -quit)
+          macos_report=$(find "$macos_evidence" -type f -name 'hank-install-smoke-report.json' -print -quit)
           test -n "$windows_report"
           test -n "$linux_report"
-          node --input-type=module - "$windows_report" "$linux_report" "$sha" "$tree" <<'NODE'
+          test -n "$macos_report"
+          node --input-type=module - "$windows_report" "$linux_report" "$macos_report" "$sha" "$tree" <<'NODE'
           import fs from 'node:fs';
           import { validateInstallSmokeReports } from './tools/release-install-evidence.mjs';
-          const [windowsPath, linuxPath, commit, tree] = process.argv.slice(2);
-          const reports = [windowsPath, linuxPath].map((file) => JSON.parse(fs.readFileSync(file, 'utf8')));
+          const [windowsPath, linuxPath, macosPath, commit, tree] = process.argv.slice(2);
+          const reports = [windowsPath, linuxPath, macosPath].map((file) => JSON.parse(fs.readFileSync(file, 'utf8')));
           const result = validateInstallSmokeReports(reports, { commit, tree, releaseTag: process.env.PRERELEASE_TAG, requireUpgradeRollback: true });
           console.log(`release install evidence: ${result.status} (${result.platforms.join(', ')})`);
           NODE
           node tools/release-artifact-signing.mjs verify \
             --directory "$RUNNER_TEMP/prerelease" \
             --attestationDirectory "$RUNNER_TEMP/prerelease" \
-            --artifacts "hank-${PRERELEASE_TAG}.tar.gz,hank-${PRERELEASE_TAG}-setup.exe,hank-${PRERELEASE_TAG}-x86_64.AppImage" \
+            --artifacts "hank-${PRERELEASE_TAG}.tar.gz,hank-${PRERELEASE_TAG}-setup.exe,hank-${PRERELEASE_TAG}-x86_64.AppImage,hank-${PRERELEASE_TAG}-aarch64.dmg" \
             --commit "$sha" \
             --tree "$tree" \
             --requireTrustedKey 1
@@ -231,6 +239,7 @@ jobs:
           mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}.tar.gz" "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz"
           mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}-setup.exe" "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe"
           mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}-x86_64.AppImage" "$RUNNER_TEMP/stable/hank-${stable_tag}-x86_64.AppImage"
+          mv "$RUNNER_TEMP/prerelease/hank-${PRERELEASE_TAG}-aarch64.dmg" "$RUNNER_TEMP/stable/hank-${stable_tag}-aarch64.dmg"
           mv "$RUNNER_TEMP/prerelease/SBOM.spdx.json" "$RUNNER_TEMP/stable/SBOM.spdx.json"
           
           # Use the validated manifest from verify job, not a re-downloaded one
@@ -269,6 +278,7 @@ jobs:
             "hank-${stable_tag}.tar.gz"
             "hank-${stable_tag}-setup.exe"
             "hank-${stable_tag}-x86_64.AppImage"
+            "hank-${stable_tag}-aarch64.dmg"
           )
           node tools/release-artifact-signing.mjs sign \
             --directory "$RUNNER_TEMP/stable" \
@@ -319,6 +329,15 @@ jobs:
             --expires-at 4102444800 \
             --os linux \
             --arch x86_64
+          node tools/release-updater-bundle.mjs create \
+            --artifact "$RUNNER_TEMP/stable/hank-${stable_tag}-aarch64.dmg" \
+            --attestation "$RUNNER_TEMP/stable/hank-${stable_tag}-aarch64.dmg.attestation.json" \
+            --output "$RUNNER_TEMP/stable/hank-${stable_tag}-macos-updater.json" \
+            --version "$version_code" \
+            --next-version "$next_version" \
+            --expires-at 4102444800 \
+            --os macos \
+            --arch aarch64
 
       - name: Finalize stable checksums
         run: |
@@ -363,12 +382,15 @@ jobs:
               "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-x86_64.AppImage" \
+              "$RUNNER_TEMP/stable/hank-${stable_tag}-aarch64.dmg" \
               "$RUNNER_TEMP/stable/SBOM.spdx.json" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}.tar.gz.attestation.json" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-setup.exe.attestation.json" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-x86_64.AppImage.attestation.json" \
+              "$RUNNER_TEMP/stable/hank-${stable_tag}-aarch64.dmg.attestation.json" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-windows-updater.json" \
               "$RUNNER_TEMP/stable/hank-${stable_tag}-linux-updater.json" \
+              "$RUNNER_TEMP/stable/hank-${stable_tag}-macos-updater.json" \
               "$RUNNER_TEMP/stable/release-signing-metadata.json" \
               "$RUNNER_TEMP/stable/RELEASE_NOTES.md" \
               "$RUNNER_TEMP/stable/TEST_INSTRUCTIONS.md" \
@@ -408,17 +430,20 @@ jobs:
             --pattern "hank-${stable_tag}.tar.gz" \
             --pattern "hank-${stable_tag}-setup.exe" \
             --pattern "hank-${stable_tag}-x86_64.AppImage" \
+            --pattern "hank-${stable_tag}-aarch64.dmg" \
             --pattern "hank-${stable_tag}.tar.gz.attestation.json" \
             --pattern "hank-${stable_tag}-setup.exe.attestation.json" \
             --pattern "hank-${stable_tag}-x86_64.AppImage.attestation.json" \
+            --pattern "hank-${stable_tag}-aarch64.dmg.attestation.json" \
             --pattern "hank-${stable_tag}-windows-updater.json" \
             --pattern "hank-${stable_tag}-linux-updater.json" \
+            --pattern "hank-${stable_tag}-macos-updater.json" \
             --pattern release-signing-metadata.json \
             --dir "$published"
           (cd "$published" && sha256sum -c SHA256SUMS && sha256sum -c manifest.sha256)
           cmp "$RUNNER_TEMP/stable/release-manifest.json" "$published/release-manifest.json"
           tree=$(jq -r '.tree' "$published/release-manifest.json")
-          names="hank-${stable_tag}.tar.gz,hank-${stable_tag}-setup.exe,hank-${stable_tag}-x86_64.AppImage"
+          names="hank-${stable_tag}.tar.gz,hank-${stable_tag}-setup.exe,hank-${stable_tag}-x86_64.AppImage,hank-${stable_tag}-aarch64.dmg"
           node tools/release-artifact-signing.mjs verify \
             --directory "$published" \
             --attestationDirectory "$published" \
@@ -441,6 +466,10 @@ jobs:
           node desktop-e2e/updater-release-env.mjs \
             --bundle "$published/hank-${stable_tag}-linux-updater.json" \
             --artifact "$published/hank-${stable_tag}-x86_64.AppImage" \
+            --signing-metadata "$published/release-signing-metadata.json" >/dev/null
+          node desktop-e2e/updater-release-env.mjs \
+            --bundle "$published/hank-${stable_tag}-macos-updater.json" \
+            --artifact "$published/hank-${stable_tag}-aarch64.dmg" \
             --signing-metadata "$published/release-signing-metadata.json" >/dev/null
           node tools/release-sbom.mjs verify \
             --file "$published/SBOM.spdx.json" \

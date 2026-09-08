@@ -68,7 +68,7 @@ jobs:
         run: node --test tools/quality-gate-contract.spec.mjs
 
       - name: Validate release install evidence gate
-        run: node --test tools/release-install-evidence.spec.mjs
+        run: node --test tools/release-install-evidence.spec.mjs tools/release-macos-lane.spec.mjs
 
       - name: Validate updater E2E contract
         run: node --test tools/updater-e2e-contract.spec.mjs

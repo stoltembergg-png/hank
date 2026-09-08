@@ -1,4 +1,4 @@
-const DEFAULT_PLATFORMS = ['linux-x86_64', 'windows-x86_64'];
+const DEFAULT_PLATFORMS = ['linux-x86_64', 'windows-x86_64', 'macos-aarch64'];
 
 function isPass(value) {
   return value === 'PASS' || value === 'passed';
@@ -63,6 +63,9 @@ export function validateInstallSmokeReports(
       if (!isPass(report.uninstall)) throw new Error(`uninstall evidence is not PASS: ${platform}`);
     } else if (platform === 'linux-x86_64') {
       requireDigest(report.appImageDigest, 'AppImage digest', platform);
+    } else if (platform === 'macos-aarch64') {
+      requireDigest(report.dmgDigest, 'DMG digest', platform);
+      if (!isPass(report.uninstall)) throw new Error(`uninstall evidence is not PASS: ${platform}`);
     }
   }
 

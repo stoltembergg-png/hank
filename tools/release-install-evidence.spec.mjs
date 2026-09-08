@@ -17,7 +17,8 @@ function report(platform, overrides = {}) {
     artifactDigests: { release: 'sha256:release' },
     installerDigest: platform.startsWith('windows-') ? 'a'.repeat(64) : null,
     appImageDigest: platform.startsWith('linux-') ? 'b'.repeat(64) : null,
-    uninstall: platform.startsWith('windows-') ? 'passed' : 'not_applicable_portable',
+    dmgDigest: platform.startsWith('macos-') ? 'c'.repeat(64) : null,
+    uninstall: platform === 'windows-x86_64' || platform === 'macos-aarch64' ? 'passed' : 'not_applicable_portable',
     upgradeRollback: 'passed',
     ...overrides,
   };
@@ -28,8 +29,9 @@ test('release promotion accepts complete per-platform install evidence', () => {
     validateInstallSmokeReports([
       report('windows-x86_64'),
       report('linux-x86_64'),
+      report('macos-aarch64'),
     ], { commit, tree }),
-    { status: 'PASS', platforms: ['linux-x86_64', 'windows-x86_64'] },
+    { status: 'PASS', platforms: ['linux-x86_64', 'macos-aarch64', 'windows-x86_64'] },
   );
 });
 
@@ -39,9 +41,14 @@ test('release promotion rejects missing, stale, and limited evidence', () => {
     /missing install smoke evidence: linux-x86_64/,
   );
   assert.throws(
+    () => validateInstallSmokeReports([report('windows-x86_64'), report('linux-x86_64')], { commit, tree }),
+    /missing install smoke evidence: macos-aarch64/,
+  );
+  assert.throws(
     () => validateInstallSmokeReports([
       report('windows-x86_64', { expectedTree: 'c'.repeat(40) }),
       report('linux-x86_64'),
+      report('macos-aarch64'),
     ], { commit, tree }),
     /identity mismatch: windows-x86_64/,
   );
@@ -49,13 +56,23 @@ test('release promotion rejects missing, stale, and limited evidence', () => {
     () => validateInstallSmokeReports([
       report('windows-x86_64', { upgradeRollback: 'PASS_LIMITED' }),
       report('linux-x86_64'),
+      report('macos-aarch64'),
     ], { commit, tree }),
     /upgrade\/rollback evidence is not PASS: windows-x86_64/,
   );
   assert.throws(
     () => validateInstallSmokeReports([
+      report('windows-x86_64'),
+      report('linux-x86_64'),
+      report('macos-aarch64', { dmgDigest: null }),
+    ], { commit, tree }),
+    /DMG digest is missing: macos-aarch64/,
+  );
+  assert.throws(
+    () => validateInstallSmokeReports([
       report('windows-x86_64', { releaseTag: 'v0.0.1' }),
       report('linux-x86_64'),
+      report('macos-aarch64'),
     ], { commit, tree, releaseTag: 'v1.0.0' }),
     /release tag mismatch: windows-x86_64/,
   );
