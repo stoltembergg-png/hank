@@ -9,6 +9,7 @@ pub mod notifications;
 pub mod projects;
 pub mod scheduler;
 pub mod platform_store;
+pub mod provider_credential_store;
 pub mod sessions;
 pub mod skills;
 pub mod streaming;
@@ -200,13 +201,16 @@ fn main() {
             startup
                 .advance(lifecycle::StartupStage::StorageReady)
                 .map_err(startup_transition_failure)?;
-            let provider_credentials = std::sync::Arc::new(
-                provider_core::credentials::InMemoryCredentialService::new(),
-            );
+            let provider_credentials = std::sync::Arc::new(provider_credential_store::ProviderCredentialStore::new(
+                &storage,
+                platform_store::PlatformSecretBackend,
+            ));
             app.manage(projects::bridge_state(&storage));
             app.manage(agents::bridge_state(&storage));
             app.manage(sessions::bridge_state(&storage));
-            app.manage(chat::bridge_state(&storage, provider_credentials.clone()));
+            let chat_credentials: std::sync::Arc<dyn provider_core::credentials::CredentialService> =
+                provider_credentials.clone();
+            app.manage(chat::bridge_state(&storage, chat_credentials));
             app.manage(scheduler::bridge_state(&storage));
             app.manage(memory::bridge_state(&storage));
             app.manage(skills::bridge_state(&storage));

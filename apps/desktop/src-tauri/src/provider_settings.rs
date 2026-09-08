@@ -17,15 +17,19 @@ use auth_core::{
 };
 use provider_core::credentials::{
     AccountId, CredentialAccessContext, CredentialAccount, CredentialService,
-    CredentialServiceError, InMemoryCredentialService, ProjectScopeId,
+    CredentialServiceError, CredentialServiceState, ProjectScopeId,
 };
 use provider_core::{CancellationToken, CredentialRef, ProviderId};
+use secrets_core::SecretMaterial;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::State;
 use uuid::Uuid;
+
+use crate::platform_store::PlatformSecretBackend;
+use crate::provider_credential_store::ProviderCredentialStore;
 
 const MOCK_PROVIDER_ID: &str = "mock";
 const MOCK_ACCOUNT_ID: &str = "account_mock";
@@ -219,7 +223,7 @@ impl TokenExchangeBackend for FixtureTokenExchange {
 #[derive(Clone)]
 pub struct ProviderSettingsBridgeState {
     projects: Arc<SqliteProjectRepository>,
-    credentials: Arc<InMemoryCredentialService>,
+    credentials: Arc<ProviderCredentialStore<PlatformSecretBackend>>,
     oauth: Arc<OAuthCallbackHandler<FixtureTokenExchange>>,
     accounts: Arc<Mutex<BTreeMap<AccountKey, AccountRecord>>>,
     flows: Arc<Mutex<BTreeMap<String, FlowRecord>>>,
@@ -229,7 +233,7 @@ pub struct ProviderSettingsBridgeState {
 impl ProviderSettingsBridgeState {
     pub fn new(
         storage: &SqliteStorage,
-        credentials: Arc<InMemoryCredentialService>,
+        credentials: Arc<ProviderCredentialStore<PlatformSecretBackend>>,
     ) -> Self {
         Self {
             projects: Arc::new(SqliteProjectRepository::new(storage.pool().clone())),
@@ -401,7 +405,7 @@ impl ProviderSettingsBridgeState {
 
 pub fn bridge_state(
     storage: &SqliteStorage,
-    credentials: Arc<InMemoryCredentialService>,
+    credentials: Arc<ProviderCredentialStore<PlatformSecretBackend>>,
 ) -> ProviderSettingsBridgeState {
     ProviderSettingsBridgeState::new(storage, credentials)
 }
@@ -415,15 +419,39 @@ pub async fn list_provider_accounts(
     let (_project, scope) = state.load_project(&input.project_id).await?;
     let account = ProviderSettingsBridgeState::fixture_account(&scope)?;
     let key = ProviderSettingsBridgeState::key(&account);
+    let access = ProviderSettingsBridgeState::access(scope, CancellationToken::new())?;
+    let persisted = state.credentials.status(access, account.clone());
     let mut accounts = state.accounts.lock().map_err(|_| {
         ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "provider state unavailable")
     })?;
     let record = accounts.entry(key).or_insert_with(|| AccountRecord {
-        account,
+        account: account.clone(),
         status: ProviderAccountState::Revoked,
         credential_ref: None,
         updated_at: chrono::Utc::now().to_rfc3339(),
     });
+    match persisted {
+        Ok(status) => match status.state {
+            CredentialServiceState::Connected => {
+                record.status = ProviderAccountState::Connected;
+                record.credential_ref = status.credential_ref;
+            }
+            CredentialServiceState::Revoked => {
+                record.status = ProviderAccountState::Revoked;
+                record.credential_ref = None;
+            }
+            CredentialServiceState::Unavailable => {
+                record.status = ProviderAccountState::Unavailable;
+                record.credential_ref = None;
+            }
+        },
+        Err(CredentialServiceError::Missing) => {}
+        Err(CredentialServiceError::Unavailable) => {
+            record.status = ProviderAccountState::Unavailable;
+            record.credential_ref = None;
+        }
+        Err(error) => return Err(map_credential_error(error)),
+    }
     Ok(vec![ProviderSettingsBridgeState::status(record)])
 }
 
@@ -586,9 +614,13 @@ pub async fn complete_provider_oauth(
             return Err(map_callback_error(error));
         }
     };
+    let fixture_material = SecretMaterial::new(
+        format!("fixture-material:{}", credential_ref.as_str()).into_bytes(),
+    )
+    .map_err(|_| ProviderSettingsBridgeError::new(ProviderSettingsErrorCode::Internal, "provider credential material is invalid"))?;
     state
         .credentials
-        .connect(access, flow.account.clone(), credential_ref.clone())
+        .connect_with_material(access, flow.account.clone(), credential_ref.clone(), fixture_material)
         .map_err(map_credential_error)?;
     let account_status = {
         let mut accounts = state.accounts.lock().map_err(|_| {

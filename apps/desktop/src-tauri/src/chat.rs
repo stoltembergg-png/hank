@@ -28,7 +28,7 @@ use agent_protocol::ids::TraceId;
 use provider_core::capabilities::{CapabilityFeature, CapabilityRequirement, ModelModality};
 use provider_core::credentials::{
     AccountId, CredentialAccessContext, CredentialAccount, CredentialService,
-    InMemoryCredentialService, ProjectScopeId,
+    ProjectScopeId,
 };
 use provider_core::fallback::FallbackPolicy;
 use provider_core::registry::ProviderRegistry;
@@ -61,7 +61,7 @@ pub struct ChatBridgeState {
     projects: Arc<agent_runtime::project_repo::SqliteProjectRepository>,
     agents: Arc<SqliteAgentRepository>,
     provider: Arc<ProviderApplicationService>,
-    credentials: Arc<InMemoryCredentialService>,
+    credentials: Arc<dyn CredentialService>,
     commands: Arc<ChatCommandRegistry>,
     usage: Arc<Mutex<UsageAggregator>>,
     active: Arc<Mutex<HashMap<String, ActiveChat>>>,
@@ -76,7 +76,7 @@ struct ActiveChat {
 }
 
 impl ChatBridgeState {
-    fn new(storage: &SqliteStorage, credentials: Arc<InMemoryCredentialService>) -> Self {
+    fn new(storage: &SqliteStorage, credentials: Arc<dyn CredentialService>) -> Self {
         let pool = storage.pool().clone();
         let registry = Arc::new(ProviderRegistry::new());
         let provider_id = ProviderId::parse(MOCK_PROVIDER_ID).expect("static provider id");
@@ -144,7 +144,7 @@ impl ChatBridgeState {
 
 pub fn bridge_state(
     storage: &SqliteStorage,
-    credentials: Arc<InMemoryCredentialService>,
+    credentials: Arc<dyn CredentialService>,
 ) -> ChatBridgeState {
     ChatBridgeState::new(storage, credentials)
 }
