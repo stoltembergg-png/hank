@@ -285,7 +285,10 @@ test('PR-370: publish binds the native Windows installer before creating the rel
   assert.match(workflow, /environment: release-signing/);
   assert.match(workflow, /HANK_RELEASE_SIGNING_PRIVATE_KEY_PEM/);
   assert.match(workflow, /release-artifact-signing\.mjs sign/);
-  assert.match(workflow, /needs: \[preflight, package, windows-package, linux-package, sign\]/);
+  assert.match(workflow, /needs: \[preflight, package, windows-package, linux-package, macos-package, sign\]/);
+  assert.match(workflow, /macos-package:/);
+  assert.match(workflow, /macos-install-smoke:/);
+  assert.match(workflow, /install-smoke-macos\.sh/);
   assert.match(workflow, /release-signing-metadata\.json/);
   assert.match(workflow, /release-sbom\.mjs generate/);
   assert.match(workflow, /release-sbom\.mjs verify/);
