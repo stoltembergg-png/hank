@@ -19,6 +19,7 @@ function report(platform, overrides = {}) {
     appImageDigest: platform.startsWith('linux-') ? 'b'.repeat(64) : null,
     dmgDigest: platform.startsWith('macos-') ? 'c'.repeat(64) : null,
     uninstall: platform === 'windows-x86_64' || platform === 'macos-aarch64' ? 'passed' : 'not_applicable_portable',
+    profilePreserved: platform === 'macos-aarch64' ? 'passed' : 'not_applicable',
     upgradeRollback: 'passed',
     ...overrides,
   };
@@ -67,6 +68,14 @@ test('release promotion rejects missing, stale, and limited evidence', () => {
       report('macos-aarch64', { dmgDigest: null }),
     ], { commit, tree }),
     /DMG digest is missing: macos-aarch64/,
+  );
+  assert.throws(
+    () => validateInstallSmokeReports([
+      report('windows-x86_64'),
+      report('linux-x86_64'),
+      report('macos-aarch64', { profilePreserved: 'failed' }),
+    ], { commit, tree }),
+    /profile preservation evidence is not PASS: macos-aarch64/,
   );
   assert.throws(
     () => validateInstallSmokeReports([
