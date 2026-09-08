@@ -21,6 +21,21 @@ exit_code=1
 upgrade_rollback=NO_PROOF
 profile_preserved=FAIL
 profile_marker=''
+e2e_data_owned=0
+e2e_artifacts_owned=0
+
+remove_generated_dir() {
+  local directory="$1"
+  local prefix="$2"
+  local temp_root resolved
+  if [[ -z "$directory" || ! -d "$directory" ]]; then return 0; fi
+  temp_root=$(cd "${TMPDIR:-/tmp}" && pwd -P) || return 1
+  resolved=$(cd "$directory" && pwd -P) || return 1
+  case "$resolved" in
+    "$temp_root"/"$prefix"*) rm -rf -- "$resolved" ;;
+    *) echo "refusing to remove unexpected generated path: $resolved" >&2; return 1 ;;
+  esac
+}
 
 cleanup() {
   local code=$?
@@ -33,11 +48,11 @@ cleanup() {
     fi
   fi
   if [[ "$code" -eq 0 ]]; then
-    if [[ -n "${HANK_E2E_APP_DATA_DIR:-}" && -d "$HANK_E2E_APP_DATA_DIR" ]]; then
-      rm -rf -- "$HANK_E2E_APP_DATA_DIR"
+    if [[ "$e2e_data_owned" -eq 1 ]]; then
+      remove_generated_dir "$HANK_E2E_APP_DATA_DIR" 'hank-release-e2e-data.'
     fi
-    if [[ -n "${HANK_DESKTOP_E2E_ARTIFACTS:-}" && -d "$HANK_DESKTOP_E2E_ARTIFACTS" ]]; then
-      rm -rf -- "$HANK_DESKTOP_E2E_ARTIFACTS"
+    if [[ "$e2e_artifacts_owned" -eq 1 ]]; then
+      remove_generated_dir "$HANK_DESKTOP_E2E_ARTIFACTS" 'hank-release-e2e-artifacts.'
     fi
   fi
   mkdir -p "$(dirname "$report_path")"
@@ -78,8 +93,18 @@ NODE
 
 chmod +x "$appimage"
 export HANK_DESKTOP_BIN="$appimage"
-export HANK_E2E_APP_DATA_DIR="${HANK_E2E_APP_DATA_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/hank-release-e2e-data.XXXXXX")}"
-export HANK_DESKTOP_E2E_ARTIFACTS="${HANK_DESKTOP_E2E_ARTIFACTS:-$(mktemp -d "${TMPDIR:-/tmp}/hank-release-e2e-artifacts.XXXXXX")}"
+if [[ -z "${HANK_E2E_APP_DATA_DIR:-}" ]]; then
+  export HANK_E2E_APP_DATA_DIR="$(mktemp -d "${TMPDIR:-/tmp}/hank-release-e2e-data.XXXXXX")"
+  e2e_data_owned=1
+else
+  export HANK_E2E_APP_DATA_DIR
+fi
+if [[ -z "${HANK_DESKTOP_E2E_ARTIFACTS:-}" ]]; then
+  export HANK_DESKTOP_E2E_ARTIFACTS="$(mktemp -d "${TMPDIR:-/tmp}/hank-release-e2e-artifacts.XXXXXX")"
+  e2e_artifacts_owned=1
+else
+  export HANK_DESKTOP_E2E_ARTIFACTS
+fi
 profile_marker="$HANK_E2E_APP_DATA_DIR/release-smoke-profile-marker"
 printf '%s\n' 'preserve-profile' > "$profile_marker"
 export HANK_E2E_ALLOW_RELEASE_DATA_DIR=1

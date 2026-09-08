@@ -55,3 +55,11 @@ test('all native install smokes prove profile preservation before reporting PASS
   assert.ok(windowsSeed >= 0 && windowsLaunch > windowsSeed && windowsVerify > windowsLaunch);
   assert.match(windowsSmoke, /profilePreserved/);
 });
+
+test('Linux smoke never recursively deletes caller-owned E2E paths', () => {
+  assert.match(linuxSmoke, /e2e_data_owned=0/);
+  assert.match(linuxSmoke, /e2e_artifacts_owned=0/);
+  assert.match(linuxSmoke, /remove_generated_dir\(\)/);
+  assert.doesNotMatch(linuxSmoke, /rm -rf -- "\$HANK_E2E_APP_DATA_DIR"/);
+  assert.doesNotMatch(linuxSmoke, /rm -rf -- "\$HANK_DESKTOP_E2E_ARTIFACTS"/);
+});
