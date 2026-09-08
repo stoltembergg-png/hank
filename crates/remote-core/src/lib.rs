@@ -21,6 +21,8 @@ pub mod event_stream;
 
 pub mod credential_broker;
 
+pub mod remote_project;
+
 pub mod tool_dispatch;
 
 pub use security_core::rate_limit::RateLimitPolicy;
