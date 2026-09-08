@@ -373,7 +373,17 @@ impl UpdateManager {
         }
         let attestation = &metadata.attestation;
         if !matches!(attestation.schema_version, ATTESTATION_SCHEMA_V1 | ATTESTATION_SCHEMA_V2)
-            || attestation.artifact.name.trim().is_empty()
+            || !bounded_text(&attestation.artifact.name)
+            || !bounded_text(&attestation.identity.repository)
+            || !bounded_text(&attestation.identity.event)
+            || !bounded_text(&attestation.identity.ref_name)
+            || !bounded_text(&attestation.identity.workflow)
+            || !bounded_text(&attestation.identity.policy)
+            || !bounded_text(&attestation.identity.channel)
+            || !bounded_text(&attestation.identity.os)
+            || !valid_git_id(&attestation.identity.commit)
+            || !valid_git_id(&attestation.identity.tree)
+            || attestation.identity.commit.len() != attestation.identity.tree.len()
             || attestation.identity.repository != self.policy.repository
             || attestation.identity.event != self.policy.event
             || attestation.identity.workflow != self.policy.workflow
@@ -382,6 +392,7 @@ impl UpdateManager {
             || attestation.identity.os != format!("{}-{}", metadata.os, metadata.arch)
             || attestation.signer.key_id != self.policy.trusted_key_id
             || attestation.signature.algorithm != "ed25519"
+            || attestation.signature.value.is_empty()
             || attestation.signature.value.len() > 512
         {
             return Err(UpdateError::PolicyMismatch);
@@ -575,6 +586,14 @@ fn digest(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     format!("sha256:{:x}", hasher.finalize())
+}
+
+fn bounded_text(value: &str) -> bool {
+    !value.trim().is_empty() && value.len() <= 256 && !value.chars().any(char::is_control)
+}
+
+fn valid_git_id(value: &str) -> bool {
+    matches!(value.len(), 40 | 64) && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn ed25519_raw_public_key(encoded: &[u8]) -> Option<&[u8]> {
