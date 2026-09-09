@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import {
   assertPostMergeChecks,
@@ -292,6 +293,10 @@ test('AC-778: milestone release workflow is explicit and sources the version map
   const milestones = JSON.parse(readFileSync('release-milestones.json', 'utf8'));
   assert.equal(milestones.active.milestone, 'M16');
   assert.equal(milestones.active.version, '1.0.0');
+  assert.deepEqual(milestones.active.releaseBoundary, {
+    previousStableTag: 'v0.3.0',
+    card: 'PR-270',
+  });
   assert.equal(milestones.milestones.find((entry) => entry.id === 'M3-M4').version, '0.2.0');
 
   const workflow = readFileSync('.github/workflows/release-milestone.yml', 'utf8');
@@ -306,4 +311,60 @@ test('AC-778: milestone release workflow is explicit and sources the version map
   assert.match(workflow, /printf '%s\\n' "\$existing_release" \| grep -Eq/);
   assert.match(workflow, /status.*404/);
   assert.doesNotMatch(workflow, /push:/);
+});
+
+test('AC-779: prerelease provenance is explicit and bounded by the previous stable tag', () => {
+  const workflow = readFileSync('.github/workflows/release-prerelease.yml', 'utf8');
+  assert.match(workflow, /releaseBoundary/);
+  assert.match(workflow, /PREVIOUS_STABLE_TAG/);
+  assert.match(workflow, /RELEASE_CARD/);
+  assert.match(workflow, /releases\/tags\/\$PREVIOUS_STABLE_TAG/);
+  assert.match(workflow, /compare\/\$PREVIOUS_STABLE_TAG\.\.\.\$SHA/);
+  assert.match(workflow, /git merge-base --is-ancestor/);
+  assert.match(workflow, /pulls\/\$card_number/);
+  assert.doesNotMatch(workflow, /commits\/\$commit_sha\/pulls.*\|\| true/);
+  assert.match(workflow, /git log "\$range" --format=%s/);
+  assert.match(workflow, /changelog .*--range "\$RANGE" .*--sha "\$SHA" .*--tree "\$TREE"/);
+  assert.doesNotMatch(workflow, /git log -20 --format=%s/);
+
+  const fixture = mkdtempSync(join(tmpdir(), 'hank-release-range-'));
+  try {
+    const git = (...args) => execFileSync('git', args, { cwd: fixture, encoding: 'utf8' }).trim();
+    git('init', '--quiet');
+    git('config', 'user.email', 'release-test@example.invalid');
+    git('config', 'user.name', 'Release Test');
+    writeFileSync(join(fixture, 'before.txt'), 'before\n');
+    git('add', 'before.txt');
+    git('commit', '--quiet', '-m', 'feat: before release boundary');
+    const baseSha = git('rev-parse', 'HEAD');
+    git('tag', 'v0.3.0');
+    writeFileSync(join(fixture, 'after.txt'), 'after\n');
+    git('add', 'after.txt');
+    git('commit', '--quiet', '-m', 'feat: after release boundary');
+    const headSha = git('rev-parse', 'HEAD');
+    const headTree = git('rev-parse', 'HEAD^{tree}');
+    const cli = [
+      fileURLToPath(new URL('../tools/release-prerelease.mjs', import.meta.url)),
+      'changelog', '--tag', `v1.0.0-dev.${headSha}`, '--card', 'PR-270', '--prs', '270',
+      '--range', `v0.3.0..${headSha}`, '--sha', headSha, '--tree', headTree,
+    ];
+    const rangeNotes = execFileSync(process.execPath, cli, { cwd: fixture, encoding: 'utf8' });
+    assert.match(rangeNotes, /after release boundary/);
+    assert.doesNotMatch(rangeNotes, /before release boundary/);
+
+    const missingRange = [...cli];
+    const rangeIndex = missingRange.indexOf('--range');
+    missingRange.splice(rangeIndex, 2);
+    assert.throws(() => execFileSync(process.execPath, missingRange, { cwd: fixture, encoding: 'utf8' }));
+
+    const wrongUpper = [...cli];
+    wrongUpper[wrongUpper.indexOf('--range') + 1] = `v0.3.0..${baseSha}`;
+    assert.throws(() => execFileSync(process.execPath, wrongUpper, { cwd: fixture, encoding: 'utf8' }));
+
+    const wrongTree = [...cli];
+    wrongTree[wrongTree.indexOf('--tree') + 1] = '0'.repeat(40);
+    assert.throws(() => execFileSync(process.execPath, wrongTree, { cwd: fixture, encoding: 'utf8' }));
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
 });

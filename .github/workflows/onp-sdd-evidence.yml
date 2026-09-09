@@ -286,6 +286,12 @@ jobs:
       - name: Bind release signing evidence identity
         run: node tools/security/bind-release-signing-evidence.mjs
 
+      - name: Verify release rollback
+        run: node tools/ci/run-onp-spec.mjs verify release-rollback
+
+      - name: Verify distribution gates
+        run: node tools/ci/run-onp-spec.mjs verify distribution-gates
+
       - name: Verify contract evidence scope
         env:
           HANK_ALLOW_GENERATED_EVIDENCE: '1'
@@ -504,6 +510,12 @@ jobs:
 
       - name: Verify remote credential isolation
         run: node tools/ci/run-onp-spec.mjs verify remote-credential-isolation
+
+      - name: Verify remote tool execution
+        run: node tools/ci/run-onp-spec.mjs verify remote-tool-execution
+
+      - name: Verify remote project support
+        run: node tools/ci/run-onp-spec.mjs verify remote-project-support
 
       - name: Verify node management UI
         run: node tools/ci/run-onp-spec.mjs verify node-management-ui
