@@ -15,7 +15,8 @@
     "evidence-scope-reconciliation": "node tools/security/evidence-scope-feature-tests.mjs",
     "remote-tool-execution": "node --test test/remote-tool-execution-onp.test.mjs",
     "remote-project-support": "node --test test/remote-project-support-onp.test.mjs",
-    "release-rollback": "node --test test/release-rollback-onp.test.mjs"
+    "release-rollback": "node --test test/release-rollback-onp.test.mjs",
+    "distribution-gates": "node --test test/distribution-gates.test.mjs"
   },
   "reporter": "exitcode",
   "reporters": {
@@ -33,7 +34,8 @@
     "evidence-scope-reconciliation": "tap",
     "remote-tool-execution": "tap",
     "remote-project-support": "tap",
-    "release-rollback": "tap"
+    "release-rollback": "tap",
+    "distribution-gates": "tap"
   },
   "testGlobs": [
     "test/**/*.js",
