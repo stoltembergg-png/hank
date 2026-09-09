@@ -49,8 +49,19 @@ test('fuzz-runner.mjs roda e produz relatório JSON @spec:AC-2206', () => {
   assert.deepEqual(report.failed_tests, [], 'nenhum teste Rust pode falhar');
   assert.equal(
     report.runner_digest,
-    createHash('sha256').update(readFileSync(resolve(root, 'tools/security/fuzz-runner.mjs'))).digest('hex'),
+    createHash('sha256')
+      .update(readFileSync(resolve(root, 'tools/security/fuzz-runner.mjs'), 'utf8').replace(/\r\n/g, '\n'))
+      .digest('hex'),
     'report deve estar vinculado ao digest do runner',
+  );
+});
+
+test('fuzz runner digest is independent of checkout line endings @spec:AC-2206', () => {
+  const source = readFileSync(resolve(root, 'tools/security/fuzz-runner.mjs'), 'utf8');
+  const canonical = source.replace(/\r\n/g, '\n');
+  assert.equal(
+    createHash('sha256').update(canonical).digest('hex'),
+    JSON.parse(readFileSync(resolve(root, 'docs/security/fuzz-manifest.json'), 'utf8')).runner_digest,
   );
 });
 
@@ -86,15 +97,22 @@ test('fuzz-manifest FT-00N IDs são únicos e não se repetem @spec:AC-2202', ()
 });
 
 test('fuzz-runner mansa com git credentials em path? @spec:NEG-001', () => {
-  const safeEnv = {
+  const safeEnv = Object.fromEntries(Object.entries({
     PATH: process.env.PATH,
-    HOME: process.env.HOME,
+    HOME: process.env.HOME ?? process.env.USERPROFILE,
+    USERPROFILE: process.env.USERPROFILE,
+    HOMEDRIVE: process.env.HOMEDRIVE,
+    HOMEPATH: process.env.HOMEPATH,
+    SystemRoot: process.env.SystemRoot,
+    ComSpec: process.env.ComSpec,
+    TEMP: process.env.TEMP,
+    TMP: process.env.TMP,
     CI: '1',
     CARGO_NET_OFFLINE: 'true',
     ['AWS_' + 'ACCESS_KEY_ID']: '[REDACTED]',
     ['AWS_' + 'SECRET_ACCESS_KEY']: '[REDACTED]',
     ['AWS_' + 'SESSION_TOKEN']: '[REDACTED]',
-  };
+  }).filter(([, value]) => typeof value === 'string'));
   const runner = spawnSync('node', ['tools/security/fuzz-runner.mjs'], {
     cwd: root, encoding: 'utf8', env: safeEnv,
   });

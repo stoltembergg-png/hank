@@ -250,6 +250,33 @@ impl SqliteWorkflowRepository {
             .map_err(|error| WorkflowPersistenceError::InvalidGraph(error.to_string()))?;
         Ok(Some((workflow, graph)))
     }
+
+    /// Loads the newest version of a workflow within the requested project.
+    ///
+    /// The lookup is intentionally scoped by both project and workflow so a
+    /// desktop editor cannot observe or mutate a definition from another
+    /// project. The existing versioned loader remains the single decoder for
+    /// the graph rows.
+    pub async fn load_latest_definition(
+        &self,
+        project_id: &ProjectId,
+        workflow_id: &WorkflowId,
+    ) -> Result<Option<(Workflow, WorkflowGraph)>, WorkflowPersistenceError> {
+        let row = sqlx::query(
+            "SELECT MAX(version) AS version FROM workflow_definitions WHERE workflow_id = ? AND project_id = ?",
+        )
+        .bind(workflow_id.to_string())
+        .bind(project_id.to_string())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|error| WorkflowPersistenceError::Query(error.to_string()))?;
+        let Some(version) = row.get::<Option<i64>, _>("version") else {
+            return Ok(None);
+        };
+        let version = u32::try_from(version)
+            .map_err(|error| WorkflowPersistenceError::Serialization(error.to_string()))?;
+        self.load_definition(project_id, workflow_id, version).await
+    }
 }
 
 fn workflow_key(workflow_id: agent_protocol::Uuid) -> String {

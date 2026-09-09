@@ -31,7 +31,11 @@ async fn upgrade_fixture() -> (
         .execute(storage.pool())
         .await
         .unwrap();
-    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 21")
+    sqlx::query("DROP TABLE provider_accounts")
+        .execute(storage.pool())
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM _sqlx_migrations WHERE version IN (21, 22)")
         .execute(storage.pool())
         .await
         .unwrap();
@@ -67,7 +71,7 @@ fn manifest_is_ordered_and_digest_is_deterministic() {
         .migrations
         .windows(2)
         .all(|window| window[0].version < window[1].version));
-    assert_eq!(first.migrations.len(), 21);
+    assert_eq!(first.migrations.len(), 22);
     assert!(first.manifest_digest().len() == 64);
     assert!(first
         .migrations
@@ -194,8 +198,8 @@ async fn checksum_drift_and_downgrade_are_rejected_before_execution() {
     assert!(matches!(
         downgrade,
         Err(MigrationError::DowngradeBlocked {
-            current_version: 21,
-            target_version: 20
+            current_version: 22,
+            target_version: 21
         })
     ));
 }

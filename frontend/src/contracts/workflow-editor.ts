@@ -7,7 +7,12 @@ export type WorkflowEdge = { source: string; target: string };
 export type WorkflowDraft = { project_id: string; workflow_id: string; nodes: WorkflowNode[]; edges: WorkflowEdge[] };
 export type WorkflowCommand = { project_id: string; workflow_id: string; expected_version: number; draft: WorkflowDraft };
 export type WorkflowValidation = { valid: boolean; reason?: string };
-export type WorkflowApi = { validate(command: WorkflowCommand): Promise<WorkflowValidation>; save(command: WorkflowCommand): Promise<{ version: number }> };
+export type WorkflowSnapshot = { project_id: string; workflow_id: string; version: number; nodes: WorkflowNode[]; edges: WorkflowEdge[] };
+export type WorkflowApi = {
+  validate(command: WorkflowCommand): Promise<WorkflowValidation>;
+  save(command: WorkflowCommand): Promise<{ version: number }>;
+  load?(projectId: string, workflowId: string): Promise<WorkflowSnapshot | null>;
+};
 
 export class WorkflowEditorModel {
   public readonly nodes: WorkflowNode[] = [];
@@ -26,6 +31,17 @@ export class WorkflowEditorModel {
     const candidate = [...this.edges, { source, target }];
     if (hasCycle(this.nodes.map((node) => node.id), candidate)) return false;
     this.edges.push({ source, target });
+    return true;
+  }
+  public replace(draft: WorkflowDraft): boolean {
+    if (draft.project_id !== this.projectId || draft.workflow_id !== this.workflowId) return false;
+    if (draft.nodes.length > this.maxNodes || draft.edges.length > this.maxEdges) return false;
+    const candidate = new WorkflowEditorModel(this.projectId, this.workflowId, this.maxNodes, this.maxEdges, this.maxLabelBytes);
+    if (!draft.nodes.every((node) => candidate.addNode(node))) return false;
+    if (!draft.edges.every((edge) => candidate.addEdge(edge.source, edge.target))) return false;
+    this.nodes.splice(0, this.nodes.length, ...candidate.nodes.map((node) => ({ ...node })));
+    this.edges.splice(0, this.edges.length, ...candidate.edges.map((edge) => ({ ...edge })));
+    this.submitted.clear();
     return true;
   }
   public command(expectedVersion: number): WorkflowCommand {

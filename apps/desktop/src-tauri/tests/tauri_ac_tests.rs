@@ -83,6 +83,8 @@ mod tauri_tests {
             "script-src 'self'",
             "style-src 'self'",
             "connect-src 'self'",
+            "ipc:",
+            "http://ipc.localhost",
         ] {
             assert!(csp.contains(directive), "diretiva CSP ausente: {directive}");
         }
@@ -99,6 +101,7 @@ mod tauri_tests {
             source.contains("pub mod projects;"),
             "módulo de Projects ausente"
         );
+        assert!(source.contains("pub mod chat;"), "módulo de Chat ausente");
         assert!(
             source.contains(".invoke_handler(confirmations::command_handler())"),
             "bridge deve registrar o handler tipado"
@@ -136,9 +139,26 @@ mod tauri_tests {
             "crate::agents::create_agent",
             "crate::sessions::list_sessions",
             "crate::sessions::create_session",
+            "crate::chat::send_chat_command",
+            "crate::chat::cancel_chat_command",
+            "crate::chat::list_chat_messages",
+            "crate::chat::get_chat_usage",
+            "crate::lifecycle::build_identity",
             "crate::scheduler::list_scheduled_jobs",
             "crate::scheduler::create_scheduled_job",
             "crate::scheduler::update_scheduled_job",
+            "crate::provider_settings::list_provider_accounts",
+            "crate::provider_settings::start_provider_oauth",
+            "crate::provider_settings::get_provider_oauth_status",
+            "crate::provider_settings::complete_provider_oauth",
+            "crate::provider_settings::disconnect_provider_account",
+            "crate::updater::stage_update",
+            "crate::updater::activate_update",
+            "crate::updater::rollback_update",
+            "crate::updater::recover_update",
+            "crate::workflows::validate_workflow",
+            "crate::workflows::save_workflow",
+            "crate::workflows::get_workflow",
             "crate::lifecycle::frontend_ready",
         ] {
             assert!(
@@ -149,7 +169,7 @@ mod tauri_tests {
 
         assert_eq!(
             registered.split(',').count(),
-            24,
+            41,
             "a ponte deve registrar exatamente os comandos tipados previstos"
         );
 
@@ -159,6 +179,161 @@ mod tauri_tests {
                 "comando de produto fora do ciclo de confirmação: {forbidden}"
             );
         }
+    }
+
+    #[test]
+    fn ac_095_chat_bridge_exposes_honest_provider_and_usage_projections() {
+        // @spec:AC-095 @spec:AC-094
+        let bridge =
+            fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/chat.rs"))
+                .expect("chat.rs não encontrado");
+        for required in [
+            "provider_state",
+            "capability",
+            "attempt_number",
+            "UsageAggregator",
+            "UsageSource::Missing",
+            "UsageConfidence::Unavailable",
+            "get_chat_usage",
+            "list_chat_messages",
+        ] {
+            assert!(
+                bridge.contains(required),
+                "projeção de chat ausente: {required}"
+            );
+        }
+        assert!(
+            bridge.contains("input_tokens: None") && bridge.contains("output_tokens: None"),
+            "usage ausente não pode ser convertido em zeros"
+        );
+    }
+
+    #[test]
+    fn ac_provider_settings_bridge_is_typed_and_fail_closed() {
+        // @spec:AC-072 @spec:AC-070 @spec:AC-071
+        let bridge = fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/provider_settings.rs"),
+        )
+        .expect("provider_settings.rs não encontrado");
+        for required in [
+            "list_provider_accounts",
+            "start_provider_oauth",
+            "get_provider_oauth_status",
+            "complete_provider_oauth",
+            "disconnect_provider_account",
+            "OAuthCallbackHandler",
+            "HANK_E2E_MOCK_PROVIDER",
+            "ProviderSettingsErrorCode::Unavailable",
+            "project_scope",
+        ] {
+            assert!(
+                bridge.contains(required),
+                "ponte de providers ausente: {required}"
+            );
+        }
+        for forbidden in [
+            "api_key",
+            "authorization_code",
+            "access_token",
+            "refresh_token",
+        ] {
+            assert!(
+                !bridge.contains(forbidden),
+                "material de credencial não pode cruzar a ponte: {forbidden}"
+            );
+        }
+        assert!(
+            bridge.contains("cfg!(debug_assertions)"),
+            "fixture OAuth deve ser restrito ao build de desenvolvimento"
+        );
+    }
+
+    #[test]
+    fn ac_secret_backend_is_native_and_fail_closed() {
+        // @spec:AC-069
+        let source = fs::read_to_string(source_path()).expect("main.rs não encontrado");
+        assert!(
+            source.contains("pub mod platform_store;"),
+            "o shell deve registrar o adapter de armazenamento nativo"
+        );
+
+        let backend = fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/platform_store.rs"),
+        )
+        .expect("platform_store.rs não encontrado");
+        for required in [
+            "SecureSecretBackend",
+            "CredWriteW",
+            "CredReadW",
+            "CredDeleteW",
+            "BackendStatus::Unavailable",
+            "TARGET_PREFIX",
+            "fn wipe",
+        ] {
+            assert!(
+                backend.contains(required),
+                "adapter nativo ausente: {required}"
+            );
+        }
+        for forbidden in ["std::fs::", "sqlx::query", "localStorage"] {
+            assert!(
+                !backend.contains(forbidden),
+                "backend não pode usar fallback plaintext: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn ac_workflow_bridge_is_typed_project_scoped_and_revision_safe() {
+        // @spec:AC-1084 @spec:AC-1085
+        let source =
+            fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/workflows.rs"))
+                .expect("workflows.rs não encontrado");
+        for required in [
+            "WorkflowCommandInput",
+            "validate_workflow",
+            "save_workflow",
+            "get_workflow",
+            "WorkflowGraph",
+            "load_latest_definition",
+            "expected_version",
+            "ProjectStatus::Active",
+            "deny_unknown_fields",
+        ] {
+            assert!(
+                source.contains(required),
+                "ponte de workflow ausente: {required}"
+            );
+        }
+        for forbidden in ["sqlx::query", "std::fs::read", "provider"] {
+            assert!(
+                !source.contains(forbidden),
+                "ponte de workflow não pode contornar fronteiras: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn ac_016_build_identity_is_read_only_and_ci_bindable() {
+        // @spec:AC-016 @spec:AC-2661
+        let lifecycle =
+            fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/lifecycle.rs"))
+                .expect("lifecycle.rs não encontrado");
+        for required in [
+            "pub struct BuildIdentity",
+            "build_identity",
+            "HANK_BUILD_COMMIT_SHA",
+            "HANK_BUILD_TREE_SHA",
+            "CARGO_PKG_VERSION",
+            "Read-only build provenance",
+        ] {
+            assert!(
+                lifecycle.contains(required),
+                "proveniência de build ausente: {required}"
+            );
+        }
+        assert!(!lifecycle.contains("std::fs::read"));
+        assert!(!lifecycle.contains("reqwest::"));
     }
 
     #[test]

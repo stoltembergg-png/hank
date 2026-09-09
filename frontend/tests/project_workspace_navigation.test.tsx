@@ -37,6 +37,15 @@ describe('Project workspace navigation', () => {
           };
         case 'list_scheduled_jobs':
           return [];
+        case 'list_provider_accounts':
+          return [{
+            provider_id: 'mock',
+            account_id: 'account_mock',
+            display_name: 'Mock Provider',
+            state: 'revoked',
+            has_credential_ref: false,
+            updated_at: '2026-09-07T00:00:00.000Z',
+          }];
         default:
           throw new Error(`unexpected desktop command: ${command}`);
       }
@@ -56,7 +65,9 @@ describe('Project workspace navigation', () => {
       const agentsButton = screen.getByRole('button', { name: 'Agents' });
       expect(agentsButton).toBeEnabled();
       expect(screen.getByRole('button', { name: 'Workflows' })).toBeEnabled();
-      for (const section of ['Conversas', 'Skills', 'Memória', 'Configurações']) {
+      const settingsButton = screen.getByRole('button', { name: 'Configurações' });
+      expect(settingsButton).toBeEnabled();
+      for (const section of ['Conversas', 'Skills', 'Memória']) {
         expect(screen.getByRole('button', { name: section })).toBeDisabled();
       }
 
@@ -69,6 +80,19 @@ describe('Project workspace navigation', () => {
           { input: expect.objectContaining({ project_id: project.id }) },
         );
       });
+
+      fireEvent.click(settingsButton);
+      expect(settingsButton).toHaveAttribute('aria-current', 'page');
+      await screen.findByRole('heading', { name: 'Configurações de providers' });
+      await waitFor(() => {
+        expect(invoke).toHaveBeenCalledWith(
+          'list_provider_accounts',
+          { input: { project_id: project.id } },
+        );
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
+      await screen.findByRole('heading', { name: project.name });
     } finally {
       Object.defineProperty(window, '__TAURI_INTERNALS__', {
         configurable: true,

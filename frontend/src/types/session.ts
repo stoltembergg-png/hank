@@ -11,6 +11,7 @@ export interface SessionSummary {
   created_at: string;
   updated_at: string;
   closed_at?: string | null;
+  trace_id?: string | null;
 }
 
 export interface ListSessionsInput {

@@ -66,3 +66,15 @@ jobs:
 
       - name: Validate quality gate contract
         run: node --test tools/quality-gate-contract.spec.mjs
+
+      - name: Validate release install evidence gate
+        run: node --test tools/release-install-evidence.spec.mjs tools/release-macos-lane.spec.mjs
+
+      - name: Validate updater E2E contract
+        run: node --test tools/updater-e2e-contract.spec.mjs
+
+      - name: Validate protected updater bundle signing
+        run: node --test tools/release-updater-bundle.spec.mjs
+
+      - name: Validate release preflight pagination
+        run: node --test tools/release-workflow-pagination.spec.mjs

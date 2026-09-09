@@ -2,15 +2,16 @@
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { buildReport, readManifest, assertSourceClean } from '../evidence-scope-contract.mjs';
 
 const root = new URL('../..', import.meta.url);
-const rootPath = root.pathname;
+const rootPath = fileURLToPath(root);
 const reportPath = `${rootPath}/security/reports/evidence-scope.json`;
 fs.mkdirSync(`${rootPath}/security/reports`, { recursive: true });
 assertSourceClean({ projectRoot: rootPath });
 
-const result = spawnSync(process.execPath, ['--test', 'tools/evidence-scope-contract.spec.mjs'], {
+const result = spawnSync(process.execPath, ['--test', '--test-reporter=tap', 'tools/evidence-scope-contract.spec.mjs'], {
   cwd: rootPath,
   encoding: 'utf8',
   env: { ...process.env, HANK_EVIDENCE_SCOPE_NETWORK: 'disabled' },

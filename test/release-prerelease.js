@@ -10,6 +10,7 @@ import {
   assertPostMergeChecks,
   assertPublishPermission,
   assertTagAvailable,
+  buildArtifactDigests,
   buildManifest,
   buildPrereleaseTag,
   buildMilestoneReleaseManifest,
@@ -18,6 +19,7 @@ import {
   decideIdempotentRelease,
   policyDecision,
   renderReleaseNotes,
+  verifyArtifactDigests,
   verifyVersionConsistency,
 } from '../tools/release-prerelease.mjs';
 import {
@@ -90,6 +92,12 @@ test('AC-626: prerelease derives required checks from manifest and active rulese
   assert.match(workflow, /--sha "\$SHA"/);
   assert.match(workflow, /--tree "\$TREE"/);
   assert.match(workflow, /--required \"\$required\"/);
+  assert.match(workflow, /gh api --paginate --slurp "repos\/\$REPOSITORY\/commits\/\$SHA\/check-runs"/);
+  assert.match(workflow, /check-runs-pages\.json/);
+  assert.match(workflow, /check-runs response must be a slurped array of pages/);
+  assert.doesNotMatch(workflow, /gh api --paginate "repos\/\$REPOSITORY\/commits\/\$SHA\/check-runs" --jq/);
+  assert.match(workflow, /jq -Rsc 'split\("\\n"\) \| map\(select\(length > 0\) \| tonumber\) \| unique \| sort'/);
+  assert.doesNotMatch(workflow, /jq -Rsc 'split\("\\\\n"\)/);
   assert.doesNotMatch(workflow, /branches\/main\/protection\/required_status_checks/);
   const ruleset = [{ type: 'required_status_checks', parameters: {
     strict_required_status_checks_policy: true,
@@ -253,6 +261,87 @@ test('AC-628: CLI emits parseable JSON manifest with one trailing newline @spec:
   }
 });
 
+test('PR-370: publish binds the native Windows installer before creating the release', () => {
+  const workflow = readFileSync('.github/workflows/release-prerelease.yml', 'utf8');
+  assert.match(workflow, /Download Windows installer/);
+  assert.match(workflow, /Bind and verify release artifacts/);
+  assert.match(workflow, /hank-\$\{TAG\}-setup\.exe/);
+  assert.match(workflow, /buildArtifactDigests/);
+  assert.match(workflow, /verify-artifacts --manifest/);
+  assert.match(workflow, /`hank-\$\{tag\}-x86_64\.AppImage`/);
+  assert.match(workflow, /sha256sum \"\$\{names\[@\]\}\" \"\$\{signing_files\[@\]\}\" > SHA256SUMS/);
+  assert.match(workflow, /gh release create \"\$TAG\"[\s\S]*hank-\$\{TAG\}-setup\.exe/);
+  assert.match(workflow, /gh release create \"\$TAG\"[\s\S]*hank-\$\{TAG\}-x86_64\.AppImage/);
+  assert.match(workflow, /gh release download \"\$TAG\" --repo \"\$REPOSITORY\" --pattern release-manifest\.json/);
+  assert.match(workflow, /cmp \/tmp\/prerelease\/release-manifest\.json \/tmp\/existing-prerelease\/release-manifest\.json/);
+  assert.match(workflow, /install-smoke:/);
+  assert.match(workflow, /install-smoke-windows\.ps1/);
+  assert.match(workflow, /Download and verify published release assets/);
+  assert.match(workflow, /linux-package:/);
+  assert.match(workflow, /hank-\$\{TAG\}-x86_64\.AppImage/);
+  assert.match(workflow, /linux-install-smoke:/);
+  assert.match(workflow, /install-smoke-linux\.sh/);
+  assert.match(workflow, /sign:/);
+  assert.match(workflow, /environment: release-signing/);
+  assert.match(workflow, /HANK_RELEASE_SIGNING_PRIVATE_KEY_PEM/);
+  assert.match(workflow, /release-artifact-signing\.mjs sign/);
+  assert.match(workflow, /needs: \[preflight, package, windows-package, linux-package, macos-package, sign\]/);
+  assert.match(workflow, /macos-package:/);
+  assert.match(workflow, /macos-install-smoke:/);
+  assert.match(workflow, /install-smoke-macos\.sh/);
+  assert.match(workflow, /release-signing-metadata\.json/);
+  assert.match(workflow, /release-sbom\.mjs generate/);
+  assert.match(workflow, /release-sbom\.mjs verify/);
+  assert.match(workflow, /SBOM\.spdx\.json/);
+  const milestone = readFileSync('.github/workflows/release-milestone.yml', 'utf8');
+  assert.match(milestone, /sha256sum -c SHA256SUMS/);
+  assert.match(milestone, /verify-artifacts/);
+  assert.match(milestone, /release-artifact-signing\.mjs verify/);
+  assert.match(milestone, /release-signing-metadata\.json/);
+  assert.match(milestone, /release-sbom\.mjs verify/);
+  assert.match(milestone, /SBOM\.spdx\.json/);
+  const sbomDocs = readFileSync('docs/release-sbom.md', 'utf8');
+  assert.match(sbomDocs, /SPDX 2\.3/);
+  assert.match(sbomDocs, /artifactDigests/);
+});
+
+test('AC-628/PR-370: binds and verifies release artifact digests fail-closed', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'hank-release-artifacts-'));
+  const tarball = join(directory, 'hank-v0.1.0-dev.' + sha + '.tar.gz');
+  const installer = join(directory, 'hank-v0.1.0-dev.' + sha + '-setup.exe');
+  const appImage = join(directory, 'hank-v0.1.0-dev.' + sha + '-x86_64.AppImage');
+  const sbom = join(directory, 'SBOM.spdx.json');
+  writeFileSync(tarball, 'archive bytes');
+  writeFileSync(installer, 'installer bytes');
+  writeFileSync(appImage, 'appimage bytes');
+  writeFileSync(sbom, 'sbom bytes');
+  const names = [
+    'hank-v0.1.0-dev.' + sha + '.tar.gz',
+    'hank-v0.1.0-dev.' + sha + '-setup.exe',
+    'hank-v0.1.0-dev.' + sha + '-x86_64.AppImage',
+    'SBOM.spdx.json',
+  ];
+  try {
+    const digests = buildArtifactDigests({ directory, names });
+    assert.deepEqual(Object.keys(digests), [...names].sort((left, right) => left.localeCompare(right)));
+    const manifest = buildManifest({
+      tag: tag(), version: '0.1.0-dev.' + sha, sha, tree, card: 'PR-200',
+      classification: ['functional'], relatedPullRequests: [200], artifacts: names,
+      artifactDigests: digests, changelog: 'changes', testInstructions: 'test',
+    });
+    assert.deepEqual(verifyArtifactDigests({ manifest, directory }), { verified: 4, artifacts: [...names].sort((left, right) => left.localeCompare(right)) });
+    writeFileSync(installer, 'substituted installer bytes');
+    assert.throws(() => verifyArtifactDigests({ manifest, directory }), /artifact digest mismatch/);
+    assert.throws(() => buildManifest({
+      tag: tag(), version: '0.1.0-dev.' + sha, sha, tree, card: 'PR-200',
+      classification: ['functional'], relatedPullRequests: [200], artifacts: names,
+      artifactDigests: { ...digests, 'unexpected.bin': '0'.repeat(64) }, changelog: 'changes', testInstructions: 'test',
+    }), /not declared/);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('AC-631: rollback is explicit, bounded, and does not silently delete anything @spec:AC-631', () => {
   assert.deepEqual(buildRollbackPlan({ tag: tag(), releaseId: 42, sha }), { tag: tag(), releaseId: '42', sha, action: 'delete-release-and-tag', destructive: true, requiresExplicitApproval: true });
   assert.throws(() => buildRollbackPlan({ tag: 'v0.1.0', releaseId: 42, sha }), /valid immutable/);
@@ -268,6 +357,7 @@ test('AC-777: milestone promotion converts only the matching prerelease manifest
     classification: ['functional'],
     relatedPullRequests: [200],
     artifacts: [`hank-v0.3.0-dev.${sha}.tar.gz`],
+    artifactDigests: { [`hank-v0.3.0-dev.${sha}.tar.gz`]: '0'.repeat(64) },
     changelog: 'changes',
     testInstructions: 'test',
   });
@@ -283,6 +373,7 @@ test('AC-777: milestone promotion converts only the matching prerelease manifest
   assert.equal(stable.stable, true);
   assert.equal(stable.milestone, 'M5-M6');
   assert.deepEqual(stable.artifacts, ['hank-v0.3.0.tar.gz']);
+  assert.deepEqual(stable.artifactDigests, { 'hank-v0.3.0.tar.gz': '0'.repeat(64) });
   assert.equal(stable.provenance.promotedFromTag, prerelease.tag);
   assert.equal(stable.provenance.exactCommit, sha);
   assert.throws(() => buildMilestoneReleaseManifest({ manifest: prerelease, stableVersion: '0.2.0', milestone: 'M3-M4' }), /does not match/);
@@ -367,4 +458,16 @@ test('AC-779: prerelease provenance is explicit and bounded by the previous stab
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
+});
+
+test('release contract runners emit complete TAP plans', () => {
+  for (const runner of ['tools/security/updater-feature-tests.mjs', 'tools/security/installer-feature-tests.mjs', 'tools/security/release-signing-feature-tests.mjs']) {
+    assert.match(readFileSync(runner, 'utf8'), /--test-reporter=tap/);
+  }
+  const evidenceRunner = readFileSync('tools/security/evidence-scope-feature-tests.mjs', 'utf8');
+  assert.match(evidenceRunner, /fileURLToPath\(root\)/);
+  assert.doesNotMatch(evidenceRunner, /root\.pathname/);
+  const evidenceRenderer = readFileSync('tools/security/generate-evidence-scope-report.mjs', 'utf8');
+  assert.match(evidenceRenderer, /fileURLToPath\(new URL\('\.\.\/\.\.'/);
+  assert.doesNotMatch(evidenceRenderer, /new URL\('\.\.\/\.\.'[^\n]*\.pathname/);
 });

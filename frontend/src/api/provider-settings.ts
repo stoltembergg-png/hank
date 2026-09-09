@@ -18,6 +18,7 @@ export interface OAuthStartInput {
 export interface OAuthStartResult {
   flow_id: string;
   state: 'pending';
+  authorization_url: string;
 }
 
 export interface OAuthFlowStatus {
@@ -57,7 +58,7 @@ export class DesktopProviderSettingsApiClient implements ProviderSettingsApiClie
   async list(projectId: string): Promise<ProviderAccountStatus[]> {
     const invoke = bridgeInvoker();
     if (!invoke) return [];
-    return invoke<ProviderAccountStatus[]>('list_provider_accounts', { projectId });
+    return invoke<ProviderAccountStatus[]>('list_provider_accounts', { input: { project_id: projectId } });
   }
 
   async startOAuth(input: OAuthStartInput): Promise<OAuthStartResult> {

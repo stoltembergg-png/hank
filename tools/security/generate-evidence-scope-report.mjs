@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { assertSourceClean, renderSvg } from '../evidence-scope-contract.mjs';
 
-const root = new URL('../..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('../..', import.meta.url));
 assertSourceClean({ projectRoot: root });
 const reportPath = `${root}/security/reports/evidence-scope.json`;
 const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));

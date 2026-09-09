@@ -105,8 +105,7 @@ impl<T: HttpTransport> OpenAiCompatibleAdapter<T> {
                 self.error_response(&request, response.status),
             )));
         }
-        let chunks: Vec<OpenAiStreamChunk> =
-            serde_json::from_slice(&response.body).map_err(|_| AdapterError::MalformedResponse)?;
+        let chunks = parse_stream_chunks(&response.body)?;
         let stream_id = request.request_id.clone();
         let mut validator = StreamValidator::new(&stream_id, 1)?;
         let mut events = Vec::new();
@@ -421,6 +420,83 @@ struct OpenAiStreamChunk {
     usage: Option<OpenAiUsage>,
     tool_request: Option<OpenAiToolRequest>,
     error: Option<OpenAiChunkError>,
+}
+
+/// Accept the deterministic JSON-array fixture used by the offline contract
+/// tests as well as the Server-Sent Events framing emitted by the real
+/// OpenAI-compatible API.  Both forms are normalized into the same bounded
+/// chunk representation before stream validation; no provider payload is
+/// copied into an error or retained outside the response-size limit.
+fn parse_stream_chunks(body: &[u8]) -> Result<Vec<OpenAiStreamChunk>, AdapterError> {
+    if let Ok(chunks) = serde_json::from_slice::<Vec<OpenAiStreamChunk>>(body) {
+        return Ok(chunks);
+    }
+
+    let text = std::str::from_utf8(body).map_err(|_| AdapterError::MalformedResponse)?;
+    let mut chunks = Vec::new();
+    let mut saw_data = false;
+    for line in text.lines() {
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        if line.is_empty() || line.starts_with(':') {
+            continue;
+        }
+        // SSE permits metadata fields alongside data frames. OpenAI does not
+        // currently require them, but compatible gateways may emit event/id
+        // or retry hints that are irrelevant to the normalized stream.
+        if line.starts_with("event:") || line.starts_with("id:") || line.starts_with("retry:") {
+            continue;
+        }
+        let data = line
+            .strip_prefix("data:")
+            .ok_or(AdapterError::MalformedResponse)?;
+        let data = data.strip_prefix(' ').unwrap_or(data);
+        saw_data = true;
+        if data == "[DONE]" {
+            continue;
+        }
+        let event: OpenAiSseChunk =
+            serde_json::from_str(data).map_err(|_| AdapterError::MalformedResponse)?;
+        let mut delta = String::new();
+        let mut finish_reason = None;
+        for choice in event.choices {
+            if let Some(content) = choice.delta.and_then(|delta| delta.content) {
+                delta.push_str(&content);
+            }
+            if finish_reason.is_none() {
+                finish_reason = choice.finish_reason;
+            }
+        }
+        chunks.push(OpenAiStreamChunk {
+            delta: (!delta.is_empty()).then_some(delta),
+            finish_reason,
+            usage: event.usage,
+            tool_request: None,
+            error: event.error,
+        });
+    }
+    if !saw_data {
+        return Err(AdapterError::MalformedResponse);
+    }
+    Ok(chunks)
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAiSseChunk {
+    #[serde(default)]
+    choices: Vec<OpenAiSseChoice>,
+    usage: Option<OpenAiUsage>,
+    error: Option<OpenAiChunkError>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAiSseChoice {
+    delta: Option<OpenAiSseDelta>,
+    finish_reason: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAiSseDelta {
+    content: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

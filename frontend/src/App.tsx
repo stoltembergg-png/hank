@@ -2,6 +2,8 @@ import { useState, useLayoutEffect } from 'react';
 import { ProjectList } from './components/ProjectList';
 import { ProjectDetailView } from './components/ProjectDetailView';
 import { ProductShell, type ProductShellSection } from './components/ProductShell';
+import { ProviderSettingsPage } from './providers/settings/ProviderSettingsPage';
+import { desktopWorkflowApiOrUndefined } from './api/workflows';
 import { APP_VERSION } from './version';
 import type { ProjectSummary } from './types/project';
 import {
@@ -76,13 +78,14 @@ function App() {
   };
 
   const enabledSections: readonly ProductShellSection[] = selectedProject
-    ? ['overview', 'agents', 'workflows']
+    ? ['overview', 'agents', 'workflows', 'settings']
     : ['overview'];
   const projectTab = activeSection === 'agents'
     ? 'agents'
     : activeSection === 'workflows'
       ? 'workflows'
       : 'overview';
+  const workflowApi = desktopWorkflowApiOrUndefined();
 
   return (
     <div
@@ -99,7 +102,12 @@ function App() {
           <span className={`status ${status}`}>{status}</span>
           <span className="app-version">Version: {version}</span>
         </div>
-        {selectedProject ? (
+        {selectedProject && activeSection === 'settings' ? (
+          <ProviderSettingsPage
+            projectId={selectedProject.id}
+            onBack={() => setActiveSection('overview')}
+          />
+        ) : selectedProject ? (
           <ProjectDetailView
             projectId={selectedProject.id}
             initialProject={selectedProject}
@@ -108,6 +116,7 @@ function App() {
             onBack={closeProject}
             onProjectUpdated={updateSelectedProject}
             onProjectArchived={updateSelectedProject}
+            workflowApi={workflowApi}
           />
         ) : (
           <ProjectList onProjectOpen={openProject} />

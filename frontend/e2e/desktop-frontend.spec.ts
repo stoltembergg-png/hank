@@ -30,7 +30,7 @@ test('desktop frontend renders the project workspace without a Tauri bridge fail
   await expect(page.getByRole('form', { name: 'Criar novo projeto' })).toBeVisible();
 });
 
-test('desktop frontend exposes a scoped workflow draft without claiming persistence', async ({ page }) => {
+test('desktop frontend exposes a scoped workflow draft through the desktop bridge', async ({ page }) => {
   await page.addInitScript(() => {
     const project = {
       id: 'project-workflow-surface',
@@ -57,6 +57,9 @@ test('desktop frontend exposes a scoped workflow draft without claiming persiste
         if (command === 'list_memories') return { project_id: project.id, memories: [] };
         if (command === 'list_skills') return { project_id: project.id, scope: 'project', skills: [], total: 0, limit: 50, offset: 0, available: true };
         if (command === 'list_scheduled_jobs') return [];
+        if (command === 'get_workflow') return null;
+        if (command === 'validate_workflow') return { valid: true };
+        if (command === 'save_workflow') return { version: 1 };
         throw new Error(`Unexpected command: ${command}`);
       },
     };
@@ -71,13 +74,15 @@ test('desktop frontend exposes a scoped workflow draft without claiming persiste
   await expect(page.getByRole('region', { name: 'Workflows do projeto' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Workflow studio' })).toBeVisible();
   await expect(page.getByText('Rascunho local')).toBeVisible();
-  await expect(page.getByText('A persistência de workflows ainda não está disponível no desktop.')).toBeVisible();
+  await expect(page.getByText('A persistência está disponível através da ponte do workflow.')).toBeVisible();
   expect(await backgroundLuminance(page, '.workflow-surface')).toBeLessThan(95);
   expect(await backgroundLuminance(page, '.workflow-canvas')).toBeLessThan(95);
 
   await page.getByRole('button', { name: 'Adicionar nó Agent' }).click();
   await expect(page.getByRole('listitem', { name: 'Agent 1' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Salvar workflow' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Salvar workflow' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Salvar workflow' }).click();
+  await expect(page.getByText('Workflow salvo na versão 1.')).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
@@ -87,7 +92,7 @@ test('desktop frontend exposes a scoped workflow draft without claiming persiste
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test('desktop frontend opens a project session in the read-only workbench', async ({ page }) => {
+test('desktop frontend opens a project session with the chat workbench', async ({ page }) => {
   await page.addInitScript(() => {
     const project = {
       id: 'project-session-open',
@@ -133,8 +138,12 @@ test('desktop frontend opens a project session in the read-only workbench', asyn
     };
 
     (window as unknown as {
-      __TAURI_INTERNALS__: { invoke: (command: string) => Promise<unknown> };
+      __TAURI_INTERNALS__: {
+        invoke: (command: string) => Promise<unknown>;
+        transformCallback: (callback: (value: unknown) => void) => number;
+      };
     }).__TAURI_INTERNALS__ = {
+      transformCallback: (callback) => { void callback; return 1; },
       invoke: async (command) => {
         if (command === 'frontend_ready') return { stage: 'APPLICATION_READY' };
         if (command === 'list_projects') return { projects: [project], total: 1, limit: 10, offset: 0 };
@@ -143,6 +152,10 @@ test('desktop frontend opens a project session in the read-only workbench', asyn
         if (command === 'list_memories') return { project_id: project.id, memories: [] };
         if (command === 'list_skills') return { project_id: project.id, scope: 'project', skills: [], total: 0, limit: 50, offset: 0, available: true };
         if (command === 'list_scheduled_jobs') return [];
+        if (command === 'plugin:event|listen') return 1;
+        if (command === 'plugin:event|unlisten') return null;
+        if (command === 'list_chat_messages') return { messages: [], limit: 100, offset: 0 };
+        if (command === 'get_chat_usage') return { usage: null };
         throw new Error(`Unexpected command: ${command}`);
       },
     };
@@ -162,8 +175,8 @@ test('desktop frontend opens a project session in the read-only workbench', asyn
   await page.getByRole('button', { name: 'Abrir conversa' }).click();
 
   await expect(page.getByRole('heading', { name: 'Open this conversation' })).toBeVisible();
-  await expect(page.getByText('Envio de mensagens ainda não está integrado ao desktop.')).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'Mensagem' })).toBeDisabled();
+  await expect(page.getByRole('heading', { name: 'Chat' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Mensagem' })).toBeEnabled();
   await page.getByRole('button', { name: 'Voltar para conversas' }).click();
   await expect(page.getByRole('button', { name: 'Abrir conversa' })).toBeVisible();
 });

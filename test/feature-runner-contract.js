@@ -12,6 +12,10 @@ test('feature runner has explicit native and frontend boundaries', () => {
   const runner = readFileSync('tools/run-feature-tests.mjs', 'utf8');
   assert.match(runner, /const args = file\.startsWith\('apps\/'\)/);
   assert.match(runner, /npm/);
+  assert.match(runner, /frontendRunner/);
+  assert.match(runner, /node_modules', 'vitest', 'vitest\.mjs/);
+  assert.match(runner, /process\.execPath/);
+  assert.match(runner, /cwd: cwd \?\? root/);
   assert.match(runner, /args: \['--test'/);
   assert.match(runner, /skipTauri = process\.env\.HANK_SKIP_TAURI === '1'/);
   assert.match(runner, /file\.startsWith\('apps\/desktop\/'\)/);

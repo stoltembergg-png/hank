@@ -1,15 +1,23 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 pub mod agents;
+pub mod chat;
 pub mod confirmations;
 pub mod lifecycle;
 pub mod memory;
 pub mod notifications;
+pub mod platform_store;
 pub mod projects;
+pub mod provider_credential_store;
+pub mod provider_runtime;
+pub mod provider_settings;
+pub mod provider_transport;
 pub mod scheduler;
 pub mod sessions;
 pub mod skills;
 pub mod streaming;
+pub mod updater;
+pub mod workflows;
 
 use agent_runtime::{
     backup::{BackupPolicy, BackupProtection, BackupRequest, DatabaseBackupService},
@@ -123,7 +131,7 @@ fn main() {
                 "application starting"
             );
 
-            let database_path = database_path(app.handle()).map_err(|error| {
+            let database_file = database_path(app.handle()).map_err(|error| {
                 startup_operation_failure(
                     &startup,
                     lifecycle::StartupStage::Booting,
@@ -131,12 +139,12 @@ fn main() {
                     error.to_string(),
                 )
             })?;
-            let backup_root = database_path
+            let backup_root = database_file
                 .parent()
                 .map(|parent| parent.join("backups"))
                 .ok_or_else(|| io::Error::other("database path has no backup root"))?;
             let storage = tauri::async_runtime::block_on(async move {
-                let storage = SqliteStorage::connect(SqliteStorageConfig::for_file(database_path))
+                let storage = SqliteStorage::connect(SqliteStorageConfig::for_file(database_file))
                     .await
                     .map_err(|error| io::Error::other(error.to_string()))?;
                 let target_version = embedded_migration_manifest().latest_version();
@@ -193,15 +201,36 @@ fn main() {
                     notifications::TauriNotificationSink::new(app.handle().clone()),
                 ),
             ));
+            // Keep updater state beside the database so opted-in clean-room
+            // E2E runs cannot touch a developer's real application profile.
+            let updater_manager = database_path(app.handle())
+                .ok()
+                .and_then(|database| database.parent().map(|parent| parent.join("updates")))
+                .and_then(updater::manager_from_environment);
+            if let Some(manager) = updater_manager.as_ref() {
+                if let Err(error) = manager.recover_interrupted_activation() {
+                    tracing::warn!(event = "updater_recovery_deferred", error = %error, "updater recovery could not complete");
+                }
+            }
+            app.manage(updater::bridge_state(updater_manager));
             startup
                 .advance(lifecycle::StartupStage::StorageReady)
                 .map_err(startup_transition_failure)?;
+            let provider_credentials = std::sync::Arc::new(provider_credential_store::ProviderCredentialStore::new(
+                &storage,
+                platform_store::PlatformSecretBackend,
+            ));
             app.manage(projects::bridge_state(&storage));
             app.manage(agents::bridge_state(&storage));
             app.manage(sessions::bridge_state(&storage));
+            let chat_credentials: std::sync::Arc<dyn provider_core::credentials::CredentialService> =
+                provider_credentials.clone();
+            app.manage(chat::bridge_state_with_store(&storage, chat_credentials, provider_credentials.clone()));
             app.manage(scheduler::bridge_state(&storage));
             app.manage(memory::bridge_state(&storage));
             app.manage(skills::bridge_state(&storage));
+            app.manage(provider_settings::bridge_state(&storage, provider_credentials));
+            app.manage(workflows::bridge_state(&storage));
             startup
                 .advance(lifecycle::StartupStage::RuntimeReady)
                 .map_err(startup_transition_failure)?;

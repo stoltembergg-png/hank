@@ -241,6 +241,7 @@ pub struct SessionSummary {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub closed_at: Option<DateTime<Utc>>,
+    pub trace_id: Option<String>,
 }
 
 impl From<&Session> for SessionSummary {
@@ -256,6 +257,7 @@ impl From<&Session> for SessionSummary {
             created_at: session.created_at,
             updated_at: session.updated_at,
             closed_at: session.closed_at,
+            trace_id: session.trace_id.map(|trace| trace.to_string()),
         }
     }
 }

@@ -16,6 +16,8 @@ Provider/model identifiers are bounded and reject URLs, whitespace/control chara
 
 The indicator is an optional `ChatPage` prop so the UI cannot invent provider metadata when no normalized event/service data exists. No raw account, endpoint, token, credential or secret is rendered or logged.
 
+The desktop chat bridge returns the same allowlisted metadata (`provider_id`, `model_id`, explicit provider state, capability state and bounded attempt number) in `send_chat_command`. `ChatPage` adopts it only after the typed bridge result is validated; a missing or rejected result leaves the indicator absent.
+
 ## Tests
 
 `frontend/tests/provider-indicator.test.tsx` covers selected/fallback/unknown/unavailable/degraded states, normalized identity/attempt, malformed-secret metadata redaction and accessible missing-metadata fallback.

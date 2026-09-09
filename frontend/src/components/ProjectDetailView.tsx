@@ -12,6 +12,7 @@ import { AutomationList } from './AutomationList';
 import { AgentList } from './AgentList';
 import { SessionWorkbench } from './SessionWorkbench';
 import { WorkflowSurface } from './WorkflowSurface';
+import type { WorkflowApi } from '../contracts/workflow-editor';
 import './ProjectDetailView.css';
 
 export type ProjectDetailTab = 'overview' | 'agents' | 'workflows';
@@ -30,6 +31,7 @@ export interface ProjectDetailViewProps {
   onProjectArchived?: (project: ProjectSummary) => void;
   activeTab?: ProjectDetailTab;
   onActiveTabChange?: (tab: ProjectDetailTab) => void;
+  workflowApi?: WorkflowApi;
 }
 
 export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
@@ -46,6 +48,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   onProjectArchived,
   activeTab,
   onActiveTabChange,
+  workflowApi,
 }) => {
   const [project, setProject] = useState<ProjectSummary | null>(initialProject ?? null);
   const [isLoading, setIsLoading] = useState<boolean>(!initialProject);
@@ -282,7 +285,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       </div>
 
       {currentTab === 'workflows' ? (
-        <WorkflowSurface projectId={project.id} />
+        <WorkflowSurface projectId={project.id} api={workflowApi} />
       ) : currentTab === 'agents' ? (
         <>
           <AgentList

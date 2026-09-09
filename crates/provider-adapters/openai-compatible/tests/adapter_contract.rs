@@ -154,6 +154,40 @@ fn stream_maps_chunks_to_ordered_terminal_events() {
 }
 
 #[test]
+fn stream_maps_real_openai_sse_framing_to_terminal_events() {
+    let transport = MockTransport::response(
+        concat!(
+            ": keep-alive\n\n",
+            "event: message\nid: response-1\nretry: 1000\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"hel\"},\"finish_reason\":null}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"lo\"},\"finish_reason\":null}],\"usage\":{\"prompt_tokens\":2,\"completion_tokens\":2}}\n\n",
+            "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+            "data: [DONE]\n\n",
+        ),
+    );
+    let events = adapter(transport)
+        .stream(request(), &CancellationToken::new())
+        .unwrap();
+    let text: String = events
+        .iter()
+        .filter_map(|event| match &event.payload {
+            StreamEventPayload::Delta { part } => Some(part.content.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(text, "hello");
+    assert!(events
+        .iter()
+        .any(|event| matches!(event.payload, StreamEventPayload::Usage { .. })));
+    assert!(matches!(
+        events.last().unwrap().payload,
+        StreamEventPayload::Finish {
+            reason: FinishReason::Stop
+        }
+    ));
+}
+
+#[test]
 fn maps_rate_limit_timeout_and_cancel_without_retry_side_effects() {
     let rate_limited = MockTransport::response_status(429, br#"{"error":{"message":"slow down"}}"#);
     let error = adapter(rate_limited)

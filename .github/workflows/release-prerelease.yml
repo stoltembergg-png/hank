@@ -105,8 +105,9 @@ jobs:
           previous_release=$(gh api "repos/$REPOSITORY/releases/tags/$PREVIOUS_STABLE_TAG")
           test "$(printf '%s' "$previous_release" | jq -r .prerelease)" = false
           range="$PREVIOUS_STABLE_TAG..$SHA"
-          commits=$(gh api --paginate "repos/$REPOSITORY/compare/$PREVIOUS_STABLE_TAG...$SHA" --jq '.commits[].sha')
-          prs=$(for commit_sha in $commits; do gh api "repos/$REPOSITORY/commits/$commit_sha/pulls" --jq '.[].number'; done | jq -Rsc 'split("\\n") | map(select(length > 0) | tonumber) | unique | sort')
+          compare_pages=$(gh api --paginate "repos/$REPOSITORY/compare/$PREVIOUS_STABLE_TAG...$SHA")
+          commits=$(printf '%s\n' "$compare_pages" | jq -rs '.[].commits[]?.sha')
+          prs=$(for commit_sha in $commits; do gh api "repos/$REPOSITORY/commits/$commit_sha/pulls" --jq '.[].number'; done | jq -Rsc 'split("\n") | map(select(length > 0) | tonumber) | unique | sort')
           test "$prs" != "[]"
           card_number=${RELEASE_CARD#PR-}
           node --input-type=module -e "const prs=JSON.parse(process.argv[1]); const card=Number(process.argv[2]); if (!prs.includes(card)) process.exit(1)" "$prs" "$card_number"
@@ -154,7 +155,18 @@ jobs:
           for attempt in $(seq 1 40); do
             echo "polling required post-merge checks: attempt $attempt/40"
             required=$(cat /tmp/required-checks.txt)
-            gh api --paginate "repos/$REPOSITORY/commits/$SHA/check-runs" --jq '[.check_runs[] | {name,status,conclusion}]' > /tmp/checks.json
+            # --paginate emits one JSON document per page; --slurp is required before
+            # parsing so a multi-page response cannot be treated as concatenated JSON.
+            gh api --paginate --slurp "repos/$REPOSITORY/commits/$SHA/check-runs" > /tmp/check-runs-pages.json
+            node --input-type=module - <<'NODE' > /tmp/checks.json
+            import fs from 'node:fs';
+            const pages = JSON.parse(fs.readFileSync('/tmp/check-runs-pages.json', 'utf8'));
+            if (!Array.isArray(pages) || pages.some((page) => !page || !Array.isArray(page.check_runs))) {
+              throw new Error('check-runs response must be a slurped array of pages');
+            }
+            const checks = pages.flatMap((page) => page.check_runs.map(({ name, status, conclusion }) => ({ name, status, conclusion })));
+            process.stdout.write(`${JSON.stringify(checks)}\n`);
+          NODE
             node tools/release-prerelease.mjs checks --file /tmp/checks.json --required "$required" && exit 0
             sleep 30
           done
@@ -200,30 +212,10 @@ jobs:
           mkdir -p /tmp/prerelease
           prs_csv=$(node --input-type=module -e "process.stdout.write(JSON.parse(process.argv[1]).join(','))" "$PRS")
           node tools/release-prerelease.mjs changelog --tag "$TAG" --card "$CARD" --prs "$prs_csv" --range "$RANGE" --sha "$SHA" --tree "$TREE" > /tmp/prerelease/RELEASE_NOTES.md
-          printf '%s\n' "Download the archive and release-manifest.json. Verify manifest.sha256 matches the downloaded manifest, confirm exact commit $SHA, then run cargo test --workspace --locked and npm --prefix frontend test. This is a prerelease and is not a stable release." > /tmp/prerelease/TEST_INSTRUCTIONS.md
+          node tools/release-sbom.mjs generate --root . --commit "$SHA" --tree "$TREE" --version "${TAG#v}" --output /tmp/prerelease/SBOM.spdx.json
+          node tools/release-sbom.mjs verify --file /tmp/prerelease/SBOM.spdx.json --commit "$SHA" --tree "$TREE" --version "${TAG#v}"
+          printf '%s\n' "Download the archive, SBOM.spdx.json and release-manifest.json. Verify manifest.sha256 and SHA256SUMS, confirm exact commit $SHA, validate the SPDX SBOM identity, then run cargo test --workspace --locked and npm --prefix frontend test. This is a prerelease and is not a stable release." > /tmp/prerelease/TEST_INSTRUCTIONS.md
           tar --exclude='./.git' --exclude='./frontend/node_modules' --exclude='./target' --exclude='./apps/desktop/src-tauri/target' -czf "/tmp/prerelease/hank-${TAG}.tar.gz" .
-          (cd /tmp/prerelease && sha256sum "hank-${TAG}.tar.gz" > SHA256SUMS)
-
-      - name: Generate immutable release manifest
-        env:
-          TAG: ${{ needs.preflight.outputs.tag }}
-          SHA: ${{ needs.preflight.outputs.sha }}
-          TREE: ${{ needs.preflight.outputs.tree }}
-          CARD: ${{ needs.preflight.outputs.card }}
-          PRS: ${{ needs.preflight.outputs.prs }}
-          CLASSIFICATION: ${{ needs.preflight.outputs.classification }}
-        run: |
-          set -euo pipefail
-          node - <<'NODE' > /tmp/manifest-input.json
-          const fs = require('node:fs');
-          const tag = process.env.TAG;
-          const sha = process.env.SHA;
-          const changelog = fs.readFileSync('/tmp/prerelease/RELEASE_NOTES.md', 'utf8');
-          const testInstructions = fs.readFileSync('/tmp/prerelease/TEST_INSTRUCTIONS.md', 'utf8');
-          process.stdout.write(JSON.stringify({tag, version: tag.slice(1), sha, tree: process.env.TREE, card: process.env.CARD, classification: JSON.parse(process.env.CLASSIFICATION), relatedPullRequests: JSON.parse(process.env.PRS), artifacts: ['hank-' + tag + '.tar.gz', 'hank-' + tag + '-setup.exe', 'RELEASE_NOTES.md', 'TEST_INSTRUCTIONS.md', 'SHA256SUMS'], changelog, testInstructions}));
-          NODE
-          node tools/release-prerelease.mjs manifest --input /tmp/manifest-input.json --output /tmp/prerelease/release-manifest.json
-          (cd /tmp/prerelease && sha256sum release-manifest.json > manifest.sha256)
 
       - name: Upload prerelease bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -279,6 +271,9 @@ jobs:
 
       - name: Build Windows NSIS installer
         shell: pwsh
+        env:
+          HANK_BUILD_COMMIT_SHA: ${{ needs.preflight.outputs.sha }}
+          HANK_BUILD_TREE_SHA: ${{ needs.preflight.outputs.tree }}
         run: |
           $config = Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/src-tauri/tauri.conf.json'
           npm --prefix frontend exec -- tauri build --ci --config $config --bundles nsis
@@ -344,11 +339,14 @@ jobs:
           $env:HANK_DESKTOP_BIN = $executable
           $env:HANK_E2E_APP_DATA_DIR = Join-Path $env:RUNNER_TEMP 'hank-desktop-lifecycle-data'
           $env:HANK_E2E_ALLOW_RELEASE_DATA_DIR = '1'
+          $env:HANK_E2E_MOCK_PROVIDER = '1'
           $env:HANK_DESKTOP_E2E_ARTIFACTS = Join-Path $env:RUNNER_TEMP 'hank-desktop-lifecycle-artifacts'
           $env:HANK_WEBDRIVER_PORT = '4444'
           $env:HANK_EXPECTED_VERSION = $env:TAG.Substring(1)
+          $env:HANK_EXPECTED_NATIVE_VERSION = (Get-Content -Raw apps/desktop/src-tauri/Cargo.toml | Select-String -Pattern '^version\s*=\s*"([^"]+)"' | ForEach-Object { $_.Matches[0].Groups[1].Value })
           $env:HANK_EXPECTED_COMMIT_SHA = $env:COMMIT_SHA
           $env:HANK_EXPECTED_TREE_SHA = $env:TREE_SHA
+          $env:HANK_REQUIRE_ARTIFACT_PROVENANCE = '1'
           $env:RUST_LOG = 'info'
           New-Item -ItemType Directory -Force -Path $env:HANK_DESKTOP_E2E_ARTIFACTS, $env:HANK_E2E_APP_DATA_DIR | Out-Null
           & powershell -NoProfile -ExecutionPolicy Bypass -File desktop-e2e\run-windows.ps1
@@ -362,9 +360,247 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  linux-package:
+    name: Build Linux AppImage
+    needs: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Install Linux desktop dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          timeout 180s sudo apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          timeout 300s sudo apt-get -o Acquire::ForceIPv4=true -o DPkg::Lock::Timeout=60 -o Dpkg::Use-Pty=0 install --no-install-recommends -y \
+            libwebkit2gtk-4.1-dev build-essential curl file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Setup pinned Node.js 20
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 20.19.1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.97.1
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-fund
+
+      - name: Build frontend bundle
+        run: npm --prefix frontend run build
+
+      - name: Build Linux AppImage
+        env:
+          HANK_BUILD_COMMIT_SHA: ${{ needs.preflight.outputs.sha }}
+          HANK_BUILD_TREE_SHA: ${{ needs.preflight.outputs.tree }}
+        run: |
+          set -euo pipefail
+          config="$GITHUB_WORKSPACE/apps/desktop/src-tauri/tauri.conf.json"
+          npm --prefix frontend exec -- tauri build --ci --config "$config" --bundles appimage
+
+      - name: Rename AppImage deterministically
+        env:
+          TAG: ${{ needs.preflight.outputs.tag }}
+        run: |
+          set -euo pipefail
+          installer=$(find apps/desktop/src-tauri/target/release/bundle -type f -name '*.AppImage' -print -quit)
+          test -n "$installer"
+          cp "$installer" "apps/desktop/src-tauri/target/release/bundle/hank-${TAG}-x86_64.AppImage"
+
+      - name: Upload Linux AppImage
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: linux-appimage-${{ needs.preflight.outputs.tag }}
+          path: apps/desktop/src-tauri/target/release/bundle/hank-${{ needs.preflight.outputs.tag }}-x86_64.AppImage
+          if-no-files-found: error
+          retention-days: 7
+
+  macos-package:
+    name: Build macOS DMG
+    needs: preflight
+    runs-on: macos-14
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Setup pinned Node.js 20
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 20.19.1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.97.1
+          targets: aarch64-apple-darwin
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-fund
+
+      - name: Build frontend bundle
+        run: npm --prefix frontend run build
+
+      - name: Build macOS DMG
+        env:
+          HANK_BUILD_COMMIT_SHA: ${{ needs.preflight.outputs.sha }}
+          HANK_BUILD_TREE_SHA: ${{ needs.preflight.outputs.tree }}
+        run: |
+          set -euo pipefail
+          config="$GITHUB_WORKSPACE/apps/desktop/src-tauri/tauri.conf.json"
+          npm --prefix frontend exec -- tauri build --ci --config "$config" --bundles dmg --target aarch64-apple-darwin
+
+      - name: Rename DMG deterministically
+        env:
+          TAG: ${{ needs.preflight.outputs.tag }}
+        run: |
+          set -euo pipefail
+          dmg=$(find apps/desktop/src-tauri/target -type f -name '*.dmg' -print -quit)
+          test -n "$dmg"
+          cp "$dmg" "apps/desktop/src-tauri/target/release/bundle/hank-${TAG}-aarch64.dmg"
+
+      - name: Upload macOS DMG
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: macos-dmg-${{ needs.preflight.outputs.tag }}
+          path: apps/desktop/src-tauri/target/release/bundle/hank-${{ needs.preflight.outputs.tag }}-aarch64.dmg
+          if-no-files-found: error
+          retention-days: 7
+
+  sign:
+    name: Sign release artifacts in protected environment
+    needs: [preflight, package, windows-package, linux-package, macos-package]
+    runs-on: ubuntu-24.04
+    environment: release-signing
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact main commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Setup pinned Node.js 20
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 20.19.1
+
+      - name: Download release artifacts for signing
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: prerelease-${{ needs.preflight.outputs.tag }}
+          path: /tmp/prerelease
+
+      - name: Download Windows installer for signing
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: windows-installer-${{ needs.preflight.outputs.tag }}
+          path: /tmp/windows-bundle
+
+      - name: Download Linux AppImage for signing
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: linux-appimage-${{ needs.preflight.outputs.tag }}
+          path: /tmp/linux-bundle
+
+      - name: Download macOS DMG for signing
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: macos-dmg-${{ needs.preflight.outputs.tag }}
+          path: /tmp/macos-bundle
+
+      - name: Sign exact release artifacts
+        env:
+          HANK_RELEASE_SIGNING_PRIVATE_KEY_PEM: ${{ secrets.HANK_RELEASE_SIGNING_PRIVATE_KEY_PEM }}
+          HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM: ${{ vars.HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM }}
+          HANK_RELEASE_SIGNER_KEY_ID: ${{ vars.HANK_RELEASE_SIGNER_KEY_ID }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+          SHA: ${{ needs.preflight.outputs.sha }}
+          TREE: ${{ needs.preflight.outputs.tree }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/release-assets /tmp/release-signing
+          cp "/tmp/prerelease/hank-${TAG}.tar.gz" /tmp/release-assets/
+          cp "/tmp/windows-bundle/hank-${TAG}-setup.exe" /tmp/release-assets/
+          cp "/tmp/linux-bundle/hank-${TAG}-x86_64.AppImage" /tmp/release-assets/
+          cp "/tmp/macos-bundle/hank-${TAG}-aarch64.dmg" /tmp/release-assets/
+          node tools/release-artifact-signing.mjs sign \
+            --directory /tmp/release-assets \
+            --attestationDirectory /tmp/release-signing \
+            --artifacts "hank-${TAG}.tar.gz,hank-${TAG}-setup.exe,hank-${TAG}-x86_64.AppImage,hank-${TAG}-aarch64.dmg" \
+            --repository "$GITHUB_REPOSITORY" \
+            --event "$GITHUB_EVENT_NAME" \
+            --ref "$GITHUB_REF" \
+            --commit "$SHA" \
+            --tree "$TREE" \
+            --workflow "$GITHUB_WORKFLOW" \
+            --policy release-prerelease-v1 \
+            --channel prerelease \
+            --os multi \
+            --signerKeyId "$HANK_RELEASE_SIGNER_KEY_ID"
+          version_code=$(node tools/release-updater-bundle.mjs version-code --version "$TAG")
+          next_version=$((version_code + 1))
+          node tools/release-updater-bundle.mjs create \
+            --artifact "/tmp/release-assets/hank-${TAG}-setup.exe" \
+            --attestation "/tmp/release-signing/hank-${TAG}-setup.exe.attestation.json" \
+            --output "/tmp/release-signing/hank-${TAG}-windows-updater.json" \
+            --version "$version_code" \
+            --next-version "$next_version" \
+            --expires-at 4102444800 \
+            --os windows \
+            --arch x86_64
+          node tools/release-updater-bundle.mjs create \
+            --artifact "/tmp/release-assets/hank-${TAG}-x86_64.AppImage" \
+            --attestation "/tmp/release-signing/hank-${TAG}-x86_64.AppImage.attestation.json" \
+            --output "/tmp/release-signing/hank-${TAG}-linux-updater.json" \
+            --version "$version_code" \
+            --next-version "$next_version" \
+            --expires-at 4102444800 \
+            --os linux \
+            --arch x86_64
+          node tools/release-updater-bundle.mjs create \
+            --artifact "/tmp/release-assets/hank-${TAG}-aarch64.dmg" \
+            --attestation "/tmp/release-signing/hank-${TAG}-aarch64.dmg.attestation.json" \
+            --output "/tmp/release-signing/hank-${TAG}-macos-updater.json" \
+            --version "$version_code" \
+            --next-version "$next_version" \
+            --expires-at 4102444800 \
+            --os macos \
+            --arch aarch64
+
+      - name: Upload protected signing evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: release-signing-${{ needs.preflight.outputs.tag }}
+          path: /tmp/release-signing/
+          if-no-files-found: error
+          retention-days: 7
+
   publish:
     name: Publish immutable GitHub prerelease
-    needs: [preflight, package, windows-package]
+    needs: [preflight, package, windows-package, linux-package, macos-package, sign]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -389,6 +625,101 @@ jobs:
           name: windows-installer-${{ needs.preflight.outputs.tag }}
           path: /tmp/windows-bundle
 
+      - name: Download Linux AppImage
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: linux-appimage-${{ needs.preflight.outputs.tag }}
+          path: /tmp/linux-bundle
+
+      - name: Download macOS DMG
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: macos-dmg-${{ needs.preflight.outputs.tag }}
+          path: /tmp/macos-bundle
+
+      - name: Download protected signing evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: release-signing-${{ needs.preflight.outputs.tag }}
+          path: /tmp/release-signing
+
+      - name: Bind and verify release artifacts
+        env:
+          TAG: ${{ needs.preflight.outputs.tag }}
+          SHA: ${{ needs.preflight.outputs.sha }}
+          TREE: ${{ needs.preflight.outputs.tree }}
+          CARD: ${{ needs.preflight.outputs.card }}
+          PRS: ${{ needs.preflight.outputs.prs }}
+          CLASSIFICATION: ${{ needs.preflight.outputs.classification }}
+          HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM: ${{ vars.HANK_RELEASE_SIGNING_PUBLIC_KEY_PEM }}
+          HANK_RELEASE_SIGNER_KEY_ID: ${{ vars.HANK_RELEASE_SIGNER_KEY_ID }}
+        run: |
+          set -euo pipefail
+          installer="/tmp/windows-bundle/hank-${TAG}-setup.exe"
+          appimage="/tmp/linux-bundle/hank-${TAG}-x86_64.AppImage"
+          dmg="/tmp/macos-bundle/hank-${TAG}-aarch64.dmg"
+          test -f "$installer"
+          test -f "$appimage"
+          test -f "$dmg"
+          cp "$installer" "/tmp/prerelease/hank-${TAG}-setup.exe"
+          cp "$appimage" "/tmp/prerelease/hank-${TAG}-x86_64.AppImage"
+          cp "$dmg" "/tmp/prerelease/hank-${TAG}-aarch64.dmg"
+          sbom="SBOM.spdx.json"
+          test -f "/tmp/prerelease/$sbom"
+          names=("hank-${TAG}.tar.gz" "hank-${TAG}-setup.exe" "hank-${TAG}-x86_64.AppImage" "hank-${TAG}-aarch64.dmg" "$sbom")
+          signing_files=(
+            "hank-${TAG}.tar.gz.attestation.json"
+            "hank-${TAG}-setup.exe.attestation.json"
+            "hank-${TAG}-x86_64.AppImage.attestation.json"
+            "hank-${TAG}-aarch64.dmg.attestation.json"
+            "release-signing-metadata.json"
+          )
+          for file in "${signing_files[@]}"; do cp "/tmp/release-signing/$file" "/tmp/prerelease/$file"; done
+          node tools/release-artifact-signing.mjs verify \
+            --directory /tmp/prerelease \
+            --attestationDirectory /tmp/prerelease \
+            --artifacts "$(IFS=,; echo "${names[*]}")" \
+            --commit "$SHA" \
+            --tree "$TREE" \
+            --requireTrustedKey 1 \
+            --signerKeyId "$HANK_RELEASE_SIGNER_KEY_ID"
+          node tools/release-sbom.mjs verify \
+            --file "/tmp/prerelease/$sbom" \
+            --commit "$SHA" \
+            --tree "$TREE" \
+            --version "${TAG#v}"
+          (cd /tmp/prerelease && sha256sum "${names[@]}" "${signing_files[@]}" > SHA256SUMS)
+          node --input-type=module - <<'NODE' > /tmp/manifest-input.json
+          import fs from 'node:fs';
+          import { buildArtifactDigests } from './tools/release-prerelease.mjs';
+          const tag = process.env.TAG;
+          const names = [
+            `hank-${tag}.tar.gz`,
+            `hank-${tag}-setup.exe`,
+            `hank-${tag}-x86_64.AppImage`,
+            `hank-${tag}-aarch64.dmg`,
+            'SBOM.spdx.json',
+          ];
+          const signedNames = names.filter((name) => name !== 'SBOM.spdx.json');
+          const signingFiles = [
+            ...signedNames.map((name) => `${name}.attestation.json`),
+            'release-signing-metadata.json',
+          ];
+          const changelog = fs.readFileSync('/tmp/prerelease/RELEASE_NOTES.md', 'utf8');
+          const testInstructions = fs.readFileSync('/tmp/prerelease/TEST_INSTRUCTIONS.md', 'utf8');
+          process.stdout.write(JSON.stringify({
+            tag, version: tag.slice(1), sha: process.env.SHA, tree: process.env.TREE,
+            card: process.env.CARD, classification: JSON.parse(process.env.CLASSIFICATION),
+            relatedPullRequests: JSON.parse(process.env.PRS),
+            artifacts: [...names, ...signingFiles, 'RELEASE_NOTES.md', 'TEST_INSTRUCTIONS.md', 'SHA256SUMS'],
+            artifactDigests: buildArtifactDigests({ directory: '/tmp/prerelease', names }),
+            changelog, testInstructions,
+          }));
+          NODE
+          node tools/release-prerelease.mjs manifest --input /tmp/manifest-input.json --output /tmp/prerelease/release-manifest.json
+          node tools/release-prerelease.mjs verify-artifacts --manifest /tmp/prerelease/release-manifest.json --directory /tmp/prerelease
+          (cd /tmp/prerelease && sha256sum release-manifest.json > manifest.sha256)
+
       - name: Publish or verify idempotent release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -403,9 +734,24 @@ jobs:
             test -n "$release" || { echo 'tag exists without release; refusing reuse'; exit 1; }
             target=$(printf '%s' "$release" | jq -r '.target_commitish')
             test "$target" = "$SHA" || { echo 'existing release targets a different commit'; exit 1; }
+            rm -rf /tmp/existing-prerelease
+            mkdir -p /tmp/existing-prerelease
+            gh release download "$TAG" --repo "$REPOSITORY" --pattern release-manifest.json --dir /tmp/existing-prerelease
+            cmp /tmp/prerelease/release-manifest.json /tmp/existing-prerelease/release-manifest.json
             echo 'matching release already exists; idempotent no-op'
           else
-            gh release create "$TAG" "/tmp/prerelease/hank-${TAG}.tar.gz" "/tmp/windows-bundle/hank-${TAG}-setup.exe" /tmp/prerelease/RELEASE_NOTES.md /tmp/prerelease/TEST_INSTRUCTIONS.md /tmp/prerelease/SHA256SUMS /tmp/prerelease/release-manifest.json /tmp/prerelease/manifest.sha256 \
+            gh release create "$TAG" \
+              "/tmp/prerelease/hank-${TAG}.tar.gz" \
+              "/tmp/windows-bundle/hank-${TAG}-setup.exe" \
+              "/tmp/linux-bundle/hank-${TAG}-x86_64.AppImage" \
+              "/tmp/macos-bundle/hank-${TAG}-aarch64.dmg" \
+              "/tmp/prerelease/SBOM.spdx.json" \
+              "/tmp/prerelease/hank-${TAG}.tar.gz.attestation.json" \
+              "/tmp/prerelease/hank-${TAG}-setup.exe.attestation.json" \
+              "/tmp/prerelease/hank-${TAG}-x86_64.AppImage.attestation.json" \
+              "/tmp/prerelease/hank-${TAG}-aarch64.dmg.attestation.json" \
+              /tmp/prerelease/release-signing-metadata.json \
+              /tmp/prerelease/RELEASE_NOTES.md /tmp/prerelease/TEST_INSTRUCTIONS.md /tmp/prerelease/SHA256SUMS /tmp/prerelease/release-manifest.json /tmp/prerelease/manifest.sha256 \
               --target "$SHA" --title "$TAG (prerelease)" --notes-file /tmp/prerelease/RELEASE_NOTES.md --prerelease
           fi
 
@@ -431,3 +777,279 @@ jobs:
             echo "- Prerelease: true"
             echo "- Tag overwrite: prohibited"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  install-smoke:
+    name: Clean-room Windows install smoke
+    needs: [preflight, publish]
+    runs-on: windows-2022
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Setup pinned Node.js 20
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 20.19.1
+
+      - name: Setup pinned Rust toolchain for updater E2E
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.97.1
+
+      - name: Install updater E2E dependencies
+        shell: pwsh
+        run: |
+          npm --prefix frontend ci --no-fund
+          npm --prefix frontend run build
+          npm --prefix desktop-e2e ci --no-fund
+          cargo install tauri-driver --version 2.0.6 --locked
+
+      - name: Download protected updater bundles
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: release-signing-${{ needs.preflight.outputs.tag }}
+          path: ${{ runner.temp }}/release-signing
+
+      - name: Download and verify published release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+          SHA: ${{ needs.preflight.outputs.sha }}
+          TREE: ${{ needs.preflight.outputs.tree }}
+          HANK_UPDATER_E2E: '1'
+          HANK_UPDATER_REQUIRE_RELEASE_BUNDLE: '1'
+        run: |
+          $releaseDirectory = Join-Path $env:RUNNER_TEMP 'hank-release-assets'
+          New-Item -ItemType Directory -Force -Path $releaseDirectory | Out-Null
+          gh release download $env:TAG --repo $env:REPOSITORY `
+            --pattern release-manifest.json `
+            --pattern manifest.sha256 `
+            --pattern SHA256SUMS `
+            --pattern SBOM.spdx.json `
+            --pattern "hank-$env:TAG.tar.gz" `
+            --pattern "hank-$env:TAG-setup.exe" `
+            --pattern "hank-$env:TAG-x86_64.AppImage" `
+            --pattern "hank-$env:TAG.tar.gz.attestation.json" `
+            --pattern "hank-$env:TAG-setup.exe.attestation.json" `
+            --pattern "hank-$env:TAG-x86_64.AppImage.attestation.json" `
+            --pattern release-signing-metadata.json `
+            --dir $releaseDirectory
+          if ($LASTEXITCODE -ne 0) { throw "release asset download failed with exit code $LASTEXITCODE" }
+          Copy-Item -LiteralPath (Join-Path $env:RUNNER_TEMP "release-signing/hank-$($env:TAG)-windows-updater.json") -Destination $releaseDirectory -Force
+          Copy-Item -LiteralPath (Join-Path $env:RUNNER_TEMP "release-signing/hank-$($env:TAG)-linux-updater.json") -Destination $releaseDirectory -Force
+          & powershell -NoProfile -ExecutionPolicy Bypass -File desktop-e2e\install-smoke-windows.ps1 `
+            -ReleaseDirectory $releaseDirectory `
+            -ReleaseTag $env:TAG `
+            -ExpectedCommit $env:SHA `
+            -ExpectedTree $env:TREE `
+            -ReportPath (Join-Path $env:RUNNER_TEMP 'hank-install-smoke-report.json')
+          if ($LASTEXITCODE -ne 0) { throw "clean-room install smoke failed with exit code $LASTEXITCODE" }
+
+      - name: Upload clean-room install evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: release-install-smoke-${{ needs.preflight.outputs.tag }}
+          path: ${{ runner.temp }}/hank-install-smoke-report.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  linux-install-smoke:
+    name: Clean-room Linux install smoke
+    needs: [preflight, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Install Linux desktop dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          timeout 180s sudo apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          timeout 300s sudo apt-get -o Acquire::ForceIPv4=true -o DPkg::Lock::Timeout=60 -o Dpkg::Use-Pty=0 install --no-install-recommends -y \
+            libwebkit2gtk-4.1-dev webkit2gtk-driver xvfb curl build-essential file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Setup pinned Node.js 20
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 20.19.1
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop-e2e/package-lock.json
+
+      - name: Setup pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.97.1
+
+      - name: Install E2E dependencies and driver
+        run: |
+          set -euo pipefail
+          npm --prefix frontend ci --no-fund
+          npm --prefix desktop-e2e ci --no-fund
+          npm --prefix frontend run build
+          cargo install tauri-driver --version 2.0.6 --locked
+
+      - name: Download protected updater bundles
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: release-signing-${{ needs.preflight.outputs.tag }}
+          path: ${{ runner.temp }}/release-signing
+
+      - name: Download and run Linux clean-room smoke
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+          SHA: ${{ needs.preflight.outputs.sha }}
+          TREE: ${{ needs.preflight.outputs.tree }}
+          HANK_RELEASE_DIR: ${{ runner.temp }}/hank-release-assets
+          HANK_INSTALL_SMOKE_REPORT: ${{ runner.temp }}/hank-install-smoke-report.json
+          HANK_E2E_APP_DATA_DIR: ${{ runner.temp }}/hank-release-e2e-data
+          HANK_DESKTOP_E2E_ARTIFACTS: ${{ runner.temp }}/hank-release-e2e-artifacts
+          HANK_NODE_BIN: node
+          HANK_UPDATER_E2E: '1'
+          HANK_UPDATER_REQUIRE_RELEASE_BUNDLE: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p "$HANK_RELEASE_DIR"
+          gh release download "$TAG" --repo "$REPOSITORY" \
+            --pattern release-manifest.json \
+            --pattern manifest.sha256 \
+            --pattern SHA256SUMS \
+            --pattern SBOM.spdx.json \
+            --pattern "hank-${TAG}.tar.gz" \
+            --pattern "hank-${TAG}-setup.exe" \
+            --pattern "hank-${TAG}-x86_64.AppImage" \
+            --pattern "hank-${TAG}.tar.gz.attestation.json" \
+            --pattern "hank-${TAG}-setup.exe.attestation.json" \
+            --pattern "hank-${TAG}-x86_64.AppImage.attestation.json" \
+            --pattern release-signing-metadata.json \
+            --dir "$HANK_RELEASE_DIR"
+          cp "$RUNNER_TEMP/release-signing/hank-${TAG}-windows-updater.json" "$HANK_RELEASE_DIR/"
+          cp "$RUNNER_TEMP/release-signing/hank-${TAG}-linux-updater.json" "$HANK_RELEASE_DIR/"
+          HANK_RELEASE_TAG="$TAG" HANK_EXPECTED_COMMIT="$SHA" HANK_EXPECTED_TREE="$TREE" \
+            bash desktop-e2e/install-smoke-linux.sh
+
+      - name: Upload Linux clean-room install evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: release-install-smoke-linux-${{ needs.preflight.outputs.tag }}
+          path: |
+            ${{ runner.temp }}/hank-install-smoke-report.json
+            ${{ runner.temp }}/hank-release-e2e-artifacts/
+            ${{ runner.temp }}/hank-release-e2e-data/
+          if-no-files-found: warn
+          retention-days: 14
+
+  macos-install-smoke:
+    name: Clean-room macOS install smoke
+    needs: [preflight, publish]
+    runs-on: macos-14
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Setup pinned Node.js 20
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 20.19.1
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop-e2e/package-lock.json
+
+      - name: Install pinned Rust toolchain and dependencies
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.97.1
+          targets: aarch64-apple-darwin
+
+      - name: Install E2E dependencies and driver
+        run: |
+          set -euo pipefail
+          npm --prefix frontend ci --no-fund
+          npm --prefix desktop-e2e ci --no-fund
+          npm --prefix frontend run build
+          cargo install tauri-driver --version 2.0.6 --locked
+
+      - name: Download protected updater bundles
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: release-signing-${{ needs.preflight.outputs.tag }}
+          path: ${{ runner.temp }}/release-signing
+
+      - name: Download and run macOS clean-room smoke
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+          SHA: ${{ needs.preflight.outputs.sha }}
+          TREE: ${{ needs.preflight.outputs.tree }}
+          HANK_RELEASE_DIR: ${{ runner.temp }}/hank-release-assets
+          HANK_INSTALL_SMOKE_REPORT: ${{ runner.temp }}/hank-install-smoke-report.json
+          HANK_E2E_APP_DATA_DIR: ${{ runner.temp }}/hank-release-e2e-data
+          HANK_DESKTOP_E2E_ARTIFACTS: ${{ runner.temp }}/hank-release-e2e-artifacts
+          HANK_NODE_BIN: node
+          HANK_UPDATER_E2E: '1'
+          HANK_UPDATER_REQUIRE_RELEASE_BUNDLE: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p "$HANK_RELEASE_DIR"
+          gh release download "$TAG" --repo "$REPOSITORY" \
+            --pattern release-manifest.json \
+            --pattern manifest.sha256 \
+            --pattern SHA256SUMS \
+            --pattern SBOM.spdx.json \
+            --pattern "hank-${TAG}.tar.gz" \
+            --pattern "hank-${TAG}-setup.exe" \
+            --pattern "hank-${TAG}-x86_64.AppImage" \
+            --pattern "hank-${TAG}-aarch64.dmg" \
+            --pattern "hank-${TAG}.tar.gz.attestation.json" \
+            --pattern "hank-${TAG}-setup.exe.attestation.json" \
+            --pattern "hank-${TAG}-x86_64.AppImage.attestation.json" \
+            --pattern "hank-${TAG}-aarch64.dmg.attestation.json" \
+            --pattern release-signing-metadata.json \
+            --dir "$HANK_RELEASE_DIR"
+          cp "$RUNNER_TEMP/release-signing/hank-${TAG}-macos-updater.json" "$HANK_RELEASE_DIR/"
+          HANK_RELEASE_TAG="$TAG" HANK_EXPECTED_COMMIT="$SHA" HANK_EXPECTED_TREE="$TREE" \
+            bash desktop-e2e/install-smoke-macos.sh
+
+      - name: Upload macOS clean-room install evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: release-install-smoke-macos-${{ needs.preflight.outputs.tag }}
+          path: |
+            ${{ runner.temp }}/hank-install-smoke-report.json
+            ${{ runner.temp }}/hank-release-e2e-artifacts/
+            ${{ runner.temp }}/hank-release-e2e-data/
+          if-no-files-found: warn
+          retention-days: 14

@@ -74,7 +74,7 @@ fn restore_service(
 ) -> DatabaseRestoreService {
     DatabaseRestoreService::new(
         backup,
-        RestorePolicy::new(target_root, 1024 * 1024, 21).unwrap(),
+        RestorePolicy::new(target_root, 1024 * 1024, 22).unwrap(),
     )
 }
 
@@ -92,7 +92,7 @@ async fn clean_restore_stages_migrates_and_promotes_an_isolated_profile() {
             &artifact,
             &target,
             "profile-a",
-            21,
+            22,
             "restore-clean",
             false,
         ))
@@ -100,7 +100,7 @@ async fn clean_restore_stages_migrates_and_promotes_an_isolated_profile() {
         .unwrap();
 
     assert_eq!(result.outcome, RestoreOutcome::Applied);
-    assert_eq!(result.schema_version, 21);
+    assert_eq!(result.schema_version, 22);
     let restored = SqliteStorage::connect(SqliteStorageConfig::for_file(&target))
         .await
         .unwrap();
@@ -143,7 +143,7 @@ async fn existing_target_is_replaced_and_receipt_makes_retry_idempotent() {
         &artifact,
         &target,
         "profile-a",
-        21,
+        22,
         "restore-replace",
         false,
     );
@@ -236,7 +236,7 @@ async fn interrupted_promotion_recovers_previous_before_retrying_restore() {
             &artifact,
             &target,
             "profile-a",
-            21,
+            22,
             "restore-after-interruption",
             false,
         ))
@@ -266,7 +266,11 @@ async fn older_backup_is_migrated_during_staging_before_promotion() {
         .execute(source_storage.pool())
         .await
         .unwrap();
-    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 21")
+    sqlx::query("DROP TABLE provider_accounts")
+        .execute(source_storage.pool())
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM _sqlx_migrations WHERE version IN (21, 22)")
         .execute(source_storage.pool())
         .await
         .unwrap();
@@ -281,7 +285,7 @@ async fn older_backup_is_migrated_during_staging_before_promotion() {
             &artifact,
             &target,
             "profile-a",
-            21,
+            22,
             "restore-upgrade",
             false,
         ))
@@ -290,7 +294,7 @@ async fn older_backup_is_migrated_during_staging_before_promotion() {
 
     assert_eq!(result.outcome, RestoreOutcome::Applied);
     assert!(result.requires_migration);
-    assert_eq!(result.schema_version, 21);
+    assert_eq!(result.schema_version, 22);
     source_storage.close().await;
 }
 
@@ -333,7 +337,7 @@ async fn dry_run_authorization_cannot_be_reused_for_a_real_promotion() {
         &artifact,
         &target,
         "profile-a",
-        21,
+        22,
         "restore-dry-run-replay",
         false,
     );
@@ -383,7 +387,11 @@ async fn non_current_schema_target_is_rejected_before_over_migration() {
         .execute(source_storage.pool())
         .await
         .unwrap();
-    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 21")
+    sqlx::query("DROP TABLE provider_accounts")
+        .execute(source_storage.pool())
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM _sqlx_migrations WHERE version IN (21, 22)")
         .execute(source_storage.pool())
         .await
         .unwrap();
@@ -426,7 +434,7 @@ async fn schema_target_above_runtime_is_rejected_before_staging() {
             &artifact,
             &target,
             "profile-a",
-            22,
+            23,
             "restore-future-target",
             false,
         ))
@@ -457,7 +465,7 @@ async fn digest_mismatch_never_touches_the_explicit_target() {
             &artifact,
             &target,
             "profile-a",
-            21,
+            22,
             "restore-digest",
             false,
         ))
@@ -481,7 +489,7 @@ async fn duplicate_restore_returns_the_durable_result_without_second_promotion()
     let target_root = dir.path().join("profiles");
     let target = target_root.join("profile-a.db");
     let service = restore_service(backup, &target_root);
-    let request = restore_request(&artifact, &target, "profile-a", 21, "restore-retry", false);
+    let request = restore_request(&artifact, &target, "profile-a", 22, "restore-retry", false);
 
     let first = service.restore(request.clone()).await.unwrap();
     let second = service.restore(request).await.unwrap();
@@ -491,7 +499,7 @@ async fn duplicate_restore_returns_the_durable_result_without_second_promotion()
     assert_eq!(first.target_sha256, second.target_sha256);
 
     let mut different_actor =
-        restore_request(&artifact, &target, "profile-a", 21, "restore-retry", false);
+        restore_request(&artifact, &target, "profile-a", 22, "restore-retry", false);
     different_actor.authorization.actor_id = "operator-b".into();
     different_actor.authorization.request_digest = restore_request_digest(&different_actor);
     assert!(matches!(
@@ -518,7 +526,7 @@ async fn locked_target_is_rejected_without_staging() {
             &artifact,
             &target,
             "profile-a",
-            21,
+            22,
             "restore-locked",
             false,
         ))
@@ -544,7 +552,7 @@ async fn outside_target_and_profile_mismatch_fail_closed() {
             &artifact,
             &outside,
             "profile-a",
-            21,
+            22,
             "restore-outside",
             false,
         ))
@@ -560,7 +568,7 @@ async fn outside_target_and_profile_mismatch_fail_closed() {
             &artifact,
             &mismatch,
             "profile-b",
-            21,
+            22,
             "restore-profile",
             false,
         ))
@@ -587,7 +595,7 @@ async fn reserved_restore_artifact_names_are_not_valid_targets() {
                 &artifact,
                 &target,
                 "profile-a",
-                21,
+                22,
                 "restore-reserved-name",
                 false,
             ))
@@ -619,7 +627,7 @@ async fn symlink_target_is_rejected_without_following_the_link() {
             &artifact,
             &target,
             "profile-a",
-            21,
+            22,
             "restore-symlink",
             false,
         ))
@@ -638,14 +646,14 @@ async fn oversized_restore_cleans_staging_and_leaves_no_target() {
     let target_root = dir.path().join("profiles");
     let target = target_root.join("profile-a.db");
     let service =
-        DatabaseRestoreService::new(backup, RestorePolicy::new(&target_root, 1, 21).unwrap());
+        DatabaseRestoreService::new(backup, RestorePolicy::new(&target_root, 1, 22).unwrap());
 
     let result = service
         .restore(restore_request(
             &artifact,
             &target,
             "profile-a",
-            21,
+            22,
             "restore-too-large",
             false,
         ))
@@ -685,7 +693,7 @@ async fn symlink_parent_is_rejected_without_following_the_link() {
             &artifact,
             &target,
             "profile-a",
-            21,
+            22,
             "restore-parent-symlink",
             false,
         ))

@@ -230,6 +230,32 @@ pub struct FrontendReadyResponse {
     pub stage: StartupStage,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct BuildIdentity {
+    pub version: &'static str,
+    pub commit_sha: Option<&'static str>,
+    pub tree_sha: Option<&'static str>,
+    pub profile: &'static str,
+}
+
+/// Read-only build provenance exposed for release E2E verification.
+///
+/// Commit/tree values are injected by CI at compile time and are absent from
+/// local builds. No filesystem, network or secret-bearing metadata is read.
+#[tauri::command]
+pub fn build_identity() -> BuildIdentity {
+    BuildIdentity {
+        version: env!("CARGO_PKG_VERSION"),
+        commit_sha: option_env!("HANK_BUILD_COMMIT_SHA"),
+        tree_sha: option_env!("HANK_BUILD_TREE_SHA"),
+        profile: if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
+    }
+}
+
 /// Typed command called by the actual bundled frontend after React mounted.
 /// Its successful response is the final IPC proof required for readiness.
 #[tauri::command]

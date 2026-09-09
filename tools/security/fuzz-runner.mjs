@@ -105,7 +105,9 @@ for (const target of manifest.targets) {
 
 // --- Runner digest (hash do próprio runner) ---
 
-const runnerSource = readFileSync(fileURLToPath(import.meta.url));
+// Hash the canonical LF representation so the manifest is identical on
+// Windows checkouts (CRLF) and Linux runners (LF).
+const runnerSource = readFileSync(fileURLToPath(import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const runnerDigest = createHash('sha256').update(runnerSource).digest('hex');
 if (manifest.runner_digest !== runnerDigest) {
   console.error('runner_digest mismatch: RUNNER_DIGEST_MISMATCH');
@@ -123,10 +125,11 @@ const treeSha = runGit(['rev-parse', 'HEAD^{tree}']).trim();
 const headSha = runGit(['rev-parse', 'HEAD']).trim();
 const stagedDiff = runGit(['diff', '--binary', '--cached', 'HEAD']);
 const workingDiff = runGit(['diff', '--binary', 'HEAD']);
+const normalizedOutputPath = relative(root, outPath).replaceAll('\\', '/');
 const untracked = runGit(['ls-files', '--others', '--exclude-standard'])
   .split('\n')
   .map((path) => path.trim())
-  .filter((path) => path && path !== relative(root, outPath));
+  .filter((path) => path && path.replaceAll('\\', '/') !== normalizedOutputPath);
 if (untracked.length > 0) {
   console.error(`untracked input files present: ${untracked.join(', ')}`);
   process.exit(1);

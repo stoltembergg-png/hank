@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   WorkflowEditorModel,
   type WorkflowApi,
   type WorkflowNode,
 } from '../contracts/workflow-editor';
 import './WorkflowSurface.css';
+
+export const DEFAULT_WORKFLOW_ID = 'wf-00000000-0000-4000-8000-000000000001';
 
 export interface WorkflowSurfaceProps {
   projectId: string;
@@ -38,13 +40,42 @@ export function WorkflowSurface({
   expectedVersion = 0,
 }: WorkflowSurfaceProps) {
   const model = useMemo(
-    () => new WorkflowEditorModel(projectId, 'workflow-draft', 12, 24, 256),
+    () => new WorkflowEditorModel(projectId, DEFAULT_WORKFLOW_ID, 12, 24, 256),
     [projectId],
   );
   const [draftRevision, setDraftRevision] = useState(0);
+  const [currentVersion, setCurrentVersion] = useState(expectedVersion);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!api?.load) return undefined;
+    let active = true;
+    api.load(projectId, DEFAULT_WORKFLOW_ID)
+      .then((snapshot) => {
+        if (!active || !snapshot) return;
+        const replaced = model.replace({
+          project_id: snapshot.project_id,
+          workflow_id: snapshot.workflow_id,
+          nodes: snapshot.nodes,
+          edges: snapshot.edges,
+        });
+        if (!replaced) {
+          setError('O workflow carregado não pertence a este projeto.');
+          return;
+        }
+        setCurrentVersion(snapshot.version);
+        setDraftRevision((revision) => revision + 1);
+        setError(null);
+      })
+      .catch(() => {
+        if (active) setError('Não foi possível carregar o workflow salvo.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, model, projectId]);
 
   const addNode = (definition: NodeDefinition) => {
     const nextNumber = model.nodes.filter((node) => node.kind === definition.kind).length + 1;
@@ -69,7 +100,8 @@ export function WorkflowSurface({
     if (!api) return;
 
     try {
-      const version = await model.submit(api, expectedVersion);
+      const version = await model.submit(api, currentVersion);
+      setCurrentVersion(version);
       setStatus(`Workflow salvo na versão ${version}.`);
       setError(null);
     } catch (reason) {

@@ -62,6 +62,15 @@ mod tests {
         let count: i64 = row.get("count");
         assert_eq!(count, 1);
 
+        let row = sqlx::query(
+            "SELECT count(*) as count FROM sqlite_master WHERE type='table' AND name='provider_accounts';",
+        )
+        .fetch_one(storage.pool())
+        .await
+        .unwrap();
+        let count: i64 = row.get("count");
+        assert_eq!(count, 1);
+
         storage.close().await;
     }
 

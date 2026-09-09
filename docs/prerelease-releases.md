@@ -16,10 +16,16 @@
 3. Verifica a mesma versão em `Cargo.toml`, `apps/desktop/src-tauri/Cargo.toml`, `frontend/package.json`, `tauri.conf.json`, `release-manifest.json` e `frontend/src/version.ts`.
 4. Aguarda todos os checks pós-merge obrigatórios concluírem com `success`.
 5. Calcula a tag determinística usando o SHA completo e recusa tags existentes.
-6. Gera changelog, instruções, hashes, archive e manifesto imutável.
+6. Gera changelog, instruções, hashes, archive, SBOM SPDX 2.3 e manifesto imutável
+   depois de incorporar os artefatos nativos. O SBOM é determinístico e vinculado ao
+   commit/tree/versão; o manifesto registra `artifactDigests` para archive, `.exe`,
+   AppImage e SBOM. A publicação falha se qualquer digest não corresponder ao arquivo.
 7. Somente o job `publish` possui `contents: write`; os jobs de preflight e package são read-only.
-8. Publica com `gh release create --prerelease --target <SHA>` e lê de volta tag, target e flag prerelease.
-9. Em rerun, um release existente só vira no-op se target e manifesto forem idênticos. Tag órfã ou divergente falha.
+8. O job `sign` roda no ambiente protegido `release-signing`, assina cada binário com a chave
+   configurada e o `publish` verifica as attestations contra commit, tree e signer antes de criar
+   qualquer release. Chave ausente ou evidência divergente falha fechado.
+9. Publica com `gh release create --prerelease --target <SHA>` e lê de volta tag, target e flag prerelease.
+10. Em rerun, um release existente só vira no-op se target e manifesto forem idênticos. Tag órfã ou divergente falha.
 
 ## Milestones e promoção estável
 
@@ -38,7 +44,7 @@ O mapa versionado em `release-milestones.json` é a fonte da associação entre 
 
 Para a milestone ativa, `release-milestones.json.active.releaseBoundary` declara o tag estável anterior (`v0.3.0`) e o cartão lógico (`PR-270`). O preflight exige que o tag anterior seja estável e ancestral, calcula PRs e changelog no range completo `previousStableTag..HEAD`, e valida que o cartão declarado esteja mergeado e ancestral. Ele não usa uma janela fixa de commits nem escolhe o primeiro PR retornado pela API.
 
-Após a prerelease correspondente passar pelos checks obrigatórios, o mantenedor deve disparar manualmente `Publish stable milestone release`, informando a tag prerelease exata, a versão e o milestone. O workflow valida o commit e o manifesto, transforma os nomes dos artefatos para a tag estável e publica `prerelease: false`. Não existe promoção automática, seleção implícita de milestone ou sobrescrita de tag.
+Após a prerelease correspondente passar pelos checks obrigatórios, o mantenedor deve disparar manualmente `Publish stable milestone release`, informando a tag prerelease exata, a versão e o milestone. O workflow valida o commit e o manifesto, renomeia os bytes para a tag estável, re-assina cada binário no ambiente protegido (`channel=stable`, `release-stable-v1`), verifica a chave confiável e publica `prerelease: false`. Não existe promoção automática, seleção implícita de milestone ou sobrescrita de tag.
 
 Exemplo:
 
@@ -51,13 +57,35 @@ gh workflow run release-milestone.yml --ref main \
 
 ## Teste de uma prerelease
 
-Baixe `hank-<tag>.tar.gz`, `release-manifest.json`, `manifest.sha256` e `SHA256SUMS` da página da release. Verifique os hashes, confirme `provenance.exactCommit` e `provenance.source == "main"`, depois execute:
+Baixe `hank-<tag>.tar.gz`, `hank-<tag>-setup.exe`, `hank-<tag>-x86_64.AppImage`,
+`SBOM.spdx.json`, as
+attestations `*.attestation.json`, `release-signing-metadata.json`, `release-manifest.json`,
+`manifest.sha256` e `SHA256SUMS` da página da release. Verifique os hashes de todos os
+artefatos e o manifesto (o workflow de promoção repete essa leitura antes de aceitar
+uma prerelease), confirme `provenance.exactCommit` e `provenance.source == "main"`, e valide
+as attestations com a chave pública indicada pela política de release e valide o SBOM:
+
+```bash
+node tools/release-sbom.mjs verify --file SBOM.spdx.json \
+  --commit <exact-commit-sha> --tree <exact-tree-sha> --version <release-version>
+```
+
+Depois execute:
 
 ```bash
 cargo test --workspace --locked
 npm --prefix frontend ci
 npm --prefix frontend test
 ```
+
+O workflow também executa `Clean-room Windows install smoke` e `Clean-room Linux install
+smoke` em runners novos: confere os hashes/proveniência do download, instala o NSIS ou
+abre o AppImage em diretório temporário, valida o WebView nativo, encerra e limpa. Os
+relatórios são publicados como artifacts da execução.
+O updater de upgrade/rollback já possui caminho nativo e E2E sintético bounded, mas
+a evidência com artefato assinado produzido pelo ambiente protegido permanece
+`NO_PROOF` até o workflow correspondente executar no SHA exato. Uma execução
+sintética local é `PASS_LIMITED` e não é apresentada como prova de publicação.
 
 A página e o manifesto informam explicitamente que a versão é prerelease e não estável. O manifesto também registra cartão lógico `PR-xxx`, PRs relacionadas, classificação e instruções de teste.
 

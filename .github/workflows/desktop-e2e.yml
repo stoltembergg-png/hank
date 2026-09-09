@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2022]
+        os: [ubuntu-24.04, windows-2022, macos-14]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     env:
@@ -75,6 +75,20 @@ jobs:
         run: npm ci --no-fund
         working-directory: desktop-e2e
 
+      - name: Bind build provenance (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          echo "HANK_BUILD_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "HANK_BUILD_TREE_SHA=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_ENV"
+
+      - name: Bind build provenance (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          "HANK_BUILD_COMMIT_SHA=$(git rev-parse HEAD)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "HANK_BUILD_TREE_SHA=$(git rev-parse 'HEAD^{tree}')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Build frontend production bundle
         run: npm run build
         working-directory: frontend
@@ -88,6 +102,7 @@ jobs:
           HANK_DESKTOP_E2E_ARTIFACTS: ${{ runner.temp }}/hank-desktop-e2e-artifacts
           HANK_DESKTOP_BIN: ${{ github.workspace }}/apps/desktop/src-tauri/target/debug/hank-desktop
           HANK_E2E_APP_DATA_DIR: ${{ runner.temp }}/hank-e2e-app-data
+          HANK_E2E_MOCK_PROVIDER: '1'
           HANK_WEBDRIVER_PORT: 4444
           RUST_LOG: info
         run: |
@@ -112,6 +127,7 @@ jobs:
           HANK_DESKTOP_E2E_ARTIFACTS: ${{ runner.temp }}\hank-desktop-e2e-artifacts
           HANK_DESKTOP_BIN: ${{ github.workspace }}\apps\desktop\src-tauri\target\debug\hank-desktop.exe
           HANK_E2E_APP_DATA_DIR: ${{ runner.temp }}\hank-e2e-app-data
+          HANK_E2E_MOCK_PROVIDER: '1'
           HANK_WEBDRIVER_PORT: 4444
           RUST_LOG: info
         run: |
@@ -124,6 +140,21 @@ jobs:
             Copy-Item -LiteralPath $env:HANK_E2E_APP_DATA_DIR -Destination (Join-Path $env:HANK_DESKTOP_E2E_ARTIFACTS 'app-data') -Recurse -Force -ErrorAction SilentlyContinue
             throw
           }
+
+      - name: Run real Project lifecycle on macOS
+        if: runner.os == 'macOS'
+        env:
+          HANK_DESKTOP_E2E_ARTIFACTS: ${{ runner.temp }}/hank-desktop-e2e-artifacts
+          HANK_DESKTOP_BIN: ${{ github.workspace }}/apps/desktop/src-tauri/target/debug/hank-desktop
+          HANK_E2E_APP_DATA_DIR: ${{ runner.temp }}/hank-e2e-app-data
+          HANK_E2E_MOCK_PROVIDER: '1'
+          HANK_WEBDRIVER_PORT: 4444
+          RUST_LOG: info
+        run: |
+          set -euo pipefail
+          mkdir -p "$HANK_DESKTOP_E2E_ARTIFACTS" "$HANK_E2E_APP_DATA_DIR"
+          bash desktop-e2e/run-macos.sh
+          rm -rf "$HANK_E2E_APP_DATA_DIR"
 
       - name: Upload desktop diagnostics
         if: always()

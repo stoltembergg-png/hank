@@ -13,7 +13,7 @@ const paths = status.stdout.toString('utf8').split('\0').filter(Boolean).map((re
 const unexpected = paths.filter((path) => path && !path.startsWith('.spec/verification/') && !path.startsWith('security/reports/'));
 if (unexpected.length) throw new Error(`unexpected dirty paths: ${unexpected.join(', ')}`);
 const expected = ['AC-2681', 'AC-2682', 'AC-2683', 'AC-2684', 'AC-2685', 'AC-2686', 'AC-2687'];
-const result = spawnSync(process.execPath, ['--test', 'tools/updater-contract.spec.mjs'], { cwd: root, encoding: 'utf8', env: { ...process.env, HANK_UPDATER_NETWORK: 'disabled' } });
+const result = spawnSync(process.execPath, ['--test', '--test-reporter=tap', 'tools/updater-contract.spec.mjs'], { cwd: root, encoding: 'utf8', env: { ...process.env, HANK_UPDATER_NETWORK: 'disabled' } });
 if (result.status !== 0) { process.stdout.write(result.stdout || ''); process.stderr.write(result.stderr || ''); process.exit(result.status ?? 1); }
 const tap = result.stdout || '';
 if ((tap.match(/^1\.\.\d+$/gm) || []).join() !== `1..${expected.length}`) throw new Error('TAP must contain exactly one complete plan');

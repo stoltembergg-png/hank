@@ -16,6 +16,31 @@ $artifacts = $env:HANK_DESKTOP_E2E_ARTIFACTS
 if (-not $artifacts) { throw 'HANK_DESKTOP_E2E_ARTIFACTS is required' }
 New-Item -ItemType Directory -Force -Path $artifacts, $dataDir | Out-Null
 
+if ($env:HANK_UPDATER_E2E -eq '1' -and $env:HANK_UPDATER_RELEASE_BUNDLE) {
+  if (-not $env:HANK_UPDATER_RELEASE_ARTIFACT -or -not $env:HANK_UPDATER_RELEASE_SIGNING_METADATA) { throw 'protected updater E2E requires bundle, artifact, and signing metadata paths' }
+  $releaseEnvJson = & $nodeBinary (Join-Path $repositoryRoot 'desktop-e2e/updater-release-env.mjs') `
+    --bundle $env:HANK_UPDATER_RELEASE_BUNDLE `
+    --artifact $env:HANK_UPDATER_RELEASE_ARTIFACT `
+    --signing-metadata $env:HANK_UPDATER_RELEASE_SIGNING_METADATA
+  if ($LASTEXITCODE -ne 0 -or -not $releaseEnvJson) { throw 'protected updater release bundle verification failed' }
+  $releaseEnv = ($releaseEnvJson | Out-String).Trim() | ConvertFrom-Json
+  foreach ($property in $releaseEnv.PSObject.Properties) {
+    if ($property.Name -like 'HANK_*') { Set-Item -Path "Env:$($property.Name)" -Value ([string]$property.Value) }
+  }
+} elseif ($env:HANK_UPDATER_E2E -eq '1' -and -not $env:HANK_UPDATER_PUBLIC_KEY_DER_B64) {
+  $fixtureJson = (& $nodeBinary (Join-Path $repositoryRoot 'desktop-e2e/updater-fixture.mjs') | Out-String).Trim()
+  if ($LASTEXITCODE -ne 0 -or -not $fixtureJson) { throw 'updater fixture key generation failed' }
+  $fixture = $fixtureJson | ConvertFrom-Json
+  $env:HANK_UPDATER_PUBLIC_KEY_DER_B64 = $fixture.publicKeyDerB64
+  $env:HANK_UPDATER_PRIVATE_KEY_DER_B64 = $fixture.privateKeyDerB64
+  $env:HANK_UPDATER_CURRENT_VERSION = '1'
+  $env:HANK_UPDATER_EVENT = 'workflow_dispatch'
+  $env:HANK_UPDATER_WORKFLOW = 'release.yml'
+  $env:HANK_UPDATER_POLICY = 'updater-v1'
+  $env:HANK_UPDATER_KEY_ID = 'e2e-fixture-v1'
+  $env:HANK_UPDATER_CHANNEL = 'stable'
+}
+
 function Stop-ExactDesktopProcess {
   Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
     Where-Object { $_.ExecutablePath -eq $desktopBinary } |
